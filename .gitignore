@@ -25,6 +25,5 @@ __pycache__/
 viewer_show.*
 
 # ---- 运行日志 ----
-*.log
 log.txt
 *.log
