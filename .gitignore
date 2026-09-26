@@ -1,9 +1,26 @@
+# ---- 素材 (14.3G, 可从上游重新下载) ----
+*/assets/
+!*/assets/files
+!*/assets/_download.py
+
+# ---- 第三方依赖 (独立 clone, 不纳入) ----
+RoboTwin/envs/curobo/
+RoboTwin/XPolicyLab/
+
+# ---- 构建与缓存产物 ----
 __pycache__/
 *.py[cod]
 *.egg-info/
+*.bak
+*.bac
 .ipynb_checkpoints/
 .DS_Store
-*.bak
-*.zip
-*.tar
-*.tar.gz
+
+# ---- 模型权重与运行产出 ----
+**/models/
+**/policy/weights/
+**/checkpoints/
+**/result/
+**/eval_result/
+**/eval_video/
+viewer_show.*

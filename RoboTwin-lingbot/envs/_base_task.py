@@ -257,6 +257,20 @@ class Base_Task(gym.Env):
         if self.render_freq:
             self.viewer = Viewer(self.renderer)
             self.viewer.set_scene(self.scene)
+
+            # ===== Clean SAPIEN viewer for RoboTwin visualization =====
+            # Hide camera frustums / joint axes / origin frame.
+            if self.viewer.control_window is not None:
+                self.viewer.control_window.show_camera_linesets = False
+                self.viewer.control_window.show_joint_axes = False
+                self.viewer.control_window.show_origin_frame = False
+
+            # Hide all SAPIEN debug UI panels while keeping the plugins
+            # themselves alive, so keyboard/mouse camera control still works.
+            for plugin in self.viewer.plugins:
+                plugin.get_ui_windows = lambda: []
+            # ===== End clean viewer =====
+
             self.viewer.set_camera_xyz(
                 x=kwargs.get("camera_xyz_x", 0.4),
                 y=kwargs.get("camera_xyz_y", 0.22),
