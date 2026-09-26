@@ -1,7 +1,6 @@
-# ---- 素材 (14.3G, 可从上游重新下载) ----
-*/assets/
-!*/assets/files
-!*/assets/_download.py
+# ---- 素材 (14.3G, 可从上游重新下载; 明确点名, 不用通配符避免误伤) ----
+/RoboTwin/assets/
+/RoboTwin-lingbot/assets/
 
 # ---- 第三方依赖 (独立 clone, 不纳入) ----
 RoboTwin/envs/curobo/
@@ -24,3 +23,7 @@ __pycache__/
 **/eval_result/
 **/eval_video/
 viewer_show.*
+
+# ---- 运行日志 ----
+/log.txt
+*.log
