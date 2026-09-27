@@ -1,0 +1,179 @@
+version: robotwin_curriculum_v1
+
+dataset:
+  name: RoboTwin_lerobot_v30
+  root: /data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30
+  total_episodes: 2500
+  total_tasks: 50
+  episodes_per_task: 50
+  fps: 15
+
+qa:
+  structural_status: pass
+  hard_corrupted_episodes: 0
+  confirmed_failed_episodes: 0
+  excluded_episodes: []
+  policy: keep_all
+  notes:
+    - Statistical anomaly does not imply bad demonstration.
+    - Manual review found sampled high-score anomalies to be valid successful demonstrations.
+    - open_microwave contains long idle/slow-contact segments but still completes the task.
+    - No temporal trimming is applied in curriculum v1.
+
+trajectory_split:
+  type: per_task_rank
+  sort_keys:
+    - length
+    - episode_index
+  short:
+    rank_start: 1
+    rank_end: 25
+  long:
+    rank_start: 26
+    rank_end: 50
+  notes:
+    - Short and Long are relative within each canonical task.
+    - Short does not mean easy and Long does not mean hard.
+    - Raw trajectory length is used in v1.
+    - open_microwave is retained under the same rule for reproducibility.
+
+skill_levels:
+
+  L1:
+    name: basic_atomic_skills
+    description: Single core primitive with limited sequential dependency.
+    task_count: 14
+    tasks:
+      - click_bell
+      - click_alarmclock
+      - press_stapler
+      - turn_switch
+      - grab_roller
+      - lift_pot
+      - move_playingcard_away
+      - place_phone_stand
+      - place_object_stand
+      - place_mouse_pad
+      - move_pillbottle_pad
+      - move_stapler_pad
+      - move_can_pot
+      - place_shoe
+
+  L2:
+    name: constrained_basic_skills
+    description: Base primitive plus orientation, spatial relation, tool use, dynamic motion, or simple coordination.
+    task_count: 15
+    tasks:
+      - adjust_bottle
+      - place_a2b_left
+      - place_a2b_right
+      - rotate_qrcode
+      - place_fan
+      - place_container_plate
+      - place_bread_skillet
+      - place_empty_cup
+      - place_object_scale
+      - beat_block_hammer
+      - stamp_seal
+      - pick_dual_bottles
+      - pick_diverse_bottles
+      - shake_bottle
+      - shake_bottle_horizontally
+
+  L3:
+    name: composed_skills
+    description: Multiple primitives, articulated manipulation, multi-object interaction, or two-step coordination.
+    task_count: 11
+    tasks:
+      - dump_bin_bigbin
+      - open_laptop
+      - open_microwave
+      - handover_mic
+      - place_bread_basket
+      - place_burger_fries
+      - place_object_basket
+      - place_can_basket
+      - place_cans_plasticbox
+      - stack_blocks_two
+      - stack_bowls_two
+
+  L4:
+    name: complex_composed_skills
+    description: Strong multi-stage dependency, regrasp, handover-followed-by-action, ordering, or three-object manipulation.
+    task_count: 10
+    tasks:
+      - scan_object
+      - place_dual_shoes
+      - handover_block
+      - put_object_cabinet
+      - hanging_mug
+      - blocks_ranking_rgb
+      - blocks_ranking_size
+      - stack_bowls_three
+      - stack_blocks_three
+      - put_bottles_dustbin
+
+curriculum:
+
+  C1:
+    add:
+      level: L1
+      split: short
+    cumulative_episodes: 350
+
+  C2:
+    add:
+      level: L1
+      split: long
+    cumulative_episodes: 700
+
+  C3:
+    add:
+      level: L2
+      split: short
+    cumulative_episodes: 1075
+
+  C4:
+    add:
+      level: L2
+      split: long
+    cumulative_episodes: 1450
+
+  C5:
+    add:
+      level: L3
+      split: short
+    cumulative_episodes: 1725
+
+  C6:
+    add:
+      level: L3
+      split: long
+    cumulative_episodes: 2000
+
+  C7:
+    add:
+      level: L4
+      split: short
+    cumulative_episodes: 2250
+
+  C8:
+    add:
+      level: L4
+      split: long
+    cumulative_episodes: 2500
+
+training:
+  cumulative: true
+  replay_weighting: none
+  custom_sampling_weights: false
+  final_stage_contains_all_data: true
+
+evaluation:
+  status: pending_freeze
+  principles:
+    - Use fixed tasks and fixed seeds for checkpoint-to-checkpoint comparison.
+    - Evaluate current-level skills and previously learned skills.
+    - Short/Long is a training-data property, not an evaluation environment category.
+    - Final benchmark should evaluate the canonical RoboTwin tasks normally.
+    - Clean and randomized evaluation should be reported separately.
