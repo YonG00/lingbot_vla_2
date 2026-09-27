@@ -167,7 +167,7 @@ def main(usr_args):
 
     st_seed = 100000 * (1 + seed)
     suc_nums = []
-    test_num = 5
+    test_num = 1
     topk = 1
 
     # model = get_model(usr_args)
