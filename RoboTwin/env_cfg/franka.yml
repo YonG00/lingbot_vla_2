@@ -1,5 +1,0 @@
-config:
-  robot: dual_franka
-
-observation:
-  collect_freq: 25
