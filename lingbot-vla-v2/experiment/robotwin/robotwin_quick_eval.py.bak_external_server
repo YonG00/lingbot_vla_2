@@ -320,13 +320,8 @@ def run_eval(args, stage, plan, eval_id):
     print_resource_plan(resources, args)
 
     for i in range(len(resources["inference_gpus"])):
-        port = args.port + i
-        if args.external_server:
-            if not health_ok(port):
-                raise RuntimeError(f"External inference server is not healthy: http://127.0.0.1:{port}/healthz")
-        else:
-            if port_open(port):
-                raise RuntimeError(f"Port {port} is already in use")
+        if port_open(args.port + i):
+            raise RuntimeError(f"Port {args.port+i} is already in use")
 
     wall_start = time.time()
     started_at = datetime.now().isoformat(timespec="seconds")
@@ -348,58 +343,33 @@ def run_eval(args, stage, plan, eval_id):
     load_start = time.time()
 
     try:
-        if args.external_server:
-            for i, gpu in enumerate(resources["inference_gpus"]):
-                port = args.port + i
-                servers.append({
-                    "gpu": gpu,
-                    "port": port,
-                    "proc": None,
-                    "log": None,
-                    "started": time.time(),
-                    "load_sec": 0.0,
-                })
-                print(f"Using external inference server: GPU{gpu} :{port}")
-            model_load_wall_sec = 0.0
-        else:
-            # Start all inference servers concurrently, one model copy per inference GPU.
-            for i, gpu in enumerate(resources["inference_gpus"]):
-                port = args.port + i
-                log_path = log_dir / f"inference_gpu{gpu}_port{port}.log"
-                cmd = (
-                    f"source '{args.conda_sh}' && conda activate {args.inference_env} && "
-                    f"cd '{root}' && "
-                    f"python -u -m deploy.lingbot_vla_v2_batch_policy "
-                    f"--model_path '{args.model_path}' --use_length {args.use_length} "
-                    f"--max_batch {args.max_batch} --batch_wait_ms {args.batch_wait_ms} "
-                    f"--use_bf16 true --use_fp32 false --use_compile false --port {port}"
-                )
-                env = base_env.copy()
-                env["CUDA_VISIBLE_DEVICES"] = str(gpu)
-                fh = open(log_path, "w")
-                handles.append(fh)
-                proc = subprocess.Popen(
-                    ["bash", "-lc", cmd],
-                    stdout=fh,
-                    stderr=subprocess.STDOUT,
-                    env=env,
-                    start_new_session=True,
-                )
-                servers.append({
-                    "gpu": gpu,
-                    "port": port,
-                    "proc": proc,
-                    "log": log_path,
-                    "started": time.time(),
-                })
-                print(f"Starting inference server: GPU{gpu} :{port}")
+        # Start all inference servers concurrently, one model copy per inference GPU.
+        for i, gpu in enumerate(resources["inference_gpus"]):
+            port = args.port + i
+            log_path = log_dir / f"inference_gpu{gpu}_port{port}.log"
+            cmd = (
+                f"source '{args.conda_sh}' && conda activate {args.inference_env} && "
+                f"cd '{root}' && "
+                f"python -u -m deploy.lingbot_vla_v2_batch_policy "
+                f"--model_path '{args.model_path}' --use_length {args.use_length} "
+                f"--max_batch {args.max_batch} --batch_wait_ms {args.batch_wait_ms} "
+                f"--use_bf16 true --use_fp32 false --use_compile false --port {port}"
+            )
+            env = base_env.copy(); env["CUDA_VISIBLE_DEVICES"] = str(gpu)
+            fh = open(log_path, "w"); handles.append(fh)
+            proc = subprocess.Popen(["bash", "-lc", cmd], stdout=fh,
+                                    stderr=subprocess.STDOUT, env=env,
+                                    start_new_session=True)
+            servers.append({"gpu": gpu, "port": port, "proc": proc,
+                            "log": log_path, "started": time.time()})
+            print(f"Starting inference server: GPU{gpu} :{port}")
 
-            for srv in servers:
-                wait_server(srv["proc"], srv["port"], srv["log"])
-                srv["load_sec"] = round(time.time() - srv["started"], 2)
-                print(f"  ready GPU{srv['gpu']}:{srv['port']} load={srv['load_sec']:.1f}s")
+        for srv in servers:
+            wait_server(srv["proc"], srv["port"], srv["log"])
+            srv["load_sec"] = round(time.time() - srv["started"], 2)
+            print(f"  ready GPU{srv['gpu']}:{srv['port']} load={srv['load_sec']:.1f}s")
 
-            model_load_wall_sec = time.time() - load_start
+        model_load_wall_sec = time.time() - load_start
         rollout_start = time.time()
 
         # Each logical slot is serial; slots themselves run concurrently.
@@ -511,7 +481,6 @@ def main():
     p.add_argument("--batch_wait_ms", type=float, default=20)
     p.add_argument("--model_label", default=None)
     p.add_argument("--show_resources", action="store_true")
-    p.add_argument("--external_server", action="store_true", help="Use already-running inference server(s); do not load/stop model")
     args = p.parse_args()
 
     if args.trials <= 0 or args.horizon_scale <= 0: raise ValueError("trials and horizon_scale must be > 0")
