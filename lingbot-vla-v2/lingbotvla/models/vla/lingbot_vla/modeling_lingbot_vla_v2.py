@@ -1257,6 +1257,16 @@ class LingbotVlaV2Policy(PreTrainedModel):
         if getattr(self.config, "action_fp32", False):
             state = state.float()
             actions = actions.float()
+        else:
+            # [DSH PATCH] 模型以 bf16 加载时 (enable_mixed_precision=false),
+            # state/actions 仍为 fp32, 与 state_proj 的 bf16 权重冲突:
+            #   RuntimeError: mat1 and mat2 must have the same dtype
+            # 官方代码只处理了 fp32 方向, 这里补上对齐到模型 dtype 的分支。
+            _mdt = next(self.parameters()).dtype
+            if state.dtype != _mdt:
+                state = state.to(_mdt)
+            if actions.dtype != _mdt:
+                actions = actions.to(_mdt)
         (
             losses,
             loss_depth,
