@@ -59,7 +59,7 @@ robo_name="robotwin"
 video_fps=10
 enable_video=True
 keep_inference=false
-enable_video=False
+# enable_video=False
 task_config="${TASK_CONFIG:-demo_clean}"
 
 while [[ $# -gt 0 ]]; do
@@ -383,7 +383,7 @@ done
 
 # Queue pointer and retry counters
 queue_idx=0
-max_retries=3
+max_retries=1
 declare -A task_retries=()
 for t in "${task_queue[@]}"; do
     task_retries[$t]=0
