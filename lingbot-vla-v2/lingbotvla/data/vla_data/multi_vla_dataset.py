@@ -68,6 +68,16 @@ class MultiVLADataset(Dataset):
 
         data_names, repo_ids  = get_all_tasks(repo_file)
         self.data_names, self.repo_ids = data_names, repo_ids
+
+        # [DSH] episode_ids_file 里的回合号是相对某个数据集的全局编号,
+        # 无法映射到多个数据集条目。本期数据集是一份合并目录(清单只有 1 行),
+        # 因此这里显式拒绝多条目 + 白名单的组合, 避免静默筛错数据。
+        if getattr(dataset_config, "episode_ids_file", None) and len(repo_ids) > 1:
+            raise ValueError(
+                f"episode_ids_file 只支持单数据集清单, 但 {repo_file} 含 {len(repo_ids)} 条数据集。\n"
+                f"  请让清单文件只保留一行, 或去掉 episode_ids_file。"
+            )
+
         # super().__init__()
         self.tolerances_s = tolerances_s if tolerances_s else dict.fromkeys(repo_ids, 0.0001)
         # Construct the underlying datasets passing everything but `transform` and `delta_timestamps` which

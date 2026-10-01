@@ -160,6 +160,13 @@ class DataArguments:
     train_path: str = field(
         metadata={"help": "Path of the training data. Use comma to separate multiple datasets."},
     )
+    episode_ids_file: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "JSON 文件, 内含回合号白名单; 仅加载这些回合 (用于 L1-L4 阶段课程的数据配比)。"
+                    "不设时加载全部数据。"
+        },
+    )
     train_size: int = field(
         default=10_000_000,
         metadata={"help": "Number of tokens for training to compute training steps for dynamic batch dataloader."},

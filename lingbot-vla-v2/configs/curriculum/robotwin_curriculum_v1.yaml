@@ -2,6 +2,9 @@ version: robotwin_curriculum_v1
 
 dataset:
   name: RoboTwin_lerobot_v30
+  # manifest (datasets.txt) 的第一列。决定 configs/robot_configs/<data_name>.yaml,
+  # 所以必须是 robotwin —— 而不是数据集本身的名字。
+  data_name: robotwin
   root: /data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30
   total_episodes: 2500
   total_tasks: 50
@@ -20,7 +23,10 @@ qa:
     - open_microwave contains long idle/slow-contact segments but still completes the task.
     - No temporal trimming is applied in curriculum v1.
 
+# 仅用于「长度分布统计」。规范第 8 节: 暂不采用短轨迹->长轨迹的二级 Curriculum,
+# 因此 short/long 不参与分阶段 (分阶段只看 skill_levels, 见文件末尾 phases)。
 trajectory_split:
+  used_for_curriculum: false
   type: per_task_rank
   sort_keys:
     - length
@@ -113,55 +119,38 @@ skill_levels:
       - stack_blocks_three
       - put_bottles_dustbin
 
-curriculum:
+# ============================================================================
+# 4 阶段课程 (规范第 7 节)
+#   必须累积: L1 -> L1+L2 -> L1+L2+L3 -> All, 避免灾难性遗忘。
+#
+# 历史说明: 旧版把每个等级再按轨迹长度拆 short/long, 共 8 阶 (C1..C8)。
+# 规范第 8 节明确「暂不采用短轨迹->长轨迹的二级 Curriculum」, 故收敛为 4 阶。
+# 短/长仅作为统计维度保留 (见上方 trajectory_split), 不参与分阶段。
+#
+# dir_name 同时决定生成的白名单文件名:
+#   /data/train/phases/<dir_name>.episode_ids.json
+# ============================================================================
+phases:
 
-  C1:
-    add:
-      level: L1
-      split: short
-    cumulative_episodes: 350
+  P1:
+    name: L1_only
+    dir_name: phase1_L1
+    levels: [L1]
 
-  C2:
-    add:
-      level: L1
-      split: long
-    cumulative_episodes: 700
+  P2:
+    name: L1_L2
+    dir_name: phase2_L1_L2
+    levels: [L1, L2]
 
-  C3:
-    add:
-      level: L2
-      split: short
-    cumulative_episodes: 1075
+  P3:
+    name: L1_L2_L3
+    dir_name: phase3_L1_L2_L3
+    levels: [L1, L2, L3]
 
-  C4:
-    add:
-      level: L2
-      split: long
-    cumulative_episodes: 1450
-
-  C5:
-    add:
-      level: L3
-      split: short
-    cumulative_episodes: 1725
-
-  C6:
-    add:
-      level: L3
-      split: long
-    cumulative_episodes: 2000
-
-  C7:
-    add:
-      level: L4
-      split: short
-    cumulative_episodes: 2250
-
-  C8:
-    add:
-      level: L4
-      split: long
-    cumulative_episodes: 2500
+  P4:
+    name: all
+    dir_name: phase4_all
+    levels: [L1, L2, L3, L4]
 
 training:
   cumulative: true

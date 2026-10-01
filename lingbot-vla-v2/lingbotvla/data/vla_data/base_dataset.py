@@ -14,6 +14,7 @@
 
 
 import os
+import json
 import inspect
 from pathlib import Path
 
@@ -65,6 +66,51 @@ def _resolve_lerobot_location(repo_id):
 def _filter_supported_kwargs(callable_obj, kwargs):
     parameters = inspect.signature(callable_obj).parameters
     return {key: value for key, value in kwargs.items() if key in parameters}
+
+
+def _load_episode_ids(path, total_episodes=None):
+    """[DSH] 读取回合号白名单, 用于 L1-L4 阶段课程的数据配比。
+
+    白名单文件由 tools/prepare_phase.py 生成, 例如:
+        /data/train/phases/phase1_L1.episode_ids.json
+
+    path 为 None 时返回 None, 调用方 (LeRobotDataset 的 episodes 参数) 行为
+    与引入本函数之前完全一致 —— 即加载全部回合。
+    """
+    if path is None:
+        return None
+
+    if not os.path.exists(path):
+        raise FileNotFoundError(
+            f"episode_ids_file 不存在: {path}\n"
+            f"  请先运行: python tools/prepare_phase.py --phase all"
+        )
+
+    with open(path, encoding="utf-8") as f:
+        raw = json.load(f)
+
+    if not isinstance(raw, list):
+        raise ValueError(f"episode_ids_file 必须是 JSON 数组, 实际是 {type(raw).__name__}: {path}")
+    if not raw:
+        raise ValueError(f"episode_ids_file 是空数组, 会导致训练集为空: {path}")
+
+    bad = [x for x in raw if isinstance(x, bool) or not isinstance(x, int)]
+    if bad:
+        raise ValueError(f"episode_ids_file 含非整数项 {bad[:5]} ... : {path}")
+
+    ids = sorted(set(raw))
+    n_dropped = len(raw) - len(ids)
+    if n_dropped:
+        print(f"[episode_ids] 白名单去重: {len(raw)} -> {len(ids)} (丢弃 {n_dropped} 个重复)")
+
+    if total_episodes is not None and ids[-1] >= total_episodes:
+        raise ValueError(
+            f"episode_ids_file 中最大回合号 {ids[-1]} 超出数据集总回合数 {total_episodes} "
+            f"(合法范围 0..{total_episodes - 1}): {path}"
+        )
+
+    print(f"[episode_ids] 生效白名单: {len(ids)} 个回合, 范围 {ids[0]}..{ids[-1]}  ({os.path.basename(path)})")
+    return ids
 
 
 
@@ -205,11 +251,20 @@ class VLADataset(Dataset):
         self.dataset_meta = LeRobotDatasetMetadata(**metadata_kwargs)
         merged_delta = {**self.get_delta_timestamps(), **self.get_video_delta_timestamps()}
 
+        # [DSH] L1-L4 阶段课程: 按回合号白名单筛选数据。
+        # 未设 episode_ids_file 时返回 None, LeRobotDataset(episodes=None) 即加载全部,
+        # 行为与引入本改动之前完全一致。
+        episode_ids = _load_episode_ids(
+            getattr(dataset_config, "episode_ids_file", None),
+            total_episodes=len(self.dataset_meta.episodes),
+        )
+
         self.dataset = LeRobotDataset(
             repo_id=repo_id,
             image_transforms=Resize(image_size),
             delta_timestamps=merged_delta,
-            load_image=load_image
+            load_image=load_image,
+            episodes=episode_ids,
         )
 
         self.return_item = return_item
