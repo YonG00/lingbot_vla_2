@@ -35,6 +35,10 @@ from lingbotvla.optim import build_lr_scheduler, build_muon_optimizer, build_opt
 from lingbotvla.optim import build_flex_shard_dist_muon_optimizer
 from lingbotvla.utils import helper
 from lingbotvla.utils.async_hf_checkpoint import AsyncHFCheckpointSaver
+from lingbotvla.utils.checkpoint_guard import (
+    dcp_save_or_abort as _dcp_save_or_abort,
+    disk_guard_check as _disk_guard_check,
+)
 from lingbotvla.utils.arguments import EvalArguments, DataArguments, ModelArguments, TrainingArguments, parse_args, save_args
 from lingbotvla.utils.dist_utils import all_reduce
 from lingbotvla.models.config_registry import get_config_registry
@@ -332,144 +336,21 @@ class Arguments:
 
 
 # ============================================================================
-# [DiskCheck] checkpoint 磁盘容量保护
+# [DiskCheck] checkpoint 磁盘容量保护 + [checkpoint fallback] DCP 保存兜底
 #
-# 目标: 当前 checkpoint 完整保存 (DCP + 异步 HF) 之后, 判断剩余空间是否还够
-#       再存下一份; 不够就正常结束训练, 不写半截 checkpoint。
+# 实现已抽到 lingbotvla/utils/checkpoint_guard.py (该训练脚本导入需要 CUDA,
+# 抽出去才能在无卡环境下单元测试)。要点:
 #
-# 分工:
-#   * 后台 HF 线程 (_run_hf_checkpoint) 在 HF 全部写盘完成的瞬间记录
-#     disk_avail_after 并算出 checkpoint_used —— 不阻塞训练。
-#   * 训练主循环周期性调用 _disk_guard_check (全体 rank 共同参与), 它:
-#       1) 等上一份 HF 完成 (通常早已完成, 不会阻塞)
-#       2) 用其实测占用更新 max_checkpoint_used
-#       3) 用【当前实时可用空间】与 max_checkpoint_used * margin 比较
-#     决策由 rank0 计算并 broadcast, 保证所有 rank 一致 —— 否则会出现
-#     rank0 退出而其余 rank 仍进入 Checkpointer.save() 的 distributed 死锁。
-#     检查既在每个存档点前做, 也每 disk_check_interval 步做一次, 这样
-#     "空间已不足"最多只会让训练多跑一个检查间隔, 而不是多跑一整个存档周期。
-#
-# 失败安全: 读盘失败 / 占用量异常 / 异步 HF 失败 时一律放行 (fail-open),
-#           容量保护本身绝不把训练搞崩。
-#
-# 作用域: max_checkpoint_used 是进程内变量, 不落盘 —— 因此天然不会跨 Phase
-#         沿用 (Expert-only 切到 Freeze Vision / Full FT 后 optimizer 可能变大)。
+#   * 测量不阻塞训练: 后台 HF 线程在 HF 全部写盘完成的那一刻记录
+#     disk_avail_after 并算出 checkpoint_used。主循环只在安全检查点消费。
+#   * 决策必须广播: 实测占用只在 rank0 可得, 若各 rank 各自判断会出现分歧,
+#     导致 rank0 退出而其余 rank 仍进入 Checkpointer.save() 的 distributed
+#     死锁。因此统一由 rank0 计算 + broadcast_object_list 同步。
+#   * DCP 保存失败: 打印 traceback 后直接 re-raise, 让 torchrun teardown
+#     整个作业; 异常路径不做任何 collective, 避免二次死锁。
+#   * 异步 HF 保存失败: DCP 仍有效, 不 crash; 在下一个安全检查点由 rank0
+#     判定 stop 并广播, 所有 rank 一致正常结束。
 # ============================================================================
-
-def _disk_avail_gb(path):
-    """返回 path 所在文件系统的可用空间 (GB); 读取失败返回 None。"""
-    try:
-        return shutil.disk_usage(path).free / (1024 ** 3)
-    except OSError:
-        return None
-
-
-def _disk_guard_dist_ready():
-    return dist.is_available() and dist.is_initialized()
-
-
-def _disk_guard_is_rank0():
-    return (not _disk_guard_dist_ready()) or dist.get_rank() == 0
-
-
-def _disk_guard_eval_rank0(save_root, hf_saver, max_used_gb, margin, label):
-    """rank0 侧的容量判断。返回 (allow, max_used_gb, avail_gb_or_None)。
-
-    fail-open: 任何异常情况 (读盘失败 / 占用实测无效 / 异步 HF 失败 / 收集失败)
-    都只打印 warning 并"跳过本轮容量判断", 放行训练。
-    """
-    # 1) 收集上一份 checkpoint 的实测占用 (正常情况下任务早已完成, 不阻塞)
-    try:
-        drained = hf_saver.drain_pending_best_effort()
-    except Exception as exc:
-        logger.info_rank0(f"[DiskCheck] ({label}) 收集上一份占用失败 ({exc!r}); 跳过本轮容量判断")
-        return True, max_used_gb, None
-
-    # 2) 读当前实时可用空间 (即使跳过判断也要读, 供本次 disk_avail_before 采样)
-    avail_gb = _disk_avail_gb(save_root)
-
-    # 3) 逐份处理上一轮的实测结果
-    skip_round = False
-    for r in drained:
-        if getattr(r, "error", ""):
-            logger.info_rank0(
-                f"[DiskCheck] step={r.global_step} 异步 HF 保存失败 "
-                f"({str(r.error)[:120]}); 跳过本轮容量判断"
-            )
-            skip_round = True
-            continue
-        used = getattr(r, "checkpoint_used_gb", -1.0)
-        if not used or used <= 0:
-            logger.info_rank0(
-                f"[DiskCheck] step={r.global_step} 占用实测无效 "
-                f"(checkpoint_used={used}); 跳过本轮容量判断"
-            )
-            skip_round = True
-            continue
-        max_used_gb = max(max_used_gb, used)
-        logger.info_rank0(
-            f"[DiskCheck] step={r.global_step} "
-            f"disk_avail_before={r.disk_avail_before_gb:.1f}GB "
-            f"disk_avail_after={r.disk_avail_after_gb:.1f}GB "
-            f"checkpoint_used={used:.1f}GB "
-            f"max_checkpoint_used={max_used_gb:.1f}GB"
-        )
-
-    if skip_round:
-        return True, max_used_gb, avail_gb
-
-    if avail_gb is None:
-        logger.info_rank0(f"[DiskCheck] ({label}) 读取磁盘空间失败; 跳过本轮容量判断")
-        return True, max_used_gb, None
-
-    # 4) 还没有可参考的占用 (第一份 checkpoint) -> 放行
-    if max_used_gb <= 0:
-        logger.info_rank0(
-            f"[DiskCheck] ({label}) 尚无历史占用参考; 放行 "
-            f"(disk_avail_now={avail_gb:.1f}GB)"
-        )
-        return True, max_used_gb, avail_gb
-
-    required_gb = max_used_gb * margin
-    allow = avail_gb >= required_gb
-    logger.info_rank0(
-        f"[DiskCheck] ({label}) "
-        f"max_checkpoint_used={max_used_gb:.1f}GB "
-        f"next_checkpoint_required={required_gb:.1f}GB "
-        f"disk_avail_now={avail_gb:.1f}GB "
-        f"continue_training={'true' if allow else 'false'}"
-    )
-    return allow, max_used_gb, avail_gb
-
-
-def _disk_guard_check(save_root, hf_saver, max_used_gb, margin, label=""):
-    """[DiskCheck] **全体 rank 共同参与**的容量检查。
-
-    为什么必须广播: 实测占用只在 rank0 上可得 (异步 HF 转换只在 rank0 跑),
-    若各 rank 各自判断, 会出现 rank0 认为"空间不足"而 rank1/2/3 认为
-    "无历史 -> 放行" 的分歧。那样 rank0 会 break 出循环, 其余 rank 却继续
-    进入 Checkpointer.save() 里的 distributed collective, 直接死锁。
-
-    因此这里由 rank0 计算, 再用 broadcast_object_list 把
-    (allow, max_checkpoint_used, disk_avail) 同步给所有 rank, 保证一致。
-
-    返回 (allow_save, max_used_gb, avail_before_gb)。
-    """
-    rank0 = _disk_guard_is_rank0()
-    if rank0:
-        allow, max_used_gb, avail_gb = _disk_guard_eval_rank0(
-            save_root, hf_saver, max_used_gb, margin, label)
-    else:
-        allow, avail_gb = True, None
-
-    payload = [bool(allow), float(max_used_gb), float(avail_gb) if avail_gb is not None else -1.0]
-    if _disk_guard_dist_ready():
-        dist.broadcast_object_list(payload, src=0)
-
-    allow = payload[0]
-    max_used_gb = payload[1]
-    avail_before = payload[2] if payload[2] >= 0 else None
-    return allow, max_used_gb, avail_before
 
 
 def main():
@@ -736,7 +617,8 @@ def main():
     save_checkpoint_path = None
     # [DiskCheck] 容量保护状态 (进程内, 不落盘 -> 不会跨 Phase 沿用)
     max_checkpoint_used_gb = 0.0    # 本阶段内单份 checkpoint 的最大实测占用
-    disk_guard_stop = False         # 余量不足时置位, 用于正常结束训练
+    disk_guard_stop = False         # 容量保护判定停止时置位 (用于正常结束训练)
+    disk_guard_stop_reason = ""     # "disk" | "hf_failed" 
     hf_failure_log_path = (
         os.path.join(args.train.save_checkpoint_path, "async_hf_failures.jsonl")
         if args.train.save_checkpoint_path
@@ -883,12 +765,13 @@ def main():
             if (args.train.disk_guard
                     and args.train.disk_check_interval > 0
                     and global_step % args.train.disk_check_interval == 0):
-                _allow_p, max_checkpoint_used_gb, _ = _disk_guard_check(
+                _allow_p, max_checkpoint_used_gb, _, _reason_p = _disk_guard_check(
                     args.train.save_checkpoint_path, hf_saver,
                     max_checkpoint_used_gb, args.train.disk_guard_margin,
                     label=f"周期检查 step {global_step}")
                 if not _allow_p:
                     disk_guard_stop = True
+                    disk_guard_stop_reason = _reason_p
                     break
 
             try:
@@ -1249,12 +1132,13 @@ def main():
                 # [DiskCheck] 本次 checkpoint 开始前: 收上一份的实测占用 + 判断余量
                 _disk_avail_before_gb = -1.0
                 if args.train.disk_guard:
-                    _allow, max_checkpoint_used_gb, _avail_before = _disk_guard_check(
+                    _allow, max_checkpoint_used_gb, _avail_before, _reason = _disk_guard_check(
                         args.train.save_checkpoint_path, hf_saver,
                         max_checkpoint_used_gb, args.train.disk_guard_margin,
                         label=f"按步存档前 step {global_step}")
                     if not _allow:
                         disk_guard_stop = True
+                        disk_guard_stop_reason = _reason
                         break
                     if _avail_before is not None:
                         _disk_avail_before_gb = _avail_before
@@ -1286,7 +1170,7 @@ def main():
                 }
                 if args.train.global_rank == 0:
                     writer.flush()
-                Checkpointer.save(args.train.save_checkpoint_path, state, global_steps=global_step)
+                _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
                 dist.barrier()
                 logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
                 save_hf_checkpoint_best_effort(
@@ -1313,9 +1197,14 @@ def main():
         # [DiskCheck] 步循环内已判定余量不足: 当前 checkpoint 已完整保存,
         # 跳过本轮剩余的所有存档, 正常结束训练。
         if disk_guard_stop:
-            logger.info_rank0(
-                "[DiskCheck] 剩余空间不足以再存一份 checkpoint, 当前 checkpoint 已完整保存, "
-                "不再继续训练。")
+            if disk_guard_stop_reason == "hf_failed":
+                logger.info_rank0(
+                    "[checkpoint] 上一份异步 HF 保存失败 (DCP 仍有效), "
+                    "不再继续训练。")
+            else:
+                logger.info_rank0(
+                    "[DiskCheck] 剩余空间不足以再存一份 checkpoint, "
+                    "当前 checkpoint 已完整保存, 不再继续训练。")
             break
 
         if reached_max_steps:
@@ -1324,12 +1213,14 @@ def main():
                 # [DiskCheck] 收尾存档前的容量判断
                 _disk_avail_before_gb = -1.0
                 if args.train.disk_guard:
-                    _allow, max_checkpoint_used_gb, _avail_before = _disk_guard_check(
+                    _allow, max_checkpoint_used_gb, _avail_before, _reason = _disk_guard_check(
                         args.train.save_checkpoint_path, hf_saver,
                         max_checkpoint_used_gb, args.train.disk_guard_margin,
                         label=f"收尾存档前 step {global_step}")
                     if not _allow:
-                        logger.info_rank0("[DiskCheck] 余量不足, 跳过收尾存档并结束训练。")
+                        disk_guard_stop = True
+                        disk_guard_stop_reason = _reason
+                        logger.info_rank0(f"[DiskCheck] 跳过收尾存档并结束训练 (reason={_reason})。")
                         break
                     if _avail_before is not None:
                         _disk_avail_before_gb = _avail_before
@@ -1347,7 +1238,7 @@ def main():
                         "torch_rng_state": torch.get_rng_state(),
                     },
                 }
-                Checkpointer.save(args.train.save_checkpoint_path, state, global_steps=global_step)
+                _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
                 dist.barrier()
                 logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
                 save_hf_checkpoint_best_effort(
@@ -1363,12 +1254,13 @@ def main():
             # [DiskCheck] 轮末存档前的容量判断
             _disk_avail_before_gb = -1.0
             if args.train.disk_guard:
-                _allow, max_checkpoint_used_gb, _avail_before = _disk_guard_check(
+                _allow, max_checkpoint_used_gb, _avail_before, _reason = _disk_guard_check(
                     args.train.save_checkpoint_path, hf_saver,
                     max_checkpoint_used_gb, args.train.disk_guard_margin,
                     label=f"轮末存档前 epoch {epoch + 1} step {global_step}")
                 if not _allow:
                     disk_guard_stop = True
+                    disk_guard_stop_reason = _reason
                     break
                 if _avail_before is not None:
                     _disk_avail_before_gb = _avail_before
@@ -1386,7 +1278,7 @@ def main():
                     "torch_rng_state": torch.get_rng_state(),
                 },
             }
-            Checkpointer.save(args.train.save_checkpoint_path, state, global_steps=global_step)
+            _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
             dist.barrier()
             logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
             save_hf_checkpoint_best_effort(
@@ -1405,10 +1297,15 @@ def main():
 
     # [DiskCheck] 结束时说明终止原因
     if disk_guard_stop:
-        logger.info_rank0(
-            f"[DiskCheck] 训练因磁盘余量不足提前结束 "
-            f"(max_checkpoint_used={max_checkpoint_used_gb:.1f}GB, "
-            f"global_step={global_step})。已保存的 checkpoint 均完整。")
+        if disk_guard_stop_reason == "hf_failed":
+            logger.info_rank0(
+                f"[checkpoint] 训练因异步 HF 保存失败提前结束 "
+                f"(DCP 已成功保存, global_step={global_step})。")
+        else:
+            logger.info_rank0(
+                f"[DiskCheck] 训练因磁盘余量不足提前结束 "
+                f"(max_checkpoint_used={max_checkpoint_used_gb:.1f}GB, "
+                f"global_step={global_step})。已保存的 checkpoint 均完整。")
     else:
         logger.info_rank0(
             f"训练结束: epoch={epoch + 1}/{args.train.num_train_epochs}, "

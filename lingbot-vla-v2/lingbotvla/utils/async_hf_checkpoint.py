@@ -52,6 +52,10 @@ class HFCheckpointResult:
     error: str = ""
     traceback: str = ""
     elapsed_sec: float = 0.0
+    # [checkpoint fallback] 异步 HF 是否保存失败。
+    # DCP 此时已经成功, 因此不 crash 进程; 主循环在下一个安全检查点收取
+    # 该标记并广播 stop=True, 让所有 rank 一致地正常结束训练。
+    hf_save_failed: bool = False
     # [DiskCheck] 本次 checkpoint 的磁盘占用实测
     # disk_avail_before 由训练主循环在 DCP 保存前采样并传入;
     # disk_avail_after 在 HF 全部写盘完成的那一刻于后台线程内采样, 不阻塞训练。
@@ -322,6 +326,12 @@ class AsyncHFCheckpointSaver:
         finally:
             result.elapsed_sec = time.time() - start_time
             helper.empty_cache()
+
+        # [checkpoint fallback] HF 保存失败标记 (DCP 已成功, 不 crash;
+        # 由主循环在下一个安全检查点消费并广播 stop)。
+        # 不区分 ENOSPC / IO error / 其它异常, 第一版统一按失败处理。
+        if result.error:
+            result.hf_save_failed = True
 
         # [DiskCheck] 此刻 DCP 与 HF 均已写盘完成 —— 在后台线程内采样可用空间,
         # 计算这份 checkpoint 的实际净占用。不阻塞训练主循环。
