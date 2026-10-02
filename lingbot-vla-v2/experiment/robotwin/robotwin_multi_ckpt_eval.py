@@ -456,8 +456,11 @@ def plan_schedule(
                 "--use_bf16", "false" if use_fp32 else "true",
                 "--use_compile", "true" if use_compile else "false",
             ]
-            if not enable_video:
-                cmd.append("--no_video")
+            # video 必须**显式双向**传递: launcher 里 enable_video 的默认值是 False,
+            # 且原本只有 --no_video、没有能把它打开的开关 —— 只传 --no_video 时,
+            # 调度器的 --video 其实什么也没做。现在两个分支都显式传, 行为不依赖
+            # 上游默认值 (配套给 launcher 补了对称的 --enable_video)。
+            cmd.append("--enable_video" if enable_video else "--no_video")
             if episodes:
                 # 透传给 eval client 的 test_num。不传 = 保留 client 自己的默认值
                 # (官方 100), 这样不显式指定时行为与官方完全一致。

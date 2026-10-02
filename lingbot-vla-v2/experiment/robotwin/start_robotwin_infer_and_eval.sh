@@ -64,9 +64,11 @@ use_fp32=True
 use_compile=True
 robo_name="robotwin"
 video_fps=10
-enable_video=True
-keep_inference=false
+# 注意: 上游这里原本是 enable_video=True 紧接着被 enable_video=False 覆盖,
+# 前一行是死代码 (实际生效值 = False), 且**没有**能把它打开的 CLI 开关。
+# 现改为单一默认值 + 对称的 --enable_video / --no_video, 默认行为不变。
 enable_video=False
+keep_inference=false
 task_config="${TASK_CONFIG:-demo_clean}"
 
 while [[ $# -gt 0 ]]; do
@@ -91,6 +93,7 @@ while [[ $# -gt 0 ]]; do
         --task_config)       task_config="$2";       shift 2 ;;
         --video_fps)         video_fps="$2";         shift 2 ;;
         --no_video)          enable_video=False;     shift ;;
+        --enable_video)      enable_video=True;      shift ;;
         --keep_inference)    keep_inference=true;    shift ;;
         --inference_env)     inference_env="$2";     shift 2 ;;
         --sim_env)           sim_env="$2";           shift 2 ;;
@@ -122,6 +125,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --keep_inference    keep inference servers resident after simulation"
             echo "  --video_fps         video recording fps (default: 10)"
             echo "  --no_video          disable video recording to speed up simulation"
+            echo "  --enable_video      enable video recording (default: disabled)"
             exit 0 ;;
         *)
             echo -e "\033[31mUnknown argument: $1\033[0m"; exit 1 ;;

@@ -21,6 +21,7 @@
 #   T11 --test_num 解析 + 向后兼容
 #   T12 --test_num 接线完整 (静态)
 #   T13 副本陈旧检测存在 (静态)
+#   T13b video 开关可双向控制 (--enable_video / --no_video, 静态 + 实跑)
 #   T14 共享副本与源码一致 (只读)
 #
 # 用法 (在远端 /data/code/lingbot-vla-v2 下):
@@ -156,6 +157,28 @@ if grep -qF 'cmp -s "$eval_client_src" "$eval_client_dst"' "$LAUNCHER" \
     ok "T13 eval client / deploy 辅助模块 有陈旧检测与同步"
 else
     bad "T13 缺少副本陈旧检测"
+fi
+
+# ---------------------------------------------------------------- T13b video 开关可双向控制
+# 上游的 enable_video 默认 False 且只有 --no_video —— 没有开关能打开它,
+# 于是调度器的 --video 变成摆设。这里锁住"补上了对称的 --enable_video"。
+if grep -qF -- '--enable_video)' "$LAUNCHER"; then
+    ok "T13b launcher 已支持 --enable_video"
+else
+    bad "T13b launcher 缺少 --enable_video (调度器的 --video 会变成摆设)"
+fi
+# 死代码: enable_video 被连续赋值两次, 前一次无效
+if [ "$(grep -c '^enable_video=' "$LAUNCHER")" = "1" ]; then
+    ok "T13b launcher 的 enable_video 默认值只有一处赋值 (无死代码)"
+else
+    bad "T13b launcher 里 enable_video 仍有多处赋值 (存在被覆盖的死代码)"
+fi
+# 真跑一遍, 确认 --enable_video 不会被当成未知参数
+rc=$(run_launcher "$TMPD/t13b.log" --task_list_file "$TMPD/good.txt" --enable_video --num_gpus 4)
+if grep -q "Unknown argument" "$TMPD/t13b.log"; then
+    bad "T13b --enable_video 未被识别为合法参数"
+else
+    ok "T13b --enable_video 被正确解析"
 fi
 
 # ---------------------------------------------------------------- T14 当前共享副本与源码一致 (只读)

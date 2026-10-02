@@ -11,6 +11,7 @@
   T3  discover_checkpoints 发现与排序
   T4  classify: 新增 / 更新 / 历史不变 / 不完整
   T5  plan_schedule + validate_plan: 端口段不重叠 / 输出不撞 / model_path 不串
+  T5c video 开关双向显式传递 (--enable_video / --no_video)
   T6  dry-run: 不调用 subprocess, 不创建作业目录
   T7  preflight: 幂等同步共享文件 (原子替换)
   T8  stats.txt 解析
@@ -301,9 +302,10 @@ def test_t5_plan_and_validate():
         assert plans[0].jobs[0].task_config == "demo_clean"
         assert plans[0].jobs[1].task_config == "demo_randomized"
 
-        # 命令里带上了 --task_list_file 与 --no_video
+        # 命令里带上了 --task_list_file, 且 video 开关显式关闭
         cmd = plans[0].jobs[0].cmd
-        assert "--task_list_file" in cmd and "--no_video" in cmd
+        assert "--task_list_file" in cmd
+        assert "--no_video" in cmd and "--enable_video" not in cmd
         assert cmd[cmd.index("--use_fp32") + 1] == "true"
         assert cmd[cmd.index("--use_bf16") + 1] == "false"
 
@@ -326,6 +328,29 @@ def test_t5_plan_and_validate():
             pass
         else:
             raise AssertionError("非法 condition 应当报错")
+
+
+def test_t5c_video_flag_both_ways():
+    """video 开关必须双向显式传递。
+
+    背景: launcher 的 enable_video 默认 False, 且上游**没有**能把它打开的 CLI
+    开关 (只有 --no_video) —— 如果调度器只在关闭时传 --no_video, 那 --video
+    就是个无声的摆设。这个测试锁住"两个方向都显式传"。
+    """
+    with Sandbox() as tmp:
+        off = _plans(tmp / "off", 1, 1, enable_video=False)[0].jobs[0].cmd
+        assert "--no_video" in off
+        assert "--enable_video" not in off
+
+        on = _plans(tmp / "on", 1, 1, enable_video=True)[0].jobs[0].cmd
+        assert "--enable_video" in on
+        assert "--no_video" not in on
+
+        # launcher 必须真的认识 --enable_video (否则 argparse 直接报 Unknown argument)
+        launcher = mce.DEFAULT_LAUNCHER
+        text = Path(launcher).read_text(encoding="utf-8")
+        assert "--enable_video)" in text, "launcher 缺少 --enable_video 分支"
+        assert "--enable_video" in text.split("-h|--help")[1], "launcher help 未列出 --enable_video"
 
 
 def test_t5b_validate_catches_overlap():
