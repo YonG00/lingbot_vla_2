@@ -27,6 +27,14 @@ def _is_rank0() -> bool:
     return not dist.is_available() or not dist.is_initialized() or dist.get_rank() == 0
 
 
+def _disk_avail_gb(path: str) -> float | None:
+    """[DiskCheck] 返回 path 所在文件系统的可用空间 (GB); 读取失败返回 None。"""
+    try:
+        return shutil.disk_usage(path).free / (1024 ** 3)
+    except OSError:
+        return None
+
+
 @dataclass
 class HFCheckpointResult:
     global_step: int
@@ -44,6 +52,12 @@ class HFCheckpointResult:
     error: str = ""
     traceback: str = ""
     elapsed_sec: float = 0.0
+    # [DiskCheck] 本次 checkpoint 的磁盘占用实测
+    # disk_avail_before 由训练主循环在 DCP 保存前采样并传入;
+    # disk_avail_after 在 HF 全部写盘完成的那一刻于后台线程内采样, 不阻塞训练。
+    disk_avail_before_gb: float = -1.0
+    disk_avail_after_gb: float = -1.0
+    checkpoint_used_gb: float = -1.0
 
 
 class AsyncHFCheckpointSaver:
@@ -77,6 +91,7 @@ class AsyncHFCheckpointSaver:
         model_assets: Sequence[Any] | None,
         epoch: int | None = None,
         epoch_step: int | None = None,
+        disk_avail_before_gb: float = -1.0,
     ) -> None:
         if save_checkpoint_path is None or not _is_rank0():
             return
@@ -111,6 +126,7 @@ class AsyncHFCheckpointSaver:
                 epoch,
                 epoch_step,
                 True,
+                disk_avail_before_gb,
             )
             self._futures.append((checkpoint_path, future))
             self._submitted_paths.add(checkpoint_path)
@@ -127,6 +143,7 @@ class AsyncHFCheckpointSaver:
                 epoch=epoch,
                 epoch_step=epoch_step,
                 best_effort=False,
+                disk_avail_before_gb=disk_avail_before_gb,
             )
             self._results.append(result)
             if result.error:
@@ -154,6 +171,26 @@ class AsyncHFCheckpointSaver:
             dist.broadcast_object_list(payload, src=0)
             summary = payload[0]
         return summary
+
+    def drain_pending_best_effort(self) -> List[HFCheckpointResult]:
+        """[DiskCheck] 等所有待处理 HF 任务完成, 返回"本次新完成"的结果列表。
+
+        与 `wait_all_best_effort` 的关键区别: **不关闭 executor**, 因此可以在
+        训练过程中反复调用。
+
+        正常情况下 HF 转换只需几分钟, 而保存间隔远大于此, 因此调用时任务
+        通常早已完成, 本方法几乎不会阻塞训练。
+        """
+        if not self.enabled or not _is_rank0():
+            return []
+        newly: List[HFCheckpointResult] = []
+        while self._futures:
+            _path, future = self._futures.pop(0)
+            n_before = len(self._results)
+            self._record_future_result(future)   # 阻塞至该任务结束
+            if len(self._results) > n_before:
+                newly.append(self._results[-1])
+        return newly
 
     def summary(self) -> dict[str, Any]:
         total = len(self._results)
@@ -229,6 +266,7 @@ class AsyncHFCheckpointSaver:
         epoch: int | None,
         epoch_step: int | None,
         best_effort: bool,
+        disk_avail_before_gb: float = -1.0,
     ) -> HFCheckpointResult:
         start_time = time.time()
         hf_path = os.path.join(checkpoint_path, "hf_ckpt")
@@ -240,6 +278,7 @@ class AsyncHFCheckpointSaver:
             epoch=epoch,
             epoch_step=epoch_step,
             ema_hf_path=ema_hf_path,
+            disk_avail_before_gb=disk_avail_before_gb,
         )
 
         try:
@@ -283,6 +322,14 @@ class AsyncHFCheckpointSaver:
         finally:
             result.elapsed_sec = time.time() - start_time
             helper.empty_cache()
+
+        # [DiskCheck] 此刻 DCP 与 HF 均已写盘完成 —— 在后台线程内采样可用空间,
+        # 计算这份 checkpoint 的实际净占用。不阻塞训练主循环。
+        _after = _disk_avail_gb(checkpoint_path)
+        if _after is not None:
+            result.disk_avail_after_gb = _after
+            if result.disk_avail_before_gb > 0:
+                result.checkpoint_used_gb = result.disk_avail_before_gb - _after
 
         if not result.error:
             _log(

@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import shutil
 import time
 from dataclasses import asdict, dataclass, field
 from functools import partial
@@ -330,6 +331,107 @@ class Arguments:
     eval: "EvalArguments" = field(default_factory=EvalArguments)
 
 
+# ============================================================================
+# [DiskCheck] checkpoint 磁盘容量保护
+#
+# 目标: 当前 checkpoint 完整保存 (DCP + 异步 HF) 之后, 判断剩余空间是否还够
+#       再存下一份; 不够就正常结束训练, 不写半截 checkpoint。
+#
+# 分工:
+#   * 后台 HF 线程 (_run_hf_checkpoint) 在 HF 全部写盘完成的瞬间记录
+#     disk_avail_after 并算出 checkpoint_used —— 不阻塞训练。
+#   * 训练主循环在下一次 checkpoint 开始前调用下面的 _disk_guard_before_save:
+#       1) 等上一份 HF 完成 (通常早已完成, 不会阻塞)
+#       2) 用其实测占用更新 max_checkpoint_used
+#       3) 用【当前实时可用空间】与 max_checkpoint_used * margin 比较
+#
+# 失败安全: 读盘失败 / 占用量异常 / 异步 HF 失败 时一律放行 (fail-open),
+#           容量保护本身绝不把训练搞崩。
+#
+# 作用域: max_checkpoint_used 是进程内变量, 不落盘 —— 因此天然不会跨 Phase
+#         沿用 (Expert-only 切到 Freeze Vision / Full FT 后 optimizer 可能变大)。
+# ============================================================================
+
+def _disk_avail_gb(path):
+    """返回 path 所在文件系统的可用空间 (GB); 读取失败返回 None。"""
+    try:
+        return shutil.disk_usage(path).free / (1024 ** 3)
+    except OSError:
+        return None
+
+
+def _disk_guard_before_save(save_root, hf_saver, max_used_gb, margin):
+    """[DiskCheck] 下一次 checkpoint 开始前的容量判断。
+
+    返回 (allow_save, max_used_gb, avail_before_gb)。
+    avail_before_gb 将作为 disk_avail_before 传给后台 HF 任务。
+
+    fail-open: 任何异常情况 (读盘失败 / 占用实测无效 / 异步 HF 失败 / 收集失败)
+    都只打印 warning 并"跳过本轮容量判断", 放行训练。
+    """
+    # 1) 收集上一份 checkpoint 的实测占用 (正常情况下任务早已完成, 不阻塞)
+    try:
+        drained = hf_saver.drain_pending_best_effort()
+    except Exception as exc:
+        logger.info_rank0(f"[DiskCheck] 收集上一份占用失败 ({exc!r}); 跳过本轮容量判断")
+        return True, max_used_gb, None
+
+    # 2) 读当前实时可用空间 (即使跳过判断也要读, 供本次 disk_avail_before 采样)
+    avail_gb = _disk_avail_gb(save_root)
+
+    # 3) 逐份处理上一轮的实测结果
+    skip_round = False
+    for r in drained:
+        if getattr(r, "error", ""):
+            logger.info_rank0(
+                f"[DiskCheck] step={r.global_step} 异步 HF 保存失败 "
+                f"({str(r.error)[:120]}); 跳过本轮容量判断"
+            )
+            skip_round = True
+            continue
+        used = getattr(r, "checkpoint_used_gb", -1.0)
+        if not used or used <= 0:
+            logger.info_rank0(
+                f"[DiskCheck] step={r.global_step} 占用实测无效 "
+                f"(checkpoint_used={used}); 跳过本轮容量判断"
+            )
+            skip_round = True
+            continue
+        max_used_gb = max(max_used_gb, used)
+        logger.info_rank0(
+            f"[DiskCheck] step={r.global_step} "
+            f"disk_avail_before={r.disk_avail_before_gb:.1f}GB "
+            f"disk_avail_after={r.disk_avail_after_gb:.1f}GB "
+            f"checkpoint_used={used:.1f}GB "
+            f"max_checkpoint_used={max_used_gb:.1f}GB"
+        )
+
+    if skip_round:
+        return True, max_used_gb, avail_gb
+
+    if avail_gb is None:
+        logger.info_rank0("[DiskCheck] 读取磁盘空间失败; 跳过本轮容量判断")
+        return True, max_used_gb, None
+
+    # 4) 还没有可参考的占用 (第一份 checkpoint) -> 放行
+    if max_used_gb <= 0:
+        logger.info_rank0(
+            f"[DiskCheck] 尚无历史占用参考; 放行 "
+            f"(disk_avail_now={avail_gb:.1f}GB)"
+        )
+        return True, max_used_gb, avail_gb
+
+    required_gb = max_used_gb * margin
+    allow = avail_gb >= required_gb
+    logger.info_rank0(
+        f"[DiskCheck] max_checkpoint_used={max_used_gb:.1f}GB "
+        f"next_checkpoint_required={required_gb:.1f}GB "
+        f"disk_avail_now={avail_gb:.1f}GB "
+        f"continue_training={'true' if allow else 'false'}"
+    )
+    return allow, max_used_gb, avail_gb
+
+
 def main():
     args = parse_args(Arguments)
     logger.info(f"Process rank: {args.train.global_rank}, world size: {args.train.world_size}")
@@ -592,6 +694,9 @@ def main():
     start_epoch, start_step, global_step = 0, 0, 0
     current_epoch_for_eval, current_epoch_step_for_eval = 1, 0
     save_checkpoint_path = None
+    # [DiskCheck] 容量保护状态 (进程内, 不落盘 -> 不会跨 Phase 沿用)
+    max_checkpoint_used_gb = 0.0    # 本阶段内单份 checkpoint 的最大实测占用
+    disk_guard_stop = False         # 余量不足时置位, 用于正常结束训练
     hf_failure_log_path = (
         os.path.join(args.train.save_checkpoint_path, "async_hf_failures.jsonl")
         if args.train.save_checkpoint_path
@@ -611,6 +716,7 @@ def main():
         step: int,
         epoch: int | None = None,
         epoch_step: int | None = None,
+        disk_avail_before_gb: float = -1.0,
     ) -> None:
         if args.train.global_rank != 0:
             return
@@ -626,6 +732,7 @@ def main():
             model_assets=model_assets,
             epoch=epoch,
             epoch_step=epoch_step,
+            disk_avail_before_gb=disk_avail_before_gb,
         )
 
     environ_meter = helper.EnvironMeter(
@@ -1083,6 +1190,18 @@ def main():
                                 )
 
             if args.train.save_steps and global_step % args.train.save_steps == 0:
+                # [DiskCheck] 本次 checkpoint 开始前: 收上一份的实测占用 + 判断余量
+                _disk_avail_before_gb = -1.0
+                if args.train.disk_guard:
+                    _allow, max_checkpoint_used_gb, _avail_before = _disk_guard_before_save(
+                        args.train.save_checkpoint_path, hf_saver,
+                        max_checkpoint_used_gb, args.train.disk_guard_margin)
+                    if not _allow:
+                        disk_guard_stop = True
+                        break
+                    if _avail_before is not None:
+                        _disk_avail_before_gb = _avail_before
+
                 helper.empty_cache()
                 save_checkpoint_path = os.path.join(args.train.save_checkpoint_path, f"global_step_{global_step}")
                 
@@ -1119,6 +1238,7 @@ def main():
                     global_step,
                     current_epoch_for_eval,
                     current_epoch_step_for_eval,
+                    disk_avail_before_gb=_disk_avail_before_gb,
                 )
 
             if args.train.max_steps is not None and global_step >= args.train.max_steps:
@@ -1132,9 +1252,29 @@ def main():
             writer.flush()
         start_step = 0
         helper.print_device_mem_info(f"VRAM usage after epoch {epoch + 1}")
+
+        # [DiskCheck] 步循环内已判定余量不足: 当前 checkpoint 已完整保存,
+        # 跳过本轮剩余的所有存档, 正常结束训练。
+        if disk_guard_stop:
+            logger.info_rank0(
+                "[DiskCheck] 剩余空间不足以再存一份 checkpoint, 当前 checkpoint 已完整保存, "
+                "不再继续训练。")
+            break
+
         if reached_max_steps:
             already_saved = args.train.save_steps and global_step % args.train.save_steps == 0
             if not already_saved:
+                # [DiskCheck] 收尾存档前的容量判断
+                _disk_avail_before_gb = -1.0
+                if args.train.disk_guard:
+                    _allow, max_checkpoint_used_gb, _avail_before = _disk_guard_before_save(
+                        args.train.save_checkpoint_path, hf_saver,
+                        max_checkpoint_used_gb, args.train.disk_guard_margin)
+                    if not _allow:
+                        logger.info_rank0("[DiskCheck] 余量不足, 跳过收尾存档并结束训练。")
+                        break
+                    if _avail_before is not None:
+                        _disk_avail_before_gb = _avail_before
                 helper.empty_cache()
                 save_checkpoint_path = os.path.join(args.train.save_checkpoint_path, f"global_step_{global_step}")
                 state = {
@@ -1158,9 +1298,21 @@ def main():
                     global_step,
                     current_epoch_for_eval,
                     current_epoch_step_for_eval,
+                    disk_avail_before_gb=_disk_avail_before_gb,
                 )
             break
         if args.train.save_epochs and (epoch + 1) % args.train.save_epochs == 0:
+            # [DiskCheck] 轮末存档前的容量判断
+            _disk_avail_before_gb = -1.0
+            if args.train.disk_guard:
+                _allow, max_checkpoint_used_gb, _avail_before = _disk_guard_before_save(
+                    args.train.save_checkpoint_path, hf_saver,
+                    max_checkpoint_used_gb, args.train.disk_guard_margin)
+                if not _allow:
+                    disk_guard_stop = True
+                    break
+                if _avail_before is not None:
+                    _disk_avail_before_gb = _avail_before
             helper.empty_cache()
             save_checkpoint_path = os.path.join(args.train.save_checkpoint_path, f"global_step_{global_step}")
             state = {
@@ -1184,12 +1336,25 @@ def main():
                 global_step,
                 current_epoch_for_eval,
                 current_epoch_step_for_eval,
+                disk_avail_before_gb=_disk_avail_before_gb,
             )
 
     if max_steps_driven:
         data_loader_tqdm.close()
     if args.train.global_rank == 0:
         writer.close()
+
+    # [DiskCheck] 结束时说明终止原因
+    if disk_guard_stop:
+        logger.info_rank0(
+            f"[DiskCheck] 训练因磁盘余量不足提前结束 "
+            f"(max_checkpoint_used={max_checkpoint_used_gb:.1f}GB, "
+            f"global_step={global_step})。已保存的 checkpoint 均完整。")
+    else:
+        logger.info_rank0(
+            f"训练结束: epoch={epoch + 1}/{args.train.num_train_epochs}, "
+            f"global_step={global_step}。")
+
     torch.cuda.synchronize()
     # release memory
     del optimizer, lr_scheduler

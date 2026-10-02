@@ -510,6 +510,20 @@ class TrainingArguments:
         default=1,
         metadata={"help": "Maximum pending async HF checkpoint conversions on rank 0."},
     )
+    disk_guard: bool = field(
+        default=False,
+        metadata={
+            "help": "开启 checkpoint 磁盘容量保护: 每份 checkpoint 完整保存后, "
+                    "若剩余空间不足以再存一份 (参见 disk_guard_margin), 则正常结束训练。"
+        },
+    )
+    disk_guard_margin: float = field(
+        default=1.1,
+        metadata={
+            "help": "容量保护的安全系数: 下一份 checkpoint 需要 "
+                    "max_checkpoint_used * disk_guard_margin 的可用空间。"
+        },
+    )
     seed: int = field(
         default=42,
         metadata={"help": "Random seed."},
