@@ -337,15 +337,16 @@ class Arguments:
 # 动机: checkpoint 体积大且按 save_steps 周期性产生。若磁盘写满, 会出现
 #       半截 checkpoint、训练白跑、甚至拖垮同机的其它任务。
 # 策略: 只有在 --train.min_free_disk_gb > 0 时启用 (默认 0 = 关闭, 行为不变)。
-#       每次"存档前"检查剩余空间:
-#         需要空间 = max(上一个 checkpoint 的实测体积 × 1.15, min_free_disk_gb)
-#       不足则跳过本次存档并优雅终止训练 —— 存不下就没必要继续训。
-#       用"上一个 checkpoint 的实测体积"作预测, 是因为异步 HF 转换会在
-#       后台线程里继续增长该目录; 等到下一次存档时它已经写完, 测量才准。
+#       规则很直白 —— **剩余可用空间低于该阈值就不再训**:
+#         * 每次存档成功后立即检查: 剩余 < 阈值 -> 终止训练
+#           (既然存不下下一个模型, 继续训就是浪费)
+#         * 每次存档前也检查一次, 作为首次存档的兜底, 避免写出半截文件
+#       terminate 采用 break 两层循环的方式优雅退出, 已存好的 checkpoint
+#       仍会正常完成 HF 转换 / 异步收尾。
 # ============================================================================
 
 def _tree_size_gb(path):
-    """递归统计目录体积 (GB)。路径不存在返回 0。"""
+    """递归统计目录体积 (GB)。仅用于日志。路径不存在返回 0。"""
     total = 0
     if not os.path.exists(path):
         return 0.0
@@ -359,14 +360,13 @@ def _tree_size_gb(path):
     return total / (1024 ** 3)
 
 
-def _disk_guard_check(save_root, prev_ckpt_path, min_free_gb):
-    """[DSH] 存档前磁盘检查。
+def _disk_guard_check(save_root, min_free_gb, label=""):
+    """[DSH] 磁盘余量检查。
 
-    返回 (should_stop, message)。min_free_gb <= 0 时始终返回 (False, "")。
+    返回 (should_stop, message)。
 
-    用 **上一个 checkpoint 目录** 的实测体积预测本次所需空间: 该目录在
-    上一次存档时创建, 到本次存档时 (通常间隔数十分钟) 连异步写出的
-    hf_ckpt 也已落盘, 因此测量是完整的。
+    规则: min_free_gb <= 0 时永远不干预 (返回 (False, ""))。
+          否则 剩余可用空间 < min_free_gb 即判定为"存不下下一个 checkpoint"。
     """
     if min_free_gb <= 0:
         return False, ""
@@ -376,12 +376,11 @@ def _disk_guard_check(save_root, prev_ckpt_path, min_free_gb):
         logger.info_rank0(f"[disk-guard] 无法读取磁盘用量 ({exc}); 跳过检查")
         return False, ""
 
-    prev_gb = _tree_size_gb(prev_ckpt_path) if prev_ckpt_path else 0.0
-    need_gb = max(prev_gb * 1.15, min_free_gb) if prev_gb > 0 else min_free_gb
-    msg = (f"[disk-guard] 可用 {free_gb:.1f}G / 需要 {need_gb:.1f}G "
-           f"(上一个 checkpoint {prev_gb:.1f}G, 下限 {min_free_gb:.1f}G)")
-    if free_gb < need_gb:
-        return True, msg + "  -> 空间不足, 终止训练"
+    msg = f"[disk-guard] 剩余 {free_gb:.1f}G / 要求 >= {min_free_gb:.1f}G"
+    if label:
+        msg += f"  ({label})"
+    if free_gb < min_free_gb:
+        return True, msg + "  -> 余量不足, 终止训练"
     return False, msg
 
 
@@ -648,7 +647,6 @@ def main():
     current_epoch_for_eval, current_epoch_step_for_eval = 1, 0
     save_checkpoint_path = None
     # [DSH] 磁盘守卫状态
-    prev_ckpt_path = None     # 上一个 checkpoint 目录, 下次存档时测它的体积作预测
     disk_exhausted = False    # 守卫触发后置位, 用于跳过后续存档并终止训练
     hf_failure_log_path = (
         os.path.join(args.train.save_checkpoint_path, "async_hf_failures.jsonl")
@@ -1141,11 +1139,12 @@ def main():
                                 )
 
             if args.train.save_steps and global_step % args.train.save_steps == 0:
-                # [DSH] 磁盘守卫: 存档前先确认装得下, 避免写出半截 checkpoint
+                # [DSH] 存档前兜底检查 (主要保护首次存档, 避免写出半截文件)
                 _stop, _msg = _disk_guard_check(
-                    args.train.save_checkpoint_path, prev_ckpt_path, args.train.min_free_disk_gb)
+                    args.train.save_checkpoint_path, args.train.min_free_disk_gb,
+                    label=f"存档前 step {global_step}")
                 if _msg:
-                    logger.info_rank0(f"{_msg}  (step {global_step})")
+                    logger.info_rank0(_msg)
                 if _stop:
                     disk_exhausted = True
                     break
@@ -1187,8 +1186,17 @@ def main():
                     current_epoch_for_eval,
                     current_epoch_step_for_eval,
                 )
-                # [DSH] 记下本次存档目录; 下次存档前用它的实体体积预测所需空间
-                prev_ckpt_path = save_checkpoint_path
+                # [DSH] 存档成功后立即检查余量: 存不下下一个模型就不再训
+                _ckpt_gb = _tree_size_gb(save_checkpoint_path)
+                logger.info_rank0(f"[disk-guard] 本次 checkpoint {_ckpt_gb:.1f}G")
+                _stop, _msg = _disk_guard_check(
+                    args.train.save_checkpoint_path, args.train.min_free_disk_gb,
+                    label=f"存档后 step {global_step}")
+                if _msg:
+                    logger.info_rank0(_msg)
+                if _stop:
+                    disk_exhausted = True
+                    break
 
             if args.train.max_steps is not None and global_step >= args.train.max_steps:
                 logger.info_rank0(f"Reached max_steps={args.train.max_steps}, stopping training.")
@@ -1212,9 +1220,10 @@ def main():
             already_saved = args.train.save_steps and global_step % args.train.save_steps == 0
             if not already_saved:
                 _stop, _msg = _disk_guard_check(
-                    args.train.save_checkpoint_path, prev_ckpt_path, args.train.min_free_disk_gb)
+                    args.train.save_checkpoint_path, args.train.min_free_disk_gb,
+                    label=f"max_steps 收尾前 step {global_step}")
                 if _msg:
-                    logger.info_rank0(f"{_msg}  (max_steps 收尾, step {global_step})")
+                    logger.info_rank0(_msg)
                 if _stop:
                     disk_exhausted = True
                     break
@@ -1242,13 +1251,24 @@ def main():
                     current_epoch_for_eval,
                     current_epoch_step_for_eval,
                 )
+                # [DSH] 存档成功后立即检查余量
+                _ckpt_gb = _tree_size_gb(save_checkpoint_path)
+                _stop, _msg = _disk_guard_check(
+                    args.train.save_checkpoint_path, args.train.min_free_disk_gb,
+                    label=f"max_steps 收尾后 step {global_step}")
+                logger.info_rank0(f"[disk-guard] 本次 checkpoint {_ckpt_gb:.1f}G")
+                if _msg:
+                    logger.info_rank0(_msg)
+                if _stop:
+                    disk_exhausted = True
             break
         if args.train.save_epochs and (epoch + 1) % args.train.save_epochs == 0:
-            # [DSH] 磁盘守卫: 轮末存档同样先检查空间
+            # [DSH] 磁盘守卫: 轮末存档前兜底检查
             _stop, _msg = _disk_guard_check(
-                args.train.save_checkpoint_path, prev_ckpt_path, args.train.min_free_disk_gb)
+                args.train.save_checkpoint_path, args.train.min_free_disk_gb,
+                label=f"轮末存档前 epoch {epoch + 1} step {global_step}")
             if _msg:
-                logger.info_rank0(f"{_msg}  (轮末, epoch {epoch + 1}, step {global_step})")
+                logger.info_rank0(_msg)
             if _stop:
                 disk_exhausted = True
                 break
@@ -1276,8 +1296,17 @@ def main():
                 current_epoch_for_eval,
                 current_epoch_step_for_eval,
             )
-            # [DSH] 记下本次存档目录, 供下一次存档前预测所需空间
-            prev_ckpt_path = save_checkpoint_path
+            # [DSH] 存档成功后立即检查余量: 存不下下一个模型就不再训
+            _ckpt_gb = _tree_size_gb(save_checkpoint_path)
+            logger.info_rank0(f"[disk-guard] 本次 checkpoint {_ckpt_gb:.1f}G")
+            _stop, _msg = _disk_guard_check(
+                args.train.save_checkpoint_path, args.train.min_free_disk_gb,
+                label=f"轮末存档后 epoch {epoch + 1} step {global_step}")
+            if _msg:
+                logger.info_rank0(_msg)
+            if _stop:
+                disk_exhausted = True
+                break
 
     if max_steps_driven:
         data_loader_tqdm.close()
@@ -1287,8 +1316,9 @@ def main():
     # [DSH] 结束时说明终止原因, 便于事后判断是否为磁盘守卫所致
     if disk_exhausted:
         logger.info_rank0(
-            f"[disk-guard] 训练因磁盘空间不足提前终止 (最后存档于 "
-            f"{prev_ckpt_path}, global_step={global_step})。")
+            f"[disk-guard] 训练因磁盘余量不足 (低于 {args.train.min_free_disk_gb}G) "
+            f"提前终止。已保存的 checkpoint: {save_checkpoint_path} "
+            f"(global_step={global_step})。")
     else:
         logger.info_rank0(
             f"训练正常结束: epoch={epoch + 1}/{args.train.num_train_epochs}, "
