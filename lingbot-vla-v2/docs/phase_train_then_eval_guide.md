@@ -132,6 +132,53 @@ TRAIN_OUT=/data/outputs/phase2_L1_L2 \
   bash experiment/robotwin/phase2_from_base_train_then_eval.sh
 ```
 
+### 4.5 看训练曲线（TensorBoard）
+
+**训练脚本不会自己起 TensorBoard** —— 它只把事件文件写到 `<TRAIN_OUT>/runs/`
+（`train_lingbotvla.py:593-594`，只有 `global_rank == 0` 写）。
+所以要看得自己开，脚本给了个开关：
+
+```bash
+TB=1 bash experiment/robotwin/phase1_train_then_eval.sh
+```
+
+脚本会 `setsid nohup` 起一个后台 TensorBoard（`--host 127.0.0.1 --port 6006`），
+日志在 `<TRAIN_OUT>/tensorboard.log`。端口已被占用时自动跳过启动，不会起第二个。
+
+浏览器访问要**先做端口转发**（AutoDL 上 6006 不对公网开放）：
+
+```bash
+ssh -L 6006:127.0.0.1:6006 -p <SSH端口> root@<主机>
+# 然后本机浏览器打开 http://127.0.0.1:6006
+```
+
+**AutoDL 上更省事的办法**：平台自带一个常驻 TensorBoard（`/root/miniconda3/bin/tensorboard
+--host 0.0.0.0 --port 6007 --logdir /root/tf-logs`，控制台「TensorBoard」按钮直达）。
+把我们的 runs 目录软链进去就不用做端口转发：
+
+```bash
+ln -sfn /data/outputs/phase1_L1/runs /root/tf-logs/phase1_L1
+# 然后直接用 AutoDL 控制台的 TensorBoard 按钮，无需 ssh -L
+```
+
+> 注意：平台那个 TB 固定看 `/root/tf-logs`，**不要**去动它的进程；
+> 我们的脚本用 6006，两者互不冲突。
+
+不想用脚本的话，单独敲也行（训练跑起来后随时可以）：
+
+```bash
+tensorboard --logdir /data/outputs/phase1_L1/runs --port 6006 --host 127.0.0.1
+```
+
+会看到哪些曲线：`training/lr`、`training/grad_norm`、`steptime`、
+`training/future_depth_loss`、`training/future_video_loss`、`training/router_z_loss`、
+`moe_summary/load_cv`，以及 `detailed_loss/*` 的分项 loss。
+
+> ⚠️ TensorBoard 是**纯读** `<TRAIN_OUT>/runs/`，关掉它不影响训练。
+> 训练结束后它仍在后台跑，不需要了用
+> `pkill -f "tensorboard --logdir /data/outputs"` 收掉
+> （**别用** `pkill -f tensorboard` —— 会误杀 AutoDL 平台自带那个）。
+
 ---
 
 ## 5. 参数速查（全部是环境变量）
@@ -144,6 +191,8 @@ TRAIN_OUT=/data/outputs/phase2_L1_L2 \
 | `EVAL_OUT` | `/data/eval_results/...` | 评测输出目录 |
 | `MODEL_PATH` | 仅 P2 脚本 | 起点权重；默认 base，可指向上一阶段的轮末 `hf_ckpt` |
 | `CUDA_VISIBLE_DEVICES` | `0,1,2,3` | 卡 |
+| `TB` | 空（关） | 非空 ⇒ 训练前**后台启动 TensorBoard**（`127.0.0.1:6006`） |
+| `TB_PORT` | `6006` | TensorBoard 端口 |
 | `QWEN3VL_PATH` | Qwen3-VL-4B 路径 | 评测侧必需，脚本已设默认 |
 
 ---
@@ -156,6 +205,8 @@ TRAIN_OUT=/data/outputs/phase2_L1_L2 \
 <TRAIN_OUT>/checkpoints/global_step_<N>/
     ├── hf_ckpt/                      ← 评测要用的（24G）
     └── （ByteCheckpoint 的 DCP 文件）  ← 续训要用的（~30G）
+<TRAIN_OUT>/runs/                     ← TensorBoard 事件文件（rank0 写，见 4.5）
+<TRAIN_OUT>/tensorboard.log           ← TB=1 时的 tensorboard 进程日志
 <TRAIN_OUT>/../log.txt                ← train.sh 的 tee 产物
 ```
 
@@ -316,6 +367,26 @@ fi
 可以。两个脚本各自独立，互不依赖。也可以只跑「训练」那一段 ——
 脚本本质就是两条命令用 `&&` 串起来，拆开手敲完全等价。
 
+### Q7 为什么脚本默认不启动 TensorBoard？
+
+因为**官方训练链路本来就不起**。`train.sh` 只包了 `torchrun ... | tee log.txt`，
+训练脚本本身只负责**写** `<TRAIN_OUT>/runs/`（`train_lingbotvla.py:593-594`）。
+一个「训练脚本」顺带常驻一个 web 服务是副作用，所以做成 `TB=1` 显式开关，
+不设时行为和不加这段代码完全一致。详见 4.5。
+
+> 顺带一提：这台机器上 **`ss` 和 `netstat` 都不存在**，所以脚本的端口探测用的是
+> bash 内建的 `/dev/tcp`（`(exec 3<>/dev/tcp/127.0.0.1/$PORT)`），零外部依赖。
+
+### Q8 训练跑起来后还能补起 TensorBoard 吗？
+
+能，随时。TensorBoard 是纯读 `<TRAIN_OUT>/runs/`，不影响训练：
+
+```bash
+tensorboard --logdir /data/outputs/phase1_L1/runs --port 6006 --host 127.0.0.1
+```
+
+或者直接软链进平台自带的那个（见 4.5，免端口转发）。
+
 ---
 
 ## 9. 测试
@@ -342,6 +413,7 @@ P2 (1856 步): 0→1 份  928→2 份  619→3 份  464→4 份  545→4 份
 
 ## 10. 不做什么（明确的边界）
 
+- **不默认启动 TensorBoard**。训练只写 `runs/`，要看曲线得加 `TB=1`（见 4.5）。
 - **不自动清理旧 checkpoint**。DCP 没有轮转，脚本也不替你删 —— 删存档是不可逆操作，
   必须人工确认。跑多阶段前请自己算好盘。
 - **不自动 push**。脚本只训练 + 评测，不碰 git。

@@ -15,6 +15,7 @@
 #   DRY_RUN=1 bash experiment/robotwin/phase1_train_then_eval.sh    # 只预览评测计划
 #   SAVE_STEPS=260 bash experiment/robotwin/phase1_train_then_eval.sh   # 3 个 ckpt
 #   SAVE_STEPS=0   bash experiment/robotwin/phase1_train_then_eval.sh   # 只存轮末 1 个
+#   TB=1           bash experiment/robotwin/phase1_train_then_eval.sh   # 顺带后台起 TensorBoard(:6006)
 #
 # 磁盘预算（779 步 / 1 epoch，单次存档 ≈ 55G = hf_ckpt 24G + DCP ~30G，无轮转不清理）：
 #   | save_steps | 存档点        | 份数 | 约占用 |
@@ -93,6 +94,33 @@ if [ -n "$AVAIL_GB" ]; then
     if [ "$AVAIL_GB" -lt $(( N_SAVES * 56 )) ]; then
         echo "[phase${PHASE}] ⚠️  空间可能不足：disk_guard 会在放不下时优雅停止训练，" >&2
         echo "[phase${PHASE}] ⚠️  届时最后一个 checkpoint 会缺失。请调大 SAVE_STEPS 或先扩容。" >&2
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 可选：后台启动 TensorBoard（TB=1 时；默认关）
+#   训练**只会写** <TRAIN_OUT>/runs/ 下的事件文件（rank0 写），不会自己起 tensorboard，
+#   所以这里给个显式开关。不设 TB 时行为与不加这段完全一致。
+# ---------------------------------------------------------------------------
+TB_PORT=${TB_PORT:-6006}
+if [ -n "${TB:-}" ]; then
+    mkdir -p "$TRAIN_OUT/runs"
+    # 端口探测：本机没有 ss / netstat，用 bash 内建 /dev/tcp（零依赖）
+    _tb_busy() { (exec 3<>"/dev/tcp/127.0.0.1/${TB_PORT}") 2>/dev/null; }
+    if _tb_busy; then
+        echo "[phase${PHASE}] TensorBoard 已在 127.0.0.1:${TB_PORT} 运行，跳过启动"
+    else
+        setsid nohup tensorboard --logdir "$TRAIN_OUT/runs" \
+            --port "$TB_PORT" --host 127.0.0.1 \
+            > "$TRAIN_OUT/tensorboard.log" 2>&1 < /dev/null &
+        for _ in $(seq 15); do _tb_busy && break; sleep 1; done
+        if _tb_busy; then
+            echo "[phase${PHASE}] TensorBoard 已启动: http://127.0.0.1:${TB_PORT}  (logdir=$TRAIN_OUT/runs)"
+        else
+            echo "[phase${PHASE}] ⚠️  TensorBoard 似乎没起来，看 $TRAIN_OUT/tensorboard.log" >&2
+        fi
+        echo "[phase${PHASE}] 本机浏览器访问需先做端口转发:"
+        echo "[phase${PHASE}]   ssh -L ${TB_PORT}:127.0.0.1:${TB_PORT} -p <SSH端口> root@<主机>"
     fi
 fi
 
