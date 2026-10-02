@@ -541,19 +541,21 @@ def test_t9_sentinel_lists():
 def test_t10_episodes_passthrough():
     with Sandbox() as tmp:
         # 指定回合数 -> 命令行里出现 --test_num N
-        plans = _plans(tmp, 1, 1, episodes=4)
+        # 用一个**非默认值** (5) 来证明它确实被透传, 而不是碰巧撞上默认值
+        plans = _plans(tmp, 1, 1, episodes=5)
         cmd = plans[0].jobs[0].cmd
         assert "--test_num" in cmd, cmd
-        assert cmd[cmd.index("--test_num") + 1] == "4"
+        assert cmd[cmd.index("--test_num") + 1] == "5"
 
         # 不指定 -> 不带 --test_num, 让 eval client 用自己的官方默认 (100)
         plans = _plans(tmp / "none", 1, 1)
         cmd = plans[0].jobs[0].cmd
         assert "--test_num" not in cmd, cmd
 
-        # CLI 默认 4; --episodes 0 表示不覆盖
+        # CLI 默认 3 (对齐 curriculum yaml 的 evaluation.protocols.mini_eval);
+        # --episodes 0 表示不覆盖
         ap = mce.build_parser()
-        assert ap.parse_args(["--ckpt-root", str(tmp)]).episodes == 4
+        assert ap.parse_args(["--ckpt-root", str(tmp)]).episodes == 3
         assert ap.parse_args(["--ckpt-root", str(tmp), "--episodes", "0"]).episodes == 0
         assert ap.parse_args(["--ckpt-root", str(tmp), "--episodes", "8"]).episodes == 8
 

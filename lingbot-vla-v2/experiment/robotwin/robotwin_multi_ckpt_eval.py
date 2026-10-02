@@ -818,8 +818,9 @@ def build_parser() -> argparse.ArgumentParser:
                      help=f"阶段清单目录 (默认 {DEFAULT_EVAL_LIST_DIR})")
     src.add_argument("--conditions", default="clean,randomized",
                      help="评测条件, 逗号分隔 (默认 clean,randomized; 同一 ckpt 内串行)")
-    src.add_argument("--episodes", type=int, default=4,
-                     help="每个任务每个 condition 的评测回合数 (默认 4)。"
+    src.add_argument("--episodes", type=int, default=3,
+                     help="每个任务每个 condition 的评测回合数 (默认 3, 与 "
+                          "curriculum yaml 的 evaluation.protocols.mini_eval 一致)。"
                           "透传为 eval client 的 test_num; 传 0 表示不覆盖 "
                           "(用 client 自带的官方默认 100)")
 
