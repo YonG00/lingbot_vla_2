@@ -15,6 +15,7 @@
   T7  preflight: 幂等同步共享文件 (原子替换)
   T8  stats.txt 解析
   T9  sentinel 清单: 行数 4/8/12/16 + 前缀累积 + 越级拦截
+  T10 episodes (test_num) 透传 + eval client 不再硬编码
 """
 
 from __future__ import annotations
@@ -506,6 +507,43 @@ def test_t9_sentinel_lists():
         pass
     else:
         raise AssertionError("sentinel 数量不符应当报错")
+
+
+# ---------------------------------------------------------------------------
+# T10 episodes 透传 (eval client 的 test_num)
+# ---------------------------------------------------------------------------
+
+def test_t10_episodes_passthrough():
+    with Sandbox() as tmp:
+        # 指定回合数 -> 命令行里出现 --test_num N
+        plans = _plans(tmp, 1, 1, episodes=4)
+        cmd = plans[0].jobs[0].cmd
+        assert "--test_num" in cmd, cmd
+        assert cmd[cmd.index("--test_num") + 1] == "4"
+
+        # 不指定 -> 不带 --test_num, 让 eval client 用自己的官方默认 (100)
+        plans = _plans(tmp / "none", 1, 1)
+        cmd = plans[0].jobs[0].cmd
+        assert "--test_num" not in cmd, cmd
+
+        # CLI 默认 4; --episodes 0 表示不覆盖
+        ap = mce.build_parser()
+        assert ap.parse_args(["--ckpt-root", str(tmp)]).episodes == 4
+        assert ap.parse_args(["--ckpt-root", str(tmp), "--episodes", "0"]).episodes == 0
+        assert ap.parse_args(["--ckpt-root", str(tmp), "--episodes", "8"]).episodes == 8
+
+
+def test_t10b_eval_client_test_num_overridable():
+    """eval client 的 test_num 必须可覆盖, 不能是硬编码常量。"""
+    path = REPO_ROOT / "experiment" / "robotwin" / "eval_policy_client_lingbotvla.py"
+    if not path.is_file():
+        print("        (跳过: 未找到 eval client)")
+        return
+    src = path.read_text(encoding="utf-8")
+    assert 'usr_args.get("test_num"' in src, "eval client 未从 usr_args 读取 test_num"
+    assert "test_num = 2" not in src, "eval client 里仍残留 test_num = 2 硬编码"
+    # 默认值必须是官方 100, 不能是 2
+    assert 'usr_args.get("test_num", 100)' in src, "eval client 的 test_num 默认值不是官方 100"
 
 
 # ---------------------------------------------------------------------------

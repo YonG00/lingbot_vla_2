@@ -19,6 +19,8 @@
 #   --task_list_file    read task names from a file instead of the first N (one per line;
 #                       blank lines and '#' comments ignored). Overrides --num_tasks.
 #                       Every name must be one of the 50 official tasks; duplicates are rejected.
+#   --test_num          episodes per task per condition, passed through to the eval client.
+#                       Unset = keep the client's own default (official value: 100).
 #   --num_gpus          total GPUs (default: 1)
 #   --num_per_gpu       inference servers per GPU (default: 1)
 #   --use_length        chunk length (default: 50)
@@ -53,6 +55,7 @@ start_port=9330
 pid_name="test_pid"
 num_tasks=50
 task_list_file=""
+test_num=""
 num_gpus=1
 num_per_gpu=1
 use_length=50
@@ -77,6 +80,7 @@ while [[ $# -gt 0 ]]; do
         --pid_name)          pid_name="$2";          shift 2 ;;
         --num_tasks)         num_tasks="$2";         shift 2 ;;
         --task_list_file)    task_list_file="$2";    shift 2 ;;
+        --test_num)          test_num="$2";          shift 2 ;;
         --num_gpus)          num_gpus="$2";          shift 2 ;;
         --num_per_gpu)       num_per_gpu="$2";       shift 2 ;;
         --use_length)        use_length="$2";        shift 2 ;;
@@ -106,6 +110,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --num_tasks         number of sim tasks (default: 50, max: 50)"
             echo "  --task_list_file    read task names from a file (one per line, '#' = comment);"
             echo "                      overrides --num_tasks; unknown/duplicate names are rejected"
+            echo "  --test_num          episodes per task per condition (unset = client default 100)"
             echo "  --num_gpus          total GPUs (default: 1)"
             echo "  --num_per_gpu       inference servers per GPU (default: 1)"
             echo "  --use_length        chunk length (default: 50)"
@@ -371,29 +376,36 @@ cd "$eval_workdir" || { echo -e "\033[31mError: sim workdir ${eval_workdir} miss
 # must live at <RoboTwin>/script/ for _camera_config.yml to be found.
 eval_client_src="${inference_workdir}experiment/robotwin/eval_policy_client_lingbotvla.py"
 eval_client_dst="${eval_workdir}/script/eval_policy_client_lingbotvla.py"
-if [ ! -f "$eval_client_dst" ]; then
-    if [ ! -f "$eval_client_src" ]; then
-        echo -e "\033[31mError: eval client source not found: ${eval_client_src}\033[0m"
-        exit 1
-    fi
-    echo -e "\033[36mCopying eval client -> ${eval_client_dst}\033[0m"
-    cp "$eval_client_src" "$eval_client_dst"
+if [ ! -f "$eval_client_src" ]; then
+    echo -e "\033[31mError: eval client source not found: ${eval_client_src}\033[0m"
+    exit 1
+fi
+# Sync when missing OR stale. The destination lives in the shared RoboTwin
+# checkout and is what the sim side actually imports, so a stale copy silently
+# keeps running old code after the source is edited. Write to a temp file and
+# rename -- atomic within the same directory, so a launcher starting
+# concurrently never reads a half-written file.
+if [ ! -f "$eval_client_dst" ] || ! cmp -s "$eval_client_src" "$eval_client_dst"; then
+    echo -e "\033[36mSyncing eval client -> ${eval_client_dst}\033[0m"
+    cp "$eval_client_src" "${eval_client_dst}.tmp.$$" \
+        && mv -f "${eval_client_dst}.tmp.$$" "$eval_client_dst"
 fi
 
 # ===== Ensure the deploy client helpers are present under RoboTwin/script/deploy =====
 # The eval client does `from script.deploy.websocket_client_policy import WebsocketClientPolicy`,
-# which pulls in a sibling msgpack_numpy. Copy any that are missing from the inference repo.
+# which pulls in a sibling msgpack_numpy. Copy any that are missing or stale.
 deploy_pkg_src="${inference_workdir}deploy"
 deploy_pkg_dst="${eval_workdir}/script/deploy"
 mkdir -p "$deploy_pkg_dst"
 for f in __init__.py websocket_client_policy.py msgpack_numpy.py; do
-    if [ ! -f "$deploy_pkg_dst/$f" ]; then
-        if [ ! -f "$deploy_pkg_src/$f" ]; then
-            echo -e "\033[31mError: deploy helper source not found: ${deploy_pkg_src}/${f}\033[0m"
-            exit 1
-        fi
-        echo -e "\033[36mCopying deploy helper -> ${deploy_pkg_dst}/${f}\033[0m"
-        cp "$deploy_pkg_src/$f" "$deploy_pkg_dst/$f"
+    if [ ! -f "$deploy_pkg_src/$f" ]; then
+        echo -e "\033[31mError: deploy helper source not found: ${deploy_pkg_src}/${f}\033[0m"
+        exit 1
+    fi
+    if [ ! -f "$deploy_pkg_dst/$f" ] || ! cmp -s "$deploy_pkg_src/$f" "$deploy_pkg_dst/$f"; then
+        echo -e "\033[36mSyncing deploy helper -> ${deploy_pkg_dst}/${f}\033[0m"
+        cp "$deploy_pkg_src/$f" "${deploy_pkg_dst}/${f}.tmp.$$" \
+            && mv -f "${deploy_pkg_dst}/${f}.tmp.$$" "$deploy_pkg_dst/$f"
     fi
 done
 
@@ -473,6 +485,13 @@ launch_task() {
         echo "================================================================"
     } >> "$log_file"
 
+    # Optional: override episodes per task per condition. Empty = leave the eval
+    # client's own default (official value: 100) untouched.
+    local test_num_arg=""
+    if [ -n "$test_num" ]; then
+        test_num_arg="--test_num ${test_num}"
+    fi
+
     # Prepend the RoboTwin env's site-packages to PYTHONPATH (set inside the
     # bash -c after `conda activate`) so the env's numpy 1.26.4 -- which mplib /
     # sapien / open3d were compiled against -- is used instead of ~/.local's
@@ -493,7 +512,7 @@ launch_task() {
         --robo_name ${robo_name} \
         --video_fps ${video_fps} \
         --eval_video_log ${enable_video} \
-        --output_dir '${run_dir}/eval_results'" >> "$log_file" 2>&1 &
+        --output_dir '${run_dir}/eval_results' ${test_num_arg}" >> "$log_file" 2>&1 &
 
     local pid=$!
     echo "${pid}" >> "$eval_pid_file"

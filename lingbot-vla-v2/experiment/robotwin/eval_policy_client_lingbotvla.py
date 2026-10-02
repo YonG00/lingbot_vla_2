@@ -167,7 +167,10 @@ def main(usr_args):
 
     st_seed = 100000 * (1 + seed)
     suc_nums = []
-    test_num = 2
+    # 每个任务每个 condition 评测多少个回合。
+    # 官方默认 100; 可通过 launcher 的 --test_num 覆盖 (经 --overrides 透传,
+    # 见 parse_args_and_config -> config.update)。不传时行为与官方一致。
+    test_num = int(usr_args.get("test_num", 100))
     topk = 1
 
     # model = get_model(usr_args)

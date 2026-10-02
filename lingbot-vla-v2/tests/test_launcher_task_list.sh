@@ -7,6 +7,22 @@
 #   启动任何推理 server 之前」干净退出 (Phase 1 的 cd 校验), 因此本测试
 #   只覆盖参数解析 / 任务清单读取 / 护栏, 不会真的起进程。
 #
+# 覆盖:
+#   T1  bash -n 语法
+#   T2  从文件读任务清单 (跳过 # 注释与空行)
+#   T3  非法任务名 -> 非 0 退出
+#   T4  重复任务名 -> 非 0 退出
+#   T5  清单文件不存在 -> 非 0 退出
+#   T6  清单为空 -> 非 0 退出
+#   T7  向后兼容 (不传 --task_list_file)
+#   T8  num_tasks 超上限 -> 非 0 退出
+#   T9  phase{1..4}_eval.txt 行数 4/8/12/16
+#   T10 真实 phase1_eval.txt 被加载
+#   T11 --test_num 解析 + 向后兼容
+#   T12 --test_num 接线完整 (静态)
+#   T13 副本陈旧检测存在 (静态)
+#   T14 共享副本与源码一致 (只读)
+#
 # 用法 (在远端 /data/code/lingbot-vla-v2 下):
 #   bash tests/test_launcher_task_list.sh
 # ============================================================================
@@ -108,6 +124,52 @@ done
 rc=$(run_launcher "$TMPD/t10.log" --task_list_file /data/train/phases/phase1_eval.txt --num_gpus 4)
 expect_contains "$TMPD/t10.log" "Tasks this run (4): lift_pot click_alarmclock turn_switch place_shoe" \
     "T10 真实 phase1_eval.txt 被正确加载"
+
+# ---------------------------------------------------------------- T11 --test_num 被解析
+rc=$(run_launcher "$TMPD/t11.log" --task_list_file "$TMPD/good.txt" --test_num 4 --num_gpus 4)
+if grep -q "Unknown argument" "$TMPD/t11.log"; then
+    bad "T11 --test_num 未被识别为合法参数"
+else
+    ok "T11 --test_num 被正确解析"
+fi
+# 不传 --test_num 也要能跑 (向后兼容)
+rc=$(run_launcher "$TMPD/t11b.log" --task_list_file "$TMPD/good.txt" --num_gpus 4)
+if grep -q "Unknown argument" "$TMPD/t11b.log"; then
+    bad "T11b 不传 --test_num 时报错"
+else
+    ok "T11b 不传 --test_num 正常 (向后兼容)"
+fi
+
+# ---------------------------------------------------------------- T12 --test_num 已接入 eval client 调用
+# 静态断言: 解析 -> 拼参数 -> 拼进 eval client 命令行, 三处都要在。
+if grep -qF 'test_num_arg="--test_num ${test_num}"' "$LAUNCHER" \
+   && grep -qF '${test_num_arg}" >> "$log_file"' "$LAUNCHER" \
+   && grep -qF -- '--test_num)          test_num="$2"' "$LAUNCHER"; then
+    ok "T12 --test_num 已完整接入 (解析 -> 拼参数 -> 传入 eval client)"
+else
+    bad "T12 --test_num 接线不完整"
+fi
+
+# ---------------------------------------------------------------- T13 副本陈旧会被同步 (静态)
+if grep -qF 'cmp -s "$eval_client_src" "$eval_client_dst"' "$LAUNCHER" \
+   && grep -qF 'cmp -s "$deploy_pkg_src/$f" "$deploy_pkg_dst/$f"' "$LAUNCHER"; then
+    ok "T13 eval client / deploy 辅助模块 有陈旧检测与同步"
+else
+    bad "T13 缺少副本陈旧检测"
+fi
+
+# ---------------------------------------------------------------- T14 当前共享副本与源码一致 (只读)
+SRC_CLIENT="${REPO}/experiment/robotwin/eval_policy_client_lingbotvla.py"
+DST_CLIENT="${EVAL_WORKDIR}/script/eval_policy_client_lingbotvla.py"
+if [ -f "$DST_CLIENT" ]; then
+    if cmp -s "$SRC_CLIENT" "$DST_CLIENT"; then
+        ok "T14 RoboTwin/script 里的 eval client 副本与源码一致"
+    else
+        bad "T14 eval client 副本与源码不一致 (下次跑 launcher 会被自动同步)"
+    fi
+else
+    ok "T14 RoboTwin/script 里暂无副本 (launcher 首次运行会创建)"
+fi
 
 echo
 echo "=================================================================="

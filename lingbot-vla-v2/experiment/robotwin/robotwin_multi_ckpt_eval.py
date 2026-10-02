@@ -404,6 +404,7 @@ def plan_schedule(
     use_fp32: bool = True,
     use_compile: bool = False,
     enable_video: bool = False,
+    episodes: int | None = None,
     extra_args: list[str] | None = None,
 ) -> list[CkptPlan]:
     """把 checkpoint 列表展开成确定性的调度计划。
@@ -457,6 +458,10 @@ def plan_schedule(
             ]
             if not enable_video:
                 cmd.append("--no_video")
+            if episodes:
+                # 透传给 eval client 的 test_num。不传 = 保留 client 自己的默认值
+                # (官方 100), 这样不显式指定时行为与官方完全一致。
+                cmd += ["--test_num", str(episodes)]
             if eval_workdir:
                 cmd += ["--eval_workdir", str(eval_workdir)]
             if conda_sh:
@@ -701,7 +706,8 @@ def preflight(eval_workdir: Path, inference_workdir: Path) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def render_plan(plans: list[CkptPlan], *, task_list_file: Path, tasks: list[str],
-                max_parallel: int, conditions: list[str]) -> str:
+                max_parallel: int, conditions: list[str],
+                episodes: int | None = None) -> str:
     """把计划渲染成人类可读文本。"""
     lines = [
         "=" * 78,
@@ -711,8 +717,12 @@ def render_plan(plans: list[CkptPlan], *, task_list_file: Path, tasks: list[str]
         f"  并发上限      : {max_parallel}",
         f"  批次形状      : {make_batches(len(plans), max_parallel)}",
         f"  condition     : {' -> '.join(conditions)} (每个 ckpt 内部串行)",
+        f"  回合数/任务   : {episodes if episodes else '(不覆盖, 用官方默认 100)'}"
+        f"  × {len(conditions)} 个 condition",
         f"  任务清单      : {task_list_file}  ({len(tasks)} 个任务)",
         f"  任务          : {' '.join(tasks)}",
+        f"  总 rollout 数 : {len(plans)} ckpt × {len(tasks)} 任务 × "
+        f"{(episodes or 100)} 回合 × {len(conditions)} condition",
         "=" * 78,
     ]
     for plan in plans:
@@ -805,6 +815,10 @@ def build_parser() -> argparse.ArgumentParser:
                      help=f"阶段清单目录 (默认 {DEFAULT_EVAL_LIST_DIR})")
     src.add_argument("--conditions", default="clean,randomized",
                      help="评测条件, 逗号分隔 (默认 clean,randomized; 同一 ckpt 内串行)")
+    src.add_argument("--episodes", type=int, default=4,
+                     help="每个任务每个 condition 的评测回合数 (默认 4)。"
+                          "透传为 eval client 的 test_num; 传 0 表示不覆盖 "
+                          "(用 client 自带的官方默认 100)")
 
     sched = ap.add_argument_group("调度")
     sched.add_argument("--max-parallel-checkpoints", type=int, default=2,
@@ -967,6 +981,7 @@ def main(argv: list[str] | None = None) -> int:
         use_fp32=(args.precision == "fp32"),
         use_compile=args.use_compile,
         enable_video=args.video,
+        episodes=args.episodes or None,
     )
 
     problems = validate_plan(plans, max_parallel=args.max_parallel_checkpoints)
@@ -980,7 +995,8 @@ def main(argv: list[str] | None = None) -> int:
 
     print(render_plan(plans, task_list_file=task_list_file, tasks=tasks,
                       max_parallel=args.max_parallel_checkpoints,
-                      conditions=conditions))
+                      conditions=conditions,
+                      episodes=args.episodes or None))
 
     # ---- 4. 预检 ----
     if not args.dry_run and not args.no_preflight:
