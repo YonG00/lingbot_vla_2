@@ -54,6 +54,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -71,6 +72,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_LAUNCHER = REPO_ROOT / "experiment" / "robotwin" / "start_robotwin_infer_and_eval.sh"
 DEFAULT_EVAL_LIST_DIR = Path("/data/train/phases")
+# 课程 yaml —— 只用来给报告标注 Level, 缺失不影响评测
+DEFAULT_CURRICULUM_YAML = REPO_ROOT / "configs" / "curriculum" / "robotwin_curriculum_v1.yaml"
 
 # condition -> RoboTwin task_config 名
 CONDITIONS = {"clean": "demo_clean", "randomized": "demo_randomized"}
@@ -360,6 +363,7 @@ class Job:
     overall_rate: float | None = None
     success: int | None = None
     episodes: int | None = None
+    per_task: list[dict] = field(default_factory=list)   # stats.txt 的逐任务表
 
 
 @dataclass
@@ -551,14 +555,51 @@ def validate_plan(plans: list[CkptPlan], *, max_parallel: int) -> list[str]:
 # 执行
 # ---------------------------------------------------------------------------
 
+def _parse_task_row(line: str) -> dict | None:
+    """解析 stats.txt 里的一行逐任务表。
+
+    格式见 launcher L677/L722 (`%-30s %-10s %-12s %-10s %-10s`)::
+
+        lift_pot                       230        NO(3/100)    3/3        100.0%
+
+    返回 ``None`` 表示这行**不是**任务行 (表头 / 分隔线 / Summary / 横幅),
+    这样就不必依赖行号或前后文, 表结构微调也不会误抓。
+    """
+    parts = line.split()
+    if len(parts) != 5:
+        return None
+    task, duration, done_mark, frac, rate = parts
+    if not duration.isdigit():
+        return None
+    if not re.fullmatch(r"\d+/\d+|-", frac):
+        return None
+    if not (rate == "-" or re.fullmatch(r"[\d.]+%", rate)):
+        return None
+    row: dict = {
+        "task": task,
+        "duration_s": int(duration),
+        "done_mark": done_mark,
+        "success": None,
+        "episodes": None,
+        "rate": None,
+    }
+    if frac != "-":
+        row["success"], row["episodes"] = (int(x) for x in frac.split("/"))
+    if rate != "-":
+        row["rate"] = float(rate.rstrip("%"))
+    return row
+
+
 def _stats_from_run_dir(run_dir: Path) -> dict:
-    """解析 launcher 生成的 stats.txt。"""
+    """解析 launcher 生成的 stats.txt (汇总行 + 逐任务表)。"""
     stats_file = run_dir / "stats.txt"
     result: dict = {"stats_file": str(stats_file)}
     if not stats_file.is_file():
         return result
     text = stats_file.read_text(encoding="utf-8", errors="replace")
-    for line in text.splitlines():
+    per_task: list[dict] = []
+    for raw in text.splitlines():
+        line = raw.strip()
         if line.startswith("Summary:"):
             # Summary: total 261s, success 3/6, overall rate 50.0%
             try:
@@ -571,7 +612,18 @@ def _stats_from_run_dir(run_dir: Path) -> dict:
                 result["overall_rate"] = float(rate)
             except Exception:                       # noqa: BLE001
                 pass
-            break
+        elif line.startswith("Model path:"):
+            result["model_path_in_stats"] = line.split(":", 1)[1].strip()
+        elif line.startswith("Task Config:"):
+            result["task_config_in_stats"] = line.split(":", 1)[1].strip()
+        elif line.startswith("Time:"):
+            result["run_time"] = line.split(":", 1)[1].strip()
+        else:
+            row = _parse_task_row(line)
+            if row is not None:
+                per_task.append(row)
+    if per_task:
+        result["per_task"] = per_task
     return result
 
 
@@ -729,6 +781,33 @@ def preflight(eval_workdir: Path, inference_workdir: Path) -> list[str]:
 # 报告
 # ---------------------------------------------------------------------------
 
+def load_task_levels(yaml_path: Path | str | None = None) -> dict[str, str]:
+    """从课程 yaml 读取 `task -> Level` 映射, **仅用于给报告标注 Level**。
+
+    读 `skill_levels.L1..L4[].tasks` (覆盖全部 50 个任务), 而不是
+    `evaluation.sentinel` (只有 16 个) —— 后者是为了跨 ckpt 固定对比而选出的
+    子集, 用作"任务属于哪一级"的字典会漏掉非 sentinel 任务。
+
+    任何失败 (文件缺失 / 无 PyYAML / 结构不符) 都返回空 dict: 标注缺失不影响
+    评测本身, 报告会退化成没有 Lv 列的样子。
+    """
+    path = Path(yaml_path) if yaml_path else DEFAULT_CURRICULUM_YAML
+    if not path.is_file():
+        return {}
+    try:
+        import yaml                                    # noqa: PLC0415
+        cfg = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:                                  # noqa: BLE001
+        return {}
+    mapping: dict[str, str] = {}
+    for level, info in (cfg.get("skill_levels") or {}).items():
+        for task in ((info or {}).get("tasks") or []):
+            # 重复出现时保留第一个: 这里只做展示, 不像 tools/robotwin_curriculum.py
+            # 那样直接报错 (那个是训练数据配比的正规入口, 校验更严是对的)。
+            mapping.setdefault(str(task), str(level))
+    return mapping
+
+
 def render_plan(plans: list[CkptPlan], *, task_list_file: Path, tasks: list[str],
                 max_parallel: int, conditions: list[str],
                 episodes: int | None = None) -> str:
@@ -765,9 +844,107 @@ def render_plan(plans: list[CkptPlan], *, task_list_file: Path, tasks: list[str]
     return "\n".join(lines)
 
 
+def _level_rollup(job: Job, task_levels: dict[str, str]) -> str:
+    """把一个作业的逐任务结果按 Level 汇总成一行。
+
+    例: `L1 91.7% (11/12)   L2 83.3% (10/12)`
+
+    没有 task->Level 映射时返回空串 —— 否则所有任务都会落到 `?` 桶里,
+    打出一行毫无信息量的 `? 88.9%`, 反而误导读者。
+    """
+    if not task_levels:
+        return ""
+    buckets: dict[str, list[int]] = {}
+    for row in job.per_task:
+        if row.get("success") is None or not row.get("episodes"):
+            continue
+        level = task_levels.get(row["task"], "?")
+        agg = buckets.setdefault(level, [0, 0])
+        agg[0] += row["success"]
+        agg[1] += row["episodes"]
+    if not buckets:
+        return ""
+    ordered = sorted(buckets, key=lambda lv: (lv == "?", lv))
+    parts = []
+    for level in ordered:
+        suc, tot = buckets[level]
+        parts.append(f"{level} {suc / tot * 100:.1f}% ({suc}/{tot})")
+    return "   ".join(parts)
+
+
+def _cell(row: dict | None) -> str:
+    """把一个逐任务行渲染成 `91.7%(11/12)`; 无数据给 `-`。"""
+    if not row or row.get("success") is None or not row.get("episodes"):
+        return "-"
+    return f"{row['success'] / row['episodes'] * 100:.0f}%({row['success']}/{row['episodes']})"
+
+
+def render_per_task_table(plans: list[CkptPlan], *,
+                          task_levels: dict[str, str],
+                          curriculum_yaml: Path | str | None = None) -> list[str]:
+    """逐任务 × (checkpoint, condition) 交叉表。
+
+    行 = 任务 (按 Level 分组, 顺序沿用任务清单 = sentinel 的 L1→L4),
+    列 = 每个作业; 因为 checkpoint tag 太长, 列头用 `c0/c1...` 短标签 + 图例。
+    """
+    cols = [(p, j) for p in plans for j in p.jobs if j.per_task]
+    if not cols:
+        return []
+
+    tasks: list[str] = []
+    seen: set[str] = set()
+    for _, job in cols:
+        for row in job.per_task:
+            if row["task"] not in seen:
+                seen.add(row["task"])
+                tasks.append(row["task"])
+
+    labels = [f"c{i}" for i in range(len(cols))]
+    headers = [f"{labels[i]}/{job.condition[:3]}" for i, (_, job) in enumerate(cols)]
+
+    # 每个作业建 task -> row 索引
+    indexes = [{r["task"]: r for r in job.per_task} for _, job in cols]
+
+    task_w = max([len("task") + 5] + [len(t) + 5 for t in tasks])
+    col_w = max([11] + [len(h) + 2 for h in headers])
+    total_w = task_w + 2 + col_w * len(cols)
+
+    lines = ["", "-" * 78, "  逐任务成功率 (行 = 任务[Level], 列 = checkpoint/condition)",
+             "-" * 78]
+    for label, (plan, job) in zip(labels, cols):
+        lines.append(f"  {label} = {plan.tag}   [{job.condition}]")
+    if task_levels:
+        lines.append(f"  (Level 取自 {curriculum_yaml or DEFAULT_CURRICULUM_YAML})")
+    lines.append("-" * max(78, total_w))
+    lines.append(f"  {'task[Lv]':<{task_w}} " + " ".join(f"{h:>{col_w}}" for h in headers))
+    lines.append("  " + "-" * (total_w - 2))
+
+    prev_level = None
+    for task in tasks:
+        level = task_levels.get(task, "?")
+        if task_levels and level != prev_level:
+            lines.append(f"  {level}")
+            prev_level = level
+        name = f"{task}[{level}]" if task_levels else task
+        cells = " ".join(
+            f"{_cell(idx.get(task)):>{col_w}}" for idx in indexes
+        )
+        lines.append(f"  {name:<{task_w}} {cells}")
+
+    lines.append("  " + "-" * (total_w - 2))
+    overall = []
+    for _, job in cols:
+        overall.append(_cell({"success": job.success, "episodes": job.episodes}))
+    lines.append(f"  {'合计':<{task_w}} " + " ".join(f"{c:>{col_w}}" for c in overall))
+    lines.append("  格式: 成功率(成功/总回合)。合计行是该 condition 的总体成功率。")
+    return lines
+
+
 def render_summary(plans: list[CkptPlan], *, skipped: dict[str, list[Checkpoint]],
-                   dry_run: bool) -> str:
+                   dry_run: bool, task_levels: dict[str, str] | None = None,
+                   curriculum_yaml: Path | str | None = None) -> str:
     """渲染最终结果汇总。"""
+    task_levels = task_levels or {}
     lines = [
         "=" * 78,
         "  多 checkpoint 评测结果" + ("  (dry-run, 未实际执行)" if dry_run else ""),
@@ -792,6 +969,9 @@ def render_summary(plans: list[CkptPlan], *, skipped: dict[str, list[Checkpoint]
                 lines.append(f"        错误   : {job.error}")
             if job.run_dir:
                 lines.append(f"        run_dir : {job.run_dir}")
+            rollup = _level_rollup(job, task_levels)
+            if rollup:
+                lines.append(f"        按 Level: {rollup}")
 
     if not dry_run:
         lines += ["", "-" * 78, "  Clean vs Randomized 对比", "-" * 78]
@@ -802,6 +982,9 @@ def render_summary(plans: list[CkptPlan], *, skipped: dict[str, list[Checkpoint]
             lines.append(f"    {plan.tag:<40} "
                          f"{_fmt(rates.get('clean')):>9} "
                          f"{_fmt(rates.get('randomized')):>12}")
+
+        lines += render_per_task_table(plans, task_levels=task_levels,
+                                       curriculum_yaml=curriculum_yaml)
 
     for bucket in ("incomplete", "unchanged"):
         items = skipped.get(bucket) or []
@@ -866,6 +1049,9 @@ def build_parser() -> argparse.ArgumentParser:
                           "仅当「训练可能仍在写盘时轮询扫描」才需要设正数 (如 120)")
     sel.add_argument("--state-file", default=None,
                      help="增量状态文件 (默认 <output-base>/eval_state.json)")
+    sel.add_argument("--curriculum-yaml", default=str(DEFAULT_CURRICULUM_YAML),
+                     help="课程 yaml, 只用来给 summary 标注任务的 Level "
+                          f"(默认 {DEFAULT_CURRICULUM_YAML}); 文件缺失则报告里没有 Lv 列")
 
     env = ap.add_argument_group("环境")
     env.add_argument("--launcher", default=str(DEFAULT_LAUNCHER))
@@ -1045,7 +1231,13 @@ def main(argv: list[str] | None = None) -> int:
     elapsed = time.time() - started
 
     # ---- 6. 报告 ----
-    report = render_summary(plans, skipped=buckets, dry_run=args.dry_run)
+    task_levels = load_task_levels(args.curriculum_yaml)
+    if not task_levels:
+        print(f"  提示: 未能从 {args.curriculum_yaml} 读到 task->Level 映射, "
+              f"summary 里不会有 Lv 列。")
+    report = render_summary(plans, skipped=buckets, dry_run=args.dry_run,
+                            task_levels=task_levels,
+                            curriculum_yaml=args.curriculum_yaml)
     print(report)
 
     output_base.mkdir(parents=True, exist_ok=True)
@@ -1058,6 +1250,8 @@ def main(argv: list[str] | None = None) -> int:
         "tasks": tasks,
         "max_parallel_checkpoints": args.max_parallel_checkpoints,
         "conditions": conditions,
+        "curriculum_yaml": str(args.curriculum_yaml),
+        "task_levels": task_levels,
         "batches": make_batches(len(plans), args.max_parallel_checkpoints),
         "plans": [asdict(p) for p in plans],
         "skipped": {

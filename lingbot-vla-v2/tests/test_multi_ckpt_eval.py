@@ -19,6 +19,7 @@
   T10 episodes (test_num) 透传 + eval client 不再硬编码
   T11 静默期 (min_age_seconds) 默认关闭
   T12 失败的 checkpoint 不写进增量状态 (下次会重试)
+  T13 逐任务表解析 + Level 标注 (task->Level 映射 / 交叉表 / 按 Level 汇总 / 优雅退化)
 """
 
 from __future__ import annotations
@@ -708,6 +709,212 @@ def test_t12b_run_plan_records_thread_exception():
     # 第一个作业炸了就停, 不再跑第二个 condition
     assert out.jobs[1].error == "", "首个作业异常后不应继续跑剩余 condition"
     assert out.jobs[1].returncode is None
+
+
+# ---------------------------------------------------------------------------
+# T13 逐任务表解析 + Level 标注
+# ---------------------------------------------------------------------------
+
+# 一份**真实格式**的 stats.txt (照抄 launcher L664-738 的 printf 格式)。
+# 关键点: 横幅/表头/Summary 行都不许被误判成任务行。
+REAL_STATS = """\
+============================================
+  Eval Result Stats
+  Time: 2026-10-02 23:34:02
+  Model: lingbot-vla-v2-6b-robotwin_50k
+  Model path: /data/models/lingbot-vla-v2-6b-robotwin/x/global_step_50000/hf_ckpt
+  Tasks: 4
+  Task Config: demo_clean
+  Inference: 4 GPU x 1/GPU = 4 slots
+  Precision: use_bf16=False, use_fp32=True, use_compile=False
+  Result: 4 done, 0 skipped
+============================================
+
+Task                           Time(s)    Done(100)    Success/Total Rate
+--------------------------------------------------------------------------------
+lift_pot                       230        NO(3/100)    3/3        100.0%
+click_alarmclock               219        NO(3/100)    2/3        66.7%
+turn_switch                    250        NO(3/100)    3/3        100.0%
+place_shoe                     198        NO(3/100)    -          -
+--------------------------------------------------------------------------------
+Summary: total 897s, success 8/9, overall rate 88.9%
+Warning: some tasks did not complete 100 episodes; check logs
+============================================
+"""
+
+
+def _fake_plan(tag, step, cond, *, per_task, success, episodes, rate):
+    """造一个已完成 (或失败) 的 plan, 只填渲染需要的字段。"""
+    job = mce.Job(
+        ckpt_tag=tag, step=step, hf_ckpt=f"/models/{tag}/hf_ckpt",
+        condition=cond,
+        task_config=mce.CONDITIONS[cond],
+        slot_index=0, gpus=[0], start_port=9330, end_port=9333,
+        output_base="/tmp/out", log_file="/tmp/out/log",
+    )
+    job.returncode = 0
+    job.success, job.episodes, job.overall_rate = success, episodes, rate
+    job.per_task = per_task
+    return mce.CkptPlan(index=0, tag=tag, step=step,
+                        hf_ckpt=job.hf_ckpt, slot_index=0, jobs=[job])
+
+
+def test_t13_per_task_parsing():
+    with Sandbox() as tmp:
+        run = tmp / "expA_50k_demo_clean_20261002_233402"
+        run.mkdir(parents=True)
+        (run / "stats.txt").write_text(REAL_STATS, encoding="utf-8")
+        got = mce._stats_from_run_dir(run)
+
+        # 汇总行仍然正确
+        assert got["success"] == 8 and got["episodes"] == 9, got
+        assert got["overall_rate"] == 88.9, got
+        # 头部元信息
+        assert got["task_config_in_stats"] == "demo_clean", got
+        assert got["run_time"] == "2026-10-02 23:34:02", got
+        assert got["model_path_in_stats"].endswith("global_step_50000/hf_ckpt"), got
+
+        # 逐任务表: 恰好 4 行, 横幅/表头/Summary 一个都没混进来
+        rows = got["per_task"]
+        assert len(rows) == 4, rows
+        assert [r["task"] for r in rows] == [
+            "lift_pot", "click_alarmclock", "turn_switch", "place_shoe"], rows
+        assert rows[0] == {"task": "lift_pot", "duration_s": 230,
+                           "done_mark": "NO(3/100)", "success": 3,
+                           "episodes": 3, "rate": 100.0}, rows[0]
+        assert rows[1]["rate"] == 66.7 and rows[1]["success"] == 2, rows[1]
+        # 没跑出成功率的行 -> None, 不能当成 0%
+        assert rows[3]["success"] is None and rows[3]["rate"] is None, rows[3]
+
+        # 没有逐任务表时不要凭空造 per_task
+        bare = tmp / "bare"
+        bare.mkdir()
+        (bare / "stats.txt").write_text(
+            "Summary: total 1s, success 0/0, overall rate 0.0%\n", encoding="utf-8")
+        assert "per_task" not in mce._stats_from_run_dir(bare)
+
+        # 单行解析器的负样本: 表头 / 横幅 / 元信息行都不算任务行
+        for junk in (
+            "Task                           Time(s)    Done(100)    Success/Total Rate",
+            "--------------------------------------------------------------------------------",
+            "============================================",
+            "  Result: 4 done, 0 skipped",
+            "  Inference: 4 GPU x 1/GPU = 4 slots",
+            "  Precision: use_bf16=False, use_fp32=True, use_compile=False",
+            "Summary: total 897s, success 8/9, overall rate 88.9%",
+            "  Time: 2026-10-02 23:34:02",
+        ):
+            assert mce._parse_task_row(junk) is None, junk
+
+
+def test_t13b_level_mapping_and_render():
+    with Sandbox() as tmp:
+        # --- task -> Level 映射 ---
+        yml = tmp / "curriculum.yaml"
+        yml.write_text(
+            "skill_levels:\n"
+            "  L1:\n    tasks:\n      - lift_pot\n      - click_alarmclock\n"
+            "  L2:\n    tasks:\n      - turn_switch\n"
+            "  L3:\n    tasks: []\n"
+            "  L4:\n    tasks:\n      - place_shoe\n",
+            encoding="utf-8")
+        levels = mce.load_task_levels(yml)
+        assert levels == {"lift_pot": "L1", "click_alarmclock": "L1",
+                          "turn_switch": "L2", "place_shoe": "L4"}, levels
+
+        # 文件不存在 / 结构不符 -> 空 dict, 不抛异常 (评测不该被报告拖死)
+        assert mce.load_task_levels(tmp / "nope.yaml") == {}
+        bad = tmp / "bad.yaml"
+        bad.write_text("dataset:\n  name: x\n", encoding="utf-8")
+        assert mce.load_task_levels(bad) == {}
+
+        # --- 渲染 ---
+        rows = mce._stats_from_run_dir(
+            (lambda d: (d.mkdir(parents=True, exist_ok=True),
+                        (d / "stats.txt").write_text(REAL_STATS, encoding="utf-8"),
+                        d)[-1])(tmp / "run50k"))["per_task"]
+        plan = _fake_plan("robotwin@50k", 50000, "clean", per_task=rows,
+                          success=8, episodes=9, rate=88.9)
+        text = mce.render_summary([plan], skipped={}, dry_run=False,
+                                  task_levels=levels)
+
+        # 1) 逐任务表在, 且带 Level
+        assert "逐任务成功率" in text, text
+        assert "lift_pot[L1]" in text, text
+        assert "turn_switch[L2]" in text, text
+        # 2) 单元格 = 成功率(成功/总)
+        assert "100%(3/3)" in text, text
+        assert "67%(2/3)" in text, text
+        # 3) 没数据的任务是 "-", 不能渲染成 0%
+        assert "place_shoe[L4]" in text, text
+        # 4) 按 Level 的汇总行
+        assert "按 Level:" in text and "L1 83.3% (5/6)" in text, text
+        # 5) Level 分组标题 (L1 出现在任务行之前)
+        assert text.index("L1\n") < text.index("lift_pot[L1]"), text
+        # 6) 报告的 Level 来源要写**真实**路径, 不能硬编码 (--curriculum-yaml 可被覆盖)
+        tagged = mce.render_summary([plan], skipped={}, dry_run=False,
+                                    task_levels=levels, curriculum_yaml=yml)
+        assert str(yml) in tagged, tagged
+        assert "robotwin_curriculum_v1.yaml" not in tagged, tagged
+
+        # 没有 Level 映射时优雅退化: 没有 Lv 列, 但表还在
+        plain = mce.render_summary([plan], skipped={}, dry_run=False)
+        assert "逐任务成功率" in plain, plain
+        assert "[L1]" not in plain, plain
+        assert "按 Level:" not in plain, plain
+        assert "lift_pot" in plain, plain
+
+        # dry-run 不渲染逐任务表 (没有数据)
+        dry = mce.render_summary([plan], skipped={}, dry_run=True,
+                                 task_levels=levels)
+        assert "逐任务成功率" not in dry, dry
+
+
+def test_t13c_level_rollup_ignores_unknown_and_missing():
+    job = mce.Job(
+        ckpt_tag="t", step=1, hf_ckpt="/x", condition="clean",
+        task_config="demo_clean", slot_index=0, gpus=[0],
+        start_port=9330, end_port=9333, output_base="/tmp", log_file="/tmp/l",
+    )
+    job.per_task = [
+        {"task": "lift_pot", "success": 3, "episodes": 3, "rate": 100.0},
+        {"task": "unknown_task", "success": 1, "episodes": 3, "rate": 33.3},
+        {"task": "turn_switch", "success": None, "episodes": None, "rate": None},
+    ]
+    line = mce._level_rollup(job, {"lift_pot": "L1"})
+    # 只统计有分母的行; 未知任务归到 "?" 且排在最后
+    assert "L1 100.0% (3/3)" in line, line
+    assert "? 33.3% (1/3)" in line, line
+    assert line.index("L1") < line.index("?"), line
+    # 没有映射时整行留空 (不能把所有任务塞进 "?" 桶打出一行废话)
+    assert mce._level_rollup(job, {}) == ""
+    empty = mce.Job(ckpt_tag="t", step=1, hf_ckpt="/x", condition="clean",
+                    task_config="demo_clean", slot_index=0, gpus=[0],
+                    start_port=9330, end_port=9333, output_base="/tmp",
+                    log_file="/tmp/l")
+    assert mce._level_rollup(empty, {"lift_pot": "L1"}) == ""
+
+
+def test_t13d_curriculum_yaml_cli_default():
+    """--curriculum-yaml 必须存在且默认指向仓库里的课程 yaml。"""
+    ap = mce.build_parser()
+    args = ap.parse_args(["--ckpt-root", "/tmp", "--phase", "1"])
+    assert args.curriculum_yaml == str(mce.DEFAULT_CURRICULUM_YAML), args.curriculum_yaml
+    assert mce.DEFAULT_CURRICULUM_YAML.name == "robotwin_curriculum_v1.yaml"
+    # 仓库里真的有这个文件 (报告 Level 的来源)
+    assert mce.DEFAULT_CURRICULUM_YAML.is_file(), mce.DEFAULT_CURRICULUM_YAML
+    # 真 yaml 能读出 50 个任务 (只在有 pyyaml 时校验)
+    levels = mce.load_task_levels()
+    try:
+        import yaml                                      # noqa: F401
+        has_yaml = True
+    except Exception:                                    # noqa: BLE001
+        has_yaml = False
+    if has_yaml:
+        assert len(levels) == 50, len(levels)
+        assert levels["lift_pot"] == "L1", levels.get("lift_pot")
+        assert levels["place_shoe"] == "L1", levels.get("place_shoe")
+        assert set(levels.values()) == {"L1", "L2", "L3", "L4"}, set(levels.values())
 
 
 # ---------------------------------------------------------------------------
