@@ -510,6 +510,13 @@ class TrainingArguments:
         default=1,
         metadata={"help": "Maximum pending async HF checkpoint conversions on rank 0."},
     )
+    min_free_disk_gb: float = field(
+        default=0.0,
+        metadata={
+            "help": "磁盘守卫: 每次存档前检查剩余空间, 若不足以再存一个 checkpoint "
+                    "则跳过本次存档并终止训练。0 表示关闭 (默认, 行为与改动前一致)。"
+        },
+    )
     seed: int = field(
         default=42,
         metadata={"help": "Random seed."},
