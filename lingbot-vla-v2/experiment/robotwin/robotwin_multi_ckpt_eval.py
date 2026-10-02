@@ -837,8 +837,10 @@ def build_parser() -> argparse.ArgumentParser:
                      help="评测全部完整 checkpoint (默认只评测新增/更新的)")
     sel.add_argument("--only-steps", default=None,
                      help="只评测这些 step, 逗号分隔 (例如 10000,20000)")
-    sel.add_argument("--min-age-seconds", type=float, default=120.0,
-                     help="最新 mtime 距今不足该秒数视为仍在写入, 跳过 (默认 120)")
+    sel.add_argument("--min-age-seconds", type=float, default=0.0,
+                     help="最新 mtime 距今不足该秒数视为仍在写入, 跳过。"
+                          "默认 0 = 关闭该检查 (训练已退出后再评测的正确设置)。"
+                          "仅当「训练可能仍在写盘时轮询扫描」才需要设正数 (如 120)")
     sel.add_argument("--state-file", default=None,
                      help="增量状态文件 (默认 <output-base>/eval_state.json)")
 

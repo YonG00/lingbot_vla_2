@@ -17,10 +17,12 @@
   T8  stats.txt 解析
   T9  sentinel 清单: 行数 4/8/12/16 + 前缀累积 + 越级拦截
   T10 episodes (test_num) 透传 + eval client 不再硬编码
+  T11 静默期 (min_age_seconds) 默认关闭
 """
 
 from __future__ import annotations
 
+import inspect
 import json
 import os
 import shutil
@@ -571,6 +573,35 @@ def test_t10b_eval_client_test_num_overridable():
     assert "test_num = 2" not in src, "eval client 里仍残留 test_num = 2 硬编码"
     # 默认值必须是官方 100, 不能是 2
     assert 'usr_args.get("test_num", 100)' in src, "eval client 的 test_num 默认值不是官方 100"
+
+
+def test_t11_min_age_default_off():
+    """静默期 (min_age_seconds) 默认必须是 0 (关闭)。
+
+    背景: 本机训练占满 4 卡, 与评测**时间上互斥** ⇒ 评测只能在训练退出后启动,
+    此时确定没有写入者。若默认 120s, 刚训练完的最后一个 checkpoint 会被静默判为
+    "仍在写入"而跳过 —— 那恰恰是最关心的那个, 且失败是静默的。
+    ⇒ 默认关闭; 想启用 (轮询扫描场景) 时显式传正数。
+    """
+    ap = mce.build_parser()
+    assert ap.parse_args(["--ckpt-root", "/tmp"]).min_age_seconds == 0.0, \
+        "静默期默认值应为 0 (关闭)"
+    assert ap.parse_args(
+        ["--ckpt-root", "/tmp", "--min-age-seconds", "120"]
+    ).min_age_seconds == 120.0, "显式传正数应生效"
+
+    # 函数层默认也要一致, 否则 CLI 与实现会漂移
+    sig = inspect.signature(mce.check_hf_ckpt)
+    assert sig.parameters["min_age_seconds"].default == 0.0, \
+        "check_hf_ckpt 的 min_age_seconds 默认值应为 0"
+
+    # 语义确认: 0 = 不阻塞; 正数 = 拦截刚写过的目录
+    with Sandbox() as tmp:
+        d = make_ckpt(tmp, "expA", 1000)
+        ok, reasons, _, _, _ = mce.check_hf_ckpt(d, min_age_seconds=0)
+        assert ok and not reasons, f"min_age=0 不应阻塞: {reasons}"
+        ok, reasons, _, _, _ = mce.check_hf_ckpt(d, min_age_seconds=3600)
+        assert not ok and any("仍在写入" in r for r in reasons), reasons
 
 
 # ---------------------------------------------------------------------------
