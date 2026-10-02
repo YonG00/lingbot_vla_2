@@ -18,6 +18,7 @@
   T9  sentinel 清单: 行数 4/8/12/16 + 前缀累积 + 越级拦截
   T10 episodes (test_num) 透传 + eval client 不再硬编码
   T11 静默期 (min_age_seconds) 默认关闭
+  T12 失败的 checkpoint 不写进增量状态 (下次会重试)
 """
 
 from __future__ import annotations
@@ -602,6 +603,111 @@ def test_t11_min_age_default_off():
         assert ok and not reasons, f"min_age=0 不应阻塞: {reasons}"
         ok, reasons, _, _, _ = mce.check_hf_ckpt(d, min_age_seconds=3600)
         assert not ok and any("仍在写入" in r for r in reasons), reasons
+
+
+def _fake_job(rc):
+    return mce.Job(ckpt_tag="t", step=1, hf_ckpt="/x", condition="clean",
+                   task_config="demo_clean", slot_index=0, gpus=[0],
+                   start_port=9330, end_port=9333, output_base="/o",
+                   log_file="/l", returncode=rc)
+
+
+def test_t12_failed_ckpt_not_registered():
+    """失败的 checkpoint 不得写进增量状态, 否则下次会被永久跳过。
+
+    覆盖两层:
+      1. ``job_failed``: ``returncode is None`` (线程内异常 / 未跑完) 也算失败;
+      2. ``main``: 失败的 ckpt 不被 save_state 登记 → 下次仍判为「新增」并重试。
+    """
+    # ---- 1. job_failed 语义 ----
+    assert mce.job_failed(_fake_job(1)) is True
+    assert mce.job_failed(_fake_job(137)) is True
+    assert mce.job_failed(_fake_job(None)) is True, "未跑完 (None) 必须算失败"
+    assert mce.job_failed(_fake_job(0)) is False
+
+    # ---- 2. main: 失败的不登记, 成功的不受影响 ----
+    with Sandbox() as tmp:
+        make_ckpt(tmp, "expA", 1000, n_shards=1)
+        make_ckpt(tmp, "expA", 2000, n_shards=1)
+        tasks = tmp / "tasks.txt"
+        tasks.write_text("lift_pot\n", encoding="utf-8")
+        out = tmp / "out"
+        state = out / "eval_state.json"
+
+        seen: list[list[str]] = []
+        orig_sched = mce.run_scheduler
+
+        def _run(plans, **kw):
+            """不真起 launcher: 记录选中了谁, 再按预设结果填 returncode。"""
+            seen.append([p.tag for p in plans])
+            for p in plans:
+                for j in p.jobs:
+                    j.returncode = 1 if p.step == 1000 else 0
+            return plans
+
+        argv = ["--ckpt-root", str(tmp),
+                "--task-list-file", str(tasks),
+                "--output-base", str(out),
+                "--no-preflight", "--all",
+                "--max-parallel-checkpoints", "1"]
+
+        mce.run_scheduler = _run
+        try:
+            rc = mce.main(argv)
+            assert rc == 3, f"有失败作业时应返回 3, 实际 {rc}"
+
+            saved = mce.load_state(state)
+            assert "expA_step2000" in saved, "成功的 ckpt 应被登记"
+            assert "expA_step1000" not in saved, \
+                "失败的 ckpt 不得被登记 (否则下次永久跳过)"
+
+            # 第二次: 去掉 --all 走增量, 让 step1000 这次成功
+            def _run_ok(plans, **kw):
+                seen.append([p.tag for p in plans])
+                for p in plans:
+                    for j in p.jobs:
+                        j.returncode = 0
+                return plans
+
+            mce.run_scheduler = _run_ok
+            rc2 = mce.main([a for a in argv if a != "--all"])
+            assert rc2 == 0, f"全部成功时应返回 0, 实际 {rc2}"
+        finally:
+            mce.run_scheduler = orig_sched
+
+        assert seen[0] == ["expA_step1000", "expA_step2000"], seen[0]
+        # 关键断言: 上次失败的必须被重新选中, 上次成功的必须跳过
+        assert seen[1] == ["expA_step1000"], \
+            f"失败的 ckpt 应被重试且只重试它, 实际 {seen[1]}"
+
+        # 修好后 step1000 也应被登记
+        saved2 = mce.load_state(state)
+        assert "expA_step1000" in saved2 and "expA_step2000" in saved2, saved2
+
+
+def test_t12b_run_plan_records_thread_exception():
+    """作业线程内抛异常时, 原因必须落到 job.error (否则 rc=None 会被当成成功)。"""
+    plan = mce.CkptPlan(index=0, tag="expA_step1000", step=1000,
+                        hf_ckpt="/x", slot_index=0)
+    plan.jobs = [_fake_job(None), _fake_job(None)]
+
+    orig = mce.run_job
+
+    def _boom(job, **kw):
+        raise RuntimeError("模拟 launcher 启动失败")
+
+    mce.run_job = _boom
+    try:
+        out = mce.run_plan(plan, dry_run=False)
+    finally:
+        mce.run_job = orig
+
+    assert out.jobs[0].error.startswith("RuntimeError:"), out.jobs[0].error
+    assert out.jobs[0].returncode is None
+    assert mce.job_failed(out.jobs[0]) is True, "异常的作业必须算失败"
+    # 第一个作业炸了就停, 不再跑第二个 condition
+    assert out.jobs[1].error == "", "首个作业异常后不应继续跑剩余 condition"
+    assert out.jobs[1].returncode is None
 
 
 # ---------------------------------------------------------------------------

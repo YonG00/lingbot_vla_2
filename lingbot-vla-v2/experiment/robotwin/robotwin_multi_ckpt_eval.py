@@ -353,6 +353,7 @@ class Job:
 
     # 运行后填充
     returncode: int | None = None
+    error: str = ""                # 线程内异常 (此时 returncode 保持 None)
     duration_s: float | None = None
     run_dir: str | None = None
     stats_file: str | None = None
@@ -574,6 +575,16 @@ def _stats_from_run_dir(run_dir: Path) -> dict:
     return result
 
 
+def job_failed(job: Job) -> bool:
+    """作业是否失败。
+
+    ``returncode`` 为 ``None`` 表示作业**根本没跑完** (线程内抛异常 / 从未启动),
+    同样算失败 —— 否则一次崩溃会被误报成成功, 而且会被写进 state 永不重试。
+    只在真跑 (``dry_run=False``) 之后调用才有意义。
+    """
+    return job.returncode != 0
+
+
 def run_job(job: Job, *, dry_run: bool = False) -> Job:
     """执行一个作业 (一个 launcher 调用)。"""
     if dry_run:
@@ -604,9 +615,19 @@ def run_job(job: Job, *, dry_run: bool = False) -> Job:
 
 
 def run_plan(plan: CkptPlan, *, dry_run: bool = False, on_done=None) -> CkptPlan:
-    """串行执行一个 checkpoint 的所有 condition。"""
+    """串行执行一个 checkpoint 的所有 condition。
+
+    作业线程内抛出的异常在这里**捕获并记到 ``job.error``**: 线程里的异常本来会被
+    Python 静默吞掉 (``thread.join()`` 不重抛), 导致 ``returncode`` 停在 ``None``
+    而被误判为成功。捕获后本 plan 剩余 condition 不再执行 (与原先"异常直接终止该
+    plan"的语义一致), 但失败原因会出现在报告里。
+    """
     for job in plan.jobs:
-        run_job(job, dry_run=dry_run)
+        try:
+            run_job(job, dry_run=dry_run)
+        except Exception as exc:                        # noqa: BLE001
+            job.error = f"{type(exc).__name__}: {exc}"
+            break
     if on_done:
         on_done(plan)
     return plan
@@ -759,7 +780,7 @@ def render_summary(plans: list[CkptPlan], *, skipped: dict[str, list[Checkpoint]
             if dry_run:
                 lines.append(f"    {job.condition:<11} [计划] port {job.start_port}~{job.end_port}")
                 continue
-            rc = job.returncode
+            rc = "未跑完" if job.returncode is None else str(job.returncode)
             rate = f"{job.overall_rate:.1f}%" if job.overall_rate is not None else "-"
             frac = (f"{job.success}/{job.episodes}"
                     if job.success is not None else "-")
@@ -767,6 +788,8 @@ def render_summary(plans: list[CkptPlan], *, skipped: dict[str, list[Checkpoint]
             lines.append(
                 f"    {job.condition:<11} rc={rc}  成功率 {rate} ({frac})  耗时 {dur}"
             )
+            if job.error:
+                lines.append(f"        错误   : {job.error}")
             if job.run_dir:
                 lines.append(f"        run_dir : {job.run_dir}")
 
@@ -1048,14 +1071,23 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  summary.txt : {output_base / 'summary.txt'}")
     print(f"  summary.json: {output_base / 'summary.json'}")
 
-    if not args.dry_run:
-        save_state(state_file, checkpoints)
-        print(f"  state       : {state_file}")
+    # ---- 7. 判定失败 + 登记增量状态 ----
+    # 顺序很重要: **先算失败, 再登记状态**。失败的 checkpoint 不能写进 state,
+    # 否则下次 classify 会判它「历史不变」而永久跳过, 直到手删 eval_state.json ——
+    # 一次偶发失败 (端口冲突 / OOM / 仿真崩) 就能让某个 ckpt 永远评不到。
+    failed = [] if args.dry_run else [
+        j for p in plans for j in p.jobs if job_failed(j)
+    ]
 
-    failed = [j for p in plans for j in p.jobs
-              if not args.dry_run and j.returncode not in (0, None)]
+    if not args.dry_run:
+        failed_tags = {j.ckpt_tag for j in failed}
+        save_state(state_file, [c for c in checkpoints if c.tag not in failed_tags])
+        print(f"  state       : {state_file}")
+        if failed_tags:
+            print(f"  未登记 (留待下次重试): {', '.join(sorted(failed_tags))}")
+
     if failed:
-        print(f"  有 {len(failed)} 个作业返回非 0, 详见各自的 log。")
+        print(f"  有 {len(failed)} 个作业未成功 (返回非 0 或未跑完), 详见各自的 log。")
         return 3
     return 0
 
