@@ -849,8 +849,9 @@ def test_t13b_level_mapping_and_render():
         assert "place_shoe[L4]" in text, text
         # 4) 按 Level 的汇总行
         assert "按 Level:" in text and "L1 83.3% (5/6)" in text, text
-        # 5) Level 分组标题 (L1 出现在任务行之前)
-        assert text.index("L1\n") < text.index("lift_pot[L1]"), text
+        # 5) Level 分组标题 (整行宽的横线夹 L1), 且在任务行之前
+        assert "--- L1 ---" in text, text
+        assert text.index("--- L1 ---") < text.index("lift_pot[L1]"), text
         # 6) 报告的 Level 来源要写**真实**路径, 不能硬编码 (--curriculum-yaml 可被覆盖)
         tagged = mce.render_summary([plan], skipped={}, dry_run=False,
                                     task_levels=levels, curriculum_yaml=yml)
@@ -915,6 +916,78 @@ def test_t13d_curriculum_yaml_cli_default():
         assert levels["lift_pot"] == "L1", levels.get("lift_pot")
         assert levels["place_shoe"] == "L1", levels.get("place_shoe")
         assert set(levels.values()) == {"L1", "L2", "L3", "L4"}, set(levels.values())
+
+
+def test_t13e_table_alignment():
+    """表格必须**真的**对齐 —— 表头/数据/合计行的显示宽度要一致。
+
+    这是回归测试: 初版用 len() 算宽度, 导致
+      (a) `合计` 被当 2 列 (实际 4 列) → 整行右移
+      (b) 分隔线比表头行短 → 视觉错位
+    """
+    # CJK 按 2 列算
+    assert mce._dw("合计") == 4, mce._dw("合计")
+    assert mce._dw("task") == 4
+    assert mce._dw("中文abc") == 4 + 3
+    assert mce._pad("合计", 6) == "合计  ", repr(mce._pad("合计", 6))
+    assert mce._pad("ab", 5, ">") == "   ab"
+    assert mce._pad("ab", 5, "^") == " ab  "
+    # 宽度不够时不抛异常, 原样返回
+    assert mce._pad("abcdef", 2) == "abcdef"
+    # 仓库内路径显示相对路径, 仓库外保持绝对路径
+    assert mce._short_path(mce.DEFAULT_CURRICULUM_YAML) == \
+        "configs/curriculum/robotwin_curriculum_v1.yaml"
+    assert mce._short_path("/tmp/elsewhere.yaml") == "/tmp/elsewhere.yaml"
+
+    levels = {"lift_pot": "L1", "click_alarmclock": "L1",
+              "turn_switch": "L1", "place_shoe": "L1"}
+    rows = [
+        {"task": "click_alarmclock", "duration_s": 220, "done_mark": "NO(3/100)",
+         "success": 3, "episodes": 3, "rate": 100.0},
+        {"task": "turn_switch", "duration_s": 225, "done_mark": "NO(3/100)",
+         "success": 2, "episodes": 3, "rate": 66.7},
+        {"task": "lift_pot", "duration_s": 230, "done_mark": "NO(3/100)",
+         "success": 3, "episodes": 3, "rate": 100.0},
+        {"task": "place_shoe", "duration_s": 230, "done_mark": "NO(3/100)",
+         "success": None, "episodes": None, "rate": None},
+    ]
+    plan = _fake_plan("robotwin@50k", 50000, "clean", per_task=rows,
+                      success=8, episodes=9, rate=88.9)
+    lines = mce.render_per_task_table([plan], task_levels=levels,
+                                      curriculum_yaml="x.yaml")
+
+    # 表头行之后到「格式:」之前 = 表体 (排除纯横线的分隔行)
+    def _is_sep(line: str) -> bool:
+        return line.startswith("  ") and set(line.strip()) == {"-"}
+
+    start = next(i for i, l in enumerate(lines) if l.lstrip().startswith("task[Lv]"))
+    end = next(i for i, l in enumerate(lines) if l.startswith("  格式:"))
+    table = [l for l in lines[start + 1:end]
+             if l.startswith("  ") and l.strip() and not _is_sep(l)]
+    # 4 任务 + 1 条 Level 分组标题 + 合计
+    assert len(table) == 6, table
+    assert any("L1" in l for l in table), table      # 分组标题还在
+
+    widths = {mce._dw(l) for l in table}
+    assert len(widths) == 1, (widths, table)
+    width = widths.pop()
+
+    # 分隔线的宽度也要和表体一致
+    seps = [l for l in lines[start + 1:end] if _is_sep(l)]
+    assert seps, lines
+    assert all(mce._dw(s) == width for s in seps), (seps, width)
+
+    # 数据行去掉尾部空格后仍等宽 (即每列右边界重合)
+    end_pos = {mce._dw(l.rstrip()) for l in table[1:]}
+    assert len(end_pos) == 1, (end_pos, table)
+    # 数值列右对齐 -> 两个 "100%(3/3)" 结尾列位置相同
+    joined = "\n".join(table)
+    assert "100%(3/3)" in joined and "67%(2/3)" in joined, joined
+    # 没跑出成功率的任务占位 "-", 不能是 0%
+    assert "0%(0/" not in joined, joined
+    # 合计行用中文, 显示宽度仍要与其它行一致 (len() 会少算 2 列)
+    total_row = next(l for l in table if "合计" in l)
+    assert mce._dw(total_row) == width, (mce._dw(total_row), width)
 
 
 # ---------------------------------------------------------------------------

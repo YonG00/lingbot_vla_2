@@ -60,6 +60,7 @@ import subprocess
 import sys
 import threading
 import time
+import unicodedata
 from collections import deque
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
@@ -879,6 +880,35 @@ def _cell(row: dict | None) -> str:
     return f"{row['success'] / row['episodes'] * 100:.0f}%({row['success']}/{row['episodes']})"
 
 
+def _dw(text: str) -> int:
+    """字符串的**显示宽度**: CJK / 全角字符占 2 列。
+
+    直接用 len() 会把 `合计` 当 2 列 (实际 4 列), 表格就歪了。
+    """
+    return sum(2 if unicodedata.east_asian_width(ch) in ("W", "F") else 1
+               for ch in text)
+
+
+def _pad(text: str, width: int, align: str = "<") -> str:
+    """按**显示宽度**补空格 (不是 len)。"""
+    gap = max(width - _dw(text), 0)
+    if align == ">":
+        return " " * gap + text
+    if align == "^":
+        left = gap // 2
+        return " " * left + text + " " * (gap - left)
+    return text + " " * gap
+
+
+def _short_path(path: Path | str | None) -> str:
+    """仓库内的文件显示相对路径, 否则显示绝对路径 (报告里别塞一长串前缀)。"""
+    p = Path(path) if path else DEFAULT_CURRICULUM_YAML
+    try:
+        return str(p.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(p)
+
+
 def render_per_task_table(plans: list[CkptPlan], *,
                           task_levels: dict[str, str],
                           curriculum_yaml: Path | str | None = None) -> list[str]:
@@ -901,41 +931,49 @@ def render_per_task_table(plans: list[CkptPlan], *,
 
     labels = [f"c{i}" for i in range(len(cols))]
     headers = [f"{labels[i]}/{job.condition[:3]}" for i, (_, job) in enumerate(cols)]
-
-    # 每个作业建 task -> row 索引
     indexes = [{r["task"]: r for r in job.per_task} for _, job in cols]
 
-    task_w = max([len("task") + 5] + [len(t) + 5 for t in tasks])
-    col_w = max([11] + [len(h) + 2 for h in headers])
-    total_w = task_w + 2 + col_w * len(cols)
-
-    lines = ["", "-" * 78, "  逐任务成功率 (行 = 任务[Level], 列 = checkpoint/condition)",
-             "-" * 78]
-    for label, (plan, job) in zip(labels, cols):
-        lines.append(f"  {label} = {plan.tag}   [{job.condition}]")
-    if task_levels:
-        lines.append(f"  (Level 取自 {curriculum_yaml or DEFAULT_CURRICULUM_YAML})")
-    lines.append("-" * max(78, total_w))
-    lines.append(f"  {'task[Lv]':<{task_w}} " + " ".join(f"{h:>{col_w}}" for h in headers))
-    lines.append("  " + "-" * (total_w - 2))
-
+    # 先算好每行的首列文本, 才能按显示宽度定列宽
+    body: list[tuple[str, list[str]]] = []
     prev_level = None
     for task in tasks:
         level = task_levels.get(task, "?")
         if task_levels and level != prev_level:
-            lines.append(f"  {level}")
+            body.append((f"{level}", []))            # Level 分组标题行
             prev_level = level
         name = f"{task}[{level}]" if task_levels else task
-        cells = " ".join(
-            f"{_cell(idx.get(task)):>{col_w}}" for idx in indexes
-        )
-        lines.append(f"  {name:<{task_w}} {cells}")
+        body.append((name, [_cell(idx.get(task)) for idx in indexes]))
+    body.append(("合计", [_cell({"success": j.success, "episodes": j.episodes})
+                          for _, j in cols]))
 
-    lines.append("  " + "-" * (total_w - 2))
-    overall = []
-    for _, job in cols:
-        overall.append(_cell({"success": job.success, "episodes": job.episodes}))
-    lines.append(f"  {'合计':<{task_w}} " + " ".join(f"{c:>{col_w}}" for c in overall))
+    first_col_w = max([_dw("task[Lv]")] + [_dw(t) for t, _ in body])
+    # 列宽要同时容下**表头**和**单元格** —— 只按表头算会在单元格更长时错位
+    col_w = max([_dw(h) for h in headers]
+                + [_dw(c) for _, cells in body for c in cells] + [9])
+    row_w = 2 + first_col_w + 1 + col_w * len(cols) + max(len(cols) - 1, 0)
+
+    lines = ["", "-" * 78,
+             "  逐任务成功率 (行 = 任务[Level], 列 = checkpoint/condition)",
+             "-" * 78]
+    for label, (plan, job) in zip(labels, cols):
+        lines.append(f"  {label} = {plan.tag}   [{job.condition}]")
+    if task_levels:
+        lines.append(f"  (Level 取自 {_short_path(curriculum_yaml)})")
+    lines.append("-" * max(78, row_w))
+    lines.append("  " + _pad("task[Lv]", first_col_w) + " "
+                 + " ".join(_pad(h, col_w, "^") for h in headers))
+    lines.append("  " + "-" * (row_w - 2))
+    for first, cells in body:
+        if not cells:                                # Level 分组标题: 整行宽的横线夹标签
+            inner = row_w - 2
+            tag = f" {first} "
+            left = max((inner - _dw(tag)) // 2, 1)
+            right = max(inner - _dw(tag) - left, 0)
+            lines.append("  " + "-" * left + tag + "-" * right)
+            continue
+        lines.append("  " + _pad(first, first_col_w) + " "
+                     + " ".join(_pad(c, col_w, ">") for c in cells))
+    lines.append("  " + "-" * (row_w - 2))
     lines.append("  格式: 成功率(成功/总回合)。合计行是该 condition 的总体成功率。")
     return lines
 
