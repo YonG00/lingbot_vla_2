@@ -18,6 +18,7 @@
   T9  sentinel 清单: 行数 4/8/12/16 + 前缀累积 + 越级拦截
   T10 episodes (test_num) 透传 + eval client 不再硬编码
   T11 静默期 (min_age_seconds) 默认关闭
+  T11b 静默期补充: _READY 标记优先 / mtime 变老放行 / now= 注入 / complete 透出
   T12 失败的 checkpoint 不写进增量状态 (下次会重试)
   T13 逐任务表解析 + Level 标注 (task->Level 映射 / 交叉表 / 按 Level 汇总 / 优雅退化)
 """
@@ -643,6 +644,55 @@ def test_t11_min_age_default_off():
         assert ok and not reasons, f"min_age=0 不应阻塞: {reasons}"
         ok, reasons, _, _, _ = mce.check_hf_ckpt(d, min_age_seconds=3600)
         assert not ok and any("仍在写入" in r for r in reasons), reasons
+
+
+def test_t11b_quiet_period_ready_marker_and_backdate():
+    """静默期的补充判据: `_READY` 标记优先, 以及时间真的过去后放行。
+
+    T11 只覆盖「0 不阻塞 / 正数拦截刚写过的」。这里补四件容易漏的事:
+      1. `_READY` 存在时**跳过**静默期判定 (标记是权威信号, 见 scheduler 注释);
+      2. mtime 变老后放行 —— 证明拦的是「新鲜度」, 不是「有没有 _READY」;
+      3. `now=` 注入等效于时间流逝, 可以不碰 mtime 就测「将来」;
+      4. `discover_checkpoints` 要把 complete 标志透出来 (不完整的**也要返回**,
+         好让报告能说清「为什么没评测它」), 而不是静默丢掉。
+    """
+    with Sandbox() as tmp:
+        d = make_ckpt(tmp, "expA", 1000)
+
+        # 1) 新鲜 + 静默期 -> 拦
+        ok, reasons, _, _, _ = mce.check_hf_ckpt(d, min_age_seconds=120)
+        assert not ok and any("仍在写入" in r for r in reasons), reasons
+
+        # 2) 同一目录放上 _READY -> 放行 (标记优先于静默期)
+        (d / mce.READY_MARKER).write_text("", encoding="utf-8")
+        ok, reasons, _, _, _ = mce.check_hf_ckpt(d, min_age_seconds=120)
+        assert ok, f"_READY 应覆盖静默期: {reasons}"
+        (d / mce.READY_MARKER).unlink()
+
+        # 3) 无 _READY, 但 mtime 拨回 10 分钟前 -> 放行
+        old = time.time() - 600
+        for p in d.iterdir():
+            os.utime(p, (old, old))
+        os.utime(d, (old, old))
+        ok, reasons, _, _, _ = mce.check_hf_ckpt(d, min_age_seconds=120)
+        assert ok, f"静默期已过应放行: {reasons}"
+
+        # 4) now= 注入: 不碰 mtime, 等价于把时钟往前拨 300s
+        d2 = make_ckpt(tmp, "expB", 1000)
+        ok, reasons, _, _, _ = mce.check_hf_ckpt(
+            d2, min_age_seconds=120, now=time.time() + 300)
+        assert ok, f"now 注入应等效于时间流逝: {reasons}"
+
+        # 5) discover_checkpoints 透出 complete 标志 (两种取值都要看)
+        found = {c.exp_name: c.complete
+                 for c in mce.discover_checkpoints(tmp, min_age_seconds=120)}
+        assert len(found) == 2, f"不完整的也要返回: {found}"
+        assert found["expA"] is True, found      # mtime 已拨老
+        assert found["expB"] is False, found     # 新鲜 -> 被静默期拦
+
+        found0 = {c.exp_name: c.complete
+                  for c in mce.discover_checkpoints(tmp, min_age_seconds=0)}
+        assert all(found0.values()), f"min_age=0 时两个都该可用: {found0}"
 
 
 def _fake_job(rc):
