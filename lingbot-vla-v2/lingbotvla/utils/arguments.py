@@ -524,6 +524,13 @@ class TrainingArguments:
                     "max_checkpoint_used * disk_guard_margin 的可用空间。"
         },
     )
+    disk_check_interval: int = field(
+        default=50,
+        metadata={
+            "help": "容量保护的检查间隔 (步)。除每个存档点前必查外, 每 N 步再查一次, "
+                    "使 '空间不足' 最多只多跑 N 步而不是一整个 save_steps。0 表示只查存档点。"
+        },
+    )
     seed: int = field(
         default=42,
         metadata={"help": "Random seed."},
