@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""生成 L1-L4 阶段课程的数据文件。
+"""生成 L1-L4 阶段课程的数据文件 + sentinel 评测清单。
 
 产出 (默认 /data/train/phases/):
     datasets.txt                            数据集清单, 四个阶段共用同一份
@@ -7,11 +7,20 @@
     phase2_L1_L2.episode_ids.json
     phase3_L1_L2_L3.episode_ids.json
     phase4_all.episode_ids.json
+    phase1_eval.txt                         sentinel 评测清单 (累积 4/8/12/16 个任务)
+    phase2_eval.txt
+    phase3_eval.txt
+    phase4_eval.txt
     README.md                               逐个文件说明用途
 
-两个文件是正交的:
-    datasets.txt           回答「数据在哪」 -> 传给 --data.train_path
-    phase*.episode_ids.json 回答「读哪些回合」-> 传给 --data.episode_ids_file
+三件事互相正交:
+    datasets.txt            回答「数据在哪」   -> --data.train_path
+    phase*.episode_ids.json 回答「训练读哪些回合」-> --data.episode_ids_file
+    phase*_eval.txt         回答「评测跑哪些任务」-> launcher 的 --task_list_file
+
+sentinel 任务名**不在本脚本里硬编码**, 唯一真源是课程配置 yaml 的
+`evaluation.sentinel` 段 (configs/curriculum/robotwin_curriculum_v1.yaml)。
+改 sentinel = 改 yaml, 然后重跑本脚本。
 
 用法:
     python tools/prepare_phase.py --phase all
@@ -34,8 +43,10 @@ from robotwin_curriculum import (  # noqa: E402
     derive_episode_table,
     load_curriculum,
     load_phase_defs,
+    load_sentinel,
     load_skill_levels,
     resolve_phase_episodes,
+    resolve_phase_sentinel,
     summarize,
 )
 
@@ -72,6 +83,27 @@ def write_if_changed(path: Path, content: str) -> bool:
     return True
 
 
+def format_eval_list(phase_key: str, levels, tasks: list[str]) -> str:
+    """渲染 `phaseN_eval.txt` 的内容。
+
+    头部 `#` 注释说明来源; 正文每行一个任务名, 顺序即评测顺序。
+    launcher 的 --task_list_file 会跳过空行与 `#` 开头的行。
+    """
+    header = [
+        f"# RoboTwin sentinel 评测清单 —— {phase_key} ({'+'.join(levels)})",
+        "#",
+        "# 由 tools/prepare_phase.py 生成, 请勿手工编辑。",
+        "# 唯一真源: configs/curriculum/robotwin_curriculum_v1.yaml -> evaluation.sentinel",
+        "#",
+        "# 用法:",
+        "#   bash experiment/robotwin/start_robotwin_infer_and_eval.sh \\",
+        f"#       --task_list_file <本文件> --task_config demo_clean ...",
+        "#",
+        f"# 任务数: {len(tasks)}",
+    ]
+    return "\n".join(header + tasks) + "\n"
+
+
 def main():
     ap = argparse.ArgumentParser(description="生成 L1-L4 阶段课程数据文件")
     ap.add_argument("--phase", default="all",
@@ -90,6 +122,7 @@ def main():
     cfg = load_curriculum(args.curriculum)
     task_to_level = load_skill_levels(cfg)
     phase_defs = load_phase_defs(cfg)
+    sentinel = load_sentinel(cfg, task_to_level)
 
     dataset_root = cfg["dataset"]["root"]
 
@@ -148,8 +181,9 @@ def main():
     print(f"         {manifest_line.strip()}")
     print()
 
-    # ---- 逐阶段生成白名单 ----
+    # ---- 逐阶段生成白名单 + sentinel 评测清单 ----
     rows = []
+    eval_rows = []
     print(f"  {'阶段':<10} {'等级':<14} {'任务':>4} {'回合':>6} {'帧数':>9}"
           f" {'steps/epoch':>12} {'预计耗时':>10}")
     print("  " + "-" * 74)
@@ -158,12 +192,24 @@ def main():
         info = phase_defs[key]
         levels = info["levels"]
         dir_name = info.get("dir_name", key.lower())
+        eval_name = info.get("eval_name")
+        if not eval_name:
+            raise SystemExit(
+                f"阶段 {key} 缺少 `eval_name` (sentinel 评测清单文件名); "
+                f"请在课程配置的 phases 段补上"
+            )
 
         ep_ids = resolve_phase_episodes(table, levels)
         s = summarize(table, levels)
 
         ep_path = out_dir / f"{dir_name}.episode_ids.json"
         write_if_changed(ep_path, json.dumps(ep_ids))
+
+        # ---- sentinel 评测清单 (任务名来自 yaml, 不硬编码) ----
+        eval_tasks = resolve_phase_sentinel(sentinel, levels)
+        eval_path = out_dir / eval_name
+        write_if_changed(eval_path, format_eval_list(key, levels, eval_tasks))
+        eval_rows.append((key, levels, eval_path, eval_tasks))
 
         steps_txt = "-"
         time_txt = "-"
@@ -177,6 +223,26 @@ def main():
         print(f"  {key:<10} {'+'.join(levels):<14} {s['tasks']:>4} {s['episodes']:>6}"
               f" {s['frames']:>9} {steps_txt:>12} {time_txt:>10}")
 
+    print()
+
+    # ---- sentinel 评测清单概览 ----
+    print("  Sentinel 评测清单 (累积, 传给 launcher 的 --task_list_file):")
+    print(f"    {'阶段':<8} {'等级':<14} {'任务数':>6}  {'文件':<20} 任务")
+    print("    " + "-" * 76)
+    for key, levels, eval_path, eval_tasks in eval_rows:
+        print(f"    {key:<8} {'+'.join(levels):<14} {len(eval_tasks):>6}  "
+              f"{eval_path.name:<20} {' '.join(eval_tasks)}")
+    print()
+
+    # ---- 累积关系自检 (P1 必须是 P2 的前缀, 依此类推) ----
+    for prev, cur in zip(eval_rows, eval_rows[1:]):
+        prev_tasks, cur_tasks = prev[3], cur[3]
+        if cur_tasks[:len(prev_tasks)] != prev_tasks:
+            raise SystemExit(
+                f"sentinel 累积关系被破坏: {prev[0]} 的清单不是 {cur[0]} 的前缀\n"
+                f"  {prev[0]}: {prev_tasks}\n  {cur[0]}: {cur_tasks}"
+            )
+    print("  [自检] sentinel 累积关系正确 (P1 ⊂ P2 ⊂ P3 ⊂ P4, 且为前缀关系)")
     print()
 
     # ---- 交叉验证 (防回归护栏) ----
@@ -207,24 +273,30 @@ def main():
         "",
         "## 文件用途",
         "",
-        "| 文件 | 回答的问题 | 传给训练的哪个参数 | 是否随阶段变化 |",
+        "| 文件 | 回答的问题 | 传给谁 | 是否随阶段变化 |",
         "|---|---|---|---|",
-        "| `datasets.txt` | 数据**在哪** | `--data.train_path` | 否 (四阶段同一份) |",
-        "| `phase*.episode_ids.json` | 读**哪些回合** | `--data.episode_ids_file` | 是 |",
+        "| `datasets.txt` | 数据**在哪** | 训练 `--data.train_path` | 否 (四阶段同一份) |",
+        "| `phase*.episode_ids.json` | 训练读**哪些回合** | 训练 `--data.episode_ids_file` | 是 |",
+        "| `phase*_eval.txt` | 评测跑**哪些任务** | launcher `--task_list_file` | 是 (累积) |",
         "",
         "`datasets.txt` 每行格式为 `名称 路径`; 白名单是 JSON 整数数组 (升序、去重)。",
         "",
+        "`phase*_eval.txt` 每行一个任务名, `#` 开头为注释 (launcher 会跳过)。",
+        "任务名不硬编码, 唯一真源是课程配置 yaml 的 `evaluation.sentinel` 段。",
+        "",
         "## 各阶段",
         "",
-        "| 阶段 | 等级 | 任务数 | 回合数 | 帧数 | 白名单文件 |",
-        "|---|---|---|---|---|---|",
+        "| 阶段 | 等级 | 训练任务数 | 回合数 | 帧数 | 白名单文件 | sentinel 数 | 评测清单 |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for key in sorted(phase_defs.keys()):
         info = phase_defs[key]
         s = summarize(table, info["levels"])
+        ev = resolve_phase_sentinel(sentinel, info["levels"])
         readme_lines.append(
             f"| {key} | {'+'.join(info['levels'])} | {s['tasks']} | {s['episodes']} "
-            f"| {s['frames']} | `{info.get('dir_name', key.lower())}.episode_ids.json` |"
+            f"| {s['frames']} | `{info.get('dir_name', key.lower())}.episode_ids.json` "
+            f"| {len(ev)} | `{info.get('eval_name', '-')}` |"
         )
     readme_lines += [
         "",
@@ -234,6 +306,7 @@ def main():
         "cd /data/code/lingbot-vla-v2",
         "export PATH=/data/miniconda3/envs/lingbotvla/bin:$PATH",
         "",
+        "# 训练",
         "bash train.sh tasks/vla/train_lingbotvla.py \\",
         "  /data/train/configs/robotwin_official_paths.yaml \\",
         f"  --data.train_path        {out_dir}/datasets.txt \\",
@@ -244,9 +317,17 @@ def main():
         "  --train.global_batch_size 112 \\",
         "  --train.train_expert_only true \\",
         "  --data.image_augment true",
+        "",
+        "# 评测 (Clean)",
+        "bash experiment/robotwin/start_robotwin_infer_and_eval.sh \\",
+        f"  --task_list_file {out_dir}/phase1_eval.txt \\",
+        "  --task_config demo_clean \\",
+        "  --model_path <hf_ckpt> --num_gpus 4 --num_per_gpu 1 \\",
+        "  --eval_workdir /data/code/RoboTwin-lingbot \\",
+        "  --output_base /data/eval_results/run1",
         "```",
         "",
-        "切阶段只需改 `--data.episode_ids_file` 与 `--train.output_dir` 两处。",
+        "切阶段只需改 `--data.episode_ids_file`、`--train.output_dir`、`--task_list_file` 三处。",
         "",
     ]
     write_if_changed(out_dir / "README.md", "\n".join(readme_lines))

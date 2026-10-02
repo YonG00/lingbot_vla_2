@@ -129,27 +129,33 @@ skill_levels:
 #
 # dir_name 同时决定生成的白名单文件名:
 #   /data/train/phases/<dir_name>.episode_ids.json
+# eval_name 决定该阶段的 sentinel 评测清单文件名:
+#   /data/train/phases/<eval_name>   (传给 launcher 的 --task_list_file)
 # ============================================================================
 phases:
 
   P1:
     name: L1_only
     dir_name: phase1_L1
+    eval_name: phase1_eval.txt
     levels: [L1]
 
   P2:
     name: L1_L2
     dir_name: phase2_L1_L2
+    eval_name: phase2_eval.txt
     levels: [L1, L2]
 
   P3:
     name: L1_L2_L3
     dir_name: phase3_L1_L2_L3
+    eval_name: phase3_eval.txt
     levels: [L1, L2, L3]
 
   P4:
     name: all
     dir_name: phase4_all
+    eval_name: phase4_eval.txt
     levels: [L1, L2, L3, L4]
 
 training:
@@ -158,11 +164,64 @@ training:
   custom_sampling_weights: false
   final_stage_contains_all_data: true
 
+# ============================================================================
+# 固定 Sentinel 闭环评测 (规范第 9 / 10 / 15 节)
+#
+#   每 Level 固定 4 个 sentinel task, 一旦确定不再随机替换。
+#   阶段累积: P1=4 -> P2=8 -> P3=12 -> P4=16 (P1 ⊂ P2 ⊂ P3 ⊂ P4)。
+#   Clean 与 Randomized 使用完全相同的 sentinel task。
+#
+#   本段是 sentinel 的唯一真源: 代码里不含任何硬编码任务名。
+#   tools/prepare_phase.py 读取本段生成:
+#       /data/train/phases/phase1_eval.txt ... phase4_eval.txt
+#   评测时交给官方 launcher:
+#       bash experiment/robotwin/start_robotwin_infer_and_eval.sh \
+#           --task_list_file /data/train/phases/phase1_eval.txt \
+#           --task_config demo_clean ...
+#
+#   改 sentinel = 只改本段, 然后重跑 `python tools/prepare_phase.py --phase all`。
+# ============================================================================
 evaluation:
-  status: pending_freeze
+  status: frozen
+  sentinel_per_level: 4
+  sentinel:
+    L1:
+      - lift_pot           # 抓取提举
+      - click_alarmclock   # 精细点击
+      - turn_switch        # 关节开关
+      - place_shoe         # 放置定位
+    L2:
+      - adjust_bottle          # 精细调整
+      - place_container_plate  # 空间放置
+      - rotate_qrcode          # 朝向旋转
+      - shake_bottle           # 动态动作
+    L3:
+      - open_laptop          # 关节多步
+      - stack_blocks_two     # 双臂堆叠
+      - place_bread_basket   # 容器放置
+      - dump_bin_bigbin      # 倾倒动态
+    L4:
+      - stack_bowls_three    # 三物体堆叠
+      - hanging_mug          # 悬挂
+      - put_bottles_dustbin  # 多物体序列
+      - blocks_ranking_size  # 排序
+  protocols:
+    # 高频/低成本 mini eval (规范第 10 节) —— 用于判断趋势, 不用于精确估计。
+    mini_eval:
+      clean_episodes: 3
+      randomized_episodes: 3
+      seeds: [0]
+    # 阶段结束的较可靠评测 —— 需要决定是否解冻 / Full FT / Phase5 加权时使用。
+    stage_end_eval:
+      seeds: [0, 1, 2]
+      episodes_per_seed_per_condition: 3
   principles:
     - Use fixed tasks and fixed seeds for checkpoint-to-checkpoint comparison.
     - Evaluate current-level skills and previously learned skills.
     - Short/Long is a training-data property, not an evaluation environment category.
     - Final benchmark should evaluate the canonical RoboTwin tasks normally.
     - Clean and randomized evaluation should be reported separately.
+  notes:
+    - sentinel 于 2026-10-02 由用户确认冻结 (每 Level 4 个, 共 16 个)。
+    - 覆盖点: 抓取 / 放置 / 精细定位 / 单臂双臂 / 开关关节 / 长短动作链 / 不同物体类型。
+    - 每个 sentinel 必须属于它所在 Level, 由 tools/prepare_phase.py 强制校验。

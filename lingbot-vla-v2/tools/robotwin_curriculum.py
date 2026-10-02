@@ -218,3 +218,99 @@ def summarize(table: pd.DataFrame, phase_levels) -> dict:
         "episodes": int(len(sub)),
         "frames": int(sub["length"].sum()),
     }
+
+
+# ---------------------------------------------------------------- sentinel 评测
+
+# 评测协议的两种形态 (规范第 10 节)。
+DEFAULT_SENTINEL_PER_LEVEL = 4
+
+
+def load_sentinel(cfg: dict, task_to_level: dict[str, str] | None = None) -> dict[str, list[str]]:
+    """从课程配置的 `evaluation.sentinel` 段读取 sentinel 任务。
+
+    返回形如 ``{"L1": [...], "L2": [...], "L3": [...], "L4": [...]}`` 的映射。
+
+    这是 sentinel 的唯一真源 —— 任何脚本都不应硬编码任务名。
+
+    校验 (任一不满足即抛错, 避免评测清单悄悄错掉):
+      1. `evaluation.sentinel` 段存在且非空;
+      2. 每个 Level 的 sentinel 数量 == `evaluation.sentinel_per_level`
+         (缺省 4);
+      3. 每个 sentinel task 必须属于它所在的那个 Level;
+      4. 同一 task 不能出现在两个 Level 中。
+    """
+    if "evaluation" not in cfg:
+        raise RuntimeError("课程配置缺少 `evaluation:` 段")
+    ev = cfg["evaluation"]
+    if "sentinel" not in ev or not ev["sentinel"]:
+        raise RuntimeError(
+            "课程配置的 `evaluation.sentinel` 段缺失或为空。\n"
+            "  该段是 sentinel 的唯一真源, 每 Level 需列出固定评测任务。"
+        )
+
+    raw = ev["sentinel"]
+    expected = int(ev.get("sentinel_per_level", DEFAULT_SENTINEL_PER_LEVEL))
+
+    sentinel: dict[str, list[str]] = {}
+    seen: dict[str, str] = {}          # task -> level, 用于查重
+
+    for level in LEVELS:
+        if level not in raw:
+            raise RuntimeError(f"`evaluation.sentinel` 缺少 {level}")
+        tasks = list(raw[level])
+        if len(tasks) != expected:
+            raise RuntimeError(
+                f"{level} 的 sentinel 数量为 {len(tasks)}, 期望 {expected}"
+                f" (evaluation.sentinel_per_level={expected})"
+            )
+        for task in tasks:
+            if task in seen:
+                raise RuntimeError(
+                    f"sentinel 任务 {task} 同时出现在 {seen[task]} 和 {level}"
+                )
+            seen[task] = level
+        sentinel[level] = tasks
+
+    # 越级检查: sentinel 必须落在它声称的 Level 里。
+    if task_to_level is not None:
+        for level, tasks in sentinel.items():
+            for task in tasks:
+                actual = task_to_level.get(task)
+                if actual is None:
+                    raise RuntimeError(f"sentinel 任务 {task} 不在 TASK_ORDER 中")
+                if actual != level:
+                    raise RuntimeError(
+                        f"sentinel 任务 {task} 被列在 {level}, 但它属于 {actual}"
+                    )
+
+    extra = set(raw) - set(LEVELS)
+    if extra:
+        raise RuntimeError(f"`evaluation.sentinel` 含未知等级: {sorted(extra)}")
+
+    return sentinel
+
+
+def resolve_phase_sentinel(sentinel: dict[str, list[str]], phase_levels) -> list[str]:
+    """按阶段的 levels 累积 sentinel, 返回评测任务列表。
+
+    顺序固定为 LEVELS 的顺序 (L1 -> L2 -> L3 -> L4), Level 内保持配置顺序。
+    因为阶段是累积的, 所以 P1 的清单恰好是 P2 的前缀, P2 是 P3 的前缀 …… ——
+    这样 `phaseN_eval.txt` 天然满足 P1 ⊂ P2 ⊂ P3 ⊂ P4 且是前缀关系。
+    """
+    wanted = set(phase_levels)
+    ordered_levels = [lv for lv in LEVELS if lv in wanted]
+
+    unknown = wanted - set(LEVELS)
+    if unknown:
+        raise RuntimeError(f"阶段引用了未知等级: {sorted(unknown)}")
+
+    out: list[str] = []
+    for level in ordered_levels:
+        for task in sentinel[level]:
+            if task not in out:      # 防御性去重; load_sentinel 已保证不重复
+                out.append(task)
+    if not out:
+        raise RuntimeError(f"等级 {phase_levels} 没有匹配到任何 sentinel")
+    return out
+

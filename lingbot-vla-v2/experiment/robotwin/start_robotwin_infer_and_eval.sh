@@ -16,6 +16,9 @@
 #   --start_port        starting port (default: 9330)
 #   --pid_name          PID file prefix (default: test_pid)
 #   --num_tasks         number of sim tasks, taken in order from the task list (default: 50, max: 50)
+#   --task_list_file    read task names from a file instead of the first N (one per line;
+#                       blank lines and '#' comments ignored). Overrides --num_tasks.
+#                       Every name must be one of the 50 official tasks; duplicates are rejected.
 #   --num_gpus          total GPUs (default: 1)
 #   --num_per_gpu       inference servers per GPU (default: 1)
 #   --use_length        chunk length (default: 50)
@@ -49,6 +52,7 @@ conda_sh="${CONDA_SH:-/path/to/miniconda3/etc/profile.d/conda.sh}"
 start_port=9330
 pid_name="test_pid"
 num_tasks=50
+task_list_file=""
 num_gpus=1
 num_per_gpu=1
 use_length=50
@@ -72,6 +76,7 @@ while [[ $# -gt 0 ]]; do
         --start_port)        start_port="$2";        shift 2 ;;
         --pid_name)          pid_name="$2";          shift 2 ;;
         --num_tasks)         num_tasks="$2";         shift 2 ;;
+        --task_list_file)    task_list_file="$2";    shift 2 ;;
         --num_gpus)          num_gpus="$2";          shift 2 ;;
         --num_per_gpu)       num_per_gpu="$2";       shift 2 ;;
         --use_length)        use_length="$2";        shift 2 ;;
@@ -99,6 +104,8 @@ while [[ $# -gt 0 ]]; do
             echo "  --start_port        starting port (default: 9330)"
             echo "  --pid_name          PID file prefix (default: test_pid)"
             echo "  --num_tasks         number of sim tasks (default: 50, max: 50)"
+            echo "  --task_list_file    read task names from a file (one per line, '#' = comment);"
+            echo "                      overrides --num_tasks; unknown/duplicate names are rejected"
             echo "  --num_gpus          total GPUs (default: 1)"
             echo "  --num_per_gpu       inference servers per GPU (default: 1)"
             echo "  --use_length        chunk length (default: 50)"
@@ -192,16 +199,78 @@ echo -e "\033[36mSim-side python (${sim_env}): ${sim_python} ($(${sim_python} --
 # activates ${sim_env} itself via `setsid bash -c`.
 conda deactivate 2>/dev/null || true
 
-# ===== Task count validation =====
-if [ "$num_tasks" -gt 50 ]; then
-    echo -e "\033[31mError: num_tasks ${num_tasks} exceeds max 50; use 1~50\033[0m"
-    exit 1
-fi
-
 # ===== Sim-side args =====
 policy_name=ACT
 train_config_name=0
 seed=0
+
+# ===== Full task list (50) =====
+task_list_all=("lift_pot" "hanging_mug" "stack_bowls_three" "scan_object" "handover_block" "click_bell" "put_object_cabinet" "open_microwave" "stack_blocks_three" "place_shoe" "adjust_bottle" "beat_block_hammer" "blocks_ranking_rgb" "blocks_ranking_size" "click_alarmclock" "dump_bin_bigbin" "grab_roller" "handover_mic" "move_can_pot" "move_pillbottle_pad" "move_playingcard_away" "place_cans_plasticbox" "place_container_plate" "place_dual_shoes" "place_empty_cup" "place_fan" "place_mouse_pad" "place_object_basket" "place_object_scale" "place_object_stand" "place_phone_stand" "move_stapler_pad" "open_laptop" "pick_diverse_bottles" "pick_dual_bottles" "place_a2b_left" "place_a2b_right" "place_bread_basket" "place_bread_skillet" "place_burger_fries" "place_can_basket" "press_stapler" "rotate_qrcode" "shake_bottle_horizontally" "shake_bottle" "stack_blocks_two" "stack_bowls_two" "stamp_seal" "turn_switch" "put_bottles_dustbin")
+
+# Build the sim task queue.
+#
+# Two mutually exclusive sources:
+#   --task_list_file <path>  take tasks from the file, one per line, in order
+#                            (blank lines and '#' comments are ignored)
+#   otherwise                take the first --num_tasks entries of task_list_all
+#                            (original behaviour, kept for backward compatibility)
+task_queue=()
+if [ -n "$task_list_file" ]; then
+    if [ ! -f "$task_list_file" ]; then
+        echo -e "\033[31mError: --task_list_file '${task_list_file}' not found\033[0m"
+        exit 1
+    fi
+
+    while IFS= read -r _line || [ -n "$_line" ]; do
+        _line="${_line%$'\r'}"                          # tolerate CRLF
+        _line="${_line#"${_line%%[![:space:]]*}"}"      # strip leading blanks
+        _line="${_line%"${_line##*[![:space:]]}"}"      # strip trailing blanks
+        [ -z "$_line" ] && continue
+        case "$_line" in \#*) continue ;; esac
+        task_queue+=("$_line")
+    done < "$task_list_file"
+
+    if [ ${#task_queue[@]} -eq 0 ]; then
+        echo -e "\033[31mError: --task_list_file '${task_list_file}' contains no task\033[0m"
+        exit 1
+    fi
+
+    # Guardrail 1: every name must be one of the 50 official tasks.
+    for _t in "${task_queue[@]}"; do
+        _known=false
+        for _k in "${task_list_all[@]}"; do
+            if [ "$_t" = "$_k" ]; then _known=true; break; fi
+        done
+        if [ "$_known" != "true" ]; then
+            echo -e "\033[31mError: unknown task '${_t}' (from ${task_list_file})\033[0m"
+            echo -e "\033[31m  task names must come from the official 50-task list\033[0m"
+            exit 1
+        fi
+    done
+
+    # Guardrail 2: reject duplicates -- silently evaluating fewer tasks than
+    # intended is a config bug, not something to paper over.
+    _dups=$(printf '%s\n' "${task_queue[@]}" | sort | uniq -d | tr '\n' ' ')
+    if [ -n "$_dups" ]; then
+        echo -e "\033[31mError: ${task_list_file} contains duplicate task(s): ${_dups}\033[0m"
+        exit 1
+    fi
+
+    num_tasks=${#task_queue[@]}
+    echo -e "\033[36mTask list file: ${task_list_file} (${num_tasks} tasks)\033[0m"
+else
+    if [ "$num_tasks" -gt 50 ]; then
+        echo -e "\033[31mError: num_tasks ${num_tasks} exceeds max 50; use 1~50\033[0m"
+        exit 1
+    fi
+    if [ "$num_tasks" -lt 1 ]; then
+        echo -e "\033[31mError: num_tasks ${num_tasks} must be >= 1\033[0m"
+        exit 1
+    fi
+    for i in $(seq 0 $((num_tasks-1))); do
+        task_queue+=("${task_list_all[$i]}")
+    done
+fi
 
 # ===== Compute inference slot count =====
 # actual slots = min(num_tasks, num_gpus * num_per_gpu)
@@ -213,14 +282,6 @@ if [ "$num_tasks" -lt "$num_slots" ]; then
     num_slots=$num_tasks
 fi
 
-# ===== Full task list (50) =====
-task_list_all=("lift_pot" "hanging_mug" "stack_bowls_three" "scan_object" "handover_block" "click_bell" "put_object_cabinet" "open_microwave" "stack_blocks_three" "place_shoe" "adjust_bottle" "beat_block_hammer" "blocks_ranking_rgb" "blocks_ranking_size" "click_alarmclock" "dump_bin_bigbin" "grab_roller" "handover_mic" "move_can_pot" "move_pillbottle_pad" "move_playingcard_away" "place_cans_plasticbox" "place_container_plate" "place_dual_shoes" "place_empty_cup" "place_fan" "place_mouse_pad" "place_object_basket" "place_object_scale" "place_object_stand" "place_phone_stand" "move_stapler_pad" "open_laptop" "pick_diverse_bottles" "pick_dual_bottles" "place_a2b_left" "place_a2b_right" "place_bread_basket" "place_bread_skillet" "place_burger_fries" "place_can_basket" "press_stapler" "rotate_qrcode" "shake_bottle_horizontally" "shake_bottle" "stack_blocks_two" "stack_bowls_two" "stamp_seal" "turn_switch" "put_bottles_dustbin")
-
-# Build the sim task queue
-task_queue=()
-for i in $(seq 0 $((num_tasks-1))); do
-    task_queue+=("${task_list_all[$i]}")
-done
 echo -e "\033[36mTasks this run (${num_tasks}): ${task_queue[*]}\033[0m"
 echo -e "\033[36mInference config: ${num_gpus} GPU x ${num_per_gpu} servers/GPU = ${num_slots} slots\033[0m"
 echo -e "\033[36mInference precision: use_bf16=${use_bf16}, use_fp32=${use_fp32}, use_compile=${use_compile}\033[0m"
