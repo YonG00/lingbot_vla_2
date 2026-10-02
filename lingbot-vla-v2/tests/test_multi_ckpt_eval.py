@@ -12,7 +12,7 @@
   T4  classify: 新增 / 更新 / 历史不变 / 不完整
   T5  plan_schedule + validate_plan: 端口段不重叠 / 输出不撞 / model_path 不串
   T5c video 开关双向显式传递 (--enable_video / --no_video)
-  T6  dry-run: 不调用 subprocess, 不创建作业目录
+  T6  dry-run: 不调用 subprocess, 不创建作业目录, 且**不覆盖**真跑的 summary.*
   T7  preflight: 幂等同步共享文件 (原子替换)
   T8  stats.txt 解析
   T9  sentinel 清单: 行数 4/8/12/16 + 前缀累积 + 越级拦截
@@ -404,13 +404,52 @@ def test_t6_dry_run_no_subprocess():
         # 不应创建任何作业输出目录
         assert not (out / "expA_step1000").exists()
         assert not (out / "expA_step2000").exists()
-        # 但计划产物应当落盘
-        assert (out / "summary.txt").is_file()
-        payload = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+        # dry-run 的产物落到 summary.dryrun.*, **不碰**真跑的 summary.*
+        assert (out / "summary.dryrun.txt").is_file()
+        payload = json.loads((out / "summary.dryrun.json").read_text(encoding="utf-8"))
         assert payload["dry_run"] is True
         assert payload["batches"] == [2]
         assert payload["tasks"] == ["lift_pot", "click_bell"]
         assert len(payload["plans"]) == 2
+        assert not (out / "summary.txt").exists(), "dry-run 不该创建 summary.txt"
+        assert not (out / "summary.json").exists(), "dry-run 不该创建 summary.json"
+
+
+def test_t6b_dry_run_does_not_clobber_real_report():
+    """回归: dry-run **绝不能**覆盖真跑出来的 summary.txt/json。
+
+    实测踩过 —— 在 base_1ckpt 上补跑一次 --dry-run 做计划预览, 就把 测1b 的
+    真实结果 (含每 condition 耗时/成功率) 冲成了"未实际执行"的空壳,
+    summary.json 里 duration_s/success 全变 None, 数据不可恢复。
+    """
+    with Sandbox() as tmp:
+        make_ckpt(tmp, "expA", 1000, n_shards=1)
+        tasks = tmp / "tasks.txt"
+        tasks.write_text("lift_pot\n", encoding="utf-8")
+        out = tmp / "out"
+        out.mkdir(parents=True)
+
+        # 先放一份"真跑"的产物
+        real_txt = "真跑结果: 成功率 91.7% (11/12)\n"
+        real_json = '{"dry_run": false, "elapsed_seconds": 424.0, "plans": []}\n'
+        (out / "summary.txt").write_text(real_txt, encoding="utf-8")
+        (out / "summary.json").write_text(real_json, encoding="utf-8")
+
+        rc = mce.main([
+            "--ckpt-root", str(tmp),
+            "--task-list-file", str(tasks),
+            "--output-base", str(out),
+            "--dry-run", "--all",
+        ])
+        assert rc == 0, rc
+
+        # 真跑产物**原封不动**
+        assert (out / "summary.txt").read_text(encoding="utf-8") == real_txt
+        assert (out / "summary.json").read_text(encoding="utf-8") == real_json
+        # dry-run 自己的产物在别处
+        assert (out / "summary.dryrun.txt").is_file()
+        dry = json.loads((out / "summary.dryrun.json").read_text(encoding="utf-8"))
+        assert dry["dry_run"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -847,8 +886,9 @@ def test_t13b_level_mapping_and_render():
         assert "67%(2/3)" in text, text
         # 3) 没数据的任务是 "-", 不能渲染成 0%
         assert "place_shoe[L4]" in text, text
-        # 4) 按 Level 的汇总行
-        assert "按 Level:" in text and "L1 83.3% (5/6)" in text, text
+        # 4) 总览表在, 且给出了 condition 级结果
+        assert "总览" in text, text
+        assert "88.9% (8/9)" in text, text
         # 5) Level 分组标题 (整行宽的横线夹 L1), 且在任务行之前
         assert "--- L1 ---" in text, text
         assert text.index("--- L1 ---") < text.index("lift_pot[L1]"), text
@@ -857,6 +897,11 @@ def test_t13b_level_mapping_and_render():
                                     task_levels=levels, curriculum_yaml=yml)
         assert str(yml) in tagged, tagged
         assert "robotwin_curriculum_v1.yaml" not in tagged, tagged
+        # 7) 这份 yaml 有 3 个 Level -> 每组末尾出 "Lx 小计"
+        assert "L1 小计" in text and "L2 小计" in text, text
+        # 8) 老版那三段重复信息必须消失: 不再逐个作业罗列 rc / run_dir / 按 Level
+        assert "按 Level:" not in text, text
+        assert "Clean vs Randomized 对比" not in text, text
 
         # 没有 Level 映射时优雅退化: 没有 Lv 列, 但表还在
         plain = mce.render_summary([plan], skipped={}, dry_run=False)
@@ -869,31 +914,97 @@ def test_t13b_level_mapping_and_render():
         dry = mce.render_summary([plan], skipped={}, dry_run=True,
                                  task_levels=levels)
         assert "逐任务成功率" not in dry, dry
+        assert "总览" not in dry, dry
 
 
-def test_t13c_level_rollup_ignores_unknown_and_missing():
-    job = mce.Job(
-        ckpt_tag="t", step=1, hf_ckpt="/x", condition="clean",
-        task_config="demo_clean", slot_index=0, gpus=[0],
-        start_port=9330, end_port=9333, output_base="/tmp", log_file="/tmp/l",
-    )
-    job.per_task = [
+def _job(tag="t", step=1, cond="clean", **kw):
+    return mce.Job(ckpt_tag=tag, step=step, hf_ckpt="/x", condition=cond,
+                   task_config=mce.CONDITIONS.get(cond, "demo_clean"),
+                   slot_index=0, gpus=[0], start_port=9330, end_port=9333,
+                   output_base="/tmp", log_file="/tmp/l", **kw)
+
+
+def test_t13c_helpers_and_level_subtotal():
+    # --- _agg: 累加; 无分母时给 None (不能被 _cell 渲染成 0%(0/0)) ---
+    idx = {"a": {"task": "a", "success": 3, "episodes": 3},
+           "b": {"task": "b", "success": 1, "episodes": 3},
+           "c": {"task": "c", "success": None, "episodes": None}}
+    assert mce._agg(idx, ["a", "b"]) == {"success": 4, "episodes": 6}
+    assert mce._agg(idx, ["c"]) == {"success": None, "episodes": None}
+    assert mce._agg(idx, ["a", "nope"]) == {"success": 3, "episodes": 3}
+    assert mce._agg(idx, []) == {"success": None, "episodes": None}
+    assert mce._cell(mce._agg(idx, [])) == "-"
+    # 全 0 分也要保留 (0/3 是有效结果, 不是"没数据")
+    zero = {"z": {"task": "z", "success": 0, "episodes": 3}}
+    assert mce._cell(mce._agg(zero, ["z"])) == "0%(0/3)"
+
+    # --- _fmt_dur: 用户要求「X分Ys」 ---
+    assert mce._fmt_dur(None) == "-"
+    assert mce._fmt_dur(45) == "45秒"
+    assert mce._fmt_dur(59.6) == "1分0秒"          # 四舍五入到 60 就进位
+    assert mce._fmt_dur(59.4) == "59秒"
+    assert mce._fmt_dur(238) == "3分58秒"
+    assert mce._fmt_dur(424) == "7分4秒"
+    assert mce._fmt_dur(3600) == "60分0秒"
+
+    # --- _job_ok / _overview_cell ---
+    ok = _job()
+    ok.returncode = 0
+    ok.success, ok.episodes, ok.overall_rate = 11, 12, 91.7
+    assert mce._job_ok(ok) and mce._overview_cell(ok) == "91.7% (11/12)"
+    bad = _job()
+    bad.returncode = 3
+    bad.success, bad.episodes, bad.overall_rate = 1, 12, 8.3
+    assert not mce._job_ok(bad) and mce._overview_cell(bad) == "失败"
+    dead = _job()
+    assert not mce._job_ok(dead) and mce._overview_cell(dead) == "未跑完"
+    crashed = _job()
+    crashed.returncode = 0
+    crashed.error = "boom"
+    assert not mce._job_ok(crashed) and mce._overview_cell(crashed) == "失败"
+    assert mce._overview_cell(None) == "-"
+
+    # --- 多 Level 时才出小计行; 且小计 = 该组任务的累加 ---
+    rows = [
         {"task": "lift_pot", "success": 3, "episodes": 3, "rate": 100.0},
-        {"task": "unknown_task", "success": 1, "episodes": 3, "rate": 33.3},
-        {"task": "turn_switch", "success": None, "episodes": None, "rate": None},
+        {"task": "click_alarmclock", "success": 2, "episodes": 3, "rate": 66.7},
+        {"task": "adjust_bottle", "success": 0, "episodes": 3, "rate": 0.0},
     ]
-    line = mce._level_rollup(job, {"lift_pot": "L1"})
-    # 只统计有分母的行; 未知任务归到 "?" 且排在最后
-    assert "L1 100.0% (3/3)" in line, line
-    assert "? 33.3% (1/3)" in line, line
-    assert line.index("L1") < line.index("?"), line
-    # 没有映射时整行留空 (不能把所有任务塞进 "?" 桶打出一行废话)
-    assert mce._level_rollup(job, {}) == ""
-    empty = mce.Job(ckpt_tag="t", step=1, hf_ckpt="/x", condition="clean",
-                    task_config="demo_clean", slot_index=0, gpus=[0],
-                    start_port=9330, end_port=9333, output_base="/tmp",
-                    log_file="/tmp/l")
-    assert mce._level_rollup(empty, {"lift_pot": "L1"}) == ""
+    plan = _fake_plan("ck", 1000, "clean", per_task=rows, success=5, episodes=9,
+                      rate=55.6)
+    two = mce.render_per_task_table(
+        [plan], task_levels={"lift_pot": "L1", "click_alarmclock": "L1",
+                             "adjust_bottle": "L2"})
+    joined = "\n".join(two)
+    assert "L1 小计" in joined and "L2 小计" in joined, joined
+    assert "83%(5/6)" in joined, joined              # L1 = 5/6
+    assert "0%(0/3)" in joined, joined               # L2 = 0/3 (保留 0, 不是 "-")
+    assert "--- L1 ---" in joined and "--- L2 ---" in joined, joined
+
+    # 单个 Level 时不出小计
+    one = mce.render_per_task_table(
+        [plan], task_levels={"lift_pot": "L1", "click_alarmclock": "L1",
+                             "adjust_bottle": "L1"})
+    assert "小计" not in "\n".join(one), "\n".join(one)
+
+    # --- 总览表: 一行一 ckpt, 一列一 condition, 带耗时 ---
+    a = _job("ckA", 1000, "clean")
+    a.returncode, a.success, a.episodes, a.overall_rate, a.duration_s = \
+        0, 11, 12, 91.7, 238.0
+    b = _job("ckA", 1000, "randomized")
+    b.returncode, b.success, b.episodes, b.overall_rate, b.duration_s = \
+        0, 10, 12, 83.3, 186.0
+    c = _job("ckB", 2000, "clean")
+    c.returncode = 1
+    plan_a = mce.CkptPlan(index=0, tag="ckA", step=1000, hf_ckpt="/x",
+                          slot_index=0, jobs=[a, b])
+    plan_b = mce.CkptPlan(index=1, tag="ckB", step=2000, hf_ckpt="/y",
+                          slot_index=1, jobs=[c])
+    ov = "\n".join(mce.render_overview([plan_a, plan_b], task_levels={}))
+    assert "91.7% (11/12)" in ov and "83.3% (10/12)" in ov, ov
+    assert "失败" in ov, ov
+    assert "7分4秒" in ov, ov                        # 238 + 186
+    assert ov.count("clean") and ov.count("randomized"), ov
 
 
 def test_t13d_curriculum_yaml_cli_default():
@@ -961,7 +1072,7 @@ def test_t13e_table_alignment():
         return line.startswith("  ") and set(line.strip()) == {"-"}
 
     start = next(i for i, l in enumerate(lines) if l.lstrip().startswith("task[Lv]"))
-    end = next(i for i, l in enumerate(lines) if l.startswith("  格式:"))
+    end = next(i for i, l in enumerate(lines) if l.lstrip().startswith("单元格 ="))
     table = [l for l in lines[start + 1:end]
              if l.startswith("  ") and l.strip() and not _is_sep(l)]
     # 4 任务 + 1 条 Level 分组标题 + 合计

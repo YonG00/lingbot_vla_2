@@ -845,39 +845,55 @@ def render_plan(plans: list[CkptPlan], *, task_list_file: Path, tasks: list[str]
     return "\n".join(lines)
 
 
-def _level_rollup(job: Job, task_levels: dict[str, str]) -> str:
-    """把一个作业的逐任务结果按 Level 汇总成一行。
-
-    例: `L1 91.7% (11/12)   L2 83.3% (10/12)`
-
-    没有 task->Level 映射时返回空串 —— 否则所有任务都会落到 `?` 桶里,
-    打出一行毫无信息量的 `? 88.9%`, 反而误导读者。
-    """
-    if not task_levels:
-        return ""
-    buckets: dict[str, list[int]] = {}
-    for row in job.per_task:
-        if row.get("success") is None or not row.get("episodes"):
-            continue
-        level = task_levels.get(row["task"], "?")
-        agg = buckets.setdefault(level, [0, 0])
-        agg[0] += row["success"]
-        agg[1] += row["episodes"]
-    if not buckets:
-        return ""
-    ordered = sorted(buckets, key=lambda lv: (lv == "?", lv))
-    parts = []
-    for level in ordered:
-        suc, tot = buckets[level]
-        parts.append(f"{level} {suc / tot * 100:.1f}% ({suc}/{tot})")
-    return "   ".join(parts)
-
-
 def _cell(row: dict | None) -> str:
-    """把一个逐任务行渲染成 `91.7%(11/12)`; 无数据给 `-`。"""
+    """把一个逐任务行渲染成 `91%(11/12)`; 无数据给 `-`。"""
     if not row or row.get("success") is None or not row.get("episodes"):
         return "-"
     return f"{row['success'] / row['episodes'] * 100:.0f}%({row['success']}/{row['episodes']})"
+
+
+def _agg(index: dict[str, dict], tasks: list[str]) -> dict:
+    """把若干任务的 成功/回合 累加成一个 `{success, episodes}` 行。
+
+    只在**有分母**时给 success —— 否则 0/0 会被 `_cell` 误渲染成 "0%(0/0)"。
+    """
+    suc = tot = 0
+    for task in tasks:
+        row = index.get(task)
+        if row and row.get("success") is not None and row.get("episodes"):
+            suc += row["success"]
+            tot += row["episodes"]
+    return {"success": suc if tot else None, "episodes": tot or None}
+
+
+def _fmt_dur(seconds: float | None) -> str:
+    """耗时用「X分Ys」(用户偏好), 不到 1 分钟只给秒。"""
+    if seconds is None:
+        return "-"
+    total = int(round(seconds))
+    if total < 60:
+        return f"{total}秒"
+    return f"{total // 60}分{total % 60}秒"
+
+
+def _section(title: str) -> list[str]:
+    """统一的段标题 (窄一点, 少占视觉)。"""
+    return ["", f"-- {title} " + "-" * max(68 - _dw(title), 4)]
+
+
+def _job_ok(job: Job) -> bool:
+    """作业是否跑成功 (returncode 0 且无线程异常)。"""
+    return not job.error and job.returncode == 0
+
+
+def _overview_cell(job: Job | None) -> str:
+    if job is None:
+        return "-"
+    if not _job_ok(job):
+        return "失败" if job.returncode is not None else "未跑完"
+    if job.overall_rate is None:
+        return "-"
+    return f"{job.overall_rate:.1f}% ({job.success}/{job.episodes})"
 
 
 def _dw(text: str) -> int:
@@ -914,8 +930,10 @@ def render_per_task_table(plans: list[CkptPlan], *,
                           curriculum_yaml: Path | str | None = None) -> list[str]:
     """逐任务 × (checkpoint, condition) 交叉表。
 
-    行 = 任务 (按 Level 分组, 顺序沿用任务清单 = sentinel 的 L1→L4),
-    列 = 每个作业; 因为 checkpoint tag 太长, 列头用 `c0/c1...` 短标签 + 图例。
+    行 = 任务 (按 Level 分组), 列 = 每个作业。
+    checkpoint tag 太长, 列头用 `c0/c1...` 短标签 + 图例。
+    有 **2 个以上 Level** 时, 每组末尾插一行 `Lx 小计` —— 这样「本级涨没涨」
+    不用再单独打一张表; 只有 1 个 Level 时小计恒等于合计, 省略。
     """
     cols = [(p, j) for p in plans for j in p.jobs if j.per_task]
     if not cols:
@@ -933,38 +951,50 @@ def render_per_task_table(plans: list[CkptPlan], *,
     headers = [f"{labels[i]}/{job.condition[:3]}" for i, (_, job) in enumerate(cols)]
     indexes = [{r["task"]: r for r in job.per_task} for _, job in cols]
 
-    # 先算好每行的首列文本, 才能按显示宽度定列宽
-    body: list[tuple[str, list[str]]] = []
-    prev_level = None
-    for task in tasks:
-        level = task_levels.get(task, "?")
-        if task_levels and level != prev_level:
-            body.append((f"{level}", []))            # Level 分组标题行
-            prev_level = level
-        name = f"{task}[{level}]" if task_levels else task
-        body.append((name, [_cell(idx.get(task)) for idx in indexes]))
-    body.append(("合计", [_cell({"success": j.success, "episodes": j.episodes})
-                          for _, j in cols]))
+    # 按 Level 分组 (任务清单本身就是 L1→L4 有序的, 顺序保持)
+    groups: list[tuple[str, list[str]]] = []
+    if task_levels:
+        for task in tasks:
+            level = task_levels.get(task, "?")
+            if not groups or groups[-1][0] != level:
+                groups.append((level, []))
+            groups[-1][1].append(task)
+    else:
+        groups = [("", tasks)]
+    show_subtotal = bool(task_levels) and len(groups) > 1
 
-    first_col_w = max([_dw("task[Lv]")] + [_dw(t) for t, _ in body])
+    # 先算好每行的首列文本, 才能按显示宽度定列宽
+    body: list[tuple[str, list[str]]] = []           # (kind, 首列, 单元格)
+    for level, gtasks in groups:
+        if level:
+            body.append(("group", level, []))
+        for task in gtasks:
+            name = f"{task}[{level}]" if level else task
+            body.append(("row", name, [_cell(idx.get(task)) for idx in indexes]))
+        if show_subtotal:
+            body.append(("sub", f"{level} 小计",
+                         [_cell(_agg(idx, gtasks)) for idx in indexes]))
+    body.append(("total", "合计",
+                 [_cell({"success": j.success, "episodes": j.episodes})
+                  for _, j in cols]))
+
+    first_col_w = max([_dw("task[Lv]")] + [_dw(t) for _, t, _ in body])
     # 列宽要同时容下**表头**和**单元格** —— 只按表头算会在单元格更长时错位
     col_w = max([_dw(h) for h in headers]
-                + [_dw(c) for _, cells in body for c in cells] + [9])
+                + [_dw(c) for _, _, cells in body for c in cells] + [9])
     row_w = 2 + first_col_w + 1 + col_w * len(cols) + max(len(cols) - 1, 0)
 
-    lines = ["", "-" * 78,
-             "  逐任务成功率 (行 = 任务[Level], 列 = checkpoint/condition)",
-             "-" * 78]
+    lines = _section("逐任务成功率 (行 = 任务[Level])")
     for label, (plan, job) in zip(labels, cols):
-        lines.append(f"  {label} = {plan.tag}   [{job.condition}]")
+        lines.append(f"  {label} = {plan.tag} / {job.condition}")
     if task_levels:
-        lines.append(f"  (Level 取自 {_short_path(curriculum_yaml)})")
-    lines.append("-" * max(78, row_w))
-    lines.append("  " + _pad("task[Lv]", first_col_w) + " "
-                 + " ".join(_pad(h, col_w, "^") for h in headers))
+        lines.append(f"  Level 取自 {_short_path(curriculum_yaml)}")
     lines.append("  " + "-" * (row_w - 2))
-    for first, cells in body:
-        if not cells:                                # Level 分组标题: 整行宽的横线夹标签
+    lines.append("  " + _pad("task[Lv]", first_col_w) + " "
+                 + " ".join(_pad(h, col_w, ">") for h in headers))
+    lines.append("  " + "-" * (row_w - 2))
+    for kind, first, cells in body:
+        if kind == "group":                          # 整行宽的横线夹标签
             inner = row_w - 2
             tag = f" {first} "
             left = max((inner - _dw(tag)) // 2, 1)
@@ -974,64 +1004,122 @@ def render_per_task_table(plans: list[CkptPlan], *,
         lines.append("  " + _pad(first, first_col_w) + " "
                      + " ".join(_pad(c, col_w, ">") for c in cells))
     lines.append("  " + "-" * (row_w - 2))
-    lines.append("  格式: 成功率(成功/总回合)。合计行是该 condition 的总体成功率。")
+    lines.append("  单元格 = 成功率(成功/总回合); 合计行 = 该 condition 总体。")
+    return lines
+
+
+def render_overview(plans: list[CkptPlan], *, task_levels: dict[str, str],
+                    output_base: Path | str | None = None) -> list[str]:
+    """总览表: 一行一个 checkpoint, 一列一个 condition (+ 总耗时)。"""
+    conds: list[str] = []
+    for plan in plans:
+        for job in plan.jobs:
+            if job.condition not in conds:
+                conds.append(job.condition)
+
+    rows = []
+    for plan in plans:
+        by_cond = {j.condition: j for j in plan.jobs}
+        dur = sum(j.duration_s or 0 for j in plan.jobs) or None
+        rows.append((plan.tag, plan.step,
+                     [_overview_cell(by_cond.get(c)) for c in conds],
+                     _fmt_dur(dur)))
+
+    tag_w = max([_dw("checkpoint")] + [_dw(r[0]) for r in rows])
+    col_w = max([11] + [_dw(c) for r in rows for c in r[2]])
+    dur_w = max([6] + [_dw(r[3]) for r in rows])
+    row_w = 2 + tag_w + 1 + (col_w + 1) * len(conds) + dur_w
+
+    lines = _section("总览")
+    lines.append("  " + _pad("checkpoint", tag_w) + " "
+                 + " ".join(_pad(c, col_w, ">") for c in conds) + " "
+                 + _pad("耗时", dur_w, ">"))
+    lines.append("  " + "-" * (row_w - 2))
+    for tag, step, cells, dur in rows:
+        lines.append("  " + _pad(tag, tag_w) + " "
+                     + " ".join(_pad(c, col_w, ">") for c in cells) + " "
+                     + _pad(dur, dur_w, ">"))
+    lines.append("  " + "-" * (row_w - 2))
+    lines.append("  单元格 = 成功率 (成功/总回合); 耗时 = 该 ckpt 所有 condition 的墙钟之和。")
     return lines
 
 
 def render_summary(plans: list[CkptPlan], *, skipped: dict[str, list[Checkpoint]],
                    dry_run: bool, task_levels: dict[str, str] | None = None,
-                   curriculum_yaml: Path | str | None = None) -> str:
-    """渲染最终结果汇总。"""
+                   curriculum_yaml: Path | str | None = None,
+                   output_base: Path | str | None = None) -> str:
+    """渲染最终结果汇总。
+
+    版式: 头部 → 总览 → 逐任务 → 产物 → 未评测。
+    刻意**不**逐个作业罗列 rc / run_dir: 那些信息在总览和产物段已各有归处,
+    重复三遍只会让报告变乱 (早期版本就吃过这个亏)。
+    """
     task_levels = task_levels or {}
+    n_tasks = len({r["task"] for p in plans for j in p.jobs for r in j.per_task})
+    # 回合/任务要取**逐任务**的回合数, 不能用 job.episodes (= 任务数 × 回合数)
+    ep_values = [r["episodes"] for p in plans for j in p.jobs
+                 for r in j.per_task if r.get("episodes")]
+    n_ep = max(ep_values) if ep_values else None
+    conds = [j.condition for p in plans for j in p.jobs]
+    conds = list(dict.fromkeys(conds))
+
     lines = [
         "=" * 78,
         "  多 checkpoint 评测结果" + ("  (dry-run, 未实际执行)" if dry_run else ""),
         "=" * 78,
+        f"  ckpt {len(plans)} 个 | 任务 {n_tasks or '-'} | 回合/任务 {n_ep or '-'} | "
+        f"condition {' -> '.join(conds) or '-'}",
     ]
-    for plan in plans:
-        lines.append("")
-        lines.append(f"  {plan.tag}  (step {plan.step})")
-        for job in plan.jobs:
-            if dry_run:
-                lines.append(f"    {job.condition:<11} [计划] port {job.start_port}~{job.end_port}")
-                continue
-            rc = "未跑完" if job.returncode is None else str(job.returncode)
-            rate = f"{job.overall_rate:.1f}%" if job.overall_rate is not None else "-"
-            frac = (f"{job.success}/{job.episodes}"
-                    if job.success is not None else "-")
-            dur = f"{job.duration_s:.0f}s" if job.duration_s is not None else "-"
-            lines.append(
-                f"    {job.condition:<11} rc={rc}  成功率 {rate} ({frac})  耗时 {dur}"
-            )
-            if job.error:
-                lines.append(f"        错误   : {job.error}")
-            if job.run_dir:
-                lines.append(f"        run_dir : {job.run_dir}")
-            rollup = _level_rollup(job, task_levels)
-            if rollup:
-                lines.append(f"        按 Level: {rollup}")
 
-    if not dry_run:
-        lines += ["", "-" * 78, "  Clean vs Randomized 对比", "-" * 78]
-        lines.append(f"    {'checkpoint':<40} {'clean':>9} {'randomized':>12}")
+    if dry_run:
         for plan in plans:
-            rates = {j.condition: j.overall_rate for j in plan.jobs}
-            def _fmt(v): return f"{v:.1f}%" if v is not None else "-"
-            lines.append(f"    {plan.tag:<40} "
-                         f"{_fmt(rates.get('clean')):>9} "
-                         f"{_fmt(rates.get('randomized')):>12}")
-
+            lines.append("")
+            lines.append(f"  {plan.tag}  (step {plan.step})")
+            for job in plan.jobs:
+                lines.append(f"    {job.condition:<11} [计划] port "
+                             f"{job.start_port}~{job.end_port}")
+    else:
+        lines += render_overview(plans, task_levels=task_levels)
         lines += render_per_task_table(plans, task_levels=task_levels,
                                        curriculum_yaml=curriculum_yaml)
+
+        # 产物: 只列跑过的作业, 路径相对 output_base 缩短
+        artifacts: list[str] = []
+        for plan in plans:
+            for job in plan.jobs:
+                if not job.run_dir:
+                    continue
+                path = job.run_dir
+                if output_base:
+                    try:
+                        path = str(Path(job.run_dir).relative_to(output_base))
+                    except ValueError:
+                        pass
+                artifacts.append(f"  {plan.tag} / {job.condition:<11} {path}")
+        if artifacts:
+            lines += _section("产物 (相对 --output-base)")
+            lines += artifacts
+
+        # 异常: 只在真出事时出现, 平时不占版面
+        bad = [(p, j) for p in plans for j in p.jobs if not _job_ok(j)]
+        if bad:
+            lines += _section(f"异常 ({len(bad)} 个作业)")
+            for plan, job in bad:
+                rc = "未跑完" if job.returncode is None else str(job.returncode)
+                lines.append(f"  {plan.tag} / {job.condition:<11} rc={rc}")
+                if job.error:
+                    lines.append(f"      {job.error}")
+                if job.log_file:
+                    lines.append(f"      log: {_short_path(job.log_file)}")
 
     for bucket in ("incomplete", "unchanged"):
         items = skipped.get(bucket) or []
         if not items:
             continue
-        lines += ["", "-" * 78, f"  未评测 ({bucket}): {len(items)} 个", "-" * 78]
+        lines += _section(f"未评测 ({bucket}): {len(items)} 个")
         for ckpt in items:
             detail = "; ".join(ckpt.reasons) if ckpt.reasons else "指纹未变"
-            lines.append(f"    {ckpt.tag:<40} {detail}")
+            lines.append(f"  {ckpt.tag:<44} {detail}")
 
     lines.append("")
     return "\n".join(lines)
@@ -1275,11 +1363,17 @@ def main(argv: list[str] | None = None) -> int:
               f"summary 里不会有 Lv 列。")
     report = render_summary(plans, skipped=buckets, dry_run=args.dry_run,
                             task_levels=task_levels,
-                            curriculum_yaml=args.curriculum_yaml)
+                            curriculum_yaml=args.curriculum_yaml,
+                            output_base=output_base)
     print(report)
 
     output_base.mkdir(parents=True, exist_ok=True)
-    (output_base / "summary.txt").write_text(report, encoding="utf-8")
+    # ⚠️ dry-run 不能覆盖真跑的产物: 同一条命令加个 --dry-run 就把 summary.txt/json
+    # 冲成"未实际执行"的空壳, 实测踩过 (base_1ckpt 的 测1b 结果就是这样丢的)。
+    stem = "summary.dryrun" if args.dry_run else "summary"
+    txt_path = output_base / f"{stem}.txt"
+    json_path = output_base / f"{stem}.json"
+    txt_path.write_text(report, encoding="utf-8")
     payload = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "dry_run": args.dry_run,
@@ -1297,11 +1391,11 @@ def main(argv: list[str] | None = None) -> int:
             for key, items in buckets.items()
         },
     }
-    (output_base / "summary.json").write_text(
+    json_path.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    print(f"  summary.txt : {output_base / 'summary.txt'}")
-    print(f"  summary.json: {output_base / 'summary.json'}")
+    print(f"  {txt_path.name:<16}: {txt_path}")
+    print(f"  {json_path.name:<16}: {json_path}")
 
     # ---- 7. 判定失败 + 登记增量状态 ----
     # 顺序很重要: **先算失败, 再登记状态**。失败的 checkpoint 不能写进 state,
