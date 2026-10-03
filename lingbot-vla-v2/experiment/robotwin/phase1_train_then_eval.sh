@@ -7,17 +7,20 @@
 #
 # 训练：官方 train.sh + torchrun，4 卡，expert-only，micro=28 / gbs=112
 #       700 回合 / 87,266 帧 → 779 步 / 1 epoch，约 43 分钟
-# 评测：多 ckpt 调度器，L1 sentinel 4 任务 × (clean 3 + randomized 3) 回合
-#       约 7 分钟（1 个 ckpt）
+# 评测：多 ckpt 调度器，L1 sentinel 4 任务 × clean 3 回合 = 12 回合，约 3.5 分钟
+#       ⚠️ **默认只测 clean**（randomized 关）—— 见下方 CONDITIONS 说明
 #
 # 用法（在任意目录均可，脚本自己定位仓库根）：
 #   bash experiment/robotwin/phase1_train_then_eval.sh              # 真跑
 #   DRY_RUN=1 bash experiment/robotwin/phase1_train_then_eval.sh    # 只预览评测计划
 #   SAVE_STEPS=260 bash experiment/robotwin/phase1_train_then_eval.sh   # 3 个 ckpt
 #   SAVE_STEPS=0   bash experiment/robotwin/phase1_train_then_eval.sh   # 只存轮末 1 个
+#   CONDITIONS=clean,randomized bash experiment/robotwin/phase1_train_then_eval.sh  # 恢复官方口径
 #   TB=1           bash experiment/robotwin/phase1_train_then_eval.sh   # 顺带后台起 TensorBoard(:6006)
 #
-# 磁盘预算（779 步 / 1 epoch，单次存档 ≈ 55G = hf_ckpt 24G + DCP ~30G，无轮转不清理）：
+# 磁盘预算（779 步 / 1 epoch，**单份存档 ≈ 55G**，无轮转不清理）：
+#   单份 = model/ 23.75G + optimizer/ 7.2G + hf_ckpt/ 23.75G + extra ~0.2G
+#   （expert-only 只训 1.938B ⇒ 优化器状态比对照组的 23.7G 小得多）
 #   | save_steps | 存档点        | 份数 | 约占用 |
 #   |    0       | 779           |  1   |  ~55G  |
 #   |   545      | 545, 779      |  2   | ~110G  |  ← 默认
@@ -41,6 +44,13 @@ EPISODE_IDS=phase1_L1.episode_ids.json
 # 每多少 step 存一次（0 = 只在轮末存一次）
 SAVE_STEPS=${SAVE_STEPS:-545}
 
+# 评测条件。默认**只测 clean**：
+#   当前阶段要回答的是「换冻结范围到底有没有效果」，不是泛化能力。
+#   randomized 会把回合数翻倍，而 L1 sentinel 只有 4 个任务 × 3 回合 = 12 回合，
+#   样本本来就小，再加一路条件只会把信号摊薄、把噪声放大。
+#   等 clean 上看出方向了，再用 CONDITIONS=clean,randomized 补官方口径。
+CONDITIONS=${CONDITIONS:-clean}
+
 cd "$REPO" || exit 1
 export PATH=/data/miniconda3/envs/lingbotvla/bin:$PATH
 export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0,1,2,3}
@@ -50,6 +60,7 @@ export QWEN3VL_PATH="$QWEN3VL"
 echo "[phase${PHASE}] 仓库根    = $REPO"
 echo "[phase${PHASE}] 训练输出  = $TRAIN_OUT"
 echo "[phase${PHASE}] 评测输出  = $EVAL_OUT"
+echo "[phase${PHASE}] 评测条件  = $CONDITIONS  (randomized 关掉时只看「有没有效果」，不看泛化)"
 
 # ---------------------------------------------------------------------------
 # 只预览评测计划（不训练、不启动子进程、不初始化 CUDA）
@@ -58,7 +69,7 @@ if [ -n "${DRY_RUN:-}" ]; then
     python experiment/robotwin/robotwin_multi_ckpt_eval.py \
         --ckpt-root "$TRAIN_OUT" \
         --phase "$PHASE" --episodes 3 \
-        --conditions clean,randomized \
+        --conditions "$CONDITIONS" \
         --max-parallel-checkpoints 2 \
         --num-gpus 4 --num-per-gpu 1 \
         --output-base "$EVAL_OUT" \
@@ -78,7 +89,12 @@ fi
 
 # ---------------------------------------------------------------------------
 # 预检 ②：当前可用空间 vs 本次要存几份 checkpoint（不阻塞，只提醒）
+#   单份 54.9G = model/ 23.75 + optimizer/ 7.2 + hf_ckpt/ 23.75 + extra ~0.2
+#   （expert-only 只训 1.938B，优化器状态远小于对照组的 23.7G）
+#   ⚠️ disk_guard 判据是 max_used × margin，不是总和：存第 k 份前需
+#      avail >= 单份 × 1.1，所以「能存下 N 份」的条件是 avail >= (N-1)×单份 + 单份×1.1
 # ---------------------------------------------------------------------------
+SAVE_GB=55
 AVAIL_GB=$(df -BG --output=avail "$(dirname "$TRAIN_OUT")" 2>/dev/null | tail -1 | tr -dc '0-9')
 if [ -n "$AVAIL_GB" ]; then
     if [ "$SAVE_STEPS" -gt 0 ] 2>/dev/null; then
@@ -90,10 +106,16 @@ if [ -n "$AVAIL_GB" ]; then
     else
         N_SAVES=1
     fi
-    echo "[phase${PHASE}] /data 可用 ${AVAIL_GB}G；本次计划存档 ${N_SAVES} 份，约需 $(( N_SAVES * 56 ))G"
-    if [ "$AVAIL_GB" -lt $(( N_SAVES * 56 )) ]; then
-        echo "[phase${PHASE}] ⚠️  空间可能不足：disk_guard 会在放不下时优雅停止训练，" >&2
-        echo "[phase${PHASE}] ⚠️  届时最后一个 checkpoint 会缺失。请调大 SAVE_STEPS 或先扩容。" >&2
+    NEED_GB=$(( N_SAVES * SAVE_GB ))
+    GUARD_GB=$(( (N_SAVES - 1) * SAVE_GB + SAVE_GB * 11 / 10 ))
+    echo "[phase${PHASE}] /data 可用 ${AVAIL_GB}G；本次计划存档 ${N_SAVES} 份 × ${SAVE_GB}G = ${NEED_GB}G"
+    echo "[phase${PHASE}] disk_guard 实际门槛：存最后一份前需可用 ≥ ${GUARD_GB}G"
+    if [ "$AVAIL_GB" -lt "$GUARD_GB" ]; then
+        echo "[phase${PHASE}] ⚠️  差 $(( GUARD_GB - AVAIL_GB ))G：disk_guard 会在放不下时优雅停止训练，" >&2
+        echo "[phase${PHASE}] ⚠️  届时最后一个 checkpoint 会缺失。三条出路：" >&2
+        echo "[phase${PHASE}] ⚠️    a) 调大 SAVE_STEPS 少存几份" >&2
+        echo "[phase${PHASE}] ⚠️    b) 先扩容" >&2
+        echo "[phase${PHASE}] ⚠️    c) PRUNE_DCP=1 剪掉旧存档里评测用不到的 DCP（单份降到 23.9G）" >&2
     fi
 fi
 
@@ -155,7 +177,7 @@ mkdir -p "$EVAL_OUT" \
 python experiment/robotwin/robotwin_multi_ckpt_eval.py \
     --ckpt-root "$TRAIN_OUT" \
     --phase "$PHASE" --episodes 3 \
-    --conditions clean,randomized \
+    --conditions "$CONDITIONS" \
     --max-parallel-checkpoints 2 \
     --num-gpus 4 --num-per-gpu 1 \
     --output-base "$EVAL_OUT" \

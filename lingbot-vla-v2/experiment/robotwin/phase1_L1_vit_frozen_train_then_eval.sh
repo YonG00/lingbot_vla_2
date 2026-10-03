@@ -20,7 +20,8 @@
 #
 # 训练：官方 train.sh + torchrun，4 卡，micro=14 / gas=2 / gbs=112，**3 个 epoch**
 #       700 回合 / 87,266 帧 → 779 步/epoch × 3 = 2337 步，约 1.7~2.1 小时
-# 评测：多 ckpt 调度器，L1 sentinel 4 任务 × (clean 3 + randomized 3) 回合
+# 评测：多 ckpt 调度器，L1 sentinel 4 任务 × clean 3 回合 = 12 回合
+#       ⚠️ **默认只测 clean**（randomized 关）—— 与实验组保持完全一致的口径
 #
 # ⚠️ micro 为什么从 28 降到 14（实验组的 28 在这个配置下会 OOM）：
 #   可训参数 1.938B → 5.961B（3.08×），优化器状态/梯度显存同步上涨，实测基准 85.6G 放不下。
@@ -32,16 +33,26 @@
 #   bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh            # 真跑
 #   DRY_RUN=1 bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh  # 只预览评测计划
 #   MICRO=7 GAS=4 bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh   # OOM 时降 micro
-#   SAVE_STEPS=1169 bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh # 只存 2 份（省 55G）
+#   SAVE_STEPS=1169 bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh # 只存 2 份（省 71G）
 #   SAVE_STEPS=0    bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh # 只存轮末 1 份
+#   CONDITIONS=clean,randomized bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh # 恢复官方口径
 #   TB=1            bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh # 顺带后台起 TensorBoard(:6006)
 #
-# 磁盘预算（2337 步 / 3 epoch，单次存档 ≈ 55G = hf_ckpt 24G + DCP ~30G，无轮转不清理）：
-#   | save_steps | 存档点               | 份数 | 约占用 |
-#   |    0       | 2337                 |  1   |  ~55G  |
-#   |   1169     | 1169, 2337           |  2   | ~110G  |
-#   |    779     | 779, 1558, 2337      |  3   | ~165G  |  ← 默认（每 epoch 一份，779 与实验组同预算可直接比）
-#   |    584     | 584,1168,1752,2337   |  4   | ~220G  |  ⚠️ 需先扩容
+# 磁盘预算（2337 步 / 3 epoch，**单份存档 ≈ 71.4G**，无轮转不清理）：
+#   单份构成（对照组算值，与实验组 55G 实测交叉验证，误差 0.2%）：
+#     model/      23.75G  DCP fp32 权重       ← 只服务续训
+#     optimizer/  23.70G  Muon+AdamW 状态      ← 只服务续训（实验组只有 7.2G）
+#     hf_ckpt/    23.75G  HF 格式 fp32 权重    ← **评测唯一需要的**
+#     extra_state/ ~0.2G  调度器/RNG/dataloader
+#   注：权重是 F32（config `enable_fp32: true`，safetensors 头部实测），不是 bf16。
+#   | save_steps | 存档点               | 份数 | 约占用 | 210G 可用时 |
+#   |    0       | 2337                 |  1   |  ~71G  | 富余 139G   |
+#   |   1169     | 1169, 2337           |  2   | ~143G  | 富余  67G   |
+#   |    779     | 779, 1558, 2337      |  3   | ~214G  | ⚠️ 差 4G    |  ← 默认（779 与实验组同预算可直接比）
+#   |    584     | 584,1168,1752,2337   |  4   | ~286G  | ⚠️ 差 76G   |
+#
+# 省盘：PRUNE_DCP=1 会拉起 tools/prune_dcp.py，剪掉旧存档里评测用不到的 DCP，
+#   单份从 71.4G 降到 23.9G ⇒ 3 份 hf_ckpt + 最新 1 份完整 DCP = 119.5G（富余 90G）。
 #
 # 详见 docs/phase1_vit_frozen_guide.md
 # =============================================================================
@@ -63,6 +74,12 @@ EPISODE_IDS=phase1_L1.episode_ids.json
 # 每多少 step 存一次（0 = 只在轮末存一次）。默认 779 = 每个 epoch 末存一份。
 SAVE_STEPS=${SAVE_STEPS:-779}
 
+# 评测条件。默认**只测 clean**，与实验组 phase1_train_then_eval.sh 完全一致：
+#   A/B 要回答的是「换冻结范围有没有效果」，不是泛化能力。randomized 会把回合数翻倍，
+#   而 L1 sentinel 只有 4 任务 × 3 回合 = 12 回合，样本本就小，再加一路只会摊薄信号。
+#   等 clean 上看出方向了，再用 CONDITIONS=clean,randomized 补官方口径。
+CONDITIONS=${CONDITIONS:-clean}
+
 # micro × gas 恒 = 28 ⇒ gbs 恒 = 28 × 4 卡 = 112，与实验组一致
 MICRO=${MICRO:-14}
 GAS=${GAS:-2}
@@ -80,6 +97,7 @@ echo "[phase${PHASE}-vitfrozen] 评测输出  = $EVAL_OUT"
 echo "[phase${PHASE}-vitfrozen] 冻结配置  = train_expert_only=false + freeze_vision_encoder=true"
 echo "[phase${PHASE}-vitfrozen] 在训参数  = 5.961B / 6.376B (93.5%)  ← 实验组是 1.938B (30.4%)"
 echo "[phase${PHASE}-vitfrozen] 训练规模  = ${EPOCHS} epoch × ${STEPS_PER_EPOCH} 步 = ${TOTAL_STEPS} 步"
+echo "[phase${PHASE}-vitfrozen] 评测条件  = $CONDITIONS  (randomized 关掉时只看「有没有效果」，不看泛化)"
 echo "[phase${PHASE}-vitfrozen] 批大小    = micro ${MICRO} × gas ${GAS} × 4 卡 = gbs ${GBS}"
 if [ "$GBS" -ne 112 ]; then
     echo "[phase${PHASE}-vitfrozen] ⚠️  gbs=${GBS} ≠ 112，与实验组不可比（micro×gas 应恒等于 28）" >&2
@@ -92,7 +110,7 @@ if [ -n "${DRY_RUN:-}" ]; then
     python experiment/robotwin/robotwin_multi_ckpt_eval.py \
         --ckpt-root "$TRAIN_OUT" \
         --phase "$PHASE" --episodes 3 \
-        --conditions clean,randomized \
+        --conditions "$CONDITIONS" \
         --max-parallel-checkpoints 2 \
         --num-gpus 4 --num-per-gpu 1 \
         --output-base "$EVAL_OUT" \
@@ -112,7 +130,14 @@ fi
 
 # ---------------------------------------------------------------------------
 # 预检 ②：当前可用空间 vs 本次要存几份 checkpoint（不阻塞，只提醒）
+#   单份 71.4G = model/ 23.75 + optimizer/ 23.70 + hf_ckpt/ 23.75 + extra ~0.2
+#   （对照组可训 5.961B，优化器状态比实验组的 7.2G 大三倍多）
+#   ⚠️ 真正的门槛不是「总和」，是 disk_guard 的逐步判据：
+#      required = max_used × 1.1，存第 k 份前需 avail >= 单份 × 1.1
+#      ⇒ 能存下 N 份的条件是 avail >= (N - 1) × 单份 + 单份 × 1.1
+#      3 份 ⇒ 需可用 ≥ 2×71.4 + 78.5 = 221.3G（**不是** 214G）
 # ---------------------------------------------------------------------------
+SAVE_GB=72
 AVAIL_GB=$(df -BG --output=avail "$(dirname "$TRAIN_OUT")" 2>/dev/null | tail -1 | tr -dc '0-9')
 if [ -n "$AVAIL_GB" ]; then
     if [ "$SAVE_STEPS" -gt 0 ] 2>/dev/null; then
@@ -124,10 +149,16 @@ if [ -n "$AVAIL_GB" ]; then
     else
         N_SAVES=1
     fi
-    echo "[phase${PHASE}-vitfrozen] /data 可用 ${AVAIL_GB}G；本次计划存档 ${N_SAVES} 份，约需 $(( N_SAVES * 56 ))G"
-    if [ "$AVAIL_GB" -lt $(( N_SAVES * 56 )) ]; then
-        echo "[phase${PHASE}-vitfrozen] ⚠️  空间可能不足：disk_guard 会在放不下时优雅停止训练，" >&2
-        echo "[phase${PHASE}-vitfrozen] ⚠️  届时最后一个 checkpoint 会缺失。请调大 SAVE_STEPS 或先扩容。" >&2
+    NEED_GB=$(( N_SAVES * SAVE_GB ))
+    GUARD_GB=$(( (N_SAVES - 1) * SAVE_GB + SAVE_GB * 11 / 10 ))
+    echo "[phase${PHASE}-vitfrozen] /data 可用 ${AVAIL_GB}G；本次计划存档 ${N_SAVES} 份 × ${SAVE_GB}G = ${NEED_GB}G"
+    echo "[phase${PHASE}-vitfrozen] disk_guard 实际门槛：存最后一份前需可用 ≥ ${GUARD_GB}G"
+    if [ "$AVAIL_GB" -lt "$GUARD_GB" ]; then
+        echo "[phase${PHASE}-vitfrozen] ⚠️  差 $(( GUARD_GB - AVAIL_GB ))G：disk_guard 会在放不下时优雅停止训练，" >&2
+        echo "[phase${PHASE}-vitfrozen] ⚠️  届时最后一个 checkpoint 会缺失。三条出路：" >&2
+        echo "[phase${PHASE}-vitfrozen] ⚠️    a) 调大 SAVE_STEPS（如 1169 ⇒ 2 份，门槛 143G）" >&2
+        echo "[phase${PHASE}-vitfrozen] ⚠️    b) 先扩容" >&2
+        echo "[phase${PHASE}-vitfrozen] ⚠️    c) PRUNE_DCP=1 剪掉旧存档的 DCP（3 份只需 119.5G）" >&2
     fi
 fi
 
@@ -192,7 +223,7 @@ mkdir -p "$EVAL_OUT" \
 python experiment/robotwin/robotwin_multi_ckpt_eval.py \
     --ckpt-root "$TRAIN_OUT" \
     --phase "$PHASE" --episodes 3 \
-    --conditions clean,randomized \
+    --conditions "$CONDITIONS" \
     --max-parallel-checkpoints 2 \
     --num-gpus 4 --num-per-gpu 1 \
     --output-base "$EVAL_OUT" \
