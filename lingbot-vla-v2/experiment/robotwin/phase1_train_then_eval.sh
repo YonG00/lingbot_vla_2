@@ -39,10 +39,21 @@ EVAL_OUT=${EVAL_OUT:-/data/eval_results/phase1_L1}
 QWEN3VL=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
 
 PHASE=1
+EPOCHS=1
 TOTAL_STEPS=779
 EPISODE_IDS=phase1_L1.episode_ids.json
 # 每多少 step 存一次（0 = 只在轮末存一次）
 SAVE_STEPS=${SAVE_STEPS:-545}
+
+# 轮末存档周期。🔴 **不能恒为 1**：源码里「按步存档」(`train_lingbotvla.py:1131`) 与
+#   「轮末存档」(`:1253`) 互不去重（`:1211` 的 already_saved **只保护 reached_max_steps 那条路**，
+#   而 max_steps=50000 永远走不到），所以 SAVE_STEPS 整除 TOTAL_STEPS 时会把**同一个目录写两遍**。
+#   规则：步存档已覆盖末步 ⇒ 关掉轮末存档；否则只在**最后一个** epoch 末补一份，保证有收尾存档。
+#   本脚本默认 545 不整除 779 ⇒ 行为与旧的硬编码 1 完全一致；只有 SAVE_STEPS=779 时才少写一遍。
+SAVE_EPOCHS=$EPOCHS
+if [ "$SAVE_STEPS" -gt 0 ] && [ $(( TOTAL_STEPS % SAVE_STEPS )) -eq 0 ]; then
+    SAVE_EPOCHS=0
+fi
 
 # 评测条件。默认**只测 clean**：
 #   当前阶段要回答的是「换冻结范围到底有没有效果」，不是泛化能力。
@@ -159,10 +170,10 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.micro_batch_size 28 \
     --train.gradient_accumulation_steps 1 \
     --train.global_batch_size 112 \
-    --train.num_train_epochs 1 \
+    --train.num_train_epochs "$EPOCHS" \
     --train.max_steps        50000 \
     --train.save_steps       "$SAVE_STEPS" \
-    --train.save_epochs      1 \
+    --train.save_epochs      "$SAVE_EPOCHS" \
     --train.save_hf_weights  true \
     --train.async_save_hf_weights true \
     --train.enable_resume    false \

@@ -48,10 +48,22 @@ MODEL_PATH=${MODEL_PATH:-/data/models/lingbot-vla-v2-6b-base/lingbot-vla-v2-6b}
 QWEN3VL=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
 
 PHASE=2
+EPOCHS=1
 TOTAL_STEPS=1856
 EPISODE_IDS=phase2_L1_L2.episode_ids.json
 # 每多少 step 存一次（0 = 只在轮末存一次）
 SAVE_STEPS=${SAVE_STEPS:-619}
+
+# 轮末存档周期。🔴 **不能恒为 1**：源码里「按步存档」(`train_lingbotvla.py:1131`) 与
+#   「轮末存档」(`:1253`) 互不去重（`:1211` 的 already_saved **只保护 reached_max_steps 那条路**，
+#   而 max_steps=50000 永远走不到），所以 SAVE_STEPS 整除 TOTAL_STEPS 时会把**同一个目录写两遍**。
+#   规则：步存档已覆盖末步 ⇒ 关掉轮末存档；否则只在**最后一个** epoch 末补一份，保证有收尾存档。
+#   本脚本默认 619 不整除 1856 ⇒ 行为与旧的硬编码 1 完全一致；但 SAVE_STEPS=928 / 464 时
+#   （两者都整除 1856）旧写法会在 1856 处重复写一遍，现在不会了。
+SAVE_EPOCHS=$EPOCHS
+if [ "$SAVE_STEPS" -gt 0 ] && [ $(( TOTAL_STEPS % SAVE_STEPS )) -eq 0 ]; then
+    SAVE_EPOCHS=0
+fi
 
 cd "$REPO" || exit 1
 export PATH=/data/miniconda3/envs/lingbotvla/bin:$PATH
@@ -150,10 +162,10 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.micro_batch_size 28 \
     --train.gradient_accumulation_steps 1 \
     --train.global_batch_size 112 \
-    --train.num_train_epochs 1 \
+    --train.num_train_epochs "$EPOCHS" \
     --train.max_steps        50000 \
     --train.save_steps       "$SAVE_STEPS" \
-    --train.save_epochs      1 \
+    --train.save_epochs      "$SAVE_EPOCHS" \
     --train.save_hf_weights  true \
     --train.async_save_hf_weights true \
     --train.enable_resume    false \

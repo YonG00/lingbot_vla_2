@@ -64,7 +64,48 @@ if self.config.train_expert_only:              # 冻整个 backbone
 - `/data/train/phases/phase1_L1.episode_ids.json`（阶段 1 数据清单）
 - base 模型 `/data/models/lingbot-vla-v2-6b-base/lingbot-vla-v2-6b`
 - 评测侧 `QWEN3VL_PATH`（脚本已自动 export）
-- 磁盘：默认存档 3 份 ≈ **165G**
+- 磁盘：默认存档 3 份，单份 ≈ **71.4G**，但**真正要备的是 222G 可用**（见下）
+
+### ⚠️ 磁盘：门槛是 disk_guard 的**逐步**判据，不是总和
+
+单份存档 ≈ **71.4G**。权重是 **F32**（config `enable_fp32: true`，safetensors 头部实测），不是 bf16：
+
+| 组成 | 体积 | 说明 |
+|---|---|---|
+| `model/` | 23.75G | DCP fp32 权重 —— 只服务续训 |
+| `optimizer/` | 23.70G | Muon 20.8 + AdamW 2.9 —— 只服务续训 |
+| `hf_ckpt/` | 23.75G | HF 格式权重 —— **评测唯一需要的** |
+| `extra_state/` | ~0.2G | 调度器 / RNG / dataloader |
+
+优化器状态为什么这么大：`DistributedMuon.step` 里 `state["momentum_buffer"] = torch.zeros_like(p)`
+⇒ 与参数**同 dtype** = fp32 = 4 B/参数；AdamW 两个状态 = 8 B/参数。
+本组可训 5.961B（实验组只有 1.938B ⇒ `optimizer/` 仅 7.2G、单份 54.9G，与实测 55G 吻合，误差 0.2%）。
+
+**`disk_guard` 的判据是 `required = max_used × margin`，而 `max_used` 是运行期最大值**（≈ 单份全量），
+所以存第 k 份**之前**就要求 `可用 ≥ 单份 × 1.1`：
+
+```
+能存下 N 份  ⇔  可用 ≥ (N-1) × 单份 + 单份 × 1.1
+```
+
+| 份数 | 终态占用 | **最少需可用** |
+|---|---|---|
+| 1 | 71.4G | 78.5G |
+| 2 | 142.8G | 150.4G |
+| **3（默认）** | 214.8G | **222.0G** |
+
+> 最后一行是坑：3 份的**终态**只要 214.8G，但**门槛是 222.0G** —— 那 7G 的差就是「存第 3 份前还要留 78.5G」。
+> 只看总和会误判成「215G 就够」，实际第 3 份会被拦下，训练在 ~step 1558 优雅停止，**你要的 3-epoch 模型根本没产出**。
+
+**省盘**：`hf_ckpt` 之外的 47.7G（DCP）对评测**完全无用** ——
+`robotwin_multi_ckpt_eval.py` 只 glob `checkpoints/global_step_*/hf_ckpt`，
+从不读 `model/` 与 `optimizer/`。用 `tools/prune_dcp.py` 剪掉旧存档的 DCP：
+
+| 策略 | 最少需可用 | 终态占用 |
+|---|---|---|
+| 不剪 | 222.0G | 214.8G |
+| 剪 DCP，`--keep-last 1`（保留最新一份，续训能力不丢） | **174.3G** | 119.5G |
+| 剪 DCP，`--keep-last 0` | 126.7G | 71.9G |
 
 ## 5. 快速开始
 
@@ -74,8 +115,14 @@ cd /data/code/lingbot-vla-v2
 # 先看评测计划（不训练、不占卡）
 DRY_RUN=1 bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh
 
-# 真跑：训练 3 epoch → 自动接评测
+# 真跑：训练 3 epoch → 自动接评测（默认只测 clean）
 bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh
+
+# 恢复官方口径（clean + randomized）
+CONDITIONS=clean,randomized bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh
+
+# 空间不够时降 micro（保 gbs=112 不变）
+MICRO=7 GAS=4 bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh
 ```
 
 脚本用 `BASH_SOURCE` 自定位仓库根，**在任意目录执行都可以**。
@@ -87,12 +134,25 @@ bash experiment/robotwin/phase1_L1_vit_frozen_train_then_eval.sh
 | `EPOCHS` | `3` | 训练 epoch 数 |
 | `MICRO` | `14` | micro_batch_size |
 | `GAS` | `2` | gradient_accumulation_steps |
-| `SAVE_STEPS` | `779` | 每多少步存一次（`0` = 只存轮末） |
+| `SAVE_STEPS` | `779` | 每多少步存一次（`0` = 只存轮末）。轮末存档周期 `save_epochs` 由它自动推导，见 FAQ |
+| `CONDITIONS` | `clean` | 评测条件。**默认只测 clean**，见下 |
 | `TRAIN_OUT` | `/data/outputs/phase1_L1_vit_frozen` | 训练输出 |
 | `EVAL_OUT` | `/data/eval_results/phase1_L1_vit_frozen` | 评测输出 |
 | `CUDA_VISIBLE_DEVICES` | `0,1,2,3` | 用哪几张卡 |
 | `DRY_RUN` | 空 | 设了就只打印评测计划 |
 | `TB` | 空 | 设了就后台起 TensorBoard（`TB_PORT` 默认 6006） |
+
+### ⚠️ 评测条件默认只测 clean（两个一阶段脚本口径一致）
+
+`CONDITIONS=${CONDITIONS:-clean}`。**randomized 默认关掉**，理由：
+
+- 本阶段要回答的是「**换冻结范围到底有没有效果**」，不是泛化能力；
+- L1 sentinel 只有 4 个任务 × 3 回合 = **12 回合**，样本本来就小；再加一路 randomized 只会把信号摊薄、把噪声放大；
+- 顺带评测时间减半（7 分钟 → ~3.5 分钟）。
+
+等 clean 上看出方向了，再用 `CONDITIONS=clean,randomized` 补官方口径。
+
+> 实验组 `phase1_train_then_eval.sh` 同步改成了 `clean`，**两边必须一致**，否则 A/B 又多一个变量。
 
 ### ⚠️ 关于 micro / gas —— 必须满足 `micro × gas = 28`
 
@@ -158,15 +218,59 @@ max_steps_driven = (max_steps < train_steps × num_train_epochs)
 `50000 < 779×3=2337` 为假 ⇒ 由 epoch 数驱动 ⇒ 跑满 3 个 epoch 就停。同时 LR 调度 horizon 是 `min(2337, 50000) = 2337`，cosine 正好在 2337 步降到 `lr_min`。
 
 **Q：为什么默认每 epoch 存一份（`SAVE_STEPS=779`）？**
-A：`779` 正好是 1 个 epoch，与实验组同预算 ⇒ 可以直接比。空间紧张就 `SAVE_STEPS=1169`（2 份 ≈110G）或 `SAVE_STEPS=0`（1 份 ≈55G）。
+A：`779` 正好是 1 个 epoch，与实验组同预算 ⇒ 可以直接比。空间紧张就 `SAVE_STEPS=1169`（2 份，终态 143G / 门槛 150G）或 `SAVE_STEPS=0`（1 份，终态 71G / 门槛 78.5G）。
+**注意 1169 会丢掉 779 这个唯一同预算对比点。**
+
+**Q：脚本里的 `--train.save_epochs` 为什么不写死 `1`？**
+A：因为「按步存档」和「轮末存档」在源码里是**两个互不去重**的分支：
+
+```
+train_lingbotvla.py:1131   if args.train.save_steps  and global_step % save_steps == 0:      # 按步
+train_lingbotvla.py:1253   if args.train.save_epochs and (epoch + 1) % save_epochs == 0:   # 轮末
+```
+
+`:1211` 的 `already_saved` 去重**只保护 `reached_max_steps` 那条路**，而 `max_steps=50000` 永远走不到那里。
+`779 % 779 == 0` ⇒ 两个分支在 779 / 1558 / 2337 **全部命中同一个 `global_step_*` 目录**，每个 epoch 边界把 DCP 重写一遍 ——
+实测第 2 遍要 **385s（779）/ 378s（1558）**，3 个 epoch 白烧 **~19 分钟**。
+（HF 侧有去重，日志会打 `[async_hf] skip duplicate checkpoint`，**只有 DCP 重复写**。）
+
+所以脚本按下面的规则推导 `SAVE_EPOCHS`：**步存档覆盖到末步就关掉轮末存档，否则只在最后一个 epoch 末补一份**。
+
+```bash
+SAVE_EPOCHS=$EPOCHS
+if [ "$SAVE_STEPS" -gt 0 ] && [ $(( TOTAL_STEPS % SAVE_STEPS )) -eq 0 ]; then
+    SAVE_EPOCHS=0
+fi
+```
+
+⇒ 份数恒为 `N = floor(2337 / SAVE_STEPS) + (2337 % SAVE_STEPS ? 1 : 0)`，`SAVE_STEPS=0` 时 `N=1`：
+
+| `SAVE_STEPS` | 推导出的 `save_epochs` | 存档点 | 份数 |
+|---|---|---|---|
+| `0` | `3` | 2337 | 1 |
+| `1169` | `3` | 1169, 2337 | 2 |
+| **`779`（默认）** | **`0`** | **779, 1558, 2337** | **3** |
+| `584` | `3` | 584, 1168, 1752, **2336, 2337** | 5 |
+
+> `584` 那行体现公式的固有行为：`2337 % 584 = 1` ⇒ 轮末再补一份，于是 `2336` 和 `2337` 挨在一起。
+> 任何**不整除**的档位都会有这个现象，不是 bug。
 
 **Q：能中途 `Ctrl-C` 再续训吗？**
 A：改 `--train.enable_resume true` 并指向同一 `TRAIN_OUT` 即可续训 DCP。注意 `enable_resume` **只管续训 DCP**，初始权重只来自 `--model.model_path`。
+另外它**只认 step 最大的那一份**（`train_lingbotvla.py:677-687`），所以更早存档的 DCP 是结构性无用的 ——
+用 `tools/prune_dcp.py --keep-last 1` 剪掉它们不影响续训能力。
+
+**Q：拿这个 ckpt 当起点开下一阶段，需要 DCP 吗？**
+A：**不需要。** 初始权重只来自 `--model.model_path`（`train_lingbotvla.py:395-404`
+`build_foundation_model(weights_path=...)`），只需 `hf_ckpt`。
+活体反证：`lingbot-vla-v2-6b-base` 根本没有 DCP，而实验组就是拿它当起点训的。
 
 ## 10. 边界
 
 - 本脚本**不改** `phase1_train_then_eval.sh`，两个文件独立；实验组的结果和目录不受影响。
 - 输出目录 `/data/outputs/phase1_L1_vit_frozen` 与实验组的 `/data/outputs/phase1_L1` **不同**，不会互相覆盖。
-- 存档**无轮转、不自动清理**，每份 ≈55G，跑之前先确认可用空间。
+- 存档**无轮转、不自动清理**，每份 ≈ **71.4G**，跑之前先按上面的「逐步判据」确认可用空间（3 份需 222G）。
+- 想省盘用 `python tools/prune_dcp.py --ckpt-root "$TRAIN_OUT" --interval 120 --keep-last 1`
+  （常驻看门狗，剪掉旧存档里评测用不到的 DCP；3 份只需 174G 可用）。
 - `micro=14` 的显存占用是**估算**，没有实测过（写这个脚本时手上没有可用的 GPU 机器）。**第一次跑建议盯着 `nvidia-smi`，OOM 就按第 6 节降档。**
 - 评测链路与阶段 1 完全一致（同一个多 ckpt 调度器、同一批 L1 sentinel 任务）。

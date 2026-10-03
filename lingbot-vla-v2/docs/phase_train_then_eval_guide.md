@@ -70,21 +70,52 @@ ls /data/train/phases/
 
 ### 3.5 磁盘预算（重要）
 
-单次存档 ≈ **55G** = `hf_ckpt` 24G（fp32 六个分片，实测）+ DCP/ByteCheckpoint ~30G。
+单次存档 ≈ **54.9G**（expert-only；与实测 55G 吻合）：
+
+| 组成 | 体积 | 说明 |
+|---|---|---|
+| `model/` | 23.75G | DCP fp32 权重 —— 只服务续训 |
+| `optimizer/` | 7.2G | Muon 4 B/参数（本组只训 1.938B）—— 只服务续训 |
+| `hf_ckpt/` | 23.75G | HF 格式权重 —— **评测唯一需要的** |
+| `extra_state/` | ~0.2G | 调度器 / RNG / dataloader |
+
+权重是 **F32**（config `enable_fp32: true`，safetensors 头部实测），不是 bf16。
 **DCP 没有轮转清理**，逐份累加。
 
-| 阶段 | 步数 | `save_steps` | 存档点 | 份数 | 约占用 |
-|---|---|---|---|---|---|
-| P1 | 779 | `545`（默认） | 545, 779 | 2 | ~110G |
-| P1 | 779 | `260` | 260, 520, 779 | 3 | ~165G |
-| P2 | 1856 | `619`（默认） | 619, 1238, 1856 | 3 | ~165G |
-| P2 | 1856 | `928` | 928, 1856 | 2 | ~110G |
-| P2 | 1856 | `464` | 464, 928, 1392, 1856 | 4 | ~224G |
+> ⚠️ **门槛不是「份数 × 单份」，而是 disk_guard 的逐步判据。**
+> `required = max_used × margin`，`max_used` 是运行期最大值（≈单份全量），
+> 所以存第 k 份**之前**就要求 `可用 ≥ 单份 × 1.1`：
+> ```
+> 能存下 N 份  ⇔  可用 ≥ (N-1) × 单份 + 单份 × 1.1
+> ```
+> 例：55G 一份时，2 份终态 110G 但**门槛 115G**；3 份终态 165G 但**门槛 176G**。
+
+| 阶段 | 步数 | `save_steps` | 存档点 | 份数 | 终态占用 | **最少需可用** |
+|---|---|---|---|---|---|---|
+| P1 | 779 | `545`（默认） | 545, 779 | 2 | ~110G | ~115G |
+| P1 | 779 | `260` | 260, 520, 779 | 3 | ~165G | ~176G |
+| P2 | 1856 | `619`（默认） | 619, 1238, 1856 | 3 | ~165G | ~176G |
+| P2 | 1856 | `928` | 928, 1856 | 2 | ~110G | ~115G |
+| P2 | 1856 | `464` | 464, 928, 1392, 1856 | 4 | ~220G | ~231G |
 
 > ⚠️ **`save_steps` 不能跨阶段照抄**：阶段 1 的 `545` 只有 2 份，到阶段 2（1856 步）就变成 4 份。
 
+> 🔴 **轮末存档周期 `save_epochs` 是自动推导的，不是写死 `1`。**
+> 源码里「按步存档」（`train_lingbotvla.py:1131`）与「轮末存档」（`:1253`）是**两个互不去重**的分支 ——
+> `:1211` 的 `already_saved` **只保护 `reached_max_steps` 那条路**，而 `max_steps=50000` 永远走不到。
+> 所以当 `save_steps` **整除**总步数时（P2 的 `928` / `464` 都整除 1856），旧写法会把
+> `global_step_1856` 的 DCP **写两遍**，白等约 6 分钟（HF 侧有去重，只有 DCP 重复写）。
+> 现在的规则：**步存档覆盖到末步 ⇒ 关掉轮末存档；否则只在最后一个 epoch 末补一份**。
+> 上表的份数在新规则下逐行成立。
+
 > ⚠️ **4 个阶段的 checkpoint 会叠加**（各自独立 `output_dir`，互不清理）。
-> 按每阶段 1 份算，4 × 55 = 220G，加上已有的模型/环境约 114G ⇒ **跑满 4 阶段必须阶段间手动清理**。
+> 按每阶段 1 份算，4 × 55 = 220G，加上已有的模型/环境约 115G ⇒ **跑满 4 阶段必须阶段间手动清理**。
+
+> 💡 **省盘**：`hf_ckpt` 之外的 DCP 对评测**完全无用**（调度器只 glob
+> `checkpoints/global_step_*/hf_ckpt`，从不读 `model/` 与 `optimizer/`）。
+> `python tools/prune_dcp.py --ckpt-root "$TRAIN_OUT" --interval 120 --keep-last 1`
+> 可把单份从 55G 剪到 24G，且保留最新一份的续训能力。
+> 对照组（只冻 ViT，单份 71.4G）用同一招能从 222G 门槛降到 174G。
 
 ---
 
@@ -186,7 +217,8 @@ tensorboard --logdir /data/outputs/phase1_L1/runs --port 6006 --host 127.0.0.1
 | 变量 | 默认值 | 说明 |
 |---|---|---|
 | `DRY_RUN` | 空 | 非空 ⇒ 只预览评测计划，不训练、不起子进程、不初始化 CUDA |
-| `SAVE_STEPS` | P1 `545` / P2 `619` | 每多少 step 存一次；`0` = 只在轮末存一次 |
+| `SAVE_STEPS` | P1 `545` / P2 `619` | 每多少 step 存一次；`0` = 只在轮末存一次。轮末存档周期 `save_epochs` 由它自动推导（见第 3 节的 🔴），不是写死的 `1` |
+| `CONDITIONS` | `clean` | 评测条件。**默认只测 clean**（randomized 关），见 5.1 |
 | `TRAIN_OUT` | `/data/outputs/phase1_L1` / `..._from_base` | 训练输出目录（`<TRAIN_OUT>/checkpoints/global_step_N/hf_ckpt`） |
 | `EVAL_OUT` | `/data/eval_results/...` | 评测输出目录 |
 | `MODEL_PATH` | 仅 P2 脚本 | 起点权重；默认 base，可指向上一阶段的轮末 `hf_ckpt` |
@@ -194,6 +226,21 @@ tensorboard --logdir /data/outputs/phase1_L1/runs --port 6006 --host 127.0.0.1
 | `TB` | 空（关） | 非空 ⇒ 训练前**后台启动 TensorBoard**（`127.0.0.1:6006`） |
 | `TB_PORT` | `6006` | TensorBoard 端口 |
 | `QWEN3VL_PATH` | Qwen3-VL-4B 路径 | 评测侧必需，脚本已设默认 |
+
+### 5.1 ⚠️ 评测条件默认只测 clean
+
+`CONDITIONS=${CONDITIONS:-clean}`，**randomized 默认关掉**：
+
+- 当前阶段要回答的是「**换冻结范围到底有没有效果**」，不是泛化能力；
+- L1 sentinel 只有 4 任务 × 3 回合 = **12 回合**，样本本来就小，再加一路条件只会摊薄信号、放大噪声；
+- 顺带评测时间减半。
+
+想恢复官方口径（clean + randomized）加 `CONDITIONS=clean,randomized` 即可。
+**对照组 `phase1_L1_vit_frozen_train_then_eval.sh` 同步改成了 `clean`，两边必须一致**，
+否则 A/B 又多一个变量。
+
+> 本文档第 6 节的示例输出仍是 `clean,randomized` 两列的格式（历史运行记录），
+> 实际默认只跑 clean 一列。
 
 ---
 
@@ -298,15 +345,20 @@ TRAIN_OUT=/data/outputs/phase2_L1_L2 \
 
 1. **输出目录预检**：`<TRAIN_OUT>/checkpoints` 已存在 ⇒ 列出里面的 `global_step_*`，
    提醒「`enable_resume=false` 会从 base 重训并覆盖同名目录」。
-2. **磁盘预检**：读 `df` 可用空间，按份数 × 56G 打印需求，不够就告警。
+2. **磁盘预检**：读 `df` 可用空间，按 `SAVE_GB=55` 打印「份数 × 55G」，
+   并单独打印 disk_guard 的**逐步门槛** `(N-1)×55 + 55×1.1`，不够就告警。
 
-份数算法（**精确版**，注意轮末存档可能和步存档重合）：
+份数算法（**精确版**）。`N_SAVES` 在脚本里只算一次，磁盘预检直接复用它，避免两处各算一遍算歪：
 
 ```bash
-if [ $(( TOTAL_STEPS % SAVE_STEPS )) -eq 0 ]; then
-    N = TOTAL_STEPS / SAVE_STEPS          # 重合，不多算
+if [ "$SAVE_STEPS" -gt 0 ]; then
+    if [ $(( TOTAL_STEPS % SAVE_STEPS )) -eq 0 ]; then
+        N_SAVES=$(( TOTAL_STEPS / SAVE_STEPS ))      # 末步已被步存档覆盖，轮末不再额外存
+    else
+        N_SAVES=$(( TOTAL_STEPS / SAVE_STEPS + 1 ))  # 轮末补最后一份
+    fi
 else
-    N = TOTAL_STEPS / SAVE_STEPS + 1      # 轮末再存一份
+    N_SAVES=1                                        # 只存轮末一份
 fi
 ```
 
@@ -357,6 +409,11 @@ fi
 | P3 | 3217 | 1073 |
 | P4 | 4901 | 1634 |
 
+> `ceil` 只是起点：**只要 `save_steps` 不整除总步数，实际份数就是 `floor + 1`**（轮末补一份）。
+> 上面这四档恰好都落在「不整除」一侧（`779%260=259`、`1856%619=618`、`3217%1073=1071`、`4901%1634=1633`），
+> 所以份数就是想要的 3 份。反过来，若你手选一个**整除**的档位（P1 的 `779`、P2 的 `928` / `464`），
+> 轮末存档会自动关闭，份数 = `总步数 / save_steps`，也不会重复写。
+
 ### Q5 评测跑失败了，重跑要重头来吗？
 
 不用。增量状态在 `<EVAL_OUT>/eval_state.json`，**同一条命令重跑会自动跳过已完成的**。
@@ -402,11 +459,12 @@ DRY_RUN=1 bash experiment/robotwin/phase1_train_then_eval.sh
 # 训练还没跑过时，dry-run 应该报「没有发现可用 checkpoint」而不是崩
 ```
 
-预检的份数公式已自测（779 / 1856 步 × 多组 `save_steps`）：
+预检的份数公式与 `save_epochs` 推导已自测（多组步数 × 多组 `save_steps`）：
 
 ```
-P1 (779 步):  0→1 份  545→2 份  260→3 份
-P2 (1856 步): 0→1 份  928→2 份  619→3 份  464→4 份  545→4 份
+P1   (779 步, 1 epoch):     0→1 份  545→2 份  260→3 份  779→1 份（save_epochs=0）
+P2   (1856 步, 1 epoch):    0→1 份  928→2 份  619→3 份  464→4 份  545→4 份（928/464 的 save_epochs=0）
+对照组 (2337 步, 3 epoch):  0→1 份  1169→2 份  779→3 份（save_epochs=0）  584→5 份
 ```
 
 ---
