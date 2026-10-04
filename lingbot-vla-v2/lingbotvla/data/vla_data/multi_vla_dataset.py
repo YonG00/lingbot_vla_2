@@ -65,6 +65,11 @@ class MultiVLADataset(Dataset):
         self.config = config
         self.processor = processor
         self.return_item = return_item
+        # [DSH] strict 模式开关（默认 False ⇒ 正式训练行为与引入前**完全一致**）。
+        # 由 `lingbotvla/utils/open_loop_validation.py` 在评测数据集上置 True：
+        # 读帧失败直接抛错，而不是 `__getitem__` 里那套「随机换一帧重试」——
+        # 那套重试会静默给出 (图像, 动作) 不匹配的样本，污染指标。
+        self.strict_getitem = False
 
         data_names, repo_ids  = get_all_tasks(repo_file)
         self.data_names, self.repo_ids = data_names, repo_ids
@@ -157,6 +162,9 @@ class MultiVLADataset(Dataset):
 
         if idx < 0 or idx >= len(self):
             raise IndexError(f"Index {idx} out of bounds.")
+        # [DSH] strict：评测用。直接取，失败就抛错（不做随机换帧重试）。
+        if getattr(self, "strict_getitem", False):
+            return self.getdata(idx)
         max_retries = 200
         attempts = 0
         cur = idx

@@ -121,5 +121,45 @@ train / val **各自按自己的评测集**算 baseline（评测集不同 ⇒ ba
 | 训练显存峰值（micro 10 / gbs 10，`vit_frozen` 5.96B 可训） | **78.6 G / 96 G** |
 | 训练 step 时间（micro 10） | ≈ 19 s/step |
 
-> 官方**闭环**评测默认 `use_compile=True`（≈0.29 s/步）；本模块按用户要求走 **eager**
-> 以求正确/稳定，因此单次推理慢得多。cadence 建议 `eval_steps=250`（≈2% 时间开销）。
+> 官方**闭环**评测默认 `use_compile=True`；本模块走 **eager**，因为 deploy 就是这么配的
+> （见下节）。cadence 建议 `eval_steps=250`（≈2% 时间开销）。
+
+---
+
+## 8. 评测期间临时改的三件事（都在 `finally` 里恢复）
+
+这三件都是「不改就会静默算错」的类型，**任何一项漏掉都会让曲线不可用**：
+
+| # | 临时改什么 | 为什么必须改 |
+|---|---|---|
+| ① | `model.config.use_cache` → `True` | 训练配置默认 `False`（`configuration_lingbot_vla.py:104`，V2 不覆盖）。而 `sample_actions` 传的是 `fill_kv_cache=True, use_cache=self.config.use_cache` ⇒ `handle_kv_cache` 直接跳过 ⇒ **`past_key_values` 恒为 None** ⇒ 去噪阶段**完全没有 VLM 前缀条件**（不报错、结果错）。deploy 路径显式设 `True`，我们补上 |
+| ② | `attention_implementation` → `eager`（并换 `attention_interface`） | 训练配置是 `flex_cached`，其 block mask 按 **query 长度**建（`_full_len = query_states.shape[1]`）；`predict_velocity` 用了 KV cache 时 key = prefix+suffix ≠ query ⇒ 长度不匹配。`use_cache=False` 时**恰好相等**（静默丢前缀），`True` 时直接抛 `ValueError: block_mask was created for ... 128,128 but got q_len=128 and kv_len=337`。deploy 在**建模之前**就设成 eager（`lingbot_vla_v2_policy.py:290`），我们做同一件事 |
+| ③ | Qwen3-VL 视觉塔的 5 个预计算网格缓存 → `None` | `precompute_grid_thw=true` 时按**首次调用网格**缓存 `visual_split_sizes` 等 ⇒ 训练网格 = micro×相机数、评测 = 3 ⇒ micro>1 必炸 `split_with_sizes`（micro=1 巧合躲过） |
+
+**①+② 合起来 = 复刻官方 deploy 的推理配置** ⇒ 这也是能和官方对拍的前提。
+
+## 9. 噪声：显式喂，不用 `torch.manual_seed`
+
+`sample_actions(noise=None)` 会现抽 `torch.randn`。**「同一个 seed」≠「同一份噪声」** ——
+`torch.randn` 取的是**随机流上第几次**的值，而模型加载本身会消耗随机数（实测 4 次 `randn(256,2560)`）。
+
+本模块改用**专用 generator**（`torch.Generator(device='cuda')` + `manual_seed(EVAL_SEED)`），
+在 `_infer_one` 里显式传 `noise=`，并在每次评测开头重置 ⇒
+
+* 不同 step 之间**噪声不是变量**，曲线可比
+* 可与官方脚本喂**逐位相同**的噪声做对拍（官方侧把 `torch.randn` 只拦截 `(1,50,55)` 形状即可）
+
+> 实测：换噪声对 MSE 的影响是 **12% 量级**（探针多消耗 2 次随机数就够），所以这不是小事。
+
+## 10. 恢复审计
+
+每次评测的 `finally` 里逐项**断言**临时状态已还原，并打一行日志：
+
+```
+[open_loop] ✅ 恢复审计通过：逐模块 training 标志 / config.use_cache / image_augment /
+            compile 开关 / attention_implementation / torch+numpy+python RNG 全部还原
+```
+
+不一致 ⇒ `❌ 恢复审计未通过` 并**抛 `RuntimeError`**（fail-fast）。
+确认无碍可 `export OPEN_LOOP_AUDIT_STRICT=0` 降级为仅告警。
+
