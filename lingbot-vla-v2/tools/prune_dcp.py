@@ -80,6 +80,7 @@ def _load_check_hf_ckpt():
         return None
     spec = importlib.util.spec_from_file_location("_robotwin_multi_ckpt_eval", cand)
     mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod   # @dataclass 会查 sys.modules[cls.__module__]，必须先注册
     spec.loader.exec_module(mod)          # 该模块 import 期无副作用（只定义常量/函数）
     return mod.check_hf_ckpt
 
