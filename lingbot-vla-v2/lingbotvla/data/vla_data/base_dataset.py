@@ -173,7 +173,23 @@ class LeRobotDataset(BaseLeRobotDataset):
         
         query_indices = None
         if self.delta_indices is not None:
-            query_indices, padding = self._get_query_indices(idx, ep_idx)
+            # 🔴 [DSH] 修 lerobot 的索引空间 bug（2026-10-04 定位）：
+            #   `_get_query_indices(idx, ep_idx)` 内部是
+            #       ep_start = meta.episodes[ep_idx]['dataset_from_index']   # **绝对**帧号
+            #       ep_end   = meta.episodes[ep_idx]['dataset_to_index']     # **绝对**帧号
+            #       query    = max(ep_start, min(ep_end - 1, idx + delta))
+            #       is_pad   = (idx + delta < ep_start) | (idx + delta >= ep_end)
+            #   但 `episodes=[...]` 白名单过滤后 `self.hf_dataset` 只剩被选中的回合，
+            #   传进来的 `idx` 是**局部**序号（0..len-1），和绝对 ep_start/ep_end 不可比：
+            #     ⇒ `idx + delta < ep_start` 恒成立 ⇒ **整段 chunk 全判成 padding**
+            #     ⇒ `max(ep_start, ...)` 恒等于 ep_start ⇒ state/action 恒为
+            #       「该回合第一帧」的值（实测该帧 state 全 0）——**图像却是对的**。
+            #   后果：白名单课程训练时，模型看到真实图像 + 常数 state，被要求拟合常数 action，
+            #        loss 正常下降但学不到任何动作（闭环 0/12 的真因）。
+            #   修法：用当前样本的**绝对**帧号（`index` 列）去查询。
+            #   未过滤（episodes=None）时 `index == idx`，本行是 no-op，行为不变。
+            abs_idx = int(item["index"])
+            query_indices, padding = self._get_query_indices(abs_idx, ep_idx)
             query_result = self._query_hf_dataset(query_indices)
             item = {**item, **padding}
             for key, val in query_result.items():
