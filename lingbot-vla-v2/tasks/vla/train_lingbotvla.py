@@ -284,6 +284,29 @@ class MyTrainingArguments(TrainingArguments):
         default=False,
         metadata={"help": "Whether to exclude Qwen2FusedExperts params from Qwen2DecoderLayer FSDP2 units without wrapping the experts in FSDP2."},
     )
+    # --- 训练中原地 open-loop validation（见 lingbotvla/utils/open_loop_validation.py）---
+    open_loop_eval_steps: int = field(
+        default=0,
+        metadata={"help": "每多少个优化器步跑一次训练中 open-loop validation；0 = 关闭。"},
+    )
+    open_loop_train_ids: Optional[str] = field(
+        default=None,
+        metadata={"help": "train-monitor 回合号白名单 json（裸列表）；None = 用内置的 5 条。"},
+    )
+    open_loop_val_ids: Optional[str] = field(
+        default=None,
+        metadata={"help": "held-out val 回合号白名单 json（裸列表）；None = 用内置的 10 条。"},
+    )
+    stop_and_save_file: Optional[str] = field(
+        default=None,
+        metadata={"help": "每个 step 后检查该文件；存在则收尾存档并正常退出。"
+                          "None = <output_dir>/STOP_AND_SAVE。"},
+    )
+    skip_final_save_on_max_steps: bool = field(
+        default=False,
+        metadata={"help": "⚠️ 仅供 smoke test：max_steps 到顶时跳过收尾存档直接退出。"
+                          "正式训练**不要**打开。"},
+    )
     vlm_fsdp: bool = field(
         default=False,
         metadata={"help": "Whether to apply FSDP2 for VLM."},
@@ -611,6 +634,31 @@ def main():
 
         model_assets = [model_config, processor]
         save_model_assets(args.train.model_assets_dir, model_assets)
+
+    # --- 训练中原地 open-loop validation（可选，默认关闭）---
+    open_loop_validator = None
+    if args.train.open_loop_eval_steps and args.train.open_loop_eval_steps > 0:
+        from lingbotvla.utils.open_loop_validation import OpenLoopValidator, _load_episode_ids
+
+        open_loop_validator = OpenLoopValidator(
+            model=model,
+            args=args,
+            processor=processor,
+            use_depth_align=use_depth_align,
+            writer=writer,
+            logger=logger,
+            train_monitor_ids=(_load_episode_ids(args.train.open_loop_train_ids)
+                               if args.train.open_loop_train_ids else None),
+            val_ids=(_load_episode_ids(args.train.open_loop_val_ids)
+                     if args.train.open_loop_val_ids else None),
+        )
+        logger.info_rank0(
+            f"[open_loop] 已启用：每 {args.train.open_loop_eval_steps} 步一次；"
+            f"train-monitor={open_loop_validator.train_monitor_ids} "
+            f"val={open_loop_validator.val_ids}")
+    stop_and_save_path = args.train.stop_and_save_file or os.path.join(
+        args.train.output_dir, "STOP_AND_SAVE")
+    stop_requested_by_file = False   # 区分「max_steps 到顶」与「STOP_AND_SAVE」
 
     start_epoch, start_step, global_step = 0, 0, 0
     current_epoch_for_eval, current_epoch_step_for_eval = 1, 0
@@ -1182,6 +1230,34 @@ def main():
                     disk_avail_before_gb=_disk_avail_before_gb,
                 )
 
+            # --- 训练中原地 open-loop validation（不触发 checkpoint 保存）---
+            if open_loop_validator is not None and \
+                    global_step % args.train.open_loop_eval_steps == 0:
+                open_loop_validator.validate(global_step)
+
+            # --- STOP_AND_SAVE：外部 touch 该文件 ⇒ 收尾存档并正常退出 ---
+            if stop_and_save_path and os.path.exists(stop_and_save_path):
+                _stop_reason = ""
+                try:
+                    _stop_reason = open(stop_and_save_path).read().strip()
+                except Exception:
+                    pass
+                logger.info_rank0(
+                    f"[STOP_AND_SAVE] 检测到 {stop_and_save_path}"
+                    + (f"（内容: {_stop_reason}）" if _stop_reason else "")
+                    + f"，将在 step {global_step} 收尾存档后正常退出。")
+                try:
+                    os.replace(stop_and_save_path, stop_and_save_path + ".done")
+                    logger.info_rank0(
+                        f"[STOP_AND_SAVE] 已改名为 {stop_and_save_path}.done"
+                        "（避免下次启动立刻停）。")
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(f"[STOP_AND_SAVE] ⚠️ 改名失败: {exc}；请手工删除该文件")
+                stop_requested_by_file = True
+                # 复用现有「收尾存档 + 正常退出」路径（步循环后的 reached_max_steps 分支）
+                reached_max_steps = True
+                break
+
             if args.train.max_steps is not None and global_step >= args.train.max_steps:
                 logger.info_rank0(f"Reached max_steps={args.train.max_steps}, stopping training.")
                 reached_max_steps = True
@@ -1208,6 +1284,11 @@ def main():
             break
 
         if reached_max_steps:
+            if args.train.skip_final_save_on_max_steps and not stop_requested_by_file:
+                logger.info_rank0(
+                    "[smoke] skip_final_save_on_max_steps=true ⇒ 跳过收尾存档直接退出 "
+                    f"(global_step={global_step})。⚠️ 仅供 smoke test，正式训练不要开。")
+                break
             already_saved = args.train.save_steps and global_step % args.train.save_steps == 0
             if not already_saved:
                 # [DiskCheck] 收尾存档前的容量判断

@@ -58,8 +58,25 @@ PRUNE=${PRUNE:-1}                  # 剪枝看门狗（默认开：3 份完整�
 PRUNE_KEEP=${PRUNE_KEEP:-0}        # 保留几份完整 DCP（0 = 全剪，放弃续训）
 DRY_RUN=${DRY_RUN:-0}
 
+# 训练中原地 open-loop validation（见 lingbotvla/utils/open_loop_validation.py）
+OPEN_LOOP_EVAL_STEPS=${OPEN_LOOP_EVAL_STEPS:-0}   # 0 = 关闭；如 250
+OPEN_LOOP_TRAIN_IDS=${OPEN_LOOP_TRAIN_IDS:-}      # 空 = 用模块内置的 5 条 train-monitor
+OPEN_LOOP_VAL_IDS=${OPEN_LOOP_VAL_IDS:-}          # 空 = 用模块内置的 10 条 held-out val
+STOP_AND_SAVE_FILE=${STOP_AND_SAVE_FILE:-}        # 空 = <TRAIN_OUT>/STOP_AND_SAVE
+SKIP_FINAL_SAVE=${SKIP_FINAL_SAVE:-0}             # ⚠️ 仅供 smoke test：1 = max_steps 到顶时跳过收尾存档
+
 PY=/data/miniconda3/envs/lingbotvla/bin/python
 [ -x "$PY" ] || { echo "❌ 找不到 $PY" >&2; exit 1; }
+
+# ---- 训练中 open-loop validation 的透传参数 ---------------------------------
+OPEN_LOOP_ARGS=()
+if [ "${OPEN_LOOP_EVAL_STEPS}" -gt 0 ] 2>/dev/null; then
+    OPEN_LOOP_ARGS+=(--train.open_loop_eval_steps "${OPEN_LOOP_EVAL_STEPS}")
+    [ -n "${OPEN_LOOP_TRAIN_IDS}" ] && OPEN_LOOP_ARGS+=(--train.open_loop_train_ids "${OPEN_LOOP_TRAIN_IDS}")
+    [ -n "${OPEN_LOOP_VAL_IDS}" ]   && OPEN_LOOP_ARGS+=(--train.open_loop_val_ids "${OPEN_LOOP_VAL_IDS}")
+fi
+[ -n "${STOP_AND_SAVE_FILE}" ] && OPEN_LOOP_ARGS+=(--train.stop_and_save_file "${STOP_AND_SAVE_FILE}")
+[ "${SKIP_FINAL_SAVE}" = "1" ] && OPEN_LOOP_ARGS+=(--train.skip_final_save_on_max_steps true)
 
 # ---- 读划分 -----------------------------------------------------------------
 MANIFEST="$SPLIT_DIR/manifest.json"
@@ -84,13 +101,20 @@ STEPS_PER_EPOCH=$(( TRAIN_FRAMES / GBS ))
 # 目标轮数：保证 train_steps × epochs > max_steps，让 max_steps 真正驱动总步数
 EPOCHS=$(( (MAX_STEPS + STEPS_PER_EPOCH - 1) / STEPS_PER_EPOCH + 1 ))
 
-# SAVE_STEPS：取「≤ SAVE_EVERY 的 MAX_STEPS 的最大约数」⇒ 末步一定有存档
-SAVE_STEPS=$("$PY" -c "
+# SAVE_STEPS：取「≤ SAVE_EVERY 的 MAX_STEPS 的最大约数」⇒ 末步一定有存档。
+# ⚠️ SAVE_EVERY<=0 ⇒ 关掉步存档（SAVE_STEPS=0）。smoke test 需要「零存档」时用这个 +
+#    SKIP_FINAL_SAVE=1（拦收尾存档）：否则 MAX_STEPS=3 会让推导式取到 3，在 step 3 白存 72G。
+if [ "${SAVE_EVERY}" -le 0 ] 2>/dev/null; then
+    SAVE_STEPS=0
+    N_SAVES=1
+else
+    SAVE_STEPS=$("$PY" -c "
 m, want = $MAX_STEPS, $SAVE_EVERY
 d = [x for x in range(1, m + 1) if m % x == 0 and x <= want]
-print(max(d))
+print(max(d) if d else 0)
 ")
-N_SAVES=$(( MAX_STEPS / SAVE_STEPS ))
+    N_SAVES=$(( SAVE_STEPS > 0 ? MAX_STEPS / SAVE_STEPS : 1 ))
+fi
 
 # ---- 计划 -------------------------------------------------------------------
 cat <<EOF
@@ -108,7 +132,10 @@ cat <<EOF
   批大小      = micro ${MICRO} × gas ${GAS} × ${N_GPU} 卡 = gbs ${GBS}
   存档计划    = 每 ${SAVE_STEPS} 步一份（目标 ${SAVE_EVERY}，已对齐 max_steps）× ${N_SAVES} 份；轮末不存
   剪枝看门狗  = PRUNE=$PRUNE  keep-last=$PRUNE_KEEP  ⇒ 单份 72G → 24G
-  评测        = 本脚本**不跑评测**（闭环请手动执行）
+  开环验证    = 每 ${OPEN_LOOP_EVAL_STEPS} 步一次（0=关）；train_ids=${OPEN_LOOP_TRAIN_IDS:-<内置5条>}  val_ids=${OPEN_LOOP_VAL_IDS:-<内置10条>}
+  STOP_AND_SAVE = ${STOP_AND_SAVE_FILE:-<TRAIN_OUT>/STOP_AND_SAVE}
+  跳过收尾存档 = ${SKIP_FINAL_SAVE}（1=跳过；⚠️ 仅供 smoke test，正式训练保持 0）
+  评测        = 本脚本**不跑闭环评测**（闭环请手动执行）
 ================================================================================
 EOF
 
@@ -118,13 +145,14 @@ if [ "$DRY_RUN" = "1" ]; then
 fi
 
 # ---- 磁盘预检 ---------------------------------------------------------------
-AVAIL_GB=$(df -BG --output=avail "$(dirname "$TRAIN_OUT")" 2>/dev/null | tail -1 | tr -dc '0-9')
-echo "[single] 可用磁盘 ${AVAIL_GB}G；单份完整存档 ≈72G，disk_guard 门槛 ≈78.3G"
-if [ "${AVAIL_GB:-0}" -lt 80 ] && [ "$PRUNE" != "1" ]; then
+# ⚠️ 必须先建出 TRAIN_OUT 再 df：`df <不存在的路径>` 返回非 0，配合 `set -e` + `pipefail`
+#    会把整个脚本静默干掉（smoke test 踩过：TRAIN_OUT=/data/outputs/smoke/s1 的父目录不存在）
+mkdir -p "$TRAIN_OUT"
+AVAIL_GB=$(df -BG --output=avail "$TRAIN_OUT" 2>/dev/null | tail -1 | tr -dc '0-9' || true)
+echo "[single] 可用磁盘 ${AVAIL_GB:-?}G；单份完整存档 ≈72G，disk_guard 门槛 ≈78.3G"
+if [ -n "${AVAIL_GB}" ] && [ "${AVAIL_GB}" -lt 80 ] && [ "$PRUNE" != "1" ]; then
     echo "[single] ⚠️  空间偏紧且未开剪枝；建议 PRUNE=1 或先清理旧存档" >&2
 fi
-
-mkdir -p "$TRAIN_OUT"
 
 # ---- 剪枝看门狗（训练期间常驻，每份 hf_ckpt 校验通过后剪 DCP）----------------
 PRUNE_PID=""
@@ -149,6 +177,9 @@ cd "$REPO"
 export PATH=/data/miniconda3/envs/lingbotvla/bin:$PATH
 export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
 export QWEN3VL_PATH=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
+# 单卡上可训参数多（对照组 5.96B ⇒ 权重+梯度+优化器 ≈73G），碎片会吃掉最后几个 G。
+# micro 16 实测 OOM（2026-10-04 smoke），打开 expandable_segments 减少碎片后再看是否需要降 micro。
+export PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}
 
 bash train.sh tasks/vla/train_lingbotvla.py \
     /data/train/configs/robotwin_official_paths.yaml \
@@ -171,7 +202,8 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --data.image_augment     "$AUGMENT" \
     --train.disk_guard true \
     --train.disk_guard_margin 1.1 \
-    --train.disk_check_interval 50
+    --train.disk_check_interval 50 \
+    "${OPEN_LOOP_ARGS[@]+"${OPEN_LOOP_ARGS[@]}"}"
 
 echo
 echo "================================================================================
