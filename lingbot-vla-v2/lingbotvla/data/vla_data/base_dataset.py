@@ -247,9 +247,19 @@ class VLADataset(Dataset):
 
         if feature_transform is None:
             robot_config = os.path.join(robot_config_root, f'{data_name}.yaml')
+            # 🔴 [DSH] 归一化统计的来源必须与 deploy/评测**一致**（2026-10-04 定位）：
+            #   `FeatureTransform.__init__` 里 `norm_stats_path=None` 时会回退到
+            #   **robot_config['norm_stats']**，而 deploy 的 `policy.reset()` 传的是
+            #   **`data_config.norm_stats_file`** ⇒ 两条路读的是**两个不同的文件**：
+            #       robot_config → assets/norm_stats/robotwin.json        (count 6,062,592 帧，别的语料)
+            #       norm_stats_file → .../robotwin_competition_clean.json (count   548,893 帧，**本数据集**)
+            #   后果：训练/训练中评测用 A 套、官方开环+闭环评测用 B 套 ⇒ 模型输入分布不一致。
+            #   实测（同一份 50k 权重）：用本数据集那套评，平均 MSE 0.47071 vs 另一套 0.48397（−2.7%）。
+            #   修法：优先用 `dataset_config.norm_stats_file`；没有该字段时保持原行为（向后兼容）。
             self.feature_transform = FeatureTransform(robot_config, dataset_config, self.config, \
                         processor, disabled_image_features, do_nomalize, \
                         chunk_size=chunk_size, return_item_befor_padding=return_item,\
+                        norm_stats_path=getattr(dataset_config, "norm_stats_file", None), \
                         image_augment=image_augment, use_depth_align=use_depth_align,
                         use_future_image=use_future_image)
         else:
