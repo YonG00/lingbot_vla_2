@@ -54,6 +54,9 @@ MAX_STEPS=${MAX_STEPS:-1500}
 SAVE_EVERY=${SAVE_EVERY:-600}
 SAVE_EPOCHS=0                      # 用户指定：开了步存档就不开轮末存档
 AUGMENT=${AUGMENT:-false}          # 与官方一致
+# 精度：true = F32 权重（**现状**；`train_lingbotvla.py:422` 里 enable_mixed_precision=True ⇒ torch_dtype=float32）
+#       false = bf16 权重（显存约省一半，但**数值设置变了** ⇒ 与 F32 跑的结果不可直接比）
+MIXED=${MIXED:-true}
 PRUNE=${PRUNE:-1}                  # 剪枝看门狗（默认开：3 份完整存档放不下）
 PRUNE_KEEP=${PRUNE_KEEP:-0}        # 保留几份完整 DCP（0 = 全剪，放弃续训）
 # 剪枝看门狗的「静默期」：文件 mtime 距今小于它就不剪（怕剪到正在写的）。
@@ -148,6 +151,7 @@ cat <<EOF
     val       = $N_VAL 回合 / $VAL_FRAMES 帧（开环用，不参与训练）
   训练输出    = $TRAIN_OUT
   冻结配置    = train_expert_only=false + freeze_vision_encoder=true（同昨晚对照组）
+  精度        = MIXED=$MIXED（true=F32 权重 / false=bf16 权重）
   image_augment = $AUGMENT  （官方 false）
   训练规模    = ${EPOCHS} epoch × ${STEPS_PER_EPOCH} 步/轮，max_steps=${MAX_STEPS} ⇒ 总 ${MAX_STEPS} 步
   批大小      = micro ${MICRO} × gas ${GAS} × ${N_GPU} 卡 = gbs ${GBS}
@@ -222,6 +226,7 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.enable_resume    "$RESUME_BOOL" \
     --train.train_expert_only false \
     --train.freeze_vision_encoder true \
+    --train.enable_mixed_precision "$MIXED" \
     --data.image_augment     "$AUGMENT" \
     --train.disk_guard true \
     --train.disk_guard_margin 1.1 \
