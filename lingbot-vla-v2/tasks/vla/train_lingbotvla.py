@@ -713,6 +713,20 @@ def main():
         empty_cache_steps=args.train.empty_cache_steps,
     )
 
+    # 🔴 [DSH] `torch.distributed.checkpoint` 的 CheckpointException **直接继承 BaseException**，
+    #   不是 Exception！（2026-10-05 实测：MRO = [CheckpointException, BaseException, object]）
+    #   ⇒ 下面那句 `except Exception` **接不住它** ⇒ 后果：
+    #     ① 原来写的「多候选回退」（Failed to load checkpoint ... Trying older one...）**形同虚设**
+    #     ② 一旦 DCP 加载失败，异常直接逃到顶层、进程当场死（不会静默重跑，但也不会回退）
+    #   ⇒ 显式把它加进要捕获的类型，回退逻辑与下面的 fail-fast 才真正可达。
+    try:
+        from torch.distributed.checkpoint.api import (
+            CheckpointException as _DCPCheckpointException,
+        )
+        _CKPT_LOAD_ERRORS = (Exception, _DCPCheckpointException)
+    except ImportError:  # 老版本 torch 没有这个类
+        _CKPT_LOAD_ERRORS = (Exception,)
+
     load_checkpoint_path = None
     candidates = []
     if args.train.load_checkpoint_path or args.train.enable_resume:
@@ -756,12 +770,35 @@ def main():
                 logger.info_rank0(f"Load distributed checkpoint from {cp} successfully!")
                 loaded = True
                 break
-            except Exception as e:
+            except _CKPT_LOAD_ERRORS as e:
                 last_err = e
                 logger.info_rank0(f"Failed to load checkpoint {cp}: {repr(e)}. Trying older one...")
                 continue
         if not loaded:
-            logger.info_rank0("Starting training from scratch. No valid checkpoint could be loaded.")
+            # 🔴 [DSH] 有候选却**全部加载失败** ⇒ 直接报错，绝不静默重跑（2026-10-05）。
+            #   静默重跑的三个害处：
+            #     ① 白烧算力 —— 你以为在续训，其实从头跑满整个预算
+            #     ② 污染存档 —— 往同一个 output_dir 又存一遍同名 global_step_N
+            #     ③ 无法察觉 —— 日志里「训练正常启动」与成功时**长得一模一样**
+            #   而 `--train.enable_resume true` 是调用方明确的**契约**：要么接上、要么报错，
+            #   不存在「优雅降级」。实测踩过：prune 看门狗把要恢复的那份 DCP 剪掉后，
+            #   训练照样"正常启动"，实际是从零重跑。
+            raise RuntimeError(
+                f"resume 失败：找到 {len(candidates)} 份候选 checkpoint 但都无法加载"
+                f"（最后错误：{last_err!r}）。\n"
+                f"  ⛔ 拒绝静默地从零重跑。请排查：\n"
+                f"    ① {args.train.output_dir}/checkpoints/global_step_*/ 下的 "
+                f"model/ optimizer/ extra_state/ 是否齐全\n"
+                f"       （被 tools/prune_dcp.py 剪过就**续不了**，需要 PRUNE_KEEP>=1）\n"
+                f"    ② 磁盘是否写满导致 checkpoint 半截\n"
+                f"    ③ 若确实想从零开始，请把 --train.enable_resume 设为 false"
+            )
+    elif args.train.enable_resume or args.train.load_checkpoint_path:
+        # 明确要求续训，却在 output_dir 下一个候选都没找到 ⇒ 大声警告（仍从零开始，
+        # 因为「第一次跑就带着 resume flag」是合法场景）
+        logger.info_rank0(
+            f"⚠️  要求 resume，但 {args.train.output_dir}/checkpoints 下没有任何 "
+            f"global_step_* ⇒ 本次从零开始训练。")
     else:
         logger.info_rank0("Starting training from scratch.")
 
