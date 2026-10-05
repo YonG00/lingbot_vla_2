@@ -432,6 +432,7 @@ class OpenLoopValidator:
         val_ids: Optional[Sequence[int]] = None,
         device: str = "cuda",
         dump_dir: Optional[str] = None,
+        per_episode_stride: bool = True,
     ):
         self.model = model
         self.args = args
@@ -443,6 +444,9 @@ class OpenLoopValidator:
         # 可选：把每个 chunk 的 GT/pred 存成 .npy（供与官方脚本逐值对拍）
         self.dump_dir = dump_dir
         self._dump_prefix = None
+        # True（默认）= 每个回合各自从首帧跳步（对齐官方 open_loop_eval.py）；
+        # False = 在拼接序列上跳（旧行为，仅供 A/B 量化用）
+        self.per_episode_stride = per_episode_stride
         self.train_monitor_ids = list(train_monitor_ids or DEFAULT_TRAIN_MONITOR_IDS)
         self.val_ids = list(val_ids or DEFAULT_VAL_IDS)
         self._ds_cache: Dict[str, Any] = {}
@@ -720,7 +724,25 @@ class OpenLoopValidator:
         #    77 次推理（2026-10-04 smoke 实测单次推理数秒级）⇒ 完全做不到"高频"，
         #    而且**口径与官方不一致**（官方一条轨迹只推 2 次）。
         stride = max(1, int(getattr(self.model.config, "chunk_size", 50) or 50))
-        for local_idx in range(0, len(ds), stride):
+        # 🔴 2026-10-05：跳步必须**按回合各自从首帧开始**，不能在整个（拼接后的）数据集上跳。
+        #   官方 `open_loop_eval.py` 是 `range(start_id, end_id, action_horizon)`（每个回合独立）。
+        #   在拼接序列上跳会让 chunk 起点**跨回合边界**，导致：
+        #     * 每个回合落到 1 或 2 个 chunk（帧数不齐）
+        #     * 起点落在回合末的 chunk 其 GT 大部分是 padding（重复末帧）⇒ **送分题，把 MSE 拉低**
+        #     * 评测帧集与官方不同 ⇒ 数字不可与官方/历史对照
+        if self.per_episode_stride and ep_map is not None:
+            starts: List[int] = []
+            i = 0
+            while i < len(ds):
+                ep = ep_map[i]
+                j = i
+                while j < len(ds) and ep_map[j] == ep:
+                    j += 1
+                starts.extend(range(i, j, stride))
+                i = j
+        else:
+            starts = list(range(0, len(ds), stride))
+        for local_idx in starts:
             item = ds[local_idx]
             if not self._shape_dumped:
                 self._shape_dumped = True

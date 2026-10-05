@@ -71,6 +71,8 @@ def main():
     ap.add_argument("--use-compile", action="store_true")
     ap.add_argument("--out-dir", default="/data/tmp/open_loop_inprocess")
     ap.add_argument("--dump-dir", default=None)
+    ap.add_argument("--flat-stride", action="store_true",
+                    help="用旧的「在拼接序列上跳步」（默认是每回合各自从首帧跳，对齐官方）")
     a = ap.parse_args()
 
     ckpt = Path(a.ckpt).resolve()
@@ -146,6 +148,7 @@ def main():
         train_monitor_ids=tr_ids,
         val_ids=va_ids,
         dump_dir=a.dump_dir,
+        per_episode_stride=not a.flat_stride,
     )
 
     # ---- 跑（与 validate() 里同样的准备，但不涉及训练状态）----
