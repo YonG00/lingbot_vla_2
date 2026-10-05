@@ -56,6 +56,27 @@ SAVE_EPOCHS=0                      # 用户指定：开了步存档就不开轮�
 AUGMENT=${AUGMENT:-false}          # 与官方一致
 PRUNE=${PRUNE:-1}                  # 剪枝看门狗（默认开：3 份完整存档放不下）
 PRUNE_KEEP=${PRUNE_KEEP:-0}        # 保留几份完整 DCP（0 = 全剪，放弃续训）
+# 剪枝看门狗的「静默期」：文件 mtime 距今小于它就不剪（怕剪到正在写的）。
+# ⚠️ 2026-10-05 实测：300s 太慢 —— disk_guard 会在 prune 动手前就判定空间不足而停训
+#    （差 11 秒）。急着回收空间时设小一点（如 60）。
+PRUNE_MIN_AGE=${PRUNE_MIN_AGE:-300}
+# 从 <TRAIN_OUT>/checkpoints/global_step_* 里**最大**的那份续训（train_lingbotvla.py:722）
+RESUME=${RESUME:-0}
+RESUME_BOOL=$([ "$RESUME" = "1" ] && echo true || echo false)
+# 初始权重。默认 base 模型；指向某个 `hf_ckpt` 即可「接着那份权重继续训」
+# （⚠️ 这不是 resume —— optimizer / LR 调度会重置，见 docs）
+MODEL_PATH=${MODEL_PATH:-/data/models/lingbot-vla-v2-6b-base/lingbot-vla-v2-6b}
+
+# 🔴 2026-10-05 血的教训：看门狗**先于训练启动**，而 resume 要读的正是
+#   `<TRAIN_OUT>/checkpoints` 里**最大**那份 ckpt。若 PRUNE_KEEP=0（全剪）且 min_age 很小，
+#   看门狗会在启动那一秒就把那份 DCP 剪掉 ⇒ 训练 load 时
+#   `FileNotFoundError: .../global_step_N/model/.metadata`（实测踩过）。
+#   ⇒ RESUME=1 时强制保留最新一份完整 DCP。
+if [ "$RESUME" = "1" ] && [ "$PRUNE" = "1" ] && [ "$PRUNE_KEEP" -lt 1 ]; then
+    echo "[single] ⚠️  RESUME=1 ⇒ 强制 PRUNE_KEEP=1" >&2
+    echo "[single]     （否则看门狗会剪掉正要恢复的那份 ckpt，导致 load 失败）" >&2
+    PRUNE_KEEP=1
+fi
 DRY_RUN=${DRY_RUN:-0}
 
 # 训练中原地 open-loop validation（见 lingbotvla/utils/open_loop_validation.py）
@@ -131,7 +152,9 @@ cat <<EOF
   训练规模    = ${EPOCHS} epoch × ${STEPS_PER_EPOCH} 步/轮，max_steps=${MAX_STEPS} ⇒ 总 ${MAX_STEPS} 步
   批大小      = micro ${MICRO} × gas ${GAS} × ${N_GPU} 卡 = gbs ${GBS}
   存档计划    = 每 ${SAVE_STEPS} 步一份（目标 ${SAVE_EVERY}，已对齐 max_steps）× ${N_SAVES} 份；轮末不存
-  剪枝看门狗  = PRUNE=$PRUNE  keep-last=$PRUNE_KEEP  ⇒ 单份 72G → 24G
+  剪枝看门狗  = PRUNE=$PRUNE  keep-last=$PRUNE_KEEP  min-age=${PRUNE_MIN_AGE}s  ⇒ 单份 72G → 24G
+  续训        = RESUME=$RESUME（$RESUME_BOOL）⇒ 从 $TRAIN_OUT/checkpoints 里最大那份接着跑
+  初始权重    = $MODEL_PATH
   开环验证    = 每 ${OPEN_LOOP_EVAL_STEPS} 步一次（0=关）；train_ids=${OPEN_LOOP_TRAIN_IDS:-<内置5条>}  val_ids=${OPEN_LOOP_VAL_IDS:-<内置10条>}
   STOP_AND_SAVE = ${STOP_AND_SAVE_FILE:-<TRAIN_OUT>/STOP_AND_SAVE}
   跳过收尾存档 = ${SKIP_FINAL_SAVE}（1=跳过；⚠️ 仅供 smoke test，正式训练保持 0）
@@ -159,7 +182,7 @@ PRUNE_PID=""
 if [ "$PRUNE" = "1" ]; then
     setsid nohup "$PY" -u "$REPO/tools/prune_dcp.py" \
         --ckpt-root "$TRAIN_OUT" --keep-last "$PRUNE_KEEP" \
-        --min-age-seconds 300 --interval 120 \
+        --min-age-seconds "$PRUNE_MIN_AGE" --interval 120 \
         > "$TRAIN_OUT/prune_dcp.log" 2>&1 < /dev/null &
     PRUNE_PID=$!
     echo "[single] 剪枝看门狗已启动 (pid $PRUNE_PID)，日志 $TRAIN_OUT/prune_dcp.log"
@@ -183,7 +206,7 @@ export PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:Tr
 
 bash train.sh tasks/vla/train_lingbotvla.py \
     /data/train/configs/robotwin_official_paths.yaml \
-    --model.model_path       /data/models/lingbot-vla-v2-6b-base/lingbot-vla-v2-6b \
+    --model.model_path       "$MODEL_PATH" \
     --data.train_path        "$PHASES/datasets.txt" \
     --data.episode_ids_file  "$TRAIN_IDS" \
     --train.output_dir       "$TRAIN_OUT" \
@@ -196,7 +219,7 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.save_epochs      "$SAVE_EPOCHS" \
     --train.save_hf_weights  true \
     --train.async_save_hf_weights true \
-    --train.enable_resume    false \
+    --train.enable_resume    "$RESUME_BOOL" \
     --train.train_expert_only false \
     --train.freeze_vision_encoder true \
     --data.image_augment     "$AUGMENT" \
@@ -204,6 +227,8 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.disk_guard_margin 1.1 \
     --train.disk_check_interval 50 \
     "${OPEN_LOOP_ARGS[@]+"${OPEN_LOOP_ARGS[@]}"}"
+TRAIN_RC=$?      # 🔴 必须立刻接住：后面还有 echo/banner，否则脚本会返回 0 把失败吞掉
+                 #    （2026-10-05 实测：训练因 resume 失败当场死，脚本却报 rc=0）
 
 echo
 echo "================================================================================
@@ -221,3 +246,7 @@ echo "==========================================================================
         --use_length 50 --chunk_ret true \\
         --save_plot_path /data/eval_results/open_loop/single_${TASK}_${MAX_STEPS}
 ================================================================================"
+
+# 🔴 把训练的真实退出码传出去。不加这句的话，脚本的退出码 = 上面最后一个 echo 的（永远 0），
+#    调用方/自动化会把「训练当场崩掉」误判成成功（2026-10-05 实测）。
+exit "${TRAIN_RC:-0}"

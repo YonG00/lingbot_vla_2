@@ -24,3 +24,8 @@ MASTER_PORT=${MASTER_PORT:=62500}
 
 torchrun --nnodes=$NNODES --nproc-per-node $NPROC_PER_NODE --node-rank $NODE_RANK \
   --master-addr=$MASTER_ADDR --master-port=$MASTER_PORT $@ 2>&1 | tee log.txt
+
+# 🔴 用了管道 ⇒ `$?` 是 `tee` 的（永远是 0）。必须取 PIPESTATUS[0]（torchrun 的），
+#    否则训练崩溃/退出会被上报成成功，调用方与自动化全部误判（2026-10-05 实测踩过）。
+TORCHRUN_RC=${PIPESTATUS[0]}
+exit "$TORCHRUN_RC"
