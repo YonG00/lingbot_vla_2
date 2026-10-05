@@ -207,6 +207,115 @@ def _episode_index_map(ds) -> Optional[np.ndarray]:
     return arr
 
 
+def per_episode_starts(ep_map: np.ndarray, stride: int) -> List[int]:
+    """按**回合各自从首帧**跳步，返回过滤后 local_idx 的起点列表。
+
+    与官方 ``scripts/open_loop_eval.py`` 的
+    ``for data_id in range(start_id, end_id, action_horizon)`` **等价**
+    （``start_id/end_id`` 是该回合的 ``dataset_from_index/to_index``）。
+
+    ⚠️ 不要改回「在整个（拼接后的）数据集上 ``range(0, len(ds), stride)``」：
+    那会让 chunk 起点跨回合边界 —— 实测 click_bell val 上，**16 个起点里只有 1 个
+    落在回合首帧**，且与官方只有 2 个起点重合（800 帧 vs 1000 帧）⇒ 根本不是同一个评测集。
+
+    ``ep_map`` 必须是**按 local_idx 递增**的回合号数组（``_episode_index_map`` 的返回值）。
+    独立成函数是为了让 ``tools/open_loop_parity_check.py`` 能直接单测它（无需模型）。
+    """
+    starts: List[int] = []
+    i = 0
+    n = int(len(ep_map))
+    while i < n:
+        ep = ep_map[i]
+        j = i
+        while j < n and ep_map[j] == ep:
+            j += 1
+        starts.extend(range(i, j, stride))
+        i = j
+    return starts
+
+
+def aggregate_chunks(chunks: List[tuple]) -> Dict[str, Any]:
+    """把 ``(episode_key, gt(N,D), pr(N,D))`` 列表按**完整 trajectory** 聚合。
+
+    官方口径（``scripts/open_loop_eval.py``）：对每条轨迹，先把它的**所有 chunk
+    沿时间轴拼成整条轨迹**算一个 MSE，再对轨迹**简单平均**。
+
+    ⚠️ 不要退回「把每个 chunk 当一条 trajectory」。注意差异**不在帧数而在权重** ——
+    评测里每个 chunk 的长度都等于 ``horizon``（不足处由 padding 补齐），所以
+    `mean(chunk_mse)` 与 `mean(per-traj mse)` 的差别是：**拿到 2 个 chunk 的回合被计两次**。
+    实测 click_bell val（10 回合，其中 4 个只拿到 1 个 chunk）：
+    按轨迹 = 0.007510，按 chunk = 0.007738 ⇒ **差 +3.0%**（恰好那几个 1-chunk 回合 MSE 更低，
+    被降权 ⇒ 旧口径偏**悲观**）。
+
+    "拼接"在这里只有一种含义 —— **按回合把 chunk 拼回整条轨迹**，不是把不同回合拼在一起。
+
+    独立成函数是为了让 ``tools/open_loop_parity_check.py`` 能直接单测它（无需模型）。
+    """
+    nan = float("nan")
+    if not chunks:
+        return {"n": 0, "n_chunks": 0, "frames": 0, "dims": 0,
+                "mse": nan, "mae": nan, "r2": nan,
+                "mse_pooled": nan, "mean_baseline_mse": nan,
+                "mean_baseline_mse_per_traj": nan,
+                "per_traj_mse": [], "per_traj_mae": [],
+                "per_traj_ids": [], "per_traj_frames": []}
+
+    groups: Dict[Any, List[tuple]] = {}
+    order: List[Any] = []
+    for ep_key, gt, pr in chunks:
+        if ep_key not in groups:
+            groups[ep_key] = []
+            order.append(ep_key)
+        groups[ep_key].append((gt, pr))
+
+    per_traj: List[Dict[str, Any]] = []
+    gt_chunks, pred_chunks = [], []
+    for ep_key in order:
+        gts = np.concatenate([g for g, _ in groups[ep_key]], axis=0)
+        prs = np.concatenate([p for _, p in groups[ep_key]], axis=0)
+        err = prs - gts
+        per_traj.append({
+            "episode": ep_key,
+            "mse": float(np.mean(err ** 2)),
+            "mae": float(np.mean(np.abs(err))),
+            "baseline": float(np.var(gts, axis=0).mean()),
+            "frames": int(gts.shape[0]),
+        })
+        gt_chunks.append(gts)
+        pred_chunks.append(prs)
+
+    # A) 官方口径：先把整条轨迹的帧拼起来算一个 MSE，再对 trajectory 简单平均
+    mse = float(np.mean([t["mse"] for t in per_traj]))
+    mae = float(np.mean([t["mae"] for t in per_traj]))
+    mean_baseline_mse_per_traj = float(np.mean([t["baseline"] for t in per_traj]))
+
+    # B) 离线口径：所有帧 pool 在一起，逐维方差 → 对各维取均值
+    gt_all = np.concatenate(gt_chunks, axis=0)       # (N, D)
+    pr_all = np.concatenate(pred_chunks, axis=0)
+    err_all = pr_all - gt_all
+    mse_pooled = float(np.mean(err_all ** 2))
+    mean_baseline_mse = float(np.var(gt_all, axis=0).mean())
+
+    r2 = (float(1.0 - mse_pooled / mean_baseline_mse)
+          if mean_baseline_mse > 0 else nan)
+    return {
+        "n": len(per_traj),                               # 轨迹数（官方口径的分母）
+        "n_chunks": len(chunks),                          # 推理次数
+        "frames": int(gt_all.shape[0]),
+        "dims": int(gt_all.shape[1]),
+        "mse": mse,                                       # 官方口径
+        "mae": mae,                                       # 官方口径
+        "mse_pooled": mse_pooled,                         # 离线口径
+        "mean_baseline_mse": mean_baseline_mse,           # global constant baseline（离线口径）
+        "mean_baseline_mse_per_traj": mean_baseline_mse_per_traj,
+        "r2": r2,                                         # = 1 - mse_pooled / mean_baseline_mse
+        "per_traj_mse": [t["mse"] for t in per_traj],     # 供与官方逐条对齐
+        "per_traj_mae": [t["mae"] for t in per_traj],
+        "per_traj_ids": [t["episode"] for t in per_traj],
+        "per_traj_frames": [t["frames"] for t in per_traj],
+    }
+
+
 # ---------------------------------------------------------------------------
 # `config.use_cache`（🔴 2026-10-04 审查 B1）
 # ---------------------------------------------------------------------------
@@ -724,22 +833,14 @@ class OpenLoopValidator:
         #    77 次推理（2026-10-04 smoke 实测单次推理数秒级）⇒ 完全做不到"高频"，
         #    而且**口径与官方不一致**（官方一条轨迹只推 2 次）。
         stride = max(1, int(getattr(self.model.config, "chunk_size", 50) or 50))
-        # 🔴 2026-10-05：跳步必须**按回合各自从首帧开始**，不能在整个（拼接后的）数据集上跳。
-        #   官方 `open_loop_eval.py` 是 `range(start_id, end_id, action_horizon)`（每个回合独立）。
-        #   在拼接序列上跳会让 chunk 起点**跨回合边界**，导致：
-        #     * 每个回合落到 1 或 2 个 chunk（帧数不齐）
-        #     * 起点落在回合末的 chunk 其 GT 大部分是 padding（重复末帧）⇒ **送分题，把 MSE 拉低**
-        #     * 评测帧集与官方不同 ⇒ 数字不可与官方/历史对照
+        # 🔴 2026-10-05：跳步必须**按回合各自从首帧开始**（见 `per_episode_starts`），
+        #   与官方 `range(start_id, end_id, action_horizon)` 等价。
+        #   ⚠️ padding 占比会变（实测我们 34.5% vs 官方 23.0%），但**偏差方向未实测**：
+        #      「padding 是送分题所以 MSE 偏低」只是**推测** —— 恒定 GT 利于"预测均值"，
+        #      可训练好的模型会预测**运动延续**，在这些帧上反而可能更差。
+        #      要量化请用 `tools/open_loop_eval_inprocess.py --flat-stride` 在同一 ckpt 上跑两遍。
         if self.per_episode_stride and ep_map is not None:
-            starts: List[int] = []
-            i = 0
-            while i < len(ds):
-                ep = ep_map[i]
-                j = i
-                while j < len(ds) and ep_map[j] == ep:
-                    j += 1
-                starts.extend(range(i, j, stride))
-                i = j
+            starts = per_episode_starts(ep_map, stride)
         else:
             starts = list(range(0, len(ds), stride))
         for local_idx in starts:
@@ -841,73 +942,9 @@ class OpenLoopValidator:
                 np.save(_p + "_pred.npy", pr)
             chunks.append((ep_key, gt, pr))
 
-        nan = float("nan")
-        if not chunks:
-            return {"n": 0, "n_chunks": 0, "frames": 0, "dims": 0,
-                    "mse": nan, "mae": nan, "r2": nan,
-                    "mse_pooled": nan, "mean_baseline_mse": nan,
-                    "mean_baseline_mse_per_traj": nan,
-                    "per_traj_mse": [], "per_traj_mae": [],
-                    "per_traj_ids": [], "per_traj_frames": []}
-
         # ---- 按**完整 trajectory** 聚合（🔴 2026-10-04 审查 B2）----
-        # 旧实现把每个 chunk 当成一条 trajectory：stride=chunk_size 时一条 80 帧的回合
-        # 会产生 2 个 chunk（且长度不等，含 padding）⇒ `mean(chunk_mse)` ≠ 官方口径。
-        # 官方是「先把整条轨迹的帧拼起来算一个 MSE，再对 trajectory 简单平均」。
-        groups: Dict[Any, List[tuple]] = {}
-        order: List[Any] = []
-        for ep_key, gt, pr in chunks:
-            if ep_key not in groups:
-                groups[ep_key] = []
-                order.append(ep_key)
-            groups[ep_key].append((gt, pr))
-
-        per_traj: List[Dict[str, Any]] = []
-        gt_chunks, pred_chunks = [], []
-        for ep_key in order:
-            gts = np.concatenate([g for g, _ in groups[ep_key]], axis=0)
-            prs = np.concatenate([p for _, p in groups[ep_key]], axis=0)
-            err = prs - gts
-            per_traj.append({
-                "episode": ep_key,
-                "mse": float(np.mean(err ** 2)),
-                "mae": float(np.mean(np.abs(err))),
-                "baseline": float(np.var(gts, axis=0).mean()),
-                "frames": int(gts.shape[0]),
-            })
-            gt_chunks.append(gts)
-            pred_chunks.append(prs)
-
-        # A) 官方口径：先把整条轨迹的帧拼起来算一个 MSE，再对 trajectory 简单平均
-        mse = float(np.mean([t["mse"] for t in per_traj]))
-        mae = float(np.mean([t["mae"] for t in per_traj]))
-        mean_baseline_mse_per_traj = float(np.mean([t["baseline"] for t in per_traj]))
-
-        # B) 离线口径：所有帧 pool 在一起，逐维方差 → 对各维取均值
-        gt_all = np.concatenate(gt_chunks, axis=0)       # (N, D)
-        pr_all = np.concatenate(pred_chunks, axis=0)
-        err_all = pr_all - gt_all
-        mse_pooled = float(np.mean(err_all ** 2))
-        mean_baseline_mse = float(np.var(gt_all, axis=0).mean())
-
-        r2 = (float(1.0 - mse_pooled / mean_baseline_mse)
-              if mean_baseline_mse > 0 else nan)
-        return {
-            "n": len(per_traj),                               # 轨迹数（官方口径的分母）
-            "n_chunks": len(chunks),                          # 推理次数
-            "frames": int(gt_all.shape[0]),
-            "dims": int(gt_all.shape[1]),
-            "mse": mse,                                       # 官方口径
-            "mae": mae,                                       # 官方口径
-            "mse_pooled": mse_pooled,                         # 离线口径
-            "mean_baseline_mse": mean_baseline_mse,           # global constant baseline（离线口径）
-            "mean_baseline_mse_per_traj": mean_baseline_mse_per_traj,
-            "r2": r2,                                         # = 1 - mse_pooled / mean_baseline_mse
-            "per_traj_mse": [t["mse"] for t in per_traj],     # 供与官方逐条对齐
-            "per_traj_mae": [t["mae"] for t in per_traj],
-            "per_traj_ids": [t["episode"] for t in per_traj],
-            "per_traj_frames": [t["frames"] for t in per_traj],
-        }
+        # 抽成纯函数 `aggregate_chunks` 是为了让 tools/open_loop_parity_check.py 能单测它。
+        return aggregate_chunks(chunks)
 
     # -- TB --------------------------------------------------------------------
     def _write_tb(self, global_step: int, tr: Dict[str, float], va: Dict[str, float],
