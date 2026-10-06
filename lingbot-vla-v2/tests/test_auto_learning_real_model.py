@@ -154,8 +154,40 @@ def _build(use_bf16: bool):
 # --------------------------------------------------------------------------- #
 # R1  open-loop adapter 与现有 evaluator 对拍
 # --------------------------------------------------------------------------- #
-def test_R1_adapter_matches_validator_validate(built):
-    """同一 ckpt、同一 val 回合：adapter 的 mse 必须与 `validate()` 的 val mse 逐值相等。"""
+def test_R1_adapter_matches_evaluate_ids_exactly(built):
+    """**同一代码路径**对拍：adapter 的 mse 必须与直接 `evaluate_ids()` 逐值相等。
+
+    ⚠️ 这是 R1 的正确形式。GPU 实测（2026-10-06）发现：拿 `validate()` 的 `val` 指标来比
+    **不会**逐值相等，原因是 `_run()` 里 `train_monitor` 先跑、**消耗了噪声流**，
+    `val` 拿到的是后续噪声；而单独调 `evaluate_ids()` 会 `self._noise_gen = None`
+    **重置到噪声序列起点**。两者是**不同的噪声样本**，MSE 自然不同（实测 0.01086 vs 0.01006）。
+    """
+    from lingbotvla.auto_learning.evaluator import EvaluatorAdapter
+
+    v = built.validator
+    adapter = EvaluatorAdapter(v, built.cat, None, logger=_Logger())
+
+    ids = list(built.entry.val_traj_ids)
+    ref = v.evaluate_ids(ids, "r1_ref_val")
+    got = adapter.evaluate_task(TASK, "val")
+
+    assert got.episode_ids == ids
+    # ⚠️ GPU 实测（2026-10-06, RTX 4090）：**同一路径跑两次也不逐位一致** ——
+    #    实测相对差最大 ~5e-3（bf16 量级；CUDA 归约顺序 + 低精度 op 不保证可复现）。
+    #    B1 测试计划 §G2 明确写「允许合理数值容差」⇒ 这里用 2% 的宽松容差，
+    #    真正要守的是「轨迹数 / chunk 数 / action keys 完全一致」。
+    assert got.mse == pytest.approx(ref["mse"], rel=2e-2, abs=1e-6), (
+        f"adapter mse={got.mse} vs evaluate_ids mse={ref['mse']}")
+    assert got.per_traj_mse == pytest.approx(ref["per_traj_mse"], rel=2e-2, abs=1e-6)
+    assert got.n_traj == ref["n"] and got.n_chunks == ref["n_chunks"]
+    assert got.action_keys == ref["action_keys"]
+
+
+def test_R1b_validate_val_is_close_but_not_bitwise(built):
+    """`validate()` 的 `val` 与独立评测**近似但不逐位相等** —— 记录这个已知差异。
+
+    噪声流位置不同（见 R1 的说明）。这里只断言「同一量级」，避免把真实差异当成 bug 藏起来。
+    """
     from lingbotvla.auto_learning.evaluator import EvaluatorAdapter
 
     v = built.validator
@@ -165,11 +197,11 @@ def test_R1_adapter_matches_validator_validate(built):
     assert ref is not None, "validate() 返回 None（rank0 判断失败）"
     got = adapter.evaluate_task(TASK, "val")
 
-    assert got.episode_ids == list(built.entry.val_traj_ids)
-    assert got.mse == pytest.approx(ref["val"]["mse"], rel=0, abs=1e-12), (
-        f"adapter mse={got.mse} vs validate mse={ref['val']['mse']}")
-    assert got.per_traj_mse == pytest.approx(ref["val"]["per_traj_mse"], rel=0, abs=1e-12)
-    assert got.n_traj == ref["val"]["n"] and got.n_chunks == ref["val"]["n_chunks"]
+    assert got.n_traj == ref["val"]["n"], "轨迹数必须一致（只有噪声位置不同）"
+    rel = abs(got.mse - ref["val"]["mse"]) / max(ref["val"]["mse"], 1e-12)
+    assert rel < 0.25, (
+        f"两次评测差了 {rel:.1%}（adapter={got.mse} validate={ref['val']['mse']}）——"
+        "超过噪声位置能解释的范围，疑似真差异")
 
 
 # --------------------------------------------------------------------------- #
@@ -193,7 +225,15 @@ def test_R2_hardness_is_deterministic(built):
     a = scorer.score(items)
     b = scorer.score(items)
     assert a.shape == (len(items),)
-    np.testing.assert_array_equal(a, b)                    # 逐位一致
+    # ⚠️ 不能用 array_equal：GPU 实测两次差最大 ~5e-3（bf16 量级）。
+    #    B1 测试计划 §G2 允许「合理数值容差」。
+    np.testing.assert_allclose(a, b, rtol=2e-2, atol=1e-6)
+    # 🔑 **真正影响采样的**是「难度排序」，不是 raw loss 的第 4 位小数：
+    #    采样用的是 percentile rank ⇒ 只要排序稳定，采样分布就稳定。
+    rank_a = np.argsort(np.argsort(a))
+    rank_b = np.argsort(np.argsort(b))
+    assert np.array_equal(rank_a, rank_b), (
+        f"两次打分的**排序**不一致（{a} vs {b}）—— 这会真的改变采样分布")
 
     # 换 seed ⇒ 值必须变（证明 noise 真的起作用了）
     c = HardnessScorer(built.vla, seed=999, device="cuda", logger=_Logger()).score(items)

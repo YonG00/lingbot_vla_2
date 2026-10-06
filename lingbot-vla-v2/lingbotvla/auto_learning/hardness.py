@@ -148,11 +148,20 @@ class HardnessScorer:
 
         train_flags = [(m, m.training) for m in self.model.modules()]
         old_loss_type = getattr(cfg, "loss_type", None)
+        old_align = getattr(cfg, "align_params", None)
         try:
             self.model.eval()
             if old_loss_type != self.loss_type:
                 # `loss_type` 是从 config 读的 ⇒ 临时改、finally 还原
                 cfg.loss_type = self.loss_type
+            # 🔴 GPU 实测（2026-10-06，RTX 4090 48G + global_step_500 ckpt）：
+            #    该 ckpt 的 config 里 `align_params` 非空 ⇒ `FlowMatchingV2.forward` 会走
+            #    `depth_emb_forward(outputs_embeds, depth_targets=None, ...)` ⇒
+            #    `_emb_loss(preds, None)` → AttributeError: 'NoneType' object has no attribute 'float'。
+            #    而 hardness 只要 **VLA flow-matching 的 `batch_mean_losses`**，
+            #    与 depth/video 对齐项无关 ⇒ 评测期间临时清空 `align_params`（finally 还原）。
+            if isinstance(old_align, dict) and old_align:
+                cfg.align_params = {}
             with torch.no_grad():
                 out = self.model(
                     **batch,
@@ -170,6 +179,8 @@ class HardnessScorer:
         finally:
             if old_loss_type is not None:
                 cfg.loss_type = old_loss_type
+            if old_align is not None:
+                cfg.align_params = old_align
             for m, t in train_flags:
                 m.training = t
 

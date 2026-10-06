@@ -159,6 +159,7 @@ def build_dataloader(
     pin_memory: bool = True,
     prefetch_factor: Optional[int] = 2,
     seed: int = 0,
+    sampler: Optional[Sampler[int]] = None,
 ) -> "DistributedDataloader":
     parallel_state = get_parallel_state()
     token_micro_bsz = micro_batch_size * max_seq_len
@@ -204,8 +205,11 @@ def build_dataloader(
     else:
         collate_fn = MakeMicroBatchCollator(num_micro_batch=num_micro_batch, internal_data_collator=collate_fn)
 
-    sampler = None
-    if not isinstance(dataset, IterableDataset):
+    # `sampler=None`（默认）⇒ 原行为（StatefulDistributedSampler）。
+    # Auto Learning v0 传入 `AutoLearnSampler`（每步 7 NEW + 3 Replay）。
+    # ⚠️ 传了自定义 sampler 就**不**再建 StatefulDistributedSampler —— 由调用方负责
+    #    resume 语义（AutoLearnSampler 自带 state_dict/load_state_dict）。
+    if sampler is None and not isinstance(dataset, IterableDataset):
         sampler = StatefulDistributedSampler(
             dataset,
             num_replicas=parallel_state.dp_size,

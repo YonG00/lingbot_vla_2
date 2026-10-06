@@ -482,6 +482,15 @@ def main():
         else:
             data_collate_fn.append(OmniDataCollatorWithPadding())
     
+    # ---- [Stage B1] Auto Learning：v0 要求 rmpad=false（保固定 micro batch 与 7+3 slot 语义）----
+    _al_cfg = getattr(args.train, "auto_learning", None)
+    _al_on = bool(_al_cfg is not None and getattr(_al_cfg, "enabled", False))
+    if _al_on:
+        if args.train.rmpad or args.train.rmpad_with_pos_ids:
+            logger.info_rank0("[auto_learning] enabled ⇒ 强制 rmpad=false（v0 语义要求）")
+        args.train.rmpad = False
+        args.train.rmpad_with_pos_ids = False
+
     if args.data.dataloader_type == "native":
         if args.data.datasets_type == 'vla':
             args.data.chunk_size = args.train.chunk_size
@@ -507,6 +516,10 @@ def main():
             pin_memory=args.data.pin_memory,
             prefetch_factor=args.data.prefetch_factor if args.data.num_workers > 0 else None,
         )
+        # ---- [Stage B1] Auto Learning：sampler / hook 占位（enabled 时才真正构建）----
+        _al_sampler = None
+        _al_hook = None
+        _al_bundle = None
     else:
         raise NotImplementedError(f"Unsupported dataloader type: {args.data.dataloader_type}.")
 
@@ -859,6 +872,13 @@ def main():
                     disk_guard_stop_reason = _reason_p
                     break
 
+            if _al_hook is not None:
+                _d = _al_hook.on_step_begin(global_step)
+                if _d.finished:
+                    break
+                if _d.rebuild_iterator:
+                    # 🔴 unit 边界必须重建迭代器，丢弃上一个 unit 的 prefetch
+                    data_iterator = iter(train_dataloader)
             try:
                 micro_batches: List[Dict[str, Any]] = next(data_iterator)
             except StopIteration:
@@ -1023,6 +1043,8 @@ def main():
             optimizer.step()
             lr_scheduler.step()
             optimizer.zero_grad()
+            if _al_hook is not None:
+                _al_hook.on_step_end(global_step, locals().get("total_loss"))
             if hasattr(grad_norm, "full_tensor"):
                 grad_norm = grad_norm.full_tensor().item()
 
