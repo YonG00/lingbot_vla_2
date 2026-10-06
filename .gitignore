@@ -29,3 +29,6 @@ viewer_show.*
 # ---- 运行日志 ----
 log.txt
 *.log
+
+# Auto Learning 测试临时目录
+.tmp_auto_learning/
