@@ -862,6 +862,25 @@ class OpenLoopValidator:
             ft.image_augment = False
         return ft
 
+    # -- 内存 -----------------------------------------------------------------
+    def clear_dataset_cache(self) -> int:
+        """释放按 ``episode_ids_file`` 缓存的子集数据集；返回释放的条目数。
+
+        🔴 **长跑时必须定期调用**（Stage B0 新增）。
+        `_ds_cache` / `_ft_by_path` 只增不减 —— 每换一组 episode ids 就多留一份数据集
+        （含 LeRobot 元数据与 HF 表）。Auto Learning 会按
+        ``(task, split, ids 指纹)`` **反复评测** ⇒ 不清理必然把容器内存吃满。
+
+        ⚠️ **只能在评测之外调用**（`safe_eval_context` 的 `finally` 会读
+        `_ft_aug_orig` 做 image_augment 还原；评测中途清空会让还原失效）。
+        """
+        n = len(self._ds_cache)
+        self._ds_cache.clear()
+        self._ft_by_path.clear()
+        self._ft_aug_orig.clear()
+        self._ft = None
+        return n
+
     def _episode_ids_file(self, ids: Sequence[int], tag: str) -> str:
         """把一组回合号落成临时白名单文件（build_vla_dataset 只认文件）。"""
         out_dir = os.path.join(self.args.train.output_dir, "_open_loop_ids")
@@ -1105,7 +1124,11 @@ class OpenLoopValidator:
 
         # ---- 按**完整 trajectory** 聚合（🔴 2026-10-04 审查 B2）----
         # 抽成纯函数 `aggregate_chunks` 是为了让 tools/open_loop_parity_check.py 能单测它。
-        return aggregate_chunks(chunks)
+        out = aggregate_chunks(chunks)
+        # review v0.1 #9：把实际用到的 action keys 一并返回（供审计 action space）；
+        # 之前只有 `collect_gt_chunks` 返回它，evaluator 侧拿不到。
+        out["action_keys"] = list(action_keys)
+        return out
 
     # -- TB --------------------------------------------------------------------
     def _write_tb(self, global_step: int, tr: Dict[str, float], va: Dict[str, float],
@@ -1245,7 +1268,8 @@ class OpenLoopValidator:
     # ------------------------------------------------------------------ #
     # Stage B0：给 Auto Learning 用的两个公开入口
     # ------------------------------------------------------------------ #
-    def collect_gt_chunks(self, ids: Sequence[int], tag: str
+    def collect_gt_chunks(self, ids: Sequence[int], tag: str, *,
+                          strict: bool = False
                           ) -> Tuple[List[Tuple[Any, np.ndarray]], List[str]]:
         """只收集 GT（**不推理**），供 Fixed Task Baseline 预计算使用。
 
@@ -1255,6 +1279,10 @@ class OpenLoopValidator:
         ⇒ baseline 与 evaluator 的 action space / normalization / valid region
         **完全一致**（这是 Stage B0 的硬要求）。
 
+        ``strict=True``（review v0.1 #6）：拿不到 ``local_idx→episode_index`` 映射时
+        **直接抛错**。默认 ``False`` 保持与 `_evaluate_ids` 一致的「退化 + 警告」行为；
+        但**算固定分母时必须 strict** —— 退化会让分母被永久污染。
+
         返回 ``(chunks, action_keys)``，其中 ``chunks = [(episode_key, gt(N,D)), ...]``。
         """
         ds_path = self._episode_ids_file(ids, tag)
@@ -1262,9 +1290,12 @@ class OpenLoopValidator:
         ft = self._ft_for(ds_path)
         ep_map = _episode_index_map(ds)
         if ep_map is None:
-            self.logger.warning(
-                f"[auto_learning] ⚠️ [{tag}] 拿不到 local_idx→episode_index 映射，"
-                "baseline 会退化为「每个 chunk 当作一条 trajectory」")
+            _msg = (f"[auto_learning] ⚠️ [{tag}] 拿不到 local_idx→episode_index 映射，"
+                    "会退化为「每个 chunk 当作一条 trajectory」")
+            if strict:
+                raise RuntimeError(
+                    _msg + "\n  ⇒ strict=True 下拒绝继续：固定分母一旦退化就会被永久污染。")
+            self.logger.warning(_msg)
         stride = max(1, int(getattr(self._model_config, "chunk_size", 50) or 50))
         if self.per_episode_stride and ep_map is not None:
             starts = per_episode_starts(ep_map, stride)

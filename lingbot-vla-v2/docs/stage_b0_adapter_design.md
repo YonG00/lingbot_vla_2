@@ -167,12 +167,19 @@ resolver.episode_map()     # → np.ndarray，与 open_loop_validation._episode_
 
 🔴 **不裸调用 `_evaluate_ids()`** —— 必须走 §7 的 safe evaluation context。
 
+🔴 **tag 必须带 episode ids 指纹**（review v0.1 #1）：
+`_episode_ids_file(ids, tag)` 按 tag 落**同一个路径**，而 `_dataset()` 又**按路径缓存**
+⇒ tag 若固定为 `al_<task>_<split>`，「2 条 scout → 4 条 confirm」的第二次会拿到
+**第一次的 2 条 dataset**（JSON 覆盖了也没用）。现在 tag 形如
+`al_click_bell_val_<sha256(sorted(ids))[:8]>`。
+
 ```python
 res = adapter.evaluate_task(task_id="click_bell", split="val", episode_ids=None)
 res.mse            # 官方口径（按轨迹聚合再平均）
 res.nmse           # res.mse / baseline.mse
 res.per_traj_mse   # 逐条轨迹
 res.per_traj_ids
+res.action_keys    # 本次实际使用的动作键（审计 action space）
 res.eval_seconds
 res.baseline       # 固定分母（来源与指纹）
 ```
@@ -190,6 +197,11 @@ scorer.score(items) -> np.ndarray   # (B,) per-sample L1_fm
 - `time`：`torch.full((B,), t0)`，**固定**
 - `loss_type="L1_fm"`
 - ⚠️ 必须传 `joint_mask`（否则落到 `losses.mean` 分支，口径不同）
+- 🔴 **dtype 必须等于「真实 forward 会用的 dtype」**（review v0.1 #4）：
+  `config.action_fp32=True` ⇒ `float32`；否则 ⇒ `next(model.parameters()).dtype`（单卡常见 BF16）。
+  `LingbotVlaV2Policy.forward()` 会把 `state/actions` 转成该 dtype，但**不会转外部传入的
+  `noise`/`time`** ⇒ 用 dataset 里的 `actions.dtype`（FP32）造 noise/time 会口径不一致甚至 dtype mismatch。
+  `device` 同样**从模型推断**，不写死 `"cuda"`。
 
 **B0 只做接口 + deterministic test，不改完整训练 sampler。**
 
@@ -280,12 +292,30 @@ mask 侧两者都不对 `action_is_pad` 做额外处理。
 > ⚠️ 因此 **NMSE 与旧的 `1 - r2` 不可直接比较**：分母的数据来源（train 而非 eval 集）
 > 与统计量（共享常数 vs 每维全局常数）都不同。
 
-### 6.4 缓存与指纹
+### 6.4 缓存与指纹（**两层**，review v0.1 #2）
 
-- 落盘：`<baseline_dir>/task_baseline.json`（每个 task 一项）
-- 指纹字段（任一变化 ⇒ 拒绝复用缓存）：
-  `dataset_root` · `sha256_train` · `norm_stats_file`（内容哈希） · `cameras` · `joints`
-  · `chunk_size` · `img_size` · `stride 口径`
+- 落盘：`<baseline_dir>/task_baseline.json`
+
+```json
+{"version": 1,
+ "config_fingerprint": "<config_fp>",
+ "tasks": {"click_bell": {..., "fingerprint": "<task_fp>"}}}
+```
+
+| 层 | 组成 | 谁用 |
+|---|---|---|
+| `config_fingerprint` | `dataset_root` · `norm_stats_file`（**内容**哈希） · `cameras` · `joints` · `chunk_size`（**effective**） · `img_size` · stride 口径 · mu 加权方式 | 全任务共享 |
+| `task_fingerprint` | `sha256(config_fp + "|" + entry.sha256_train)` | 每个 task 各一份 |
+
+`store.get(task, sha256_train)` 用 `task_fingerprint` 逐任务比对。
+
+> ⚠️ 早期实现里 store 只持有**配置级**指纹、写入的却是**任务级**指纹
+> ⇒ `get()` 永远不相等 ⇒ **缓存永不命中**（每次都重算）。现已修。
+
+⚠️ `chunk_size` 必须取 **effective** 值：`data.chunk_size` 通常**不存在**，
+训练时才由 `model.config.chunk_size` 补上；只看 `data` 段会记成 `None`，
+配置改了缓存也不失效。
+
 - **只预计算一次，不随模型更新。**
 
 ### 6.5 是否依赖模型
@@ -343,19 +373,29 @@ def safe_eval_context(*, model, logger, ft_aug_registry=None,
 - **回归证据**：`tools/open_loop_selfcheck.py`（9/9）、`tools/open_loop_parity_check.py`（5/5）
   必须在改动前后**逐值一致**
 
-### 7.4 关于 `_iter_items` 的等价抽取
+### 7.4 口径一致是怎么保证的（**实际实现**）
 
-为让 baseline 与 evaluator 共用同一条 GT 收集路径，把 `_evaluate_ids` 里
-「建集 → 跳步 → 取 item → `unapply` → 选键 → 拼帧」这段抽成生成器：
+> ⚠️ 早期版本的本文档写过一个 `_iter_items` 生成器，**实际没有实现**（review v0.1 #8）。
+> 下面是与代码一致的说法。
 
-```python
-def _iter_items(self, ids, tag) -> Iterator[Tuple[int, dict, Any, dict]]:
-    """yield (local_idx, item, ft, gt_phys)；**不做推理**。"""
-```
+`_evaluate_ids()` 与 `collect_gt_chunks()` **各自维护一份遍历循环**，但把
+**口径关键逻辑**全部抽成了模块级纯函数，两者共用：
 
-- `_evaluate_ids` 消费它 + 推理（**仍然只过一遍数据集**）
-- 新增 `collect_gt_chunks(ids, tag)` 也消费它，**不做推理**
-- 口径关键逻辑**只有一份实现**
+| 共用件 | 作用 |
+|---|---|
+| `_episode_index_map(ds)` | `local_idx → episode_index` |
+| `per_episode_starts(ep_map, stride)` | 每回合各自从首帧跳步（对齐官方） |
+| `ft.unapply(dict(item))` | 反归一化（normalization 口径） |
+| `pick_action_keys(ft, gt, pred)` | action space 口径 |
+| `assemble_chunk(gt, pred, keys)` | 取帧 / 形状校验 / 拼接（valid region 口径） |
+| `aggregate_chunks(chunks)` | 按完整 trajectory 聚合 |
+
+⇒ 「**action space / normalization / valid region**」三者由共用函数保证；
+循环本身重复一次，由 `tests/test_auto_learning_real_model.py::test_R4*` 做**逐值对拍**兜底。
+
+**是否要再抽公共 iterator**：留到 B1 决定。当前不抽的理由是
+`_evaluate_ids` 的循环里夹着大量「只打一次」的 debug 日志与 dump 分支，
+抽生成器会让它变形更大 —— 收益（少 30 行重复）不值这个风险。
 
 ---
 
@@ -428,7 +468,7 @@ python -m pytest tests/test_auto_learning_real_model.py -q -s
 |---|---|
 | `lingbotvla/auto_learning/`（10 个文件） | ✅ 已落地 |
 | `docs/stage_b0_adapter_design.md` | ✅ 本文 |
-| no-model contract tests | ✅ **35 passed**（本地、无 torch、0.9s） |
+| no-model contract tests | ✅ **41 passed**（本地、无 torch、1.1s；含 review v0.1 的 6 条新回归） |
 | real-model integration tests | ✅ 已写；无 ckpt 时整模块 **skip**（1 skipped） |
 
 ### `open_loop_validation.py` 的等价抽取（**唯一被改动的既有文件**）
@@ -450,12 +490,36 @@ python -m pytest tests/test_auto_learning_real_model.py -q -s
    **逐字未改动**
 3. 异常语义保持：body 异常被吞（记日志）、审计异常**向上抛**
 
-**仍需在 GPU 机上跑的最终守卫**（本地缺 torch/lerobot，跑不了）：
+**GPU 机上的守卫（已实跑通过 ✅）**：
 
 ```bash
-python tools/open_loop_selfcheck.py      # 期望 9/9
-python tools/open_loop_parity_check.py   # 期望 5/5
+python tools/open_loop_selfcheck.py      # 9/9 ✅
+python tools/open_loop_parity_check.py   # 5/5 ✅
+python tools/open_loop_selfcheck.py --only-c3b --task click_bell   # 白名单回归 ✅
 ```
+
+> 环境：`/data/code`（无卡模式，cgroup **2 GiB**）。⚠️ 无卡模式下**内存吃紧**，
+> 跑「要建完整 VLA 数据集」的脚本（如 baseline CLI）需要留意。
+
+---
+
+## 9ter. 第二轮复查（review v0.1）修复记录
+
+| # | 问题 | 修法 |
+|---|---|---|
+| 1 | **2→4 轨迹评测命中旧 dataset 缓存**（P0） | `EvaluatorAdapter` 的 tag 加 `sha256(sorted(ids))[:8]` ⇒ `_episode_ids_file` 路径与 `_dataset` 缓存键都随 ids 变 |
+| 2 | **`BaselineStore` 配置级指纹 vs 任务级指纹冲突**（P0，缓存永不命中） | 改成两层：`config_fingerprint` + `task_fingerprint(cfg_fp, sha256_train)`；`get(task, sha256_train)` 逐任务校验 |
+| 3 | **baseline CLI 的 config 构造不对**（`AutoConfig.from_pretrained(基座)` 缺 `max_state_dim` 等） | 新增 `model_config.py`，照抄 deploy `load_vla()`：`LingbotVLAV2Config(**{**yaml['model'], **yaml['train']})` + `build_processor(tokenizer_path)`；`chunk_size` 改用 **effective** 值 |
+| 4 | **`HardnessScorer` 在 BF16 训练路径下 dtype 不一致** | noise/time 按 `forward_dtype()` 构造（`action_fp32` ⇒ fp32，否则模型参数 dtype）；device 从模型推断 |
+| 5 | baseline 缺失时静默 `nmse=None` | `EvaluatorAdapter(require_baseline=True)` ⇒ **评测前** fail-fast |
+| 6 | 拿不到 `episode_index_map` 时退化 | `collect_gt_chunks(..., strict=True)`；`compute_fixed_baseline` **默认 strict** |
+| 7 | `catalog_from_task_split` broad-except 静默关掉 block 校验 | `strict=True` 时**直接报错**；要降级须显式 `allow_missing_curriculum=True` |
+| 8 | 文档写了不存在的 `_iter_items` | 改为与代码一致的说法（见 §7.4） |
+| 9 | `EvalResult.action_keys` 从不填充 | `_evaluate_ids` 把 `action_keys` 放进返回 dict；adapter 填进 DTO |
+
+**新增回归测试**（contract）：tag 随 ids 变、ids 指纹顺序无关、多任务 baseline 各自命中、
+`task_fingerprint` 两层、`require_baseline` fail-fast、catalog 不静默降级。
+**新增集成测试**（real-model）：`R5` dtype/device、`R5b` **BF16 模式**、`R6` **2→4 轨迹端到端**。
 
 ---
 

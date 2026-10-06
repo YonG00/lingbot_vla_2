@@ -81,7 +81,20 @@ class _Logger:
 # --------------------------------------------------------------------------- #
 @pytest.fixture(scope="module")
 def built():
-    """建 validator（真实权重）+ catalog + 临时输出目录。"""
+    """建 validator（真实权重）+ catalog + 临时输出目录（**FP32 模式**）。"""
+    return _build(use_bf16=False)
+
+
+@pytest.fixture(scope="module")
+def built_bf16():
+    """同上，但 **BF16 模式** —— 与单卡训练配置一致（review v0.1 #4）。
+
+    只有需要验证 dtype 语义的用例才用它（多建一份模型很贵）。
+    """
+    return _build(use_bf16=True)
+
+
+def _build(use_bf16: bool):
     import yaml
 
     from lingbotvla.auto_learning.catalog import catalog_from_task_split
@@ -97,7 +110,7 @@ def built():
 
     server = LingbotVLAv2Server(
         path_to_pi_model=str(ckpt), robot_norm_path=None, use_length=50,
-        chunk_ret=True, use_bf16=False, use_fp32=True, use_compile=False,
+        chunk_ret=True, use_bf16=use_bf16, use_fp32=not use_bf16, use_compile=False,
     )
     vla, processor = server.vla, server.processor
     hf_cfg = vla.config
@@ -117,9 +130,10 @@ def built():
     args.data = ns
     args.model = hf_cfg
     args.train = _NS()
-    args.train.output_dir = str(Path(MANIFEST_PATH).resolve().parent / "_al_test_ids")
+    suffix = "bf16" if use_bf16 else "fp32"
+    args.train.output_dir = str(Path(MANIFEST_PATH).resolve().parent / f"_al_test_ids_{suffix}")
     args.train.global_rank = 0
-    args.train.use_bf16 = False
+    args.train.use_bf16 = use_bf16
     os.makedirs(args.train.output_dir, exist_ok=True)
 
     cat = catalog_from_task_split(str(MANIFEST_PATH), strict=True)
@@ -133,7 +147,7 @@ def built():
     return types.SimpleNamespace(
         vla=vla, processor=processor, hf_cfg=hf_cfg, args=args,
         cat=cat, entry=entry, validator=validator,
-        out_dir=Path(args.train.output_dir),
+        out_dir=Path(args.train.output_dir), use_bf16=use_bf16,
     )
 
 
@@ -315,3 +329,80 @@ def test_R4b_baseline_dimension_matches_evaluator_action_space(built):
     assert chunks[0][1].shape[1] == sum(
         np.asarray(gt_phys[k]).reshape(np.asarray(gt_phys[k]).shape[0], -1).shape[1]
         for k in keys)
+
+
+# --------------------------------------------------------------------------- #
+# R5  HardnessScorer 的 dtype / device（review v0.1 #4）
+# --------------------------------------------------------------------------- #
+def _items_for(built, tag, n=2):
+    from lingbotvla.utils.open_loop_validation import _episode_index_map, per_episode_starts
+
+    v = built.validator
+    ds_path = v._episode_ids_file(built.entry.train_ids[:2], tag)
+    ds = v._dataset(ds_path)
+    ep_map = _episode_index_map(ds)
+    stride = max(1, int(getattr(built.hf_cfg, "chunk_size", 50) or 50))
+    starts = per_episode_starts(ep_map, stride)[:n]
+    return [ds[i] for i in starts]
+
+
+def test_R5_hardness_dtype_and_device_match_forward(built):
+    """noise/time 的 dtype 必须等于**真实 forward 会用的** dtype；device 从模型推断。"""
+    import torch
+
+    from lingbotvla.auto_learning.hardness import HardnessScorer
+
+    sc = HardnessScorer(built.vla, logger=_Logger())
+    dt = sc.forward_dtype()
+    if getattr(built.hf_cfg, "action_fp32", False):
+        assert dt == torch.float32
+    else:
+        assert dt == next(built.vla.parameters()).dtype
+    assert str(next(built.vla.parameters()).device) == sc.device
+    assert not str(sc.device).startswith("cuda") or torch.cuda.is_available()
+
+    out = sc.score(_items_for(built, "al_test_dtype"))
+    assert out.shape == (2,)
+    assert np.isfinite(out).all()
+
+
+def test_R5b_hardness_bf16_training_mode(built_bf16):
+    """与单卡训练一致的 **BF16** 模式。
+
+    旧实现用 `actions.dtype`（dataset 里是 FP32）造 noise/time ⇒ 与 forward 实际使用的
+    dtype 不一致。这条用例专门覆盖它。
+    """
+    import torch
+
+    from lingbotvla.auto_learning.hardness import HardnessScorer
+
+    sc = HardnessScorer(built_bf16.vla, logger=_Logger())
+    dt = sc.forward_dtype()
+    if not getattr(built_bf16.hf_cfg, "action_fp32", False):
+        assert dt == torch.bfloat16, f"BF16 模式下应为 bfloat16，实际 {dt}"
+    out = sc.score(_items_for(built_bf16, "al_test_bf16"))
+    assert out.shape == (2,)
+    assert np.isfinite(out).all()
+
+
+# --------------------------------------------------------------------------- #
+# R6  2 → 4 轨迹的真实回归（review v0.1 #1）
+# --------------------------------------------------------------------------- #
+def test_R6_two_then_four_trajectories_are_really_different(built):
+    """先评 2 条 scout、再评 4 条 confirm ⇒ 第二次必须真的得到 **4 条轨迹**。
+
+    这是 review v0.1 #1 的端到端回归：tag 若不带 ids 指纹，`_dataset()` 会按
+    同一个 episode_ids 文件路径返回**第一次缓存的 2 条 dataset**。
+    """
+    from lingbotvla.auto_learning.evaluator import EvaluatorAdapter
+
+    ad = EvaluatorAdapter(built.validator, built.cat, None, logger=_Logger())
+    val = built.entry.ids_for("val")
+    r2 = ad.evaluate_task(TASK, "val", episode_ids=val[:2])
+    r4 = ad.evaluate_task(TASK, "val", episode_ids=val[:4])
+
+    assert r2.n_traj == 2, f"scout 应为 2 条轨迹，实际 {r2.n_traj}"
+    assert r4.n_traj == 4, (
+        f"confirm 应为 4 条轨迹，实际 {r4.n_traj} ⇒ 命中了旧 dataset 缓存（tag 没带 ids 指纹）")
+    assert len(r4.per_traj_ids) == 4 and len(set(r4.per_traj_ids)) == 4
+    assert set(r2.per_traj_ids) <= set(r4.per_traj_ids)

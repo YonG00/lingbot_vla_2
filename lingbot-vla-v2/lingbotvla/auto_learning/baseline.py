@@ -196,7 +196,14 @@ def baseline_fingerprint(
     per_episode_stride: bool = True,
     mu_weighting: str = MU_GLOBAL,
 ) -> str:
-    """分母指纹：任一字段变化 ⇒ 拒绝复用旧缓存。"""
+    """**配置级**指纹：任一字段变化 ⇒ 拒绝复用旧缓存。
+
+    ⚠️ 这里**不含** per-task 的 `sha256_train`（虽然参数里可以传，方便单测）。
+    生产路径请用两层：
+
+        config_fp = baseline_fingerprint(... 不含 sha256_train ...)
+        task_fp   = task_fingerprint(config_fp, entry.sha256_train)
+    """
     payload = {
         "v": BASELINE_VERSION,
         "dataset_root": dataset_root,
@@ -214,6 +221,16 @@ def baseline_fingerprint(
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
+def task_fingerprint(config_fingerprint: str, sha256_train: Optional[str]) -> str:
+    """**任务级**指纹 = 配置级指纹 + 该 task 的 train split 哈希。
+
+    review v0.1 #2：原来 store 只持有**配置级**指纹，而写入的是**任务级**指纹
+    ⇒ `get()` 永远不相等 ⇒ **缓存永不命中**。现在两层分开。
+    """
+    blob = f"{config_fingerprint}|{sha256_train or ''}"
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+
+
 # --------------------------------------------------------------------------- #
 # 缓存
 # --------------------------------------------------------------------------- #
@@ -226,20 +243,25 @@ class BaselineStore:
     结构::
 
         {"version": 1,
-         "tasks": {"click_bell": {..., "fingerprint": "..."}}}
+         "config_fingerprint": "...",            # 全任务共享
+         "tasks": {"click_bell": {..., "fingerprint": "<task_fp>"}}}
 
-    ``fingerprint`` 是**配置级**的：一个 store 对应一套数据集/归一化/相机配置，
-    读缓存时逐任务比对，不一致就**拒绝复用**（返回 None 并记一条 warning）。
+    两层指纹（review v0.1 #2）：
+
+    * ``config_fingerprint`` —— 数据路径 / 归一化 / 相机 / chunk / mu 加权方式
+    * 每个 task 存的 ``fingerprint`` = ``task_fingerprint(config_fp, sha256_train)``
+
+    ``get(task, sha256_train)`` 逐 task 校验；不一致 ⇒ 返回 ``None`` 并记 warning。
     """
 
     path: str
-    fingerprint: str = ""
+    config_fingerprint: str = ""
     tasks: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     warnings: List[str] = field(default_factory=list)
 
     @classmethod
-    def load(cls, path: str, *, fingerprint: str = "") -> "BaselineStore":
-        store = cls(path=path, fingerprint=fingerprint)
+    def load(cls, path: str, *, config_fingerprint: str = "") -> "BaselineStore":
+        store = cls(path=path, config_fingerprint=config_fingerprint)
         if os.path.isfile(path):
             with open(path, encoding="utf-8") as f:
                 raw = json.load(f)
@@ -248,17 +270,25 @@ class BaselineStore:
                     f"缓存版本不符（{raw.get('version')} != {BASELINE_VERSION}），忽略旧缓存")
             else:
                 store.tasks = dict(raw.get("tasks", {}))
+                if config_fingerprint and raw.get("config_fingerprint") not in (None, config_fingerprint):
+                    store.warnings.append(
+                        f"缓存配置指纹不符（{raw.get('config_fingerprint')} != "
+                        f"{config_fingerprint}）⇒ 逐任务复核")
         return store
 
-    def get(self, task: str) -> Optional[FixedBaseline]:
+    def expected_fingerprint(self, sha256_train: Optional[str]) -> str:
+        return task_fingerprint(self.config_fingerprint, sha256_train)
+
+    def get(self, task: str, sha256_train: Optional[str] = None) -> Optional[FixedBaseline]:
         """取该 task 的 baseline；指纹不符 / 不存在 ⇒ ``None``。"""
         rec = self.tasks.get(task)
         if rec is None:
             return None
-        if self.fingerprint and rec.get("fingerprint") != self.fingerprint:
+        want = self.expected_fingerprint(sha256_train)
+        if rec.get("fingerprint") != want:
             self.warnings.append(
                 f"[{task}] baseline 指纹不符（缓存 {rec.get('fingerprint')} != "
-                f"当前 {self.fingerprint}）⇒ 拒绝复用，需重算")
+                f"当前 {want}）⇒ 拒绝复用，需重算")
             return None
         return FixedBaseline.from_dict(rec)
 
@@ -267,7 +297,11 @@ class BaselineStore:
 
     def save(self) -> None:
         os.makedirs(os.path.dirname(os.path.abspath(self.path)), exist_ok=True)
-        payload = {"version": BASELINE_VERSION, "tasks": self.tasks}
+        payload = {
+            "version": BASELINE_VERSION,
+            "config_fingerprint": self.config_fingerprint,
+            "tasks": self.tasks,
+        }
         tmp = self.path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
@@ -288,17 +322,22 @@ def compute_fixed_baseline(
     tag: Optional[str] = None,
     mu_weighting: str = MU_GLOBAL,
     aggregate: Optional[Callable[[List[tuple]], Dict[str, Any]]] = None,
+    strict: bool = True,
 ) -> FixedBaseline:
     """在真实数据集上算一个 task 的固定分母。
 
-    ``validator`` 需提供 ``collect_gt_chunks(ids, tag)`` —— 也就是
-    ``OpenLoopValidator``（可以 ``model=None`` + ``model_config=<HF config>``，
+    ``validator`` 需提供 ``collect_gt_chunks(ids, tag, strict=...)`` —— 也就是
+    ``OpenLoopValidator``（可以 ``model=None`` + ``model_config=<LingbotVLAV2Config>``，
     即**不需要权重、不需要 GPU**）。
+
+    ``strict=True``（默认，review v0.1 #6）：拿不到 ``local_idx→episode_index`` 映射时
+    **直接报错** —— 否则会退化成「每个 chunk 当一条 trajectory」，
+    一次性固定分母被永久污染，NMSE 尺子从此不可信。
 
     ``aggregate`` 仅供测试注入桩函数；默认走 evaluator 的 ``aggregate_chunks``。
     """
     tag = tag or f"baseline_{task}"
-    chunks, action_keys = validator.collect_gt_chunks(list(train_ids), tag)
+    chunks, action_keys = validator.collect_gt_chunks(list(train_ids), tag, strict=strict)
     if not chunks:
         raise RuntimeError(f"[{task}] 收集到的 GT chunk 为空，无法算 baseline")
     return build_baseline(
@@ -310,6 +349,6 @@ def compute_fixed_baseline(
 __all__ = [
     "FixedBaseline", "BaselineStore",
     "compute_mu", "trajectory_balanced_baseline", "build_baseline",
-    "baseline_fingerprint", "file_sha256", "compute_fixed_baseline",
+    "baseline_fingerprint", "task_fingerprint", "file_sha256", "compute_fixed_baseline",
     "MU_GLOBAL", "MU_TRAJECTORY", "BASELINE_VERSION",
 ]

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence
 
@@ -264,13 +265,28 @@ def catalog_from_task_split(
     *,
     curriculum_module_path: Optional[str] = None,
     strict: bool = True,
+    allow_missing_curriculum: bool = False,
 ) -> TaskCatalog:
-    """便捷构造：自动带上 `TASK_ORDER` / `EPISODES_PER_TASK` 做分块自检。"""
+    """便捷构造：自动带上 `TASK_ORDER` / `EPISODES_PER_TASK` 做分块自检。
+
+    ⚠️ review v0.1 #7：**不再 broad-except 后静默关掉 block 校验**。
+    `strict=True`（默认）且加载不到 `robotwin_curriculum.py` 时**直接报错** ——
+    静默降级会让「任务名与数据集分块顺序对不上」这类错误一路潜伏到训练里。
+    确实要跳过（例如环境里没有 pandas）请显式传 ``allow_missing_curriculum=True``。
+    """
+    order: Optional[List[str]] = None
+    ept = DEFAULT_EPISODES_PER_TASK
     try:
         order = load_task_order(curriculum_module_path)
         ept = episodes_per_task(curriculum_module_path)
-    except Exception:  # noqa: BLE001  —— 环境里没有 pandas 时降级为「不做分块自检」
-        order, ept = None, DEFAULT_EPISODES_PER_TASK
+    except Exception as exc:  # noqa: BLE001
+        _msg = (f"无法加载 robotwin_curriculum（{type(exc).__name__}: {exc}）"
+                f"⇒ 无法做 block 结构自检")
+        if strict and not allow_missing_curriculum:
+            raise RuntimeError(
+                _msg + "\n  strict=True 下拒绝静默降级；"
+                       "确实要跳过请显式传 allow_missing_curriculum=True") from exc
+        print(f"[auto_learning][WARN] {_msg}", file=sys.stderr)
     return TaskCatalog.from_manifest(
         manifest_path, task_order=order, episodes_per_task=ept, strict=strict
     )

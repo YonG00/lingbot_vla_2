@@ -48,8 +48,10 @@ from lingbotvla.auto_learning.baseline import (          # noqa: E402
     BaselineStore, MU_GLOBAL, MU_TRAJECTORY, build_baseline, compute_mu,
     compute_fixed_baseline, baseline_fingerprint, trajectory_balanced_baseline,
 )
-from lingbotvla.auto_learning.catalog import TaskCatalog  # noqa: E402
-from lingbotvla.auto_learning.evaluator import EvaluatorAdapter  # noqa: E402
+from lingbotvla.auto_learning.catalog import (           # noqa: E402
+    TaskCatalog, catalog_from_task_split,
+)
+from lingbotvla.auto_learning.evaluator import EvaluatorAdapter, ids_fingerprint  # noqa: E402
 from lingbotvla.auto_learning.ports import Backend, EvalResult, SampleRef, TaskEntry  # noqa: E402
 from lingbotvla.auto_learning.resolver import SampleResolver  # noqa: E402
 from lingbotvla.auto_learning.trainer import TrainerAdapter  # noqa: E402
@@ -206,6 +208,21 @@ def test_catalog_unknown_task_raises(tmp_path):
         cat.entry("nope")
     with pytest.raises(ValueError):
         cat.entry("click_bell").ids_for("test")
+
+
+def test_catalog_from_task_split_does_not_silently_degrade(tmp_path):
+    """review v0.1 #7：加载不到 robotwin_curriculum 时**不许静默跳过** block 自检。"""
+    man = _fake_manifest(tmp_path)
+    bogus = str(tmp_path / "nope_curriculum.py")
+
+    with pytest.raises(RuntimeError) as err:
+        catalog_from_task_split(str(man), curriculum_module_path=bogus, strict=True)
+    assert "拒绝静默降级" in str(err.value)
+
+    # 显式允许 ⇒ 才降级（此时不做 block 校验，但仍做泄漏/数量校验）
+    cat = catalog_from_task_split(str(man), curriculum_module_path=bogus,
+                                  strict=True, allow_missing_curriculum=True)
+    assert cat.verify() == [] and cat.task_order is None
 
 
 # --------------------------------------------------------------------------- #
@@ -393,23 +410,54 @@ def test_fingerprint_changes_with_any_field(tmp_path):
 
 def test_store_rejects_fingerprint_mismatch(tmp_path):
     p = tmp_path / "task_baseline.json"
-    st = BaselineStore.load(str(p), fingerprint="fp1")
-    st.put(build_baseline("t", _chunks(), fingerprint="fp1",
+    st = BaselineStore.load(str(p), config_fingerprint="cfg1")
+    st.put(build_baseline("t", _chunks(), fingerprint=st.expected_fingerprint("sha-A"),
                           aggregate=lambda x: {"mse": 0.5}))
     st.save()
-    assert BaselineStore.load(str(p), fingerprint="fp1").get("t") is not None
-    other = BaselineStore.load(str(p), fingerprint="fp2")
-    assert other.get("t") is None
+    # 同一配置 + 同一 train split ⇒ 命中
+    ok = BaselineStore.load(str(p), config_fingerprint="cfg1")
+    assert ok.get("t", "sha-A") is not None
+    # 配置变了 ⇒ 不命中
+    other = BaselineStore.load(str(p), config_fingerprint="cfg2")
+    assert other.get("t", "sha-A") is None
     assert any("指纹不符" in w for w in other.warnings)
+    # 配置没变、但 train split 变了 ⇒ 也不命中
+    split_changed = BaselineStore.load(str(p), config_fingerprint="cfg1")
+    assert split_changed.get("t", "sha-B") is None
+
+
+def test_store_multi_task_per_task_fingerprint(tmp_path):
+    """review v0.1 #2 回归：两个 task 的 sha256_train 不同，reload 后**各自都能命中**。
+
+    旧实现里 store 只持有配置级指纹、写入的却是任务级指纹 ⇒ 永远不相等 ⇒ 缓存永不命中。
+    """
+    p = tmp_path / "task_baseline.json"
+    st = BaselineStore.load(str(p), config_fingerprint="cfg")
+    for name, sha in (("click_bell", "sha-A"), ("turn_switch", "sha-B")):
+        st.put(build_baseline(name, _chunks(), fingerprint=st.expected_fingerprint(sha),
+                              aggregate=lambda x: {"mse": 0.1}))
+    st.save()
+
+    re = BaselineStore.load(str(p), config_fingerprint="cfg")
+    assert re.get("click_bell", "sha-A") is not None, "click_bell 应命中"
+    assert re.get("turn_switch", "sha-B") is not None, "turn_switch 应命中"
+    assert re.get("click_bell", "sha-B") is None, "换 sha 不该命中"
+
+
+def test_task_fingerprint_two_layers():
+    from lingbotvla.auto_learning.baseline import task_fingerprint
+    assert task_fingerprint("cfg", "a") == task_fingerprint("cfg", "a")
+    assert task_fingerprint("cfg", "a") != task_fingerprint("cfg", "b")
+    assert task_fingerprint("cfg", "a") != task_fingerprint("cfg2", "a")
 
 
 def test_store_roundtrip_preserves_values(tmp_path):
     p = tmp_path / "b.json"
-    st = BaselineStore.load(str(p), fingerprint="fp")
-    st.put(build_baseline("t", _chunks(), fingerprint="fp", action_keys=["action.x"],
-                          aggregate=lambda x: {"mse": 0.25}))
+    st = BaselineStore.load(str(p), config_fingerprint="cfg")
+    st.put(build_baseline("t", _chunks(), fingerprint=st.expected_fingerprint("s"),
+                          action_keys=["action.x"], aggregate=lambda x: {"mse": 0.25}))
     st.save()
-    got = BaselineStore.load(str(p), fingerprint="fp").get("t")
+    got = BaselineStore.load(str(p), config_fingerprint="cfg").get("t", "s")
     assert got is not None and got.mse == pytest.approx(0.25)
     assert got.action_keys == ("action.x",)
 
@@ -417,8 +465,8 @@ def test_store_roundtrip_preserves_values(tmp_path):
 def test_store_ignores_version_mismatch(tmp_path):
     p = tmp_path / "b.json"
     p.write_text(json.dumps({"version": 999, "tasks": {"t": {}}}), encoding="utf-8")
-    st = BaselineStore.load(str(p), fingerprint="fp")
-    assert st.get("t") is None and any("版本" in w for w in st.warnings)
+    st = BaselineStore.load(str(p), config_fingerprint="cfg")
+    assert st.get("t", "s") is None and any("版本" in w for w in st.warnings)
 
 
 def test_compute_fixed_baseline_uses_validator_collector():
@@ -428,14 +476,15 @@ def test_compute_fixed_baseline_uses_validator_collector():
         def __init__(self):
             self.calls = []
 
-        def collect_gt_chunks(self, ids, tag):
-            self.calls.append((list(ids), tag))
+        def collect_gt_chunks(self, ids, tag, strict=False):
+            self.calls.append((list(ids), tag, strict))
             return _chunks(), ["action.a", "action.b"]
 
     v = _V()
     b = compute_fixed_baseline(v, "click_bell", [0, 1, 2], fingerprint="fp",
                                aggregate=lambda x: {"mse": 0.75})
-    assert v.calls == [([0, 1, 2], "baseline_click_bell")]
+    # review v0.1 #6：固定分母必须 strict=True（退化会永久污染尺子）
+    assert v.calls == [([0, 1, 2], "baseline_click_bell", True)]
     assert b.mse == pytest.approx(0.75)
     assert b.action_keys == ("action.a", "action.b")
     assert b.n_train_episodes == 3
@@ -444,10 +493,17 @@ def test_compute_fixed_baseline_uses_validator_collector():
 # --------------------------------------------------------------------------- #
 # 6) EvaluatorAdapter：接线正确 + 防泄漏（用桩，无需 torch）
 # --------------------------------------------------------------------------- #
-def _adapter(tmp_path, payload=None, store=None):
+def _adapter(tmp_path, payload=None, store=None, *, require_baseline=False):
     cat = TaskCatalog.from_manifest(str(_fake_manifest(tmp_path)))
     v = _StubValidator(payload)
-    return EvaluatorAdapter(v, cat, store), v, cat
+    return EvaluatorAdapter(v, cat, store, require_baseline=require_baseline), v, cat
+
+
+def _store_with(tmp_path, task, sha, mse, cfg="cfg"):
+    st = BaselineStore.load(str(tmp_path / "b.json"), config_fingerprint=cfg)
+    st.put(build_baseline(task, _chunks(), fingerprint=st.expected_fingerprint(sha),
+                          aggregate=lambda x: {"mse": mse}))
+    return st
 
 
 def test_evaluator_calls_evaluate_ids_not_private(tmp_path):
@@ -462,7 +518,34 @@ def test_evaluator_default_ids_come_from_manifest_split(tmp_path):
     ad.evaluate_task("click_bell", "val")
     ids, tag = v.evaluate_ids_calls[0]
     assert ids == cat.entry("click_bell").ids_for("val")
-    assert tag == "al_click_bell_val"
+    assert tag.startswith("al_click_bell_val")
+
+
+def test_evaluator_tag_changes_with_ids(tmp_path):
+    """review v0.1 #1 回归：**tag 必须带 ids 指纹**。
+
+    否则 2 条 scout 与 4 条 confirm 会共用同一个 `episode_ids` 文件路径，
+    而 `_dataset()` 是**按路径缓存**的 ⇒ 第二次拿到旧的 2 条 dataset，
+    直接破坏「2 条 scout → 4 条 confirm」设计。
+    """
+    ad, v, cat = _adapter(tmp_path)
+    val = cat.entry("click_bell").ids_for("val")
+
+    ad.evaluate_task("click_bell", "val", episode_ids=val[:2])
+    ad.evaluate_task("click_bell", "val", episode_ids=val[:4])
+    ad.evaluate_task("click_bell", "val", episode_ids=val[:4])      # 同集合 ⇒ 同 tag
+
+    (ids2, tag2), (ids4, tag4), (ids4b, tag4b) = v.evaluate_ids_calls
+    assert ids2 == val[:2] and ids4 == val[:4]
+    assert tag2 != tag4, "2 条 scout 与 4 条 confirm 的 tag 必须不同（否则命中旧 dataset 缓存）"
+    assert tag4 == tag4b, "同一组 ids 应复用同一个 tag（缓存才有意义）"
+    assert tag2.endswith(ids_fingerprint(val[:2]))
+    assert tag4.endswith(ids_fingerprint(val[:4]))
+
+
+def test_ids_fingerprint_is_order_insensitive():
+    assert ids_fingerprint([3, 1, 2]) == ids_fingerprint([1, 2, 3])
+    assert ids_fingerprint([1, 2]) != ids_fingerprint([1, 2, 3])
 
 
 def test_evaluator_rejects_ids_outside_split(tmp_path):
@@ -474,19 +557,20 @@ def test_evaluator_rejects_ids_outside_split(tmp_path):
 
 
 def test_evaluator_nmse_uses_fixed_baseline(tmp_path):
-    store = BaselineStore.load(str(tmp_path / "b.json"), fingerprint="fp")
-    store.put(build_baseline("click_bell", _chunks(), fingerprint="fp",
-                             aggregate=lambda x: {"mse": 0.04}))
+    store = _store_with(tmp_path, "click_bell", "tr-click_bell", 0.04)
     ad, _, _ = _adapter(tmp_path, payload={"mse": 0.02, "mae": 0.1, "n": 2, "n_chunks": 4,
                                            "frames": 200, "dims": 14,
                                            "per_traj_mse": [0.01, 0.03],
                                            "per_traj_ids": [10, 11],
-                                           "per_traj_frames": [100, 100]}, store=store)
+                                           "per_traj_frames": [100, 100],
+                                           "action_keys": ["action.a", "action.b"]},
+                        store=store)
     r = ad.evaluate_task("click_bell", "val")
     assert isinstance(r, EvalResult)
     assert r.baseline_mse == pytest.approx(0.04)
     assert r.nmse == pytest.approx(0.02 / 0.04)
     assert r.n_traj == 2 and r.dims == 14 and r.per_traj_ids == [10, 11]
+    assert r.action_keys == ["action.a", "action.b"]      # review v0.1 #9
     assert r.eval_seconds >= 0.0
 
 
@@ -494,6 +578,15 @@ def test_evaluator_nmse_is_none_without_baseline(tmp_path):
     ad, _, _ = _adapter(tmp_path)
     r = ad.evaluate_task("click_bell", "val")
     assert r.nmse is None and r.baseline_mse is None
+
+
+def test_evaluator_require_baseline_fails_fast(tmp_path):
+    """review v0.1 #5：Scheduler 场景下缺 baseline 必须报错，而不是静默 nmse=None。"""
+    ad, v, _ = _adapter(tmp_path, require_baseline=True)
+    with pytest.raises(RuntimeError) as err:
+        ad.evaluate_task("click_bell", "val")
+    assert "fixed baseline" in str(err.value)
+    assert v.evaluate_ids_calls == [], "拒绝时应**还没开始**评测"
 
 
 def test_evaluator_rejects_empty_ids(tmp_path):

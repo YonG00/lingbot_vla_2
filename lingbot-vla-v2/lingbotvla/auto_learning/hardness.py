@@ -51,7 +51,7 @@ class HardnessScorer:
         seed: int = DEFAULT_SEED,
         flow_time: float = DEFAULT_FLOW_TIME,
         loss_type: str = "L1_fm",
-        device: str = "cuda",
+        device: Optional[str] = None,
         logger: Any = None,
         require_joint_mask: bool = True,
     ):
@@ -59,9 +59,37 @@ class HardnessScorer:
         self.seed = int(seed)
         self.flow_time = float(flow_time)
         self.loss_type = str(loss_type)
-        self.device = device
+        # review v0.1 #4：device 默认**从模型推断**，不写死 "cuda"
+        self.device = device or self._infer_device()
         self.logger = resolve_logger(logger)
         self.require_joint_mask = bool(require_joint_mask)
+
+    # -- dtype / device（review v0.1 #4）-------------------------------------
+    def _infer_device(self) -> str:
+        try:
+            return str(next(self.model.parameters()).device)
+        except Exception:  # noqa: BLE001 —— 桩模型 / 空参数
+            return "cuda"
+
+    def forward_dtype(self):
+        """**真实 forward 会用的 dtype**。
+
+        `LingbotVlaV2Policy.forward()`：
+          * `config.action_fp32=True`  ⇒ `state/actions` 转 **float32**
+          * 否则                        ⇒ 转 `next(self.parameters()).dtype`（单卡常见 BF16）
+
+        而 `FlowMatchingV2.forward` 里 `dtype = state.dtype` —— **外部传入的 noise/time
+        不会被转换**。所以 noise/time 必须按上面这个 dtype 构造，否则：
+        轻则口径与训练不一致，重则直接 dtype mismatch。
+        """
+        import torch
+
+        if getattr(getattr(self.model, "config", None), "action_fp32", False):
+            return torch.float32
+        try:
+            return next(self.model.parameters()).dtype
+        except Exception:  # noqa: BLE001
+            return torch.float32
 
     # -- 确定性构造 ---------------------------------------------------------
     def fixed_noise(self, shape: Sequence[int], dtype):
@@ -109,7 +137,9 @@ class HardnessScorer:
         actions = batch.get("actions")
         if actions is None:
             raise ValueError("batch 里没有 `actions`，无法算 flow-matching 损失")
-        dtype = actions.dtype
+        # 🔴 review v0.1 #4：noise/time 必须用**真实 forward 的 dtype**，
+        #    而不是 dataset 里 actions 的 dtype（后者通常是 FP32）。
+        dtype = self.forward_dtype()
 
         n_action_steps = int(getattr(cfg, "n_action_steps", actions.shape[1]))
         max_action_dim = int(getattr(cfg, "max_action_dim", actions.shape[2]))

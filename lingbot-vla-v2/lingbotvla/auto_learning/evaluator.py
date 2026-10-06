@@ -1,23 +1,34 @@
 """EvaluatorAdapter —— 把 `OpenLoopValidator` 包成 `ports.Evaluator`。
 
-🔴 两条红线
+🔴 三条红线
 -----------
 1. **不重写** `sample_actions()` glue / preprocess / chunk aggregation / metric pipeline
    —— 全部复用 `OpenLoopValidator`。
 2. **不裸调 `_evaluate_ids()`** —— 走 `validator.evaluate_ids()`，
    它内部包着 `safe_eval_context`（RNG / training flag / use_cache / attention /
    视觉网格缓存 的 snapshot-restore-审计）。
+3. **tag 必须带 episode ids 指纹**（review v0.1 #1）：
+   `_episode_ids_file(ids, tag)` 是**按 tag 落同一个路径**、而 `_dataset()` 又**按路径缓存**
+   ⇒ 若 tag 固定为 `al_<task>_<split>`，则「2 条 scout → 4 条 confirm」的第二次会拿到
+   **第一次的 2 条 dataset**（JSON 被覆盖了也没用），直接破坏 2→4 设计。
 
 本模块懒加载重依赖，`import` 本身不需要 torch。
 """
 
 from __future__ import annotations
 
+import hashlib
 import time
 from typing import Any, List, Optional, Sequence
 
 from .eval_context import resolve_logger
 from .ports import EvalResult
+
+
+def ids_fingerprint(ids: Sequence[int]) -> str:
+    """一组 episode ids 的稳定短指纹（顺序无关）。"""
+    blob = ",".join(str(int(i)) for i in sorted(set(int(i) for i in ids)))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:8]
 
 
 class EvaluatorAdapter:
@@ -26,8 +37,8 @@ class EvaluatorAdapter:
     典型用法::
 
         adapter = EvaluatorAdapter(validator, catalog, store)
-        r = adapter.evaluate_task("click_bell", "val")
-        r.mse, r.nmse, r.per_traj_mse, r.eval_seconds
+        scout   = adapter.evaluate_task("click_bell", "val", ids[:2])
+        confirm = adapter.evaluate_task("click_bell", "val", ids[:4])   # 真的是 4 条
     """
 
     def __init__(
@@ -39,6 +50,7 @@ class EvaluatorAdapter:
         logger: Any = None,
         tag_prefix: str = "al",
         verify_split: bool = True,
+        require_baseline: bool = False,
     ):
         self.validator = validator
         self.catalog = catalog
@@ -47,12 +59,16 @@ class EvaluatorAdapter:
         self.tag_prefix = tag_prefix
         # True（默认）：传入的 episode_ids 必须**属于**声明的 split ⇒ 防 train/val 泄漏
         self.verify_split = verify_split
+        # True：没有有效 fixed baseline 时**直接报错**（Scheduler 启动时应打开，
+        # 免得 NMSE 静默变成 None —— review v0.1 #5）
+        self.require_baseline = require_baseline
 
     # -- 内部 ---------------------------------------------------------------
     def _baseline_for(self, task_id: str):
         if self.baseline_store is None:
             return None
-        b = self.baseline_store.get(task_id)
+        entry = self.catalog.entry(task_id)
+        b = self.baseline_store.get(task_id, entry.sha256_train)
         if b is None and self.baseline_store.warnings:
             self.logger.warning(f"[auto_learning] {self.baseline_store.warnings[-1]}")
         return b
@@ -86,13 +102,21 @@ class EvaluatorAdapter:
             raise ValueError(f"[{task_id}] {split} split 的回合列表为空，无法评测")
         self._check_ids_in_split(entry, split, ids)
 
-        tag = f"{self.tag_prefix}_{task_id}_{split}"
+        baseline = self._baseline_for(task_id)
+        if baseline is None and self.require_baseline:
+            raise RuntimeError(
+                f"[{task_id}] 没有可用的 fixed baseline ⇒ 拒绝评测（require_baseline=True）。\n"
+                f"  先跑：python -m lingbotvla.auto_learning.tools.compute_task_baseline "
+                f"--manifest <manifest.json> --config <lingbotvla_cli.yaml>")
+
+        # 🔴 ids 指纹进 tag：否则 2 条 scout 与 4 条 confirm 会共用同一个
+        #    episode_ids 文件路径 ⇒ `_dataset()` 按路径缓存 ⇒ 第二次拿到旧的 2 条。
+        tag = f"{self.tag_prefix}_{task_id}_{split}_{ids_fingerprint(ids)}"
         t0 = time.time()
         # 🔴 走 evaluate_ids（内含 safe_eval_context），**不要**直接调 _evaluate_ids
         raw = self.validator.evaluate_ids(ids, tag)
         elapsed = time.time() - t0
 
-        baseline = self._baseline_for(task_id)
         b_mse = float(baseline.mse) if baseline is not None else None
         nmse = (float(raw["mse"]) / b_mse) if (b_mse and b_mse > 0) else None
 
@@ -110,13 +134,14 @@ class EvaluatorAdapter:
             frames=int(raw.get("frames", 0)),
             dims=int(raw.get("dims", 0)),
             eval_seconds=elapsed,
+            action_keys=list(raw.get("action_keys", [])),
             baseline_fingerprint=(baseline.fingerprint if baseline is not None else None),
         )
         self.logger.info_rank0(
-            f"[auto_learning] eval {task_id}/{split}: mse={res.mse:.6f} "
+            f"[auto_learning] eval {task_id}/{split} n_ids={len(ids)}: mse={res.mse:.6f} "
             f"nmse={('%.4f' % res.nmse) if res.nmse is not None else 'n/a'} "
             f"({res.n_traj}轨迹/{res.n_chunks}chunk, {res.eval_seconds:.1f}s)")
         return res
 
 
-__all__ = ["EvaluatorAdapter"]
+__all__ = ["EvaluatorAdapter", "ids_fingerprint"]
