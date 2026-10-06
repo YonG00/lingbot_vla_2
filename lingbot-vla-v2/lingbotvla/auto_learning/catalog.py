@@ -201,6 +201,46 @@ class TaskCatalog:
                         f"应为 {self.episodes_per_task}，实际 {e.n_train + e.n_val}"))
         return problems
 
+    # -- 接真实数据集（B1）---------------------------------------------------
+    def attach_samples(self, resolver) -> "TaskCatalog":
+        """把 **dataset local_idx** 填进每个 `TaskEntry`（B1 的核心一步）。
+
+        Scheduler/Sampler 认的是 `train_sample_ids` / `samples_by_traj`，而
+        manifest 只有回合号 ⇒ 必须用 `SampleResolver` 把回合展开成样本。
+
+        ``resolver`` 需提供 ``local_indices_of_episode(ep)``（`SampleResolver` 已有）。
+
+        返回**新的** catalog（不改原对象），便于反复构造与测试。
+        """
+        import dataclasses
+
+        missing = [n for n, e in self._tasks.items()
+                   if not (e.train_traj_ids or e.val_traj_ids)]
+        if missing:
+            raise ValueError(f"这些任务没有回合号，无法展开样本: {missing[:5]}")
+        out: Dict[str, TaskEntry] = {}
+        for name, e in self._tasks.items():
+            train_ids: List[int] = []
+            by_traj: Dict[int, List[int]] = {}
+            for ep in e.train_traj_ids:
+                locs = list(resolver.local_indices_of_episode(int(ep)))
+                if not locs:
+                    raise RuntimeError(
+                        f"[{name}] 回合 {ep} 在当前数据集里一个样本都没有 —— "
+                        "多半是数据集白名单与 manifest 对不上")
+                by_traj[int(ep)] = locs
+                train_ids.extend(locs)
+            val_ids: List[int] = []
+            for ep in e.val_traj_ids:
+                val_ids.extend(resolver.local_indices_of_episode(int(ep)))
+            out[name] = dataclasses.replace(
+                e, train_sample_ids=sorted(train_ids), samples_by_traj=by_traj,
+                val_sample_ids=sorted(val_ids),
+            )
+        return TaskCatalog(out, meta=self.meta,
+                           episodes_per_task=self.episodes_per_task,
+                           task_order=self.task_order)
+
     def task_of_episode(self, episode: int) -> str:
         """回合号 → 任务名（`block_id = episode_index // EPISODES_PER_TASK`）。"""
         if self.task_order is None:

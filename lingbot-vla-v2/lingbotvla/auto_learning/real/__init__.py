@@ -20,7 +20,7 @@ def __getattr__(name):  # PEP 562：重模块按需加载
                 "RealEvaluator", "RealHardnessScorer", "RealTrainer"):
         from . import backend
         return getattr(backend, name)
-    if name in ("AutoLearnLoopHook", "LoopDecision"):
+    if name in ("AutoLearnLoopHook", "StepDirective", "build_hook"):
         from . import hook
         return getattr(hook, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

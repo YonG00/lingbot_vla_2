@@ -118,6 +118,11 @@ class Scheduler:
         self.evaluator = backend.evaluator
         self.trainer = backend.trainer
         self.registry = TaskRegistry.from_catalog(backend.catalog, al)
+        #: B1：True 时 `_train_unit()` **不**自己调 trainer，只发布 request，
+        #: 等外层真实训练循环跑完后用 `complete_train_unit(result)` 回填。
+        #: 默认 False ⇒ Stage A / 既有测试的行为**逐位不变**。
+        self.defer_train = False
+        self._pending_train = None
         self.scanner = HardnessScanner(al, backend.scorer)
         self.reviewer = Reviewer(al, self.evaluator)
         self.rebind_rng()
@@ -406,7 +411,8 @@ class Scheduler:
         }
 
     # ---------------------------------------------------------------- #
-    def _train_unit(self) -> Dict[str, Any]:
+    def _prepare_train_request(self):
+        """构造本 unit 的 `TrainRequest`（B1 的 hook 用它驱动真实 sampler）。"""
         al = self.al
         st = self.state
         name = st.current_task
@@ -425,7 +431,43 @@ class Scheduler:
             new_slots=al.new_slots,
             replay_slots=al.replay_slots,
         )
+        return request, steps
+
+    def _train_unit(self) -> Dict[str, Any]:
+        request, steps = self._prepare_train_request()
+        if self.defer_train:
+            # B1：训练由**外层真实循环**跑 ⇒ 只发布 request，等 `complete_train_unit()`
+            self._pending_train = (request, steps)
+            return {"action": "train_unit", "deferred": True, "task": request.task,
+                    "steps": steps, "request": request, "step": self.state.global_step}
         result = self.trainer.train_steps(request, steps)
+        return self._apply_train_result(request, steps, result)
+
+    # -- B1：外层训练循环的回填接口 ------------------------------------------
+    @property
+    def pending_train_request(self):
+        """当前待完成的 `TrainRequest`（没有则 None）。"""
+        return None if self._pending_train is None else self._pending_train[0]
+
+    @property
+    def pending_train_steps(self) -> int:
+        return 0 if self._pending_train is None else self._pending_train[1]
+
+    def complete_train_unit(self, result: TrainResult) -> Dict[str, Any]:
+        """把外层跑完的 `TrainResult` 交回来，继续做 unit 级决策。"""
+        if self._pending_train is None:
+            raise RuntimeError("当前没有待完成的 train_unit（需 defer_train=True）")
+        request, steps = self._pending_train
+        self._pending_train = None
+        return self._apply_train_result(request, steps, result)
+
+    def _apply_train_result(self, request, steps: int,
+                            result: TrainResult) -> Dict[str, Any]:
+        """unit 结束后的记账 + 评测 + 判定（原 `_train_unit` 的后半段）。"""
+        al = self.al
+        st = self.state
+        name = request.task
+        rec = self.registry.get(name)
         self._check_train_result(result, steps)
 
         st.global_step += steps
