@@ -119,7 +119,11 @@ class AutoLearnLoopHook:
                 "采样统计违反不变量（测试计划 §12 fail-fast）：\n  - " + "\n  - ".join(problems))
         if stats.steps != self._unit_steps:
             raise RuntimeError(
-                f"本 unit 实际跑了 {stats.steps} 步，但 scheduler 要求 {self._unit_steps} 步")
+                f"本 unit 实际跑了 {stats.steps} 步，但 scheduler 要求 {self._unit_steps} 步。\n"
+                f"  🔴 最常见原因：**DataLoader 的 prefetch** —— 有 `num_workers>0` 时，\n"
+                f"     sampler 会被预取跑在前面，`build()` 的调用次数 ≫ 真实消费的 step 数。\n"
+                f"     Auto Learning v0 要求 `--data.num_workers 0`（无预取，sampler 与 step 一一对应）。\n"
+                f"  其它可能：unit 内步数被提前 break / 训练循环结构与 hook 不匹配。")
         result = TrainResult(
             loss=(sum(self._unit_losses) / len(self._unit_losses)) if self._unit_losses else 0.0,
             steps=stats.steps,

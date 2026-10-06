@@ -261,6 +261,11 @@ class BaselineStore:
 
     @classmethod
     def load(cls, path: str, *, config_fingerprint: str = "") -> "BaselineStore":
+        """读缓存。
+
+        ⚠️ 没显式给 `config_fingerprint` 时，**从文件里读回来**（CLI 写进去的那个）——
+        否则训练侧算出的 `task_fingerprint` 与 CLI 不一致 ⇒ **缓存永远命中不了**。
+        """
         store = cls(path=path, config_fingerprint=config_fingerprint)
         if os.path.isfile(path):
             with open(path, encoding="utf-8") as f:
@@ -270,10 +275,12 @@ class BaselineStore:
                     f"缓存版本不符（{raw.get('version')} != {BASELINE_VERSION}），忽略旧缓存")
             else:
                 store.tasks = dict(raw.get("tasks", {}))
-                if config_fingerprint and raw.get("config_fingerprint") not in (None, config_fingerprint):
+                stored_fp = raw.get("config_fingerprint") or ""
+                if not config_fingerprint:
+                    store.config_fingerprint = stored_fp
+                elif stored_fp and stored_fp != config_fingerprint:
                     store.warnings.append(
-                        f"缓存配置指纹不符（{raw.get('config_fingerprint')} != "
-                        f"{config_fingerprint}）⇒ 逐任务复核")
+                        f"缓存配置指纹不符（{stored_fp} != {config_fingerprint}）⇒ 逐任务复核")
         return store
 
     def expected_fingerprint(self, sha256_train: Optional[str]) -> str:

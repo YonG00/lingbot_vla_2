@@ -1,0 +1,12 @@
+# Stage B1 smoke：Auto Learning 打开、cadence 缩短（**仅供 smoke，不是正式默认值**）
+enabled: true
+task_names: [click_bell]
+batch_size: 10
+new_slots: 7
+replay_slots: 3
+eval_interval_steps: 3
+min_steps_before_defer: 6
+defer_retry_steps: 6
+max_attempts_per_task: 1
+pass_nmse: 0.30
+seed: 7

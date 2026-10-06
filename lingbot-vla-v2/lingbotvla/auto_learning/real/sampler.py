@@ -168,4 +168,46 @@ class AutoLearnSampler(_SamplerBase):
         self.stats.steps = int(state.get("unit_steps_done", 0))
 
 
-__all__ = ["AutoLearnSampler", "UnitStats"]
+class LazyAutoLearnSampler(_SamplerBase):
+    """**延迟绑定**的 sampler 占位。
+
+    为什么需要它：`build_dataloader()` 在训练脚本里**早于**模型构建，
+    而真正的 `AutoLearnSampler` 依赖 `Scheduler`（`scheduler.rng` 是唯一权威 RNG），
+    `Scheduler` 又依赖 `Evaluator`/`HardnessScorer`（都要模型）。
+
+    ⇒ 先把这个占位传进 DataLoader，等模型好了再 `bind(真 sampler)`。
+    """
+
+    def __init__(self):
+        self._inner: Optional[AutoLearnSampler] = None
+
+    def bind(self, inner: AutoLearnSampler) -> None:
+        """绑定真 sampler。**幂等**：重复绑定直接替换（旧的那个从未被消费过）。
+
+        （实测训练脚本里会出现重复构造的路径 —— 报错只会让 smoke 挂掉，
+        而「换成最新那个」在语义上是安全的：旧实例还没被 `__iter__` 消费。）
+        """
+        self._inner = inner
+
+    @property
+    def bound(self) -> bool:
+        return self._inner is not None
+
+    def __iter__(self):
+        if self._inner is None:
+            raise RuntimeError(
+                "Auto Learning sampler 还没 bind —— 训练循环必须在第一个 step 之前完成绑定")
+        return iter(self._inner)
+
+    def __len__(self):
+        raise TypeError("LazyAutoLearnSampler 是无限流")
+
+    def state_dict(self):
+        return self._inner.state_dict() if self._inner is not None else {"version": 1}
+
+    def load_state_dict(self, state):
+        if self._inner is not None:
+            self._inner.load_state_dict(state)
+
+
+__all__ = ["AutoLearnSampler", "UnitStats", "LazyAutoLearnSampler"]

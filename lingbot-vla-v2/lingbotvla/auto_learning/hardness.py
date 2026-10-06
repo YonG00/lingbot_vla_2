@@ -149,6 +149,20 @@ class HardnessScorer:
         train_flags = [(m, m.training) for m in self.model.modules()]
         old_loss_type = getattr(cfg, "loss_type", None)
         old_align = getattr(cfg, "align_params", None)
+        # 🔴 GPU 实测（2026-10-06）：**必须**处理视觉网格缓存。
+        #    `precompute_grid_thw=true` 时 `get_image_features` 按**首次调用**的 grid_thw
+        #    缓存 `visual_split_sizes` 等 5 个属性。hardness probe 一次喂 max_batch 个样本
+        #    （如 8×3 相机 = 24 张图），会把缓存写成 24 张图的 split_sizes；
+        #    紧接着训练侧 micro=1（3 张图）再调用就炸：
+        #        ValueError: Split sizes add up to 1536 but got the tensor's size of 576
+        #    ⇒ probe **前**清空（让它按自己的网格重算）、**后**还原（训练侧缓存不受影响）。
+        _grid_saved = None
+        try:
+            from lingbotvla.utils.open_loop_validation import (
+                _visual_grid_cache_clear, _visual_grid_cache_restore,
+            )
+        except Exception:  # noqa: BLE001
+            _visual_grid_cache_clear = _visual_grid_cache_restore = None
         try:
             self.model.eval()
             if old_loss_type != self.loss_type:
@@ -162,6 +176,8 @@ class HardnessScorer:
             #    与 depth/video 对齐项无关 ⇒ 评测期间临时清空 `align_params`（finally 还原）。
             if isinstance(old_align, dict) and old_align:
                 cfg.align_params = {}
+            if _visual_grid_cache_clear is not None:
+                _grid_saved = _visual_grid_cache_clear(self.model)
             with torch.no_grad():
                 out = self.model(
                     **batch,
@@ -177,6 +193,8 @@ class HardnessScorer:
             bml = loss_dict["batch_mean_losses"]
             return bml.detach().float().cpu().numpy().reshape(-1)
         finally:
+            if _grid_saved is not None and _visual_grid_cache_restore is not None:
+                _visual_grid_cache_restore(self.model, _grid_saved)
             if old_loss_type is not None:
                 cfg.loss_type = old_loss_type
             if old_align is not None:

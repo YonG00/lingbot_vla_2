@@ -311,6 +311,19 @@ class MyTrainingArguments(TrainingArguments):
         default=False,
         metadata={"help": "Whether to apply FSDP2 for VLM."},
     )
+    # ---- [Stage B1] Auto Learning ----
+    auto_learning: Optional[str] = field(
+        default=None,
+        metadata={"help": "Auto Learning 配置 yaml 路径；None（默认）= 完全关闭，走原训练路径。"},
+    )
+    auto_learning_manifest: Optional[str] = field(
+        default=None,
+        metadata={"help": "tools/task_split.py 产出的 manifest.json（Auto Learning 的任务划分）。"},
+    )
+    auto_learning_baseline: Optional[str] = field(
+        default=None,
+        metadata={"help": "task_baseline.json（Fixed BaselineMSE 缓存）。"},
+    )
 
 @dataclass
 class MyDataArguments(DataArguments):
@@ -497,6 +510,19 @@ def main():
             train_dataset = build_vla_dataset(dataset_config=args.data, model_config=args.model, config=model.config, processor=processor, use_depth_align=use_depth_align)
             args.train.compute_train_steps(args.data.max_seq_len, args.data.train_size, len(train_dataset))
         
+        # ---- [Stage B1] Auto Learning：第一段（不需要模型；**必须在 build_dataloader 之前**）----
+        from lingbotvla.auto_learning.real.build import build_auto_learning_parts
+        args._auto_learning_train_dataset = train_dataset     # Hardness 要用同一索引空间
+        _al_parts = build_auto_learning_parts(
+            config_path=args.train.auto_learning,
+            manifest_path=args.train.auto_learning_manifest,
+            train_dataset=train_dataset,
+            baseline_path=args.train.auto_learning_baseline,
+            logger=logger,
+        )
+        _al_sampler = _al_parts.lazy_sampler if _al_parts is not None else None
+        _al_hook = None
+
         train_dataloader = build_dataloader(
             dataset=train_dataset,
             micro_batch_size=args.train.micro_batch_size,
@@ -515,11 +541,8 @@ def main():
             drop_last=args.data.drop_last,
             pin_memory=args.data.pin_memory,
             prefetch_factor=args.data.prefetch_factor if args.data.num_workers > 0 else None,
+            sampler=_al_sampler,
         )
-        # ---- [Stage B1] Auto Learning：sampler / hook 占位（enabled 时才真正构建）----
-        _al_sampler = None
-        _al_hook = None
-        _al_bundle = None
     else:
         raise NotImplementedError(f"Unsupported dataloader type: {args.data.dataloader_type}.")
 
@@ -838,6 +861,20 @@ def main():
             initial=global_step,
             disable=args.train.local_rank != 0,
         )
+    # ---- [Stage B1] Auto Learning：第二段（需要模型）----
+    if _al_parts is not None:
+        from lingbotvla.auto_learning.real.build import finish_auto_learning
+        _al_hook = finish_auto_learning(
+            _al_parts, model=model, processor=processor, args=args,
+            writer=writer, logger=logger, use_depth_align=use_depth_align,
+        )
+        logger.info_rank0("[auto_learning] hook 已挂上（unit 边界会重建 DataLoader 迭代器）")
+        # 🔴 **必须 prime 一次**：`iter(train_dataloader)` 发生在 epoch 开头，
+        #    早于循环体里的 `on_step_begin()` ⇒ 不先发布 request，sampler 的
+        #    `__iter__` 会因为「还没收到 TrainRequest」直接报错。
+        _al_hook.on_step_begin(0)
+        logger.info_rank0("[auto_learning] 第一个 learning unit 的 TrainRequest 已发布")
+
     for epoch in range(start_epoch, args.train.num_train_epochs):
         current_epoch_for_eval = epoch + 1
         if hasattr(train_dataloader, "set_epoch"):
