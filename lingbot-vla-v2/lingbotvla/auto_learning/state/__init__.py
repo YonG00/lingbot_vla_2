@@ -1,14 +1,25 @@
-"""状态层 —— scheduler 的全部可持久化状态。
+"""`state` 子包（**惰性导出**）。
 
-    registry.py      TaskRecord × N：状态 / attempt / best_nmse / snapshot（文档 §38）
-    persistence.py   save / restore（文档 §43.9）
-
-为什么不能用 heatmap 代替 registry：resume 之后必须能回答
-「这任务什么状态？还剩几次 attempt？历史最佳？有没有 pass snapshot？」——
-少任何一项，恢复出来的路线就和原来不一样。
+⚠️ 这里刻意**不**在模块顶层 eager import 子模块 —— 子模块之间存在环
+（如 `sampling.hardness_scan` → `decision.metrics` → `decision.review` →
+`state.registry` → `state.persistence` → `sampling.hardness_scan`），
+急切导入会触发 "partially initialized module" 的 ImportError。
+用 PEP 562 的 `__getattr__` 按需解析即可。
 """
 
-from .persistence import load_state, save_state
-from .registry import TaskRecord, TaskRegistry
+from __future__ import annotations
 
-__all__ = ["TaskRecord", "TaskRegistry", "save_state", "load_state"]
+_SUBMODULES = ('registry', 'persistence')
+
+
+def __getattr__(name):
+    import importlib
+
+    for sub in _SUBMODULES:
+        mod = importlib.import_module(f".{sub}", __name__)
+        if hasattr(mod, name):
+            return getattr(mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = []

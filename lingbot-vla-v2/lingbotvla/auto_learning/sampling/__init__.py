@@ -1,24 +1,25 @@
-"""采样层 —— 决定「这一步喂哪些样本」。
+"""`sampling` 子包（**惰性导出**）。
 
-    hardness.py   每帧难度 → 采样概率（文档 §19–§26）
-    sampler.py    组 batch：7 NEW + 3 OLD（文档 §27）
-    replay.py     PASS 池 + 两级 replay 采样（纯函数，文档 §28–§30）
-    rng.py        显式 `random.Random` 的抽样小工具（可存档 / 恢复）
-
-分工：任务层「学哪个」由 scheduler 决定；样本层「喂哪些帧」由这一层决定。
+⚠️ 这里刻意**不**在模块顶层 eager import 子模块 —— 子模块之间存在环
+（如 `sampling.hardness_scan` → `decision.metrics` → `decision.review` →
+`state.registry` → `state.persistence` → `sampling.hardness_scan`），
+急切导入会触发 "partially initialized module" 的 ImportError。
+用 PEP 562 的 `__getattr__` 按需解析即可。
 """
 
-from .hardness_scan import HardnessScan, HardnessScanner
-from .replay import ReplayPlan, assign_slots, prepare_slots, sample_replay_refs
-from .rng import WeightedSampler
-from .sampler import BatchSampler
+from __future__ import annotations
 
-__all__ = [
-    "HardnessScan",
-    "HardnessScanner",
-    "BatchSampler",
-    "prepare_slots",
-    "sample_replay_refs",
-    "assign_slots",
-    "WeightedSampler",
-]
+_SUBMODULES = ('rng', 'replay', 'sampler', 'hardness_scan')
+
+
+def __getattr__(name):
+    import importlib
+
+    for sub in _SUBMODULES:
+        mod = importlib.import_module(f".{sub}", __name__)
+        if hasattr(mod, name):
+            return getattr(mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = []

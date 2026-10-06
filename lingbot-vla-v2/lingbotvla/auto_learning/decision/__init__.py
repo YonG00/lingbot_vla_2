@@ -1,31 +1,25 @@
-"""决策层 —— 纯函数，不碰 IO / RNG，可直接单测。
+"""`decision` 子包（**惰性导出**）。
 
-    metrics.py         NMSE / R² / LP50 / 遗忘率 / overfit 判据（文档 §9 §14 §17 §23）
-    state_machine.py   状态迁移 + 「一次 unit 之后怎么判」（文档 §5–§17）
-    review.py          PASS pool 复查 + 遗忘判定（文档 §31–§36）
-
-这一层是整个系统的「规则书」：给同样的数字，永远得到同样的判定。
+⚠️ 这里刻意**不**在模块顶层 eager import 子模块 —— 子模块之间存在环
+（如 `sampling.hardness_scan` → `decision.metrics` → `decision.review` →
+`state.registry` → `state.persistence` → `sampling.hardness_scan`），
+急切导入会触发 "partially initialized module" 的 ImportError。
+用 PEP 562 的 `__getattr__` 按需解析即可。
 """
 
-from .metrics import (
-    forget_ratio,
-    is_forgotten,
-    is_overfit,
-    learning_progress,
-    nmse,
-    percentile_rank,
-)
-from .review import Reviewer, ReviewOutcome
-from .state_machine import decide_after_unit
+from __future__ import annotations
 
-__all__ = [
-    "nmse",
-    "learning_progress",
-    "forget_ratio",
-    "is_forgotten",
-    "is_overfit",
-    "percentile_rank",
-    "Reviewer",
-    "ReviewOutcome",
-    "decide_after_unit",
-]
+_SUBMODULES = ('metrics', 'review', 'state_machine')
+
+
+def __getattr__(name):
+    import importlib
+
+    for sub in _SUBMODULES:
+        mod = importlib.import_module(f".{sub}", __name__)
+        if hasattr(mod, name):
+            return getattr(mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__all__ = []
