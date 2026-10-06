@@ -1082,6 +1082,19 @@ def main():
             optimizer.zero_grad()
             if _al_hook is not None:
                 _al_hook.on_step_end(global_step, locals().get("total_loss"))
+            # ---- [Stage B1] §39 运行时字段审计 + §40 sanity（只在 step 0 打一次）----
+            if _al_on and global_step == 1:
+                try:
+                    from lingbotvla.auto_learning.real.sanity import (
+                        assert_batch_sane, format_schema_audit,
+                    )
+                    from lingbotvla.auto_learning.real.sanity import audit_batch_schema
+                    for _mb in micro_batches:
+                        assert_batch_sane(_mb)
+                    logger.info_rank0("\n" + format_schema_audit(
+                        audit_batch_schema(micro_batches[0])))
+                except Exception as _e:  # noqa: BLE001 —— 审计失败要可见，但不打断训练
+                    logger.warning(f"[auto_learning][sanity] {type(_e).__name__}: {_e}")
             if hasattr(grad_norm, "full_tensor"):
                 grad_norm = grad_norm.full_tensor().item()
 
