@@ -94,8 +94,8 @@ class TaskCatalog:
                 val = _read_ids(os.path.join(root, f"{name}.val_ids.json"))
             tasks[name] = TaskEntry(
                 name=name,
-                train_ids=tuple(int(x) for x in train),
-                val_ids=tuple(int(x) for x in val),
+                train_traj_ids=[int(x) for x in train],
+                val_traj_ids=[int(x) for x in val],
                 n_total=int(rec.get("n_total", len(train) + len(val))),
                 sha256_train=rec.get("sha256_train"),
                 sha256_val=rec.get("sha256_val"),
@@ -122,6 +122,10 @@ class TaskCatalog:
     def names(self) -> List[str]:
         return list(self._tasks.keys())
 
+    def task_names(self) -> List[str]:
+        """`ports.TaskCatalog` 契约（与 `names()` 同义）。"""
+        return self.names()
+
     def entry(self, task: str) -> TaskEntry:
         try:
             return self._tasks[task]
@@ -145,7 +149,7 @@ class TaskCatalog:
         problems: List[SplitProblem] = []
         seen_episodes: Dict[int, str] = {}
         for name, e in self._tasks.items():
-            tr, va = list(e.train_ids), list(e.val_ids)
+            tr, va = list(e.train_traj_ids), list(e.val_traj_ids)
             if not tr:
                 problems.append(SplitProblem(name, "空 train", "train_ids 为空，训练集会是空的"))
             if not va:
@@ -185,7 +189,8 @@ class TaskCatalog:
                 b = self.task_order.index(name)
                 lo = b * self.episodes_per_task
                 hi = lo + self.episodes_per_task
-                bad = [i for i in list(e.train_ids) + list(e.val_ids) if not (lo <= i < hi)]
+                bad = [i for i in list(e.train_traj_ids) + list(e.val_traj_ids)
+                       if not (lo <= i < hi)]
                 if bad:
                     problems.append(SplitProblem(
                         name, "分块结构不符",
@@ -200,7 +205,7 @@ class TaskCatalog:
         """回合号 → 任务名（`block_id = episode_index // EPISODES_PER_TASK`）。"""
         if self.task_order is None:
             for name, e in self._tasks.items():
-                if episode in e.train_ids or episode in e.val_ids:
+                if episode in e.train_traj_ids or episode in e.val_traj_ids:
                     return name
             raise KeyError(f"回合 {episode} 不属于任何已知任务")
         b = int(episode) // self.episodes_per_task

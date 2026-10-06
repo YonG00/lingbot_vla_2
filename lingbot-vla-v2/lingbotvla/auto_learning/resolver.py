@@ -4,7 +4,8 @@
 -----------
 * **不自行重新编码 sample id**。Stage A Demo 那套
   `task_index*1e6 + traj*1e3 + frame` **不带进正式代码**。
-  这里的坐标就是 ``(task, episode, frame)``，``frame`` 是数据集里的**绝对帧号**。
+  这里的 ``sample_id`` 就是**数据集 local_idx**（稳定全量索引空间里的位置，
+  见 `docs/stage_b1_integration_design.md` §3）。
 * **不重新实现** local-index → absolute-index 逻辑：只**读**
   `hf_dataset['index']` / `hf_dataset['episode_index']` 两列 ——
   与 `base_dataset.py::LeRobotDataset.__getitem__` 里
@@ -19,7 +20,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from .ports import SampleRef
+from .types import SampleRef
 
 
 def hf_dataset_of(ds: Any):
@@ -111,7 +112,20 @@ class SampleResolver:
         if i < 0 or i >= len(self._ep):
             raise IndexError(f"local_idx 越界: {i}（共 {len(self._ep)} 条）")
         ep = int(self._ep[i])
-        return SampleRef(task=self._task_of_episode(ep), episode=ep, frame=int(self._fr[i]))
+        return SampleRef(task=self._task_of_episode(ep), sample_id=i,
+                         episode_id=ep, frame_id=int(self._fr[i]))
+
+    # -- `ports.SampleResolver` 契约 ----------------------------------------
+    def resolve(self, task: str, sample_id: int) -> SampleRef:
+        """`sample_id`（= dataset local_idx） → `SampleRef`。
+
+        ``task`` 只用于**校验**（不一致 ⇒ 报错），避免上层拿错任务的 id 静默取到别的样本。
+        """
+        ref = self.local_to_ref(int(sample_id))
+        if task and ref.task != task:
+            raise ValueError(
+                f"sample_id={sample_id} 属于任务 {ref.task!r}，但调用方声明的是 {task!r}")
+        return ref
 
     def _ensure_inverse(self) -> Dict[Tuple[str, int, int], int]:
         if self._ref_to_local is None:
@@ -126,12 +140,17 @@ class SampleResolver:
         return self._ref_to_local
 
     def ref_to_local(self, ref: SampleRef) -> int:
-        key = (ref.task, int(ref.episode), int(ref.frame))
+        """按**坐标**反查 local_idx，并校验 `ref.sample_id` 与之一致。"""
+        key = (ref.task, int(ref.episode_id), int(ref.frame_id))
         try:
-            return self._ensure_inverse()[key]
+            i = self._ensure_inverse()[key]
         except KeyError:
             raise KeyError(
                 f"坐标 {key} 不在当前数据集里（可能被 episode 白名单过滤掉了）") from None
+        if int(ref.sample_id) != i:
+            raise ValueError(
+                f"SampleRef 自相矛盾：sample_id={ref.sample_id} 但坐标 {key} 对应 local_idx={i}")
+        return i
 
     def episode_to_locals(self) -> Dict[int, List[int]]:
         """`episode_index → [local_idx, ...]`（升序）。"""

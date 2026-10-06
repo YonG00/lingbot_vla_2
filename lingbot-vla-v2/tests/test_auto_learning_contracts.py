@@ -155,10 +155,10 @@ def test_catalog_loads_and_splits_are_disjoint(tmp_path):
     all_ids = []
     for b, e in enumerate(cat):
         assert e.n_train == 40 and e.n_val == 10
-        assert set(e.train_ids) & set(e.val_ids) == set()
+        assert set(e.train_traj_ids) & set(e.val_traj_ids) == set()
         # 回合号是**全局**的：第 b 个任务占 [b*50, (b+1)*50)
-        assert sorted(list(e.train_ids) + list(e.val_ids)) == list(range(b * 50, (b + 1) * 50))
-        all_ids += list(e.train_ids) + list(e.val_ids)
+        assert sorted(list(e.train_traj_ids) + list(e.val_traj_ids)) == list(range(b * 50, (b + 1) * 50))
+        all_ids += list(e.train_traj_ids) + list(e.val_traj_ids)
     assert len(all_ids) == len(set(all_ids))              # 跨任务不重叠
     assert cat.verify() == []
 
@@ -231,7 +231,7 @@ def test_catalog_from_task_split_does_not_silently_degrade(tmp_path):
 def test_no_val_leakage_into_training_whitelist(tmp_path):
     cat = TaskCatalog.from_manifest(str(_fake_manifest(tmp_path)))
     for e in cat:
-        train, val = set(e.train_ids), set(e.val_ids)
+        train, val = set(e.train_traj_ids), set(e.val_traj_ids)
         assert not (train & val)
         # 白名单是「数据集侧」的唯一入口 ⇒ 只要不重叠就不会泄漏
         assert len(train) + len(val) == EPISODES_PER_TASK
@@ -249,7 +249,9 @@ def test_resolver_roundtrip_and_columns():
     for i in range(5):
         ref = res.local_to_ref(i)
         assert res.ref_to_local(ref) == i
-    assert res.local_to_ref(3) == SampleRef(task="click_bell", episode=11, frame=200)
+    assert res.local_to_ref(3) == SampleRef(task="click_bell", sample_id=3,
+                                            episode_id=11, frame_id=200)
+    assert res.resolve("click_bell", 3) == res.local_to_ref(3)
     assert res.local_indices_of_episode(10) == [0, 1, 2]
     assert res.verify() == []
 
@@ -257,7 +259,7 @@ def test_resolver_roundtrip_and_columns():
 def test_resolver_descends_into_multi_dataset_wrapper():
     res = SampleResolver.from_dataset(_two_episode_dataset(wrap=True),
                                       task_of_episode=_task_of_episode)
-    assert len(res) == 5 and res.local_to_ref(0).frame == 100
+    assert len(res) == 5 and res.local_to_ref(0).frame_id == 100
 
 
 def test_resolver_is_stable_across_rebuilds():
@@ -293,7 +295,7 @@ def test_resolver_verify_catches_non_monotonic_frames():
 def test_resolver_rejects_missing_coordinate():
     res = SampleResolver.from_dataset(_two_episode_dataset(), task_of_episode=_task_of_episode)
     with pytest.raises(KeyError):
-        res.ref_to_local(SampleRef(task="click_bell", episode=99, frame=0))
+        res.ref_to_local(SampleRef(task="click_bell", sample_id=0, episode_id=99, frame_id=0))
 
 
 # --------------------------------------------------------------------------- #
@@ -603,15 +605,19 @@ def test_ports_are_runtime_checkable():
 
     class _C:
         def names(self): return []
+        def task_names(self): return []
         def entry(self, t): raise KeyError(t)
 
     class _R:
         def local_to_ref(self, i): ...
         def ref_to_local(self, r): ...
         def episode_map(self): ...
+        def resolve(self, task, sample_id): ...
+        def resolve(self, task, sample_id): ...
 
     class _E:
-        def evaluate_task(self, task_id, split, episode_ids=None): ...
+        def evaluate(self, task, split, episode_ids): ...
+        def baseline_mse(self, task): ...
 
     class _H:
         def score(self, items): ...
@@ -627,13 +633,32 @@ def test_ports_are_runtime_checkable():
 
 
 def test_backend_missing_reports_absent_components():
-    b = Backend(catalog=object(), resolver=object())
-    assert set(b.missing()) == {"evaluator", "scorer", "trainer"}
-    assert Backend(catalog=1, resolver=1, evaluator=1, scorer=1, trainer=1).missing() == []
+    class _C:
+        def task_names(self): return []
+        def entry(self, t): raise KeyError(t)
+
+    class _R:
+        def resolve(self, task, sample_id): ...
+
+    class _E:
+        def evaluate(self, task, split, episode_ids): ...
+        def baseline_mse(self, task): ...
+
+    class _H:
+        def score(self, task, sample_ids): ...
+
+    class _T:
+        def train_steps(self, req, n): ...
+
+    b = Backend(catalog=_C(), resolver=_R())
+    assert {m.split()[0] for m in b.missing()} == {"evaluator", "scorer", "trainer"}
+    assert Backend(catalog=_C(), resolver=_R(), evaluator=_E(),
+                   scorer=_H(), trainer=_T()).missing() == []
+    assert "catalog 缺失" in Backend().missing()
 
 
 def test_task_entry_ids_for():
-    e = TaskEntry(name="t", train_ids=(1, 2), val_ids=(3,), n_total=3)
+    e = TaskEntry(name="t", train_traj_ids=[1, 2], val_traj_ids=[3], n_total=3)
     assert e.ids_for("train") == [1, 2] and e.ids_for("val") == [3]
     assert e.n_train == 2 and e.n_val == 1
 
