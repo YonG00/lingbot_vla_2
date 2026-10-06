@@ -1,0 +1,136 @@
+# ============================================================================
+# Stage A demo #1 —— 文档 §4 里那组经典曲线（4 个任务）
+#
+# 目的不是「训出好模型」，而是**把状态机的每一条路径都真实触发一遍**：
+#   task_C  base 本来就会        ⇒ bootstrap 2-val scout → 4-val confirm → PASS
+#   task_D  学得快但容易忘       ⇒ PASS → 遗忘 → REOPEN → 再 PASS
+#   task_A  典型「练得动」       ⇒ 训练 3 个 unit 后 PASS
+#   task_B  卡在及格线外练不动   ⇒ DEFER → round rollover → 第二次仍失败 → EXHAUSTED
+#
+# ⚠️ 这是**假世界**：NMSE 由 sim.tasks 里的曲线直接给出，不加载任何模型。
+#    它验证的是 scheduler / state machine 的逻辑，不是数值正确性。
+# ============================================================================
+
+description: "Stage A · 4-task 经典曲线：PASS / DEFER / EXHAUSTED / 遗忘 / 回炉 全覆盖"
+
+auto_learning:
+  enabled: true
+
+  # ----- task pool -----
+  task_names: null
+  max_new_tasks_attempted_this_run: null
+  max_new_tasks_passed_this_run: null
+
+  # ----- task evaluation -----
+  global_scout_val_trajs: 2
+  active_train_probe_trajs: 4
+  active_val_probe_trajs: 4
+  pass_nmse: 0.30
+
+  # ----- train / eval cadence -----
+  eval_interval_steps: 50
+  min_steps_before_defer: 100
+
+  # ----- after PASS -----
+  continue_after_pass: false
+  post_pass_max_steps: 0
+  post_pass_min_lp: 0.03
+
+  # ----- learning progress -----
+  min_lp50: 0.05
+
+  # ----- attempts -----
+  max_attempts_per_task: 2
+
+  # ----- optional rescue -----
+  defer_resample_retry: false
+  defer_retry_steps: 50
+
+  # ----- overfit -----
+  early_defer_on_overfit: true
+  overfit_train_lp_min: 0.05
+  overfit_val_lp_max: 0.00
+  overfit_gap_growth_threshold: 0.10
+
+  # ----- batch -----
+  batch_size: 10
+  new_slots: 7
+  replay_slots: 3
+
+  # ----- hardness -----
+  hardness_probe_fraction: 0.33
+  hardness_weight_min: 1.0
+  hardness_weight_max: 3.0
+  hardness_alpha: 2.0
+  difficulty_unscored_default: 0.5
+  refresh_hardness_on_continue: false
+
+  # ----- replay -----
+  replay_task_policy: uniform
+  replay_sample_policy: pass_snapshot
+
+  # ----- review -----
+  review_after_task_transitions: 2
+  forget_relative_threshold: 0.30
+
+  # ----- scheduler -----
+  rescan_candidates_after_transition: true
+  max_global_steps: null
+  max_transitions: null
+
+  seed: 7
+
+# ---------------------------------------------------------------------------
+sim:
+  seed: 7
+  steps_per_unit: 50
+  eval_noise_scale: 1.0
+  replay_forget_protection: 0.60
+  hardness_latent_skew: 2.0
+  loss_floor: 0.02
+
+  tasks:
+    # ---- 0.90 → 0.55 → 0.28：练得动 ----
+    - name: task_A
+      note: "0.90 → 0.55 → 0.28（练得动）"
+      curve: [0.90, 0.55, 0.28]
+      forget_rate: 0.05
+      degrade_slope: 0.03
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: reach
+      transfer: 0.0
+
+    # ---- 0.65 → 0.61 → 0.60：练不动 ----
+    - name: task_B
+      note: "0.65 → 0.61 → 0.60（卡在及格线外）"
+      nmse0: 0.65
+      nmse_floor: 0.58
+      learn_k: 0.35
+      forget_rate: 0.05
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plate
+      transfer: 0.0
+
+    # ---- 0.20：base 本来就会 ----
+    - name: task_C
+      note: "0.20（base 已经会，bootstrap 直接 PASS）"
+      curve: [0.20]
+      forget_rate: 0.05
+      degrade_slope: 0.05
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: reach
+      transfer: 0.0
+
+    # ---- 0.30 → 0.18 → 退化到 0.38：学得快、忘得更快 ----
+    - name: task_D
+      note: "0.32 → 0.18 → 遗忘后退化到 0.38（触发 REOPEN）"
+      curve: [0.32, 0.18]
+      forget_rate: 0.55
+      degrade_slope: 0.20
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: reach
+      transfer: 0.0

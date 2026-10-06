@@ -1,0 +1,531 @@
+# ============================================================================
+# Stage A demo #3 —— 50 任务池 / 只允许新增 8 个技能（文档 §46）
+#
+# 要回答的问题不是「能不能训成功」，而是：
+#   * 模型是否能自己找到最划算的学习路径？
+#   * 它优先选了哪些任务？有没有优先选容易 transfer 的？
+#   * 训练一个任务后，其他未训练任务是否自然变好（rescan 自动 PASS）？
+#   * replay 是否足以维持前面学到的能力？
+#   * scheduler 会不会陷入某类任务循环？
+#
+# 任务构成：12 个 base 就会 / 24 个练得动（需要 1~4 个 unit）/ 14 个 plateau（练不动）
+# ⚠️ 假世界：NMSE 由曲线/解析式给出。
+#
+# 本文件由 `python -m auto_learning.tools.make_demo_50task` 生成。
+# ============================================================================
+
+description: "Stage A · 50 任务池，最多新增 8 个技能（文档 §46）"
+
+auto_learning:
+  enabled: true
+  task_names: null
+  max_new_tasks_attempted_this_run: 8
+  max_new_tasks_passed_this_run: null
+
+  global_scout_val_trajs: 2
+  active_train_probe_trajs: 4
+  active_val_probe_trajs: 4
+  pass_nmse: 0.30
+
+  eval_interval_steps: 50
+  min_steps_before_defer: 100
+
+  continue_after_pass: false
+  post_pass_max_steps: 0
+  post_pass_min_lp: 0.03
+
+  min_lp50: 0.05
+  max_attempts_per_task: 2
+
+  defer_resample_retry: false
+  defer_retry_steps: 50
+
+  early_defer_on_overfit: true
+  overfit_train_lp_min: 0.05
+  overfit_val_lp_max: 0.00
+  overfit_gap_growth_threshold: 0.10
+
+  batch_size: 10
+  new_slots: 7
+  replay_slots: 3
+
+  hardness_probe_fraction: 0.33
+  hardness_weight_min: 1.0
+  hardness_weight_max: 3.0
+  hardness_alpha: 2.0
+  difficulty_unscored_default: 0.5
+  refresh_hardness_on_continue: false
+
+  replay_task_policy: uniform
+  replay_sample_policy: pass_snapshot
+
+  review_after_task_transitions: 2
+  forget_relative_threshold: 0.30
+
+  rescan_candidates_after_transition: true
+  max_global_steps: 6000
+  max_transitions: null
+
+  seed: 23
+
+sim:
+  seed: 23
+  steps_per_unit: 50
+  eval_noise_scale: 1.0
+  replay_forget_protection: 0.60
+  hardness_latent_skew: 2.0
+  loss_floor: 0.02
+
+  tasks:
+    - name: easy_01
+      note: "base 就会 nmse≈0.08"
+      curve: [0.080]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: easy_02
+      note: "base 就会 nmse≈0.10"
+      curve: [0.098]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: easy_03
+      note: "base 就会 nmse≈0.12"
+      curve: [0.116]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: easy_04
+      note: "base 就会 nmse≈0.13"
+      curve: [0.134]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: easy_05
+      note: "base 就会 nmse≈0.15"
+      curve: [0.152]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: easy_06
+      note: "base 就会 nmse≈0.17"
+      curve: [0.170]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: easy_07
+      note: "base 就会 nmse≈0.19"
+      curve: [0.188]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: easy_08
+      note: "base 就会 nmse≈0.21"
+      curve: [0.206]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: easy_09
+      note: "base 就会 nmse≈0.22"
+      curve: [0.224]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: easy_10
+      note: "base 就会 nmse≈0.24"
+      curve: [0.242]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: easy_11
+      note: "base 就会 nmse≈0.26"
+      curve: [0.260]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: easy_12
+      note: "base 就会 nmse≈0.28"
+      curve: [0.278]
+      forget_rate: 0.03
+      degrade_slope: 0.01
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: easy
+    - name: learn_01
+      note: "需要 ~1 个 unit（0.42 → 0.24）"
+      curve: [0.420, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_00
+      transfer: 0.35
+    - name: learn_02
+      note: "需要 ~2 个 unit（0.45 → 0.24）"
+      curve: [0.455, 0.347, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_00
+      transfer: 0.35
+    - name: learn_03
+      note: "需要 ~3 个 unit（0.49 → 0.24）"
+      curve: [0.490, 0.407, 0.323, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_01
+      transfer: 0.35
+    - name: learn_04
+      note: "需要 ~4 个 unit（0.53 → 0.24）"
+      curve: [0.525, 0.454, 0.383, 0.311, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_01
+      transfer: 0.35
+    - name: learn_05
+      note: "需要 ~1 个 unit（0.56 → 0.24）"
+      curve: [0.560, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_02
+      transfer: 0.35
+    - name: learn_06
+      note: "需要 ~2 个 unit（0.59 → 0.24）"
+      curve: [0.595, 0.417, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_02
+      transfer: 0.35
+    - name: learn_07
+      note: "需要 ~3 个 unit（0.63 → 0.24）"
+      curve: [0.630, 0.500, 0.370, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_03
+      transfer: 0.35
+    - name: learn_08
+      note: "需要 ~4 个 unit（0.42 → 0.24）"
+      curve: [0.420, 0.375, 0.330, 0.285, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_03
+      transfer: 0.35
+    - name: learn_09
+      note: "需要 ~1 个 unit（0.45 → 0.24）"
+      curve: [0.455, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_04
+      transfer: 0.35
+    - name: learn_10
+      note: "需要 ~2 个 unit（0.49 → 0.24）"
+      curve: [0.490, 0.365, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_04
+      transfer: 0.35
+    - name: learn_11
+      note: "需要 ~3 个 unit（0.53 → 0.24）"
+      curve: [0.525, 0.430, 0.335, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_05
+      transfer: 0.35
+    - name: learn_12
+      note: "需要 ~4 个 unit（0.56 → 0.24）"
+      curve: [0.560, 0.480, 0.400, 0.320, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_05
+      transfer: 0.35
+    - name: learn_13
+      note: "需要 ~1 个 unit（0.59 → 0.24）"
+      curve: [0.595, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_06
+      transfer: 0.35
+    - name: learn_14
+      note: "需要 ~2 个 unit（0.63 → 0.24）"
+      curve: [0.630, 0.435, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_06
+      transfer: 0.35
+    - name: learn_15
+      note: "需要 ~3 个 unit（0.42 → 0.24）"
+      curve: [0.420, 0.360, 0.300, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_07
+      transfer: 0.35
+    - name: learn_16
+      note: "需要 ~4 个 unit（0.45 → 0.24）"
+      curve: [0.455, 0.401, 0.347, 0.294, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_07
+      transfer: 0.35
+    - name: learn_17
+      note: "需要 ~1 个 unit（0.49 → 0.24）"
+      curve: [0.490, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_08
+      transfer: 0.35
+    - name: learn_18
+      note: "需要 ~2 个 unit（0.53 → 0.24）"
+      curve: [0.525, 0.383, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_08
+      transfer: 0.35
+    - name: learn_19
+      note: "需要 ~3 个 unit（0.56 → 0.24）"
+      curve: [0.560, 0.453, 0.347, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_09
+      transfer: 0.35
+    - name: learn_20
+      note: "需要 ~4 个 unit（0.59 → 0.24）"
+      curve: [0.595, 0.506, 0.417, 0.329, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_09
+      transfer: 0.35
+    - name: learn_21
+      note: "需要 ~1 个 unit（0.63 → 0.24）"
+      curve: [0.630, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_10
+      transfer: 0.35
+    - name: learn_22
+      note: "需要 ~2 个 unit（0.42 → 0.24）"
+      curve: [0.420, 0.330, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_10
+      transfer: 0.35
+    - name: learn_23
+      note: "需要 ~3 个 unit（0.45 → 0.24）"
+      curve: [0.455, 0.383, 0.312, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_11
+      transfer: 0.35
+    - name: learn_24
+      note: "需要 ~4 个 unit（0.49 → 0.24）"
+      curve: [0.490, 0.427, 0.365, 0.302, 0.240]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pair_11
+      transfer: 0.35
+    - name: hard_01
+      note: "plateau：0.68 → floor 0.55，过不了线"
+      nmse0: 0.680
+      nmse_floor: 0.550
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_02
+      note: "plateau：0.70 → floor 0.57，过不了线"
+      nmse0: 0.702
+      nmse_floor: 0.566
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_03
+      note: "plateau：0.72 → floor 0.58，过不了线"
+      nmse0: 0.724
+      nmse_floor: 0.582
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_04
+      note: "plateau：0.75 → floor 0.60，过不了线"
+      nmse0: 0.746
+      nmse_floor: 0.598
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_05
+      note: "plateau：0.77 → floor 0.61，过不了线"
+      nmse0: 0.768
+      nmse_floor: 0.614
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_06
+      note: "plateau：0.79 → floor 0.63，过不了线"
+      nmse0: 0.790
+      nmse_floor: 0.630
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_07
+      note: "plateau：0.81 → floor 0.65，过不了线"
+      nmse0: 0.812
+      nmse_floor: 0.646
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_08
+      note: "plateau：0.83 → floor 0.66，过不了线"
+      nmse0: 0.834
+      nmse_floor: 0.662
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_09
+      note: "plateau：0.68 → floor 0.68，过不了线"
+      nmse0: 0.680
+      nmse_floor: 0.678
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_10
+      note: "plateau：0.70 → floor 0.55，过不了线"
+      nmse0: 0.702
+      nmse_floor: 0.550
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_11
+      note: "plateau：0.72 → floor 0.57，过不了线"
+      nmse0: 0.724
+      nmse_floor: 0.566
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_12
+      note: "plateau：0.75 → floor 0.58，过不了线"
+      nmse0: 0.746
+      nmse_floor: 0.582
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_13
+      note: "plateau：0.77 → floor 0.60，过不了线"
+      nmse0: 0.768
+      nmse_floor: 0.598
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: hard_14
+      note: "plateau：0.79 → floor 0.61，过不了线"
+      nmse0: 0.790
+      nmse_floor: 0.614
+      learn_k: 0.300
+      forget_rate: 0.05
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau

@@ -1,0 +1,4 @@
+{"action": "bootstrap", "task": "easy_pass", "scout_nmse": 0.432828, "scout_trajs": 2, "metric_valid": true, "note": "", "result": "candidate"}
+{"action": "select", "task": "easy_pass", "step": 0, "scout_nmse": 0.432828, "attempt": 1, "round": 1, "baseline_train_nmse": 0.456483, "baseline_val_nmse": 0.433161, "hardness_version": 1, "hardness_scanned_trajs": 14, "hardness_coverage": 0.35, "hardness_mean_loss": 0.363, "n_samples": 3080}
+{"action": "train_unit", "task": "easy_pass", "step": 50, "attempt": 1, "attempt_step": 50, "loss": 0.392072, "train_nmse": 0.249928, "val_nmse": 0.241342, "lp50": 0.442835, "overfit": false, "decision": "PASS", "reason": "val_nmse=0.2413 <= pass_nmse=0.3", "old_tasks": [], "samples_seen": 500, "batches_built": 50, "unique_batches": 50, "snapshot_saved": 3080, "pass_sampling_version": 1, "code": "val_nmse_below_threshold"}
+{"action": "finish", "stop_reason": "all_tasks_resolved"}

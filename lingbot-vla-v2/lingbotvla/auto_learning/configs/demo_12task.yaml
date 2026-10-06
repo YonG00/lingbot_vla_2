@@ -1,0 +1,190 @@
+# ============================================================================
+# Stage A demo #2 —— 12 任务池 + 与 uniform multi-task 的对照（文档 §45）
+#
+# 用来回答文档 §53 的假设 2 / 3 / 4：
+#   假设2  优先训「离通关最近」的任务，能用更少训练换来更快 coverage 增长
+#   假设3  任务内部 soft hard-sampling 比纯 uniform 更高效
+#   假设4  每 batch 零散 replay 少量旧任务，能在不显著拖慢新技能的前提下控制遗忘
+#
+# 任务构成（刻意设计，让三种策略拉开差距）：
+#   3 个 base 本来就会     → 自主模式**不消耗任何训练预算**
+#   5 个练得动            → 需要 1~3 个 unit
+#   4 个练不动（plateau）  → 白烧预算，自主模式 2 个 unit 后 DEFER
+#
+# ⚠️ 假世界：NMSE 由曲线/解析式给出。名字借用真实 RoboTwin 任务只为便于阅读。
+# ============================================================================
+
+description: "Stage A · 12 任务池：自主选任务 vs uniform multi-task（等 step 预算）"
+
+auto_learning:
+  enabled: true
+  task_names: null
+  max_new_tasks_attempted_this_run: null
+  max_new_tasks_passed_this_run: null
+
+  global_scout_val_trajs: 2
+  active_train_probe_trajs: 4
+  active_val_probe_trajs: 4
+  pass_nmse: 0.30
+
+  eval_interval_steps: 50
+  min_steps_before_defer: 100
+
+  continue_after_pass: false
+  post_pass_max_steps: 0
+  post_pass_min_lp: 0.03
+
+  min_lp50: 0.05
+  max_attempts_per_task: 2
+
+  defer_resample_retry: false
+  defer_retry_steps: 50
+
+  early_defer_on_overfit: true
+  overfit_train_lp_min: 0.05
+  overfit_val_lp_max: 0.00
+  overfit_gap_growth_threshold: 0.10
+
+  batch_size: 10
+  new_slots: 7
+  replay_slots: 3
+
+  hardness_probe_fraction: 0.33
+  hardness_weight_min: 1.0
+  hardness_weight_max: 3.0
+  hardness_alpha: 2.0
+  difficulty_unscored_default: 0.5
+  refresh_hardness_on_continue: false
+
+  replay_task_policy: uniform
+  replay_sample_policy: pass_snapshot
+
+  review_after_task_transitions: 2
+  forget_relative_threshold: 0.30
+
+  rescan_candidates_after_transition: true
+
+  # 等预算对照：2000 步 = 40 个 unit
+  max_global_steps: 2000
+  max_transitions: null
+
+  seed: 11
+
+# ---------------------------------------------------------------------------
+sim:
+  seed: 11
+  steps_per_unit: 50
+  eval_noise_scale: 1.0
+  replay_forget_protection: 0.60
+  hardness_latent_skew: 2.0
+  loss_floor: 0.02
+
+  tasks:
+    # ---------------- base 本来就会（3）----------------
+    - name: click_bell
+      note: "0.14 base 就会"
+      curve: [0.14]
+      forget_rate: 0.05
+      degrade_slope: 0.04
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: press
+    - name: click_alarmclock
+      note: "0.20 base 就会（与 click_bell 同类技能）"
+      curve: [0.20]
+      forget_rate: 0.05
+      degrade_slope: 0.05
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: press
+    - name: open_laptop
+      note: "0.26 base 就会"
+      curve: [0.26]
+      forget_rate: 0.06
+      degrade_slope: 0.06
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: misc
+
+    # ---------------- 练得动（5）----------------
+    - name: press_stapler
+      note: "差一点：1~2 个 unit 就能过"
+      curve: [0.52, 0.26]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: press
+      transfer: 0.30
+    - name: turn_switch
+      note: "需要 3 个 unit"
+      curve: [0.74, 0.50, 0.28]
+      forget_rate: 0.06
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: misc
+    - name: pick_diverse_bottles
+      note: "先被选中；与 place_burger_fries 共享技能 ⇒ 训它会把对方带过线（rescan 自动 PASS）"
+      curve: [0.40, 0.32, 0.24]
+      forget_rate: 0.07
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pick_place
+      transfer: 0.75
+    - name: place_burger_fries
+      note: "自己一次都没训过，靠 sibling 的 transfer 自动 PASS（文档 §46 的 PASS auto-detection）"
+      curve: [0.45, 0.28]
+      forget_rate: 0.07
+      degrade_slope: 0.10
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: pick_place
+      transfer: 0.75
+    - name: handover_block
+      note: "最费：需要 4 个 unit"
+      curve: [0.82, 0.55, 0.34, 0.22]
+      forget_rate: 0.07
+      degrade_slope: 0.12
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: misc
+
+    # ---------------- 练不动（4）----------------
+    - name: stack_blocks_two
+      note: "plateau：floor 0.62，永远过不了"
+      nmse0: 0.78
+      nmse_floor: 0.62
+      learn_k: 0.30
+      forget_rate: 0.05
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: beat_block_hammer
+      note: "plateau：floor 0.70"
+      nmse0: 0.88
+      nmse_floor: 0.70
+      learn_k: 0.28
+      forget_rate: 0.05
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: open_microwave
+      note: "plateau：floor 0.58"
+      nmse0: 0.72
+      nmse_floor: 0.58
+      learn_k: 0.32
+      forget_rate: 0.05
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
+    - name: place_container_plate
+      note: "plateau：floor 0.74"
+      nmse0: 0.94
+      nmse_floor: 0.74
+      learn_k: 0.26
+      forget_rate: 0.05
+      eval_noise: 0.03
+      baseline_mse: 0.25
+      group: plateau
