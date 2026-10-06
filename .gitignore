@@ -15,6 +15,7 @@ __pycache__/
 *.bac
 .ipynb_checkpoints/
 .DS_Store
+.pytest_tmp/
 
 # ---- 模型权重与运行产出 ----
 **/models/

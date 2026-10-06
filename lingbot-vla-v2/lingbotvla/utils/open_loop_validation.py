@@ -51,13 +51,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import json
 import os
 import random
 import time
 import traceback
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
 import torch
@@ -232,6 +233,61 @@ def per_episode_starts(ep_map: np.ndarray, stride: int) -> List[int]:
         starts.extend(range(i, j, stride))
         i = j
     return starts
+
+
+def pick_action_keys(ft, gt_phys: Dict[str, Any], pred: Dict[str, Any]) -> List[str]:
+    """挑出「预测与 GT 都有」的动作键（**口径关键**，独立成函数供复用）。
+
+    官方 ``scripts/open_loop_eval.py`` 读的是
+    ``feature_transform.org_features['actions']``（原始 robot-config 键名），
+    这里以它为准，再与实际 unapply 返回的键取交集兜底。
+
+    ``Stage B0``：``lingbotvla/auto_learning`` 的 Fixed Baseline 也走这里 ——
+    保证 baseline 与 evaluator 的 **action space 完全一致**。
+    传 ``pred=gt_phys`` 即「只看 GT 有哪些键」。
+    """
+    both = {k for k in gt_phys if k in pred}
+    org = list(getattr(ft, "org_features", {}).get("actions", []) or [])
+    keys = [k for k in org if k in both]
+    if not keys:
+        keys = sorted(k for k in both if str(k).startswith("action."))
+    if not keys:
+        keys = sorted(both)
+    return keys
+
+
+def assemble_chunk(gt_phys: Dict[str, Any], pred_phys: Dict[str, Any],
+                   action_keys: Sequence[str]) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """按 ``action_keys`` 取帧、校验形状、拼成 ``(gt(N,D), pr(N,D))``；无有效键返回 ``None``。
+
+    与 ``_evaluate_ids`` 共用 ⇒ baseline 与 evaluator 的
+    **normalization / valid region / 拼接口径完全一致**。
+    """
+    g_parts, p_parts, n_frames = [], [], None
+    for key in action_keys:
+        g = _as_frames(_to_numpy(gt_phys[key]), key)
+        p = _as_frames(_to_numpy(pred_phys[key]), key)
+        # 🔴 2026-10-04 审查 B3：长度/维度不一致必须**显式报错**。
+        #    旧实现用 `n = min(...)` + `[:n]` 静默截断 —— 一旦
+        #    `n_action_steps != chunk_size`，会拿「预测前 16 帧」去比「GT 50 帧」，
+        #    数字看着合理但完全是错的。
+        if g.shape[0] != p.shape[0]:
+            raise ValueError(
+                f"[open_loop] 预测与 GT 的**帧数**不一致（{key}）："
+                f"pred={p.shape[0]} vs gt={g.shape[0]}；"
+                f"预测帧数应等于 model.config.n_action_steps")
+        if g.shape[1] != p.shape[1]:
+            raise ValueError(
+                f"[open_loop] 预测与 GT 的**维度**不一致（{key}）："
+                f"pred={p.shape[1]} vs gt={g.shape[1]}")
+        g_parts.append(g)
+        p_parts.append(p)
+        n_frames = g.shape[0] if n_frames is None else min(n_frames, g.shape[0])
+    if not g_parts or not n_frames:
+        return None
+    gt = np.concatenate([x[:n_frames] for x in g_parts], axis=1)     # (N_i, D)
+    pr = np.concatenate([x[:n_frames] for x in p_parts], axis=1)
+    return gt, pr
 
 
 def aggregate_chunks(chunks: List[tuple]) -> Dict[str, Any]:
@@ -523,6 +579,133 @@ def _visual_grid_cache_restore(model: torch.nn.Module, saved) -> None:
 
 
 # ---------------------------------------------------------------------------
+# 共用的「安全评测上下文」（Stage B0 抽出）
+# ---------------------------------------------------------------------------
+# 原来这套 snapshot → 强制 → finally 恢复 → 审计 是写在 `validate()` 方法体里的。
+# `lingbotvla/auto_learning` 的 `evaluate_task()` 需要**同一套**保护（否则
+# use_cache / attention / 视觉网格缓存 / RNG 都会残留、污染训练）。
+# ⇒ 抽成共用上下文，`validate()` 与新接口都走它。**语义逐条保持不变**。
+@dataclasses.dataclass
+class EvalSetupReport:
+    """评测开始前「被临时改过什么」的清单（供调用方打日志 / 断言）。"""
+
+    rng_snap: Dict[str, Any]
+    train_flags: List[tuple]
+    compile_flag: Any
+    use_cache_saved: Optional[List[tuple]] = None
+    attn_saved: Optional[List[tuple]] = None
+    visual_cache_saved: Optional[Dict[str, Any]] = None
+
+
+@contextlib.contextmanager
+def safe_eval_context(
+    *,
+    model: torch.nn.Module,
+    logger,
+    ft_aug_registry: Optional[Dict[int, tuple]] = None,
+    on_setup: Optional[Callable[[EvalSetupReport], None]] = None,
+    on_audit_ok: Optional[Callable[[], None]] = None,
+    seed: int = EVAL_SEED,
+) -> Iterator[EvalSetupReport]:
+    """评测期间临时改状态的 **snapshot / 强制 / finally 恢复 / 审计** 四件套。
+
+    进入时：强制 eager（避开 compile 产物）→ 固定 seed → ``model.eval()`` →
+    清显存碎片 → ``use_cache=True`` → eager attention → 清视觉网格缓存。
+    退出时（**任何路径**）：按相反顺序全部还原，并跑一次**恢复审计**。
+
+    ``ft_aug_registry`` 是「每个评测集自己的 feature_transform」登记表
+    （``OpenLoopValidator._ft_aug_orig``）；它在 **with 体内**被填充，
+    所以必须在退出时读取**当时的**内容 —— 因此传引用而不是传值。
+
+    审计不通过时：默认 ``raise``（``OPEN_LOOP_AUDIT_STRICT=0`` 可降级为仅告警）。
+    """
+    rng_snap = _rng_snapshot()
+    train_flags = _module_training_flags(model)
+    compile_flag = getattr(model, "_use_compile_predict_velocity", None)
+    use_cache_saved = None
+    attn_saved = None
+    visual_cache_saved = None
+    report = EvalSetupReport(rng_snap=rng_snap, train_flags=train_flags,
+                             compile_flag=compile_flag)
+    try:
+        # ① 强制 eager：避免拿到训练用的编译产物；也避免 inference tensor 逃逸进 compile cache
+        if compile_flag is not None:
+            model._use_compile_predict_velocity = False
+            model._compiled_predict_velocity = None
+        # ② 固定 seed（整次 eval 一致 ⇒ 不同 step 可比）
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        # ③ 逐模块 eval（不是 model.eval() 一刀切，但那也可以：下面是等价写法）
+        model.eval()
+        # ③b 释放训练侧遗留的碎片/缓存 —— 单卡余量本来就紧，不清的话
+        #     sample_actions 自己的激活 + KV cache 可能装不下
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        # ③c 🔴 临时打开 use_cache（2026-10-04 审查 B1 + CPU 实测确认）
+        #   训练配置 `use_cache=False`（`configuration_lingbot_vla.py:104`，V2 不覆盖），
+        #   而 `sample_actions` 传的是 `fill_kv_cache=True, use_cache=self.config.use_cache`
+        #   ⇒ `handle_kv_cache` 直接跳过 ⇒ `past_key_values` 恒为 None
+        #   ⇒ **去噪阶段完全没有 VLM 前缀条件**（不报错、结果错）。
+        #   ⇒ 只在 eval 期间开，`finally` 恢复；**不动训练全局配置**。
+        use_cache_saved = _force_use_cache(model, True)
+        # ③c-2 🔴 临时换 eager attention（等价 deploy 的 `attention_implementation='eager'`）
+        #   训练配置是 `flex_cached`，其 block_mask 按 **query 长度**建
+        #   （`_full_len = query_states.shape[1]`）；`predict_velocity` 用了 KV cache 时
+        #   key = prefix+suffix ≠ query ⇒ 长度不匹配。
+        attn_saved = _force_eager_attention(model)
+        # ③d 🔴 清掉 Qwen3-VL 视觉塔的「预计算网格缓存」（2026-10-04 micro=10 实测）
+        #   `precompute_grid_thw: true` 时这 5 个属性按**首次调用时的 grid_thw** 缓存
+        #   ⇒ 训练 batch（micro × 相机数）与评测单样本（1 × 相机数）不同时会张冠李戴，
+        #      `torch.split` 直接 RuntimeError。
+        visual_cache_saved = _visual_grid_cache_clear(model)
+
+        report.use_cache_saved = use_cache_saved
+        report.attn_saved = attn_saved
+        report.visual_cache_saved = visual_cache_saved
+        if on_setup is not None:
+            on_setup(report)
+        yield report
+    finally:
+        # 全部临时状态恢复（顺序与设置相反）
+        _restore_use_cache(use_cache_saved)
+        _restore_eager_attention(attn_saved)
+        _visual_grid_cache_restore(model, visual_cache_saved)
+        for _ft, _orig_aug in (ft_aug_registry or {}).values():
+            if hasattr(_ft, "image_augment"):
+                _ft.image_augment = _orig_aug
+        _module_training_restore(train_flags)
+        if compile_flag is not None:
+            model._use_compile_predict_velocity = compile_flag
+            model._compiled_predict_velocity = None
+        _rng_restore(rng_snap)
+
+        # ---- 恢复审计：逐项断言临时状态已 100% 还原 ----
+        # 这是回答「eval 完还能不能接着训」的唯一证据（默认不一致就抛错）。
+        try:
+            _problems = _audit_restore(
+                rng_snap=rng_snap,
+                train_flags=train_flags,
+                compile_flag=compile_flag,
+                use_cache_saved=use_cache_saved,
+                ft_aug_orig=ft_aug_registry,
+                model=model,
+                attn_saved=attn_saved,
+            )
+        except Exception as _audit_exc:  # noqa: BLE001
+            _problems = [f"审计自身异常: {type(_audit_exc).__name__}: {_audit_exc}"]
+        if _problems:
+            _msg = ("[open_loop] ❌ 恢复审计未通过（eval 可能污染了训练状态）:\n  - "
+                    + "\n  - ".join(_problems))
+            logger.warning(_msg)
+            if _audit_strict():
+                raise RuntimeError(
+                    _msg + f"\n  （确认无碍可设 {AUDIT_STRICT_ENV}=0 降级为仅告警）")
+        elif on_audit_ok is not None:
+            on_audit_ok()
+
+
+# ---------------------------------------------------------------------------
 # 主体
 # ---------------------------------------------------------------------------
 class OpenLoopValidator:
@@ -531,11 +714,12 @@ class OpenLoopValidator:
     def __init__(
         self,
         *,
-        model: torch.nn.Module,
+        model: Optional[torch.nn.Module] = None,
+        model_config=None,
         args,
         processor,
         use_depth_align: bool,
-        writer,
+        writer=None,
         logger,
         train_monitor_ids: Optional[Sequence[int]] = None,
         val_ids: Optional[Sequence[int]] = None,
@@ -543,7 +727,12 @@ class OpenLoopValidator:
         dump_dir: Optional[str] = None,
         per_episode_stride: bool = True,
     ):
+        # `model=None` + `model_config=<HF config>` ⇒ **只收集 GT / 算 baseline** 的离线模式：
+        # 不需要权重（Stage B0 的 Fixed Baseline 预计算）。推理路径仍需传 model。
+        if model is None and model_config is None:
+            raise ValueError("OpenLoopValidator 需要 model 或 model_config 至少给一个")
         self.model = model
+        self._model_config = model_config if model_config is not None else model.config
         self.args = args
         self.processor = processor
         self.use_depth_align = use_depth_align
@@ -576,14 +765,16 @@ class OpenLoopValidator:
         # 🔴 只支持单卡：多卡下 rank0 跑 eval 时其他 rank 会直接进入下一步 ⇒ FSDP2
         #    all-gather 死锁；且 rank0 上参数是分片的、评测结果无效。
         #    2026-10-04 审查 B6：这里直接 fail-fast，不实现多卡 eval。
-        ws = _world_size()
-        if ws > 1:
-            raise RuntimeError(
-                f"[open_loop] 训练中原地 open-loop validation 目前**只支持单卡**，"
-                f"当前 world_size={ws}。\n"
-                f"  rank0 跑 eval 时其他 rank 会立刻进入下一步 ⇒ FSDP2 的 all-gather 会死锁；"
-                f"且 rank0 上的参数是分片的，评测结果无效。\n"
-                f"  请二选一：① 用单卡训练；② 把 --train.open_loop_eval_steps 设为 0 关闭本功能。")
+        #    （离线「只收 GT」模式 model=None，不走 FSDP/推理，不受此限制。）
+        if model is not None:
+            ws = _world_size()
+            if ws > 1:
+                raise RuntimeError(
+                    f"[open_loop] 训练中原地 open-loop validation 目前**只支持单卡**，"
+                    f"当前 world_size={ws}。\n"
+                    f"  rank0 跑 eval 时其他 rank 会立刻进入下一步 ⇒ FSDP2 的 all-gather 会死锁；"
+                    f"且 rank0 上的参数是分片的，评测结果无效。\n"
+                    f"  请二选一：① 用单卡训练；② 把 --train.open_loop_eval_steps 设为 0 关闭本功能。")
 
         if getattr(args.data, "image_augment", False):
             logger.warning(
@@ -607,13 +798,13 @@ class OpenLoopValidator:
         #    漏了就会 AttributeError: 'MyDataArguments' object has no attribute 'chunk_size'
         #    （2026-10-04 smoke 实测）
         if not hasattr(cfg, "chunk_size"):
-            setattr(cfg, "chunk_size", int(getattr(self.model.config, "chunk_size", 50)))
+            setattr(cfg, "chunk_size", int(getattr(self._model_config, "chunk_size", 50)))
         if not hasattr(cfg, "num_episode"):
             setattr(cfg, "num_episode", None)
         ds = build_vla_dataset(
             dataset_config=cfg,
             model_config=self.args.model,
-            config=self.model.config,
+            config=self._model_config,
             processor=self.processor,
             use_depth_align=self.use_depth_align,
         )
@@ -737,7 +928,7 @@ class OpenLoopValidator:
                             _v.detach().float().cpu().numpy())
 
         # 显式喂噪声（形状/dtype/device 与 `sample_actions` 内部默认值一致）
-        _cfg = self.model.config
+        _cfg = self._model_config
         _shape = (1,
                   int(getattr(_cfg, "n_action_steps", 50)),
                   int(getattr(_cfg, "max_action_dim", 55)))
@@ -775,20 +966,8 @@ class OpenLoopValidator:
     # -- 动作键 ---------------------------------------------------------------
     def _pick_action_keys(self, ft, gt_phys: Dict[str, Any],
                           pred: Dict[str, Any]) -> List[str]:
-        """挑出「预测与 GT 都有」的动作键。
-
-        官方 ``scripts/open_loop_eval.py`` 读的是
-        ``feature_transform.org_features['actions']``（原始 robot-config 键名），
-        这里以它为准，再与实际 unapply 返回的键取交集兜底。
-        """
-        both = {k for k in gt_phys if k in pred}
-        org = list(getattr(ft, "org_features", {}).get("actions", []) or [])
-        keys = [k for k in org if k in both]
-        if not keys:
-            keys = sorted(k for k in both if str(k).startswith("action."))
-        if not keys:
-            keys = sorted(both)
-        return keys
+        """挑出「预测与 GT 都有」的动作键（薄封装，实现在模块级 ``pick_action_keys``）。"""
+        return pick_action_keys(ft, gt_phys, pred)
 
     # -- 指标 -----------------------------------------------------------------
     def _evaluate_ids(self, ids: Sequence[int], tag: str) -> Dict[str, Any]:
@@ -832,7 +1011,7 @@ class OpenLoopValidator:
         # ⚠️ 逐帧（stride=1）会把同一批帧反复预测 ~chunk_size 次：一条 77 帧的轨迹要
         #    77 次推理（2026-10-04 smoke 实测单次推理数秒级）⇒ 完全做不到"高频"，
         #    而且**口径与官方不一致**（官方一条轨迹只推 2 次）。
-        stride = max(1, int(getattr(self.model.config, "chunk_size", 50) or 50))
+        stride = max(1, int(getattr(self._model_config, "chunk_size", 50) or 50))
         # 🔴 2026-10-05：跳步必须**按回合各自从首帧开始**（见 `per_episode_starts`），
         #   与官方 `range(start_id, end_id, action_horizon)` 等价。
         #   ⚠️ padding 占比会变（实测我们 34.5% vs 官方 23.0%），但**偏差方向未实测**：
@@ -908,30 +1087,12 @@ class OpenLoopValidator:
                     self.logger.info_rank0(
                         f"[open_loop][debug]   action_is_pad 前12={_pad[:12].astype(int)} "
                         f"后12={_pad[-12:].astype(int)}")
-            g_parts, p_parts, n_frames = [], [], None
-            for key in action_keys:
-                g = _as_frames(_to_numpy(gt_phys[key]), key)
-                p = _as_frames(_to_numpy(pred[key]), key)
-                # 🔴 2026-10-04 审查 B3：长度/维度不一致必须**显式报错**。
-                #    旧实现用 `n = min(...)` + `[:n]` 静默截断 —— 一旦
-                #    `n_action_steps != chunk_size`，会拿「预测前 16 帧」去比「GT 50 帧」，
-                #    数字看着合理但完全是错的。
-                if g.shape[0] != p.shape[0]:
-                    raise ValueError(
-                        f"[open_loop] 预测与 GT 的**帧数**不一致（{key}）："
-                        f"pred={p.shape[0]} vs gt={g.shape[0]}；"
-                        f"预测帧数应等于 model.config.n_action_steps")
-                if g.shape[1] != p.shape[1]:
-                    raise ValueError(
-                        f"[open_loop] 预测与 GT 的**维度**不一致（{key}）："
-                        f"pred={p.shape[1]} vs gt={g.shape[1]}")
-                g_parts.append(g)
-                p_parts.append(p)
-                n_frames = g.shape[0] if n_frames is None else min(n_frames, g.shape[0])
-            if not g_parts or not n_frames:
+            # 取帧 + 形状校验 + 拼接：抽成模块级 `assemble_chunk`，与 Stage B0 的
+            # Fixed Baseline 共用同一条口径（normalization / valid region / 拼接口径）。
+            _assembled = assemble_chunk(gt_phys, pred, action_keys)
+            if _assembled is None:
                 continue
-            gt = np.concatenate([x[:n_frames] for x in g_parts], axis=1)     # (N_i, D)
-            pr = np.concatenate([x[:n_frames] for x in p_parts], axis=1)
+            gt, pr = _assembled
             ep_key = (int(ep_map[local_idx])
                       if ep_map is not None and local_idx < len(ep_map)
                       else f"chunk@{local_idx}")
@@ -1014,132 +1175,143 @@ class OpenLoopValidator:
         self._write_tb(global_step, tr, va, elapsed)   # ← inference_mode 之外
         return {"train": tr, "val": va}
 
+    # -- 安全评测上下文（Stage B0 抽出：validate / evaluate_ids 共用）-------------
+    def _log_setup(self, rep: "EvalSetupReport") -> None:
+        """把「本次临时改了什么」按需打印（每项只打一次）。"""
+        if rep.use_cache_saved is not None and not self._use_cache_logged:
+            self._use_cache_logged = True
+            self.logger.info_rank0(
+                f"[open_loop] eval 期间临时 use_cache: "
+                f"{[old for _, old in rep.use_cache_saved]} → True"
+                f"（共 {len(rep.use_cache_saved)} 个 config）")
+        if rep.attn_saved is not None and not self._attn_logged:
+            self._attn_logged = True
+            self.logger.info_rank0(
+                f"[open_loop] eval 期间临时 attention_implementation: "
+                f"{[o for _, _, o, _ in rep.attn_saved]} → eager（{len(rep.attn_saved)} 个模块）；"
+                f"对齐 deploy/lingbot_vla_v2_policy.py:290")
+        if rep.visual_cache_saved is None:
+            self.logger.warning(
+                "[open_loop] ⚠️ 没找到视觉塔预计算网格缓存（config.precompute_grid_thw）；"
+                "训练 micro>1 时评测可能因 visual_split_sizes 陈旧而报 split_with_sizes")
+        elif not self._grid_cache_logged:
+            self._grid_cache_logged = True
+            _old = rep.visual_cache_saved["values"].get("visual_split_sizes")
+            self.logger.info_rank0(
+                f"[open_loop] 已清空视觉网格缓存"
+                f"（{type(rep.visual_cache_saved['owner']).__name__}）："
+                f"旧 visual_split_sizes={_old}")
+
+    def _log_audit_ok(self) -> None:
+        if not self._audit_logged:
+            self._audit_logged = True
+            self.logger.info_rank0(
+                "[open_loop] ✅ 恢复审计通过：逐模块 training 标志 / config.use_cache / "
+                "image_augment / compile 开关 / torch+numpy+python RNG 全部还原")
+
+    def _eval_context(self) -> "EvalSetupReport":
+        """共用的安全评测上下文（snapshot → 强制 → finally 恢复 → 审计）。"""
+        return safe_eval_context(
+            model=self.model,
+            logger=self.logger,
+            ft_aug_registry=self._ft_aug_orig,
+            on_setup=self._log_setup,
+            on_audit_ok=self._log_audit_ok,
+        )
+
     def validate(self, global_step: int) -> Optional[Dict[str, Dict[str, float]]]:
-        """在训练循环里调用：固定 seed、跑 eval、**任何情况下**恢复全部临时状态。"""
+        """在训练循环里调用：固定 seed、跑 eval、**任何情况下**恢复全部临时状态。
+
+        Stage B0 起，临时的 5 类状态（use_cache / attention / 视觉网格缓存 /
+        模块 training 标志 / 三套 RNG）由 `safe_eval_context` 统一处理 ——
+        与 `evaluate_ids()` 走**同一条** snapshot-restore-审计路径。
+        """
         if self.args.train.global_rank != 0:
             # 第一版只在 rank0 做；上多卡前这里要改成 "rank0 跑 + 其他 rank barrier"
             return None
 
-        rng_snap = _rng_snapshot()
-        train_flags = _module_training_flags(self.model)
-        compile_flag = getattr(self.model, "_use_compile_predict_velocity", None)
-        use_cache_saved = None
-        attn_saved = None
-        visual_cache_saved = None
         result = None
-        try:
-            # ① 强制 eager：避免拿到训练用的编译产物；也避免 inference tensor 逃逸进 compile cache
-            if compile_flag is not None:
-                self.model._use_compile_predict_velocity = False
-                self.model._compiled_predict_velocity = None
-            # ② 固定 seed（整次 eval 一致 ⇒ 不同 step 可比）
-            torch.manual_seed(EVAL_SEED)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed_all(EVAL_SEED)
-            # ③ 逐模块 eval（不是 model.eval() 一刀切，但那也可以：下面是等价写法）
-            self.model.eval()
-            # ③b 释放训练侧遗留的碎片/缓存 —— 单卡余量本来就紧，不清的话
-            #     sample_actions 自己的激活 + KV cache 可能装不下
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            # ③c 🔴 临时打开 use_cache（2026-10-04 审查 B1 + CPU 实测确认）
-            #   训练配置 `use_cache=False`（`configuration_lingbot_vla.py:104`，V2 不覆盖），
-            #   而 `sample_actions` 传的是 `fill_kv_cache=True, use_cache=self.config.use_cache`
-            #   ⇒ `handle_kv_cache` 直接跳过 ⇒ `past_key_values` 恒为 None
-            #   ⇒ `predict_velocity` 的 `inputs_embeds=[None, suffix_embs]` 只算 suffix 的 K/V
-            #   ⇒ **去噪阶段完全没有 VLM 前缀条件**（不报错、结果错）。
-            #   deploy 路径 `lingbot_vla_v2_policy.py:310` 显式设 True（注释：necessary in inference）。
-            #   ⇒ 只在 eval 期间开，`finally` 恢复；**不动训练全局配置**。
-            use_cache_saved = _force_use_cache(self.model, True)
-            if not self._use_cache_logged:
-                self._use_cache_logged = True
-                self.logger.info_rank0(
-                    f"[open_loop] eval 期间临时 use_cache: "
-                    f"{[old for _, old in use_cache_saved]} → True（共 {len(use_cache_saved)} 个 config）")
-            # ③c-2 🔴 临时换 eager attention（等价 deploy 的 `attention_implementation='eager'`）
-            #   训练配置是 `flex_cached`，其 block_mask 按 **query 长度**建
-            #   （`_full_len = query_states.shape[1]`）；`predict_velocity` 用了 KV cache 时
-            #   key = prefix+suffix ≠ query ⇒ 长度不匹配（use_cache=True 直接抛 ValueError，
-            #   use_cache=False 则**恰好相等、静默丢掉前缀**）。官方 deploy 建模前就改成 eager，
-            #   这里做同一件事，评测后还原。
-            attn_saved = _force_eager_attention(self.model)
-            if not self._attn_logged:
-                self._attn_logged = True
-                self.logger.info_rank0(
-                    f"[open_loop] eval 期间临时 attention_implementation: "
-                    f"{[o for _, _, o, _ in attn_saved]} → eager（{len(attn_saved)} 个模块）；"
-                    f"对齐 deploy/lingbot_vla_v2_policy.py:290")
-            # ③d 🔴 清掉 Qwen3-VL 视觉塔的「预计算网格缓存」（2026-10-04 micro=10 实测）
-            #   `modeling_lingbot_vla_v2.py::get_image_features` 里这 5 个属性是
-            #   **首次调用时按当时的 grid_thw 缓存**的（`precompute_grid_thw: true`）：
-            #       if precompute_grid_thw and self.position_embeddings is None:  <-- 只在这里重算
-            #           ... = self.qwenvl.visual.preprcess_grid_thw(grid_thw)
-            #       split_sizes = self.visual_split_sizes
-            #   训练 batch 的网格 = micro 张图 × 相机数（micro=10 ⇒ 30），
-            #   评测单样本 = 1 × 3 ⇒ 缓存的 split_sizes 是 `[64]*30`，
-            #   而 `torch.split(image_embeds(192), [64]*30)` 直接
-            #       RuntimeError: split_with_sizes expects split_sizes to sum exactly to 192
-            #   （micro=1 时训练网格恰好也是 3 ⇒ 巧合躲过，所以只在 micro>1 暴露）
-            #   做法：评测前全部置 None（强制按评测网格重算），评测后原样恢复。
-            visual_cache_saved = _visual_grid_cache_clear(self.model)
-            if visual_cache_saved is None:
-                self.logger.warning(
-                    "[open_loop] ⚠️ 没找到视觉塔预计算网格缓存（config.precompute_grid_thw）；"
-                    "训练 micro>1 时评测可能因 visual_split_sizes 陈旧而报 split_with_sizes")
-            elif not self._grid_cache_logged:
-                self._grid_cache_logged = True
-                _old = visual_cache_saved["values"].get("visual_split_sizes")
-                self.logger.info_rank0(
-                    f"[open_loop] 已清空视觉网格缓存（{type(visual_cache_saved['owner']).__name__}）："
-                    f"旧 visual_split_sizes={_old}")
-            # ④ 关掉图像增强（保险；本项目 image_augment 本来就是 false）
-            #    每个评测集自己的 transform 由 `_ft_for()` 在处理该集时逐个关掉，
-            #    这里只需在 finally 里按登记的原始值统一还原。
-            result = self._run(global_step)
-        except Exception as exc:  # noqa: BLE001
-            # ⚠️ 只打一行 type+msg 会让 smoke 阶段无法定位（2026-10-04 实测：
-            #    split_with_sizes 形状错只报一行，栈全丢）。这里必须打完整栈。
-            self.logger.warning(f"[open_loop] ⚠️ step {global_step} 评测失败: "
-                                f"{type(exc).__name__}: {exc}")
-            self.logger.warning("[open_loop] ---- traceback ----\n" + traceback.format_exc())
-        finally:
-            # 全部临时状态恢复（顺序与设置相反）
-            _restore_use_cache(use_cache_saved)
-            _restore_eager_attention(attn_saved)
-            _visual_grid_cache_restore(self.model, visual_cache_saved)
-            for _ft, _orig_aug in self._ft_aug_orig.values():
-                if hasattr(_ft, "image_augment"):
-                    _ft.image_augment = _orig_aug
-            _module_training_restore(train_flags)
-            if compile_flag is not None:
-                self.model._use_compile_predict_velocity = compile_flag
-                self.model._compiled_predict_velocity = None
-            _rng_restore(rng_snap)
-
-            # ---- 恢复审计：逐项断言临时状态已 100% 还原 ----
-            # 这是回答「eval 完还能不能接着训」的唯一证据（默认不一致就抛错）。
+        with self._eval_context():
             try:
-                _problems = _audit_restore(
-                    rng_snap=rng_snap,
-                    train_flags=train_flags,
-                    compile_flag=compile_flag,
-                    use_cache_saved=use_cache_saved,
-                    ft_aug_orig=self._ft_aug_orig,
-                    model=self.model,
-                    attn_saved=attn_saved,
-                )
-            except Exception as _audit_exc:  # noqa: BLE001
-                _problems = [f"审计自身异常: {type(_audit_exc).__name__}: {_audit_exc}"]
-            if _problems:
-                _msg = ("[open_loop] ❌ 恢复审计未通过（eval 可能污染了训练状态）:\n  - "
-                        + "\n  - ".join(_problems))
-                self.logger.warning(_msg)
-                if _audit_strict():
-                    raise RuntimeError(
-                        _msg + f"\n  （确认无碍可设 {AUDIT_STRICT_ENV}=0 降级为仅告警）")
-            elif not self._audit_logged:
-                self._audit_logged = True
-                self.logger.info_rank0(
-                    "[open_loop] ✅ 恢复审计通过：逐模块 training 标志 / config.use_cache / "
-                    "image_augment / compile 开关 / torch+numpy+python RNG 全部还原")
+                result = self._run(global_step)
+            except Exception as exc:  # noqa: BLE001
+                # ⚠️ 只打一行 type+msg 会让 smoke 阶段无法定位（2026-10-04 实测：
+                #    split_with_sizes 形状错只报一行，栈全丢）。这里必须打完整栈。
+                self.logger.warning(f"[open_loop] ⚠️ step {global_step} 评测失败: "
+                                    f"{type(exc).__name__}: {exc}")
+                self.logger.warning("[open_loop] ---- traceback ----\n" + traceback.format_exc())
         return result
+
+    # ------------------------------------------------------------------ #
+    # Stage B0：给 Auto Learning 用的两个公开入口
+    # ------------------------------------------------------------------ #
+    def collect_gt_chunks(self, ids: Sequence[int], tag: str
+                          ) -> Tuple[List[Tuple[Any, np.ndarray]], List[str]]:
+        """只收集 GT（**不推理**），供 Fixed Task Baseline 预计算使用。
+
+        与 `_evaluate_ids` **共用同一条口径路径**：同样的回合白名单 →
+        同样的 `per_episode_starts` 跳步 → 同样的 `ft.unapply` 反归一化 →
+        同样的 `pick_action_keys` / `assemble_chunk`。
+        ⇒ baseline 与 evaluator 的 action space / normalization / valid region
+        **完全一致**（这是 Stage B0 的硬要求）。
+
+        返回 ``(chunks, action_keys)``，其中 ``chunks = [(episode_key, gt(N,D)), ...]``。
+        """
+        ds_path = self._episode_ids_file(ids, tag)
+        ds = self._dataset(ds_path)
+        ft = self._ft_for(ds_path)
+        ep_map = _episode_index_map(ds)
+        if ep_map is None:
+            self.logger.warning(
+                f"[auto_learning] ⚠️ [{tag}] 拿不到 local_idx→episode_index 映射，"
+                "baseline 会退化为「每个 chunk 当作一条 trajectory」")
+        stride = max(1, int(getattr(self._model_config, "chunk_size", 50) or 50))
+        if self.per_episode_stride and ep_map is not None:
+            starts = per_episode_starts(ep_map, stride)
+        else:
+            starts = list(range(0, len(ds), stride))
+
+        chunks: List[Tuple[Any, np.ndarray]] = []
+        action_keys: List[str] = []
+        for local_idx in starts:
+            item = ds[local_idx]
+            gt_phys = ft.unapply(dict(item))
+            if not action_keys:
+                # GT-only：pred 用 gt 自身占位 ⇒ 键集合 = org_features['actions'] ∩ GT 键
+                action_keys = pick_action_keys(ft, gt_phys, gt_phys)
+            _assembled = assemble_chunk(gt_phys, gt_phys, action_keys)
+            if _assembled is None:
+                continue
+            gt, _ = _assembled
+            ep_key = (int(ep_map[local_idx])
+                      if ep_map is not None and local_idx < len(ep_map)
+                      else f"chunk@{local_idx}")
+            chunks.append((ep_key, gt))
+        return chunks, action_keys
+
+    def evaluate_ids(self, ids: Sequence[int], tag: str) -> Dict[str, Any]:
+        """在**安全评测上下文**里对任意回合集合跑一次 open-loop 评测（**不写 TB**）。
+
+        🔴 **不要**绕过本方法直接调 `_evaluate_ids()` —— 那会跳过 RNG /
+        training flag / use_cache / attention / 视觉网格缓存的
+        snapshot-restore-审计，污染训练状态。
+
+        与 `validate()` 的区别只有三点：不写 TB、只跑给定的一个集合、失败**抛出**。
+        """
+        if self.model is None:
+            raise RuntimeError(
+                "evaluate_ids 需要真实模型（当前实例是离线 GT-only 模式，只能 collect_gt_chunks）")
+        if getattr(self.args.train, "global_rank", 0) != 0:
+            raise RuntimeError("open-loop 评测目前只在 rank0 上做（本模块只支持单卡）")
+
+        with self._eval_context():
+            try:
+                with torch.inference_mode():
+                    # 每次评测都从同一个噪声序列起点开始 ⇒ 不同 step 之间可比
+                    self._noise_gen = None
+                    return self._evaluate_ids(list(ids), tag)
+            except Exception as exc:  # noqa: BLE001
+                self.logger.warning(f"[open_loop] ⚠️ [{tag}] 评测失败: "
+                                    f"{type(exc).__name__}: {exc}")
+                self.logger.warning("[open_loop] ---- traceback ----\n" + traceback.format_exc())
+                raise
