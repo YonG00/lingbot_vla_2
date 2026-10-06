@@ -673,6 +673,28 @@ def test_trainer_adapter_is_explicitly_not_implemented():
 # --------------------------------------------------------------------------- #
 # 8) auto_learning 关闭时零副作用（模块级）
 # --------------------------------------------------------------------------- #
+def test_no_module_references_removed_task_entry_fields():
+    """静态守卫：B1 把 `TaskEntry.train_ids/val_ids` 改名成 `*_traj_ids` 时**漏改过调用点**
+    （`compute_task_baseline.py` 与 `al_b0_verify.py` 真的在 GPU 机上炸了）。
+
+    这类「改名漏改」靠人眼扫 diff 很容易漏 ⇒ 直接扫源码。
+    """
+    import re
+
+    pkg = REPO / "lingbotvla" / "auto_learning"
+    pat = re.compile(r"\.(train_ids|val_ids)\b")
+    allow = ("train_ids.json", "val_ids.json", "scout_val_ids", "confirm_val_ids",
+             "active_val_ids", "train_ids=tuple", "self.val_ids", "a.train_ids", "a.val_ids")
+    bad = []
+    for p in list(pkg.rglob("*.py")) + list((REPO / "tools").rglob("al_*.py")):
+        if "__pycache__" in str(p):
+            continue
+        for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+            if pat.search(line) and not any(a in line for a in allow):
+                bad.append(f"{p.relative_to(REPO)}:{i}: {line.strip()[:80]}")
+    assert not bad, "仍有代码在用已改名的 TaskEntry.train_ids/val_ids：\n  " + "\n  ".join(bad)
+
+
 def test_importing_package_does_not_import_torch():
     """`import lingbotvla.auto_learning` 必须廉价（不拖 torch/lerobot 进来）。"""
     import subprocess

@@ -220,7 +220,7 @@ def main() -> int:
                 print(f"[baseline] {name}: 命中缓存 mse={cached.mse:.6f}（跳过）")
                 n_skip += 1
                 continue
-        train_ids = list(entry.train_ids)
+        train_ids = list(entry.train_traj_ids)          # ⚠️ B1 起字段名是 *_traj_ids
         if a.max_train_episodes:
             train_ids = train_ids[: a.max_train_episodes]
             print(f"[baseline] ⚠️ smoke 模式：只用前 {len(train_ids)} 条 train 回合"

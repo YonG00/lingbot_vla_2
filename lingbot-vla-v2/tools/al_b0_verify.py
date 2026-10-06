@@ -130,7 +130,7 @@ def main() -> int:
         model=None, model_config=cfg, args=args, processor=processor,
         use_depth_align=bool(align), writer=None, logger=_Logger(),
     )
-    train_ids = list(e.train_ids)[: a.n_train]
+    train_ids = list(e.train_traj_ids)[: a.n_train]
     chunks, keys = v.collect_gt_chunks(train_ids, f"al_verify_{a.task}")
     print(f"[rss] after collect_gt_chunks = {_rss_mb()} MB", flush=True)
     print(f"  train_ids={len(train_ids)} ⇒ chunks={len(chunks)}  action_keys={keys}")

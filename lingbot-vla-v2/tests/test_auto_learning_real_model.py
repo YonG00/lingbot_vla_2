@@ -142,7 +142,7 @@ def _build(use_bf16: bool):
     validator = OpenLoopValidator(
         model=vla, args=args, processor=processor, use_depth_align=bool(align),
         writer=None, logger=_Logger(),
-        train_monitor_ids=entry.train_ids[:5], val_ids=entry.val_ids,
+        train_monitor_ids=entry.train_traj_ids[:5], val_ids=entry.val_traj_ids,
     )
     return types.SimpleNamespace(
         vla=vla, processor=processor, hf_cfg=hf_cfg, args=args,
@@ -165,7 +165,7 @@ def test_R1_adapter_matches_validator_validate(built):
     assert ref is not None, "validate() 返回 None（rank0 判断失败）"
     got = adapter.evaluate_task(TASK, "val")
 
-    assert got.episode_ids == list(built.entry.val_ids)
+    assert got.episode_ids == list(built.entry.val_traj_ids)
     assert got.mse == pytest.approx(ref["val"]["mse"], rel=0, abs=1e-12), (
         f"adapter mse={got.mse} vs validate mse={ref['val']['mse']}")
     assert got.per_traj_mse == pytest.approx(ref["val"]["per_traj_mse"], rel=0, abs=1e-12)
@@ -179,7 +179,7 @@ def test_R2_hardness_is_deterministic(built):
     from lingbotvla.auto_learning.hardness import HardnessScorer
 
     v = built.validator
-    ds_path = v._episode_ids_file(built.entry.train_ids[:2], "al_test_hardness")
+    ds_path = v._episode_ids_file(built.entry.train_traj_ids[:2], "al_test_hardness")
     ds = v._dataset(ds_path)
     ft = v._ft_for(ds_path)
     ep_map = __import__("lingbotvla.utils.open_loop_validation",
@@ -225,7 +225,7 @@ def test_R3_evaluate_ids_restores_everything(built):
         "py_rng": random.getstate(),
     }
 
-    v.evaluate_ids(built.entry.val_ids[:2], "al_test_restore")
+    v.evaluate_ids(built.entry.val_traj_ids[:2], "al_test_restore")
 
     assert [getattr(c, "use_cache", None) for c in _use_cache_owners(m)] == before["use_cache"]
     assert [getattr(getattr(mm, "config", None), "attention_implementation", None)
@@ -251,7 +251,7 @@ def test_R3b_evaluate_ids_refuses_to_bypass_context(built):
 
     v._evaluate_ids = _probe
     try:
-        v.evaluate_ids(built.entry.val_ids[:2], "al_test_ctx")
+        v.evaluate_ids(built.entry.val_traj_ids[:2], "al_test_ctx")
     finally:
         v._evaluate_ids = orig
     assert seen and all(x is True for x in seen["use_cache"]), (
@@ -266,7 +266,7 @@ def test_R4_baseline_gt_matches_evaluator_dump(built, tmp_path):
     from lingbotvla.utils.open_loop_validation import per_episode_starts
 
     v = built.validator
-    ids = built.entry.val_ids[:2]
+    ids = built.entry.val_traj_ids[:2]
     tag = "al_test_gtcmp"
     dump_dir = str(tmp_path / "dump")
 
@@ -317,14 +317,14 @@ def test_R4b_baseline_dimension_matches_evaluator_action_space(built):
     from lingbotvla.utils.open_loop_validation import pick_action_keys
 
     v = built.validator
-    ds_path = v._episode_ids_file(built.entry.val_ids[:2], "al_test_keys")
+    ds_path = v._episode_ids_file(built.entry.val_traj_ids[:2], "al_test_keys")
     ds = v._dataset(ds_path)
     ft = v._ft_for(ds_path)
     item = ds[0]
     gt_phys = ft.unapply(dict(item))
     keys = pick_action_keys(ft, gt_phys, gt_phys)
 
-    chunks, keys2 = v.collect_gt_chunks(built.entry.val_ids[:2], "al_test_keys2")
+    chunks, keys2 = v.collect_gt_chunks(built.entry.val_traj_ids[:2], "al_test_keys2")
     assert keys2 == keys
     assert chunks[0][1].shape[1] == sum(
         np.asarray(gt_phys[k]).reshape(np.asarray(gt_phys[k]).shape[0], -1).shape[1]
@@ -338,7 +338,7 @@ def _items_for(built, tag, n=2):
     from lingbotvla.utils.open_loop_validation import _episode_index_map, per_episode_starts
 
     v = built.validator
-    ds_path = v._episode_ids_file(built.entry.train_ids[:2], tag)
+    ds_path = v._episode_ids_file(built.entry.train_traj_ids[:2], tag)
     ds = v._dataset(ds_path)
     ep_map = _episode_index_map(ds)
     stride = max(1, int(getattr(built.hf_cfg, "chunk_size", 50) or 50))
