@@ -406,3 +406,59 @@ def test_same_seed_same_stream():
     a.set_request(_req("task_0", cat.entry("task_0"), cfg))
     b.set_request(_req("task_0", cat.entry("task_0"), cfg))
     assert _draw(a, 10) == _draw(b, 10)
+
+
+# --------------------------------------------------------------------------- #
+# prefetch：sampler 会跑在真实 step 前面 ⇒ 必须用 stats_upto(真实步数)
+# --------------------------------------------------------------------------- #
+def test_stats_upto_ignores_prefetched_batches():
+    """🔴 DataLoader 有 prefetch 时，sampler 产出的 batch 数 ≫ 真实消费的 step 数。
+
+    `take_stats()` 会把预取的也算进来（GPU 实测：unit=2 步却记到 34 步）；
+    `stats_upto(k)` 只统计**前 k 个**（= 真实被训练消费的），因为 DataLoader 保序。
+    """
+    cfg = _cfg()
+    cat, res, _ = _world()
+    s = _sampler(cfg, cat, res)
+    s.set_request(_req("task_0", cat.entry("task_0"), cfg))
+
+    _draw(s, 34)                       # 模拟「预取跑在前面」
+    assert len(s.compositions) == 34
+
+    st = s.stats_upto(2)               # 真实只训练了 2 步
+    assert st.steps == 2, "只能统计真实消费的 2 步"
+    # 本用例没有 PASS 池 ⇒ 全部 10 个 slot 都是 NEW
+    assert st.n_new == 2 * cfg.batch_size and st.n_old == 0
+    assert st.samples_seen == 2 * cfg.batch_size
+    assert st.check_invariants() == []
+
+
+def test_stats_upto_rejects_more_than_produced():
+    cfg = _cfg()
+    cat, res, _ = _world()
+    s = _sampler(cfg, cat, res)
+    s.set_request(_req("task_0", cat.entry("task_0"), cfg))
+    _draw(s, 3)
+    with pytest.raises(RuntimeError) as err:
+        s.stats_upto(5)
+    assert "产出" in str(err.value)
+
+
+def test_stats_upto_zero_is_empty():
+    cfg = _cfg()
+    cat, res, _ = _world()
+    s = _sampler(cfg, cat, res)
+    s.set_request(_req("task_0", cat.entry("task_0"), cfg))
+    st = s.stats_upto(0)
+    assert st.steps == 0 and st.samples_seen == 0
+
+
+def test_set_request_resets_compositions():
+    cfg = _cfg()
+    cat, res, _ = _world()
+    s = _sampler(cfg, cat, res)
+    s.set_request(_req("task_0", cat.entry("task_0"), cfg))
+    _draw(s, 5)
+    assert len(s.compositions) == 5
+    s.set_request(_req("task_0", cat.entry("task_0"), cfg, start_step=5))
+    assert s.compositions == [], "换 unit 必须清空（否则会串到上一个 unit）"

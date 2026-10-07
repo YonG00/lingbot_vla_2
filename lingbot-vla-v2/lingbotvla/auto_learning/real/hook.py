@@ -112,7 +112,10 @@ class AutoLearnLoopHook:
         """把 sampler 的统计打包成 `TrainResult` 回填给 scheduler。"""
         if self.scheduler.pending_train_request is None:
             return None
-        stats: UnitStats = self.sampler.take_stats()
+        # 🔴 用 `stats_upto(_step_in_unit)` 而不是 `take_stats()`：
+        #    `take_stats()` 会把**预取**的 batch 也算进来（num_workers>0 时一个 unit 能记到 34 步）。
+        #    DataLoader 保序 ⇒ 第 k 个被消费的 batch = 第 k 个被产出的 batch。
+        stats: UnitStats = self.sampler.stats_upto(self._step_in_unit)
         problems = stats.check_invariants()
         if problems:
             raise RuntimeError(
@@ -120,10 +123,8 @@ class AutoLearnLoopHook:
         if stats.steps != self._unit_steps:
             raise RuntimeError(
                 f"本 unit 实际跑了 {stats.steps} 步，但 scheduler 要求 {self._unit_steps} 步。\n"
-                f"  🔴 最常见原因：**DataLoader 的 prefetch** —— 有 `num_workers>0` 时，\n"
-                f"     sampler 会被预取跑在前面，`build()` 的调用次数 ≫ 真实消费的 step 数。\n"
-                f"     Auto Learning v0 要求 `--data.num_workers 0`（无预取，sampler 与 step 一一对应）。\n"
-                f"  其它可能：unit 内步数被提前 break / 训练循环结构与 hook 不匹配。")
+                f"  常见原因：unit 内步数被提前 break / 训练循环结构与 hook 不匹配 /\n"
+                f"   unit 边界没重建 DataLoader 迭代器（prefetch 跨边界）。")
         result = TrainResult(
             loss=(sum(self._unit_losses) / len(self._unit_losses)) if self._unit_losses else 0.0,
             steps=stats.steps,

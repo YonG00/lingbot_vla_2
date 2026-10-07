@@ -93,6 +93,11 @@ class AutoLearnSampler(_SamplerBase):
         self.stats = UnitStats()
         self._last_comp = None
         self._step_keys: set = set()
+        #: **按产出顺序**记录本 unit 每个 batch 的组成。
+        #: 🔴 关键：DataLoader 保序 ⇒ 第 k 个被**消费**的 batch 就是第 k 个被**产出**的 batch。
+        #: 于是即使有 prefetch（`num_workers>0`，sampler 会跑在前面），
+        #: 只要按序号取前 `_step_in_unit` 个，统计就与真实训练一一对应。
+        self.compositions: List[Any] = []
 
     # -- unit 生命周期 -------------------------------------------------------
     def set_request(self, req: TrainRequest) -> None:
@@ -103,12 +108,39 @@ class AutoLearnSampler(_SamplerBase):
                 f"({self._batch_size}) —— 必须等于 dataloader_batch_size")
         self._prepared = self.batch_sampler.prepare(req)
         self._last_comp = None
+        self.compositions = []
 
     def take_stats(self) -> UnitStats:
-        """取走并重置本 unit 的统计。"""
+        """取走并重置本 unit 的统计（**按产出顺序，含预取**；一般用 `stats_upto`）。"""
         s, self.stats = self.stats, UnitStats()
         self._step_keys = set()
         return s
+
+    def stats_upto(self, n_steps: int) -> UnitStats:
+        """只统计**前 n_steps 个** batch（= 真实被训练消费的那些）。
+
+        这是 B1 的正确做法：允许 `num_workers>0`（否则单步从 ~4s 掉到 ~55s），
+        同时保证 `n_new`/`n_old`/`samples_seen` 与真实训练严格对应。
+        """
+        st = UnitStats()
+        if n_steps <= 0:
+            return st
+        comps = self.compositions[: int(n_steps)]
+        if len(comps) != int(n_steps):
+            raise RuntimeError(
+                f"只产出了 {len(comps)} 个 batch，但要求统计前 {n_steps} 个 —— "
+                "训练步数与 sampler 产出不匹配（或 unit 边界没重建迭代器）")
+        for comp in comps:
+            st.steps += 1
+            st.n_new += comp.n_new
+            st.n_old += comp.n_old
+            st.samples_seen += len(comp.refs)
+            for r in comp.new:
+                st.new_slot_counts_by_task[r.task] += 1
+            for r in comp.old:
+                st.old_slot_counts_by_task[r.task] += 1
+            st.unique_replay_tasks_per_batch.append(len(comp.old_tasks))
+        return st
 
     @property
     def last_composition(self):
@@ -123,6 +155,7 @@ class AutoLearnSampler(_SamplerBase):
                     "AutoLearnSampler 还没收到 TrainRequest —— 上层必须先 set_request(req) "
                     "再重建 DataLoader 迭代器")
             comp = self.batch_sampler.build(self._prepared)
+            self.compositions.append(comp)      # 按产出顺序留档（见 stats_upto）
             self._record(comp)
             yield from (int(r.sample_id) for r in comp.refs)
 

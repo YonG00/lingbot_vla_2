@@ -1,0 +1,12 @@
+# G10：**正式 cadence** 的 50-step learning unit（不是 smoke 参数）
+enabled: true
+task_names: [click_bell]
+batch_size: 10
+new_slots: 7
+replay_slots: 3
+eval_interval_steps: 50      # 正式值
+min_steps_before_defer: 100  # 正式值
+defer_retry_steps: 50        # 正式值
+max_attempts_per_task: 1
+pass_nmse: 0.30
+seed: 7
