@@ -1,0 +1,85 @@
+# =============================================================================
+# 探针配置：用 **step500 的权重**起 AL，看「50 个任务里有没有一开始就达标的」
+# -----------------------------------------------------------------------------
+# 目的有两个：
+#   ① 诊断：bootstrap 阶段会对**全部 50 个任务**做 scout 评测 ⇒ 直接读出
+#      "step500 已经具备哪些能力、有没有 nmse ≤ pass_nmse 的"。
+#   ② 机制验证：bootstrap 的"免费 PASS"**不进** `newly_passed`（只进 `auto_passed`），
+#      所以收工不会由它触发；这里用 `max_new_tasks_attempted_this_run=1`
+#      让它**真训 1 个任务后**收工 ⇒ 正好验证 `al_finished` 的收尾存档修复。
+#
+# 跑完看：
+#   /data/outputs/al_probe_step500/auto_learning_events.jsonl
+#     - `"action": "bootstrap"` 每个任务一行，含 `scout_nmse` 与 `result`
+#       （`result=pass` = 一开始就达标；`candidate` = 未达标）
+#     - 最后一行 `"action": "finish"` 的 `stop_reason` 应当是
+#       `max_new_tasks_attempted_reached(1)`
+#   /data/outputs/al_probe_step500/checkpoints/global_step_*  ← 必须存在（本次修复的验证点）
+# =============================================================================
+enabled: true
+
+# ----- task pool -----
+task_names: null                    # 全部 50 个任务
+
+# ----- 收工条件（把探针做成"有界"的）-----
+max_new_tasks_passed_this_run: 1     # 万一真有任务被训达标，也立刻收工
+max_new_tasks_attempted_this_run: 1  # ✅ 关键：最多**真训 1 个任务** ⇒ bootstrap 之后很快收工
+max_global_steps: 300                # 兜底
+max_transitions: null
+max_reopens_per_task: 0
+
+# ----- task evaluation -----
+global_scout_val_trajs: 2
+active_train_probe_trajs: 4
+active_val_probe_trajs: 4
+pass_nmse: 0.35                      # 与正式跑一致，才看得出"是否真达标"
+
+# ----- cadence（探针用短 cadence，反正只训一个任务）-----
+eval_interval_steps: 25
+min_steps_before_defer: 50
+defer_retry_steps: 25
+
+# ----- attempts -----
+max_attempts_per_task: 1
+
+# ----- after PASS / rescue -----
+continue_after_pass: false
+post_pass_max_steps: 0
+post_pass_min_lp: 0.03
+min_lp50: 0.05
+defer_resample_retry: false
+
+# ----- overfit -----
+early_defer_on_overfit: true
+overfit_train_lp_min: 0.05
+overfit_val_lp_max: 0.00
+overfit_gap_growth_threshold: 0.10
+
+# ----- batch（必须 == --train.dataloader_batch_size = 1×10×1 = 10）-----
+batch_size: 10
+new_slots: 7
+replay_slots: 3
+
+# ----- hardness -----
+hardness_probe_fraction: 0.33
+hardness_weight_min: 1.0
+hardness_weight_max: 3.0
+hardness_alpha: 2.0
+difficulty_unscored_default: 0.5
+refresh_hardness_on_continue: false
+
+# ----- replay -----
+replay_task_policy: uniform
+replay_sample_policy: pass_snapshot
+
+# ----- review -----
+review_after_task_transitions: 2
+forget_relative_threshold: 0.30
+
+# ----- scheduler -----
+rescan_candidates_after_transition: true
+
+# ----- misc -----
+seed: 7
+allow_image_augment: false
+allow_missing_baseline: false

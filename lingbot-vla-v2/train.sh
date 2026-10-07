@@ -22,7 +22,18 @@ MASTER_ADDR=${MASTER_ADDR:=0.0.0.0}
 MASTER_PORT=${MASTER_PORT:=62500}
 
 
-torchrun --nnodes=$NNODES --nproc-per-node $NPROC_PER_NODE --node-rank $NODE_RANK \
+# 🔴 torchrun 不一定在 PATH 上（例如被 `bash train.sh` 直接调用、或没先 conda activate）
+#    ⇒ 依次尝试：PATH 上的 torchrun → 与 $PY 同目录的 torchrun → `$PY -m torch.distributed.run`
+#    （三者等价；缺了会静默 `command not found` + rc=127，2026-10-07 实测踩过）
+if command -v torchrun >/dev/null 2>&1; then
+  TORCHRUN=(torchrun)
+elif [ -n "${PY:-}" ] && [ -x "${PY%/*}/torchrun" ]; then
+  TORCHRUN=("${PY%/*}/torchrun")
+else
+  TORCHRUN=("${PY:-python}" -m torch.distributed.run)
+fi
+
+"${TORCHRUN[@]}" --nnodes=$NNODES --nproc-per-node $NPROC_PER_NODE --node-rank $NODE_RANK \
   --master-addr=$MASTER_ADDR --master-port=$MASTER_PORT $@ 2>&1 | tee log.txt
 
 # 🔴 用了管道 ⇒ `$?` 是 `tee` 的（永远是 0）。必须取 PIPESTATUS[0]（torchrun 的），

@@ -325,6 +325,35 @@ class MyTrainingArguments(TrainingArguments):
         metadata={"help": "task_baseline.json（Fixed BaselineMSE 缓存）。"},
     )
 
+    # ---- 步数编号偏移 ----
+    step_offset: int = field(
+        default=0,
+        metadata={"help": (
+            "global_step 的**起始编号**（默认 0，行为与以前完全一致）。"
+            "用途：接某个 `hf_ckpt` 起新 run、但希望存档编号接着旧模型继续 —— "
+            "例如旧模型是 `global_step_500`，设 `step_offset=500` ⇒ 本 run 从 501 开始编号，"
+            "存档落在 global_step_501/N*（实际落盘点是 save_steps 的整数倍）。"
+            "⚠️ 这不是 resume：权重接着、但 optimizer / LR 调度全新。"
+            "`max_steps` 仍是**绝对**目标（step_offset=500 + max_steps=2000 ⇒ 实际再训 1500 步）。"
+            "⚠️ 成功加载 DCP 时本参数**无效**（以 DCP 里的 global_step 为准）。")},
+    )
+
+    # ---- 存档策略 ----
+    dcp_save_mode: Literal["always", "final_only"] = field(
+        default="always",
+        metadata={"help": (
+            "always（默认，现状）＝每次存档都写完整 DCP（model+optimizer+extra_state），可精确 resume；"
+            "final_only＝**训练中的周期性存档只写 hf_ckpt**，只有收尾/轮末才写完整 DCP。"
+            "省磁盘约 3×（F32 下 72G→24G/份），代价：中途无法精确 resume"
+            "（`enable_resume` 只能接上最后一个完整 DCP）。")},
+    )
+    dcp_final_size_gb: float = field(
+        default=0.0,
+        metadata={"help": (
+            "dcp_save_mode=final_only 时用于**收尾存档前**的容量预判（GB）。"
+            "0＝按已实测的 hf_ckpt 占用 ×3 粗估。F32 全量约 72G、bf16 约 31G。")},
+    )
+
 @dataclass
 class MyDataArguments(DataArguments):
     source_name: str = field(
@@ -667,9 +696,17 @@ def main():
             f"update_interval={args.train.bias_update_interval})"
         )
 
+    # ---- [step_offset] global_step 的起始编号（0 = 从零计）----
+    #  用途：接 hf_ckpt 起新 run 时让存档编号接着旧模型继续。
+    #  若下面成功加载 DCP，`global_step` 会被 DCP 里的值覆盖（那才是真正的续训）。
+    _step_offset = max(0, int(getattr(args.train, "step_offset", 0) or 0))
+
     total_train_steps = args.train.train_steps * args.train.num_train_epochs
     if args.train.max_steps is not None:
-        total_train_steps = min(total_train_steps, args.train.max_steps)
+        # ⚠️ max_steps 是**绝对**的 global_step 目标 ⇒ 扣掉起始编号才是本次真正要跑的步数
+        #    （否则 LR 调度会按「含偏移」的总数走，实际跑不满就结束了）
+        total_train_steps = min(total_train_steps, args.train.max_steps - _step_offset)
+    total_train_steps = max(1, total_train_steps)
     lr_scheduler = build_lr_scheduler(
         optimizer,
         train_steps=total_train_steps,
@@ -729,7 +766,10 @@ def main():
         args.train.output_dir, "STOP_AND_SAVE")
     stop_requested_by_file = False   # 区分「max_steps 到顶」与「STOP_AND_SAVE」
 
-    start_epoch, start_step, global_step = 0, 0, 0
+    # [step_offset] 起始编号：0 时与以前完全一致；>0 时从 501、502… 开始编号。
+    # `start_epoch/start_step` **不受** offset 影响（数据仍从头开始读）——
+    # 这正是「接权重起新 run、但编号接着旧模型」想要的语义。
+    start_epoch, start_step, global_step = 0, 0, _step_offset
     current_epoch_for_eval, current_epoch_step_for_eval = 1, 0
     save_checkpoint_path = None
     # [DiskCheck] 容量保护状态 (进程内, 不落盘 -> 不会跨 Phase 沿用)
@@ -781,6 +821,37 @@ def main():
         legacy checkpoint 的 schema 保持原样，不做无意义的 `auto_learning: None`。
         """
         return {} if _al_hook is None else {"auto_learning": _al_hook.extra_state()}
+
+    def _dcp_final_capacity_ok() -> bool:
+        """`final_only` 模式下，**收尾要写完整 DCP** ⇒ 先确认空间真的够。
+
+        为什么需要它：`dcp_save_mode=final_only` 时训练中的存档只写 hf_ckpt（≈24G），
+        于是 DiskCheck 量到并记住的 `max_checkpoint_used_gb` 也是 ≈24G ⇒ 收尾那份
+        72G 的 DCP 会被"看起来够"地放行 ⇒ 写满磁盘。这里显式按 **DCP 尺寸**再判一次。
+        空间不够时**不写 DCP、只写 hf_ckpt**（宁可少一份可续训存档，也不能写满盘）。
+        """
+        if args.train.dcp_save_mode != "final_only":
+            return True
+        try:
+            from lingbotvla.utils.checkpoint_guard import disk_avail_gb
+            avail = disk_avail_gb(args.train.save_checkpoint_path)
+        except Exception:  # noqa: BLE001
+            return True
+        if avail is None:
+            return True
+        est = float(getattr(args.train, "dcp_final_size_gb", 0.0) or 0.0)
+        if est <= 0:
+            # 粗估：完整 DCP ≈ hf_ckpt × 3（model+optimizer+hf 各一份）；F32 下限按 72G
+            est = max(72.0, 3.0 * max(float(max_checkpoint_used_gb or 0.0), 24.0))
+        if avail < est * 1.05:
+            logger.warning(
+                f"[ckpt] ⚠️ dcp_save_mode=final_only：收尾要写完整 DCP（估 ≈{est:.0f}G），"
+                f"但当前可用只有 {avail:.0f}G ⇒ **跳过 DCP，只写 hf_ckpt**（避免写满磁盘）。"
+                f" 想强制写请用 --train.dcp_final_size_gb 显式给值并先腾空间。")
+            return False
+        logger.info_rank0(
+            f"[ckpt] dcp_save_mode=final_only：收尾写完整 DCP（估 ≈{est:.0f}G，可用 {avail:.0f}G）")
+        return True
 
     environ_meter = helper.EnvironMeter(
         config=model_config,
@@ -906,6 +977,15 @@ def main():
     else:
         logger.info_rank0("Starting training from scratch.")
 
+    # ---- [step_offset] 明确告知本次的编号起点（避免日后对着存档名误判）----
+    if _step_offset and global_step == _step_offset:
+        _planned = max(0, (args.train.max_steps or 0) - _step_offset)
+        logger.info_rank0(
+            f"[step_offset] global_step 从 {_step_offset + 1} 开始编号"
+            f"（存档名 = global_step_N，实际落盘点是 save_steps 的整数倍）。"
+            f"max_steps={args.train.max_steps} 是**绝对**目标 ⇒ 本次实际再训 {_planned} 步。"
+            "⚠️ 这不是 resume：权重接着旧模型，但 optimizer / LR 调度是全新的。")
+
     helper.empty_cache()
     model_fwd_context, model_bwd_context = build_activation_offloading_context(
         args.train.enable_activation_offload, args.train.enable_gradient_checkpointing, args.train.activation_gpu_limit
@@ -918,9 +998,12 @@ def main():
     if args.train.global_rank == 0:
         os.makedirs(args.train.save_checkpoint_path, exist_ok=True)
     reached_max_steps = False
+    #: 🔴 Auto Learning 收工（新增 PASS 达标 / 池子跑完 / 预算到顶）**也要走收尾存档**。
+    #: `reached_max_steps` 只由 `max_steps` 与 `STOP_AND_SAVE` 置位，语义不同 ⇒ 另记一个标志。
+    al_finished = False
     max_steps_driven = (
         args.train.max_steps is not None
-        and args.train.max_steps < args.train.train_steps * args.train.num_train_epochs
+        and (args.train.max_steps - _step_offset) < args.train.train_steps * args.train.num_train_epochs
     )
     if max_steps_driven:
         data_loader_tqdm = trange(
@@ -998,6 +1081,16 @@ def main():
             if _al_hook is not None:
                 _d = _al_hook.on_step_begin(global_step)
                 if _d.finished:
+                    # 🔴 Auto Learning 收工 ⇒ **必须走收尾存档**。
+                    #    查证（2026-10-07）：`reached_max_steps` 只由 `max_steps` 与
+                    #    `STOP_AND_SAVE` 置位；原先这里直接 `break` ⇒ 收尾存档整段被跳过，
+                    #    结果是"跑了几小时、4 个任务都达标了，**一个 ckpt 都不落盘**"
+                    #    （除非步号正好撞上 save_steps 或开了 save_epochs）。
+                    logger.info_rank0(
+                        "[auto_learning] 收工"
+                        f"（stop_reason={getattr(_al_hook.scheduler.state, 'stop_reason', None)}）"
+                        f"⇒ 在 step {global_step} 走收尾存档。")
+                    al_finished = True
                     break
                 if _d.rebuild_iterator:
                     # 🔴 unit 边界必须重建迭代器，丢弃上一个 unit 的 prefetch
@@ -1440,9 +1533,21 @@ def main():
                 }
                 if args.train.global_rank == 0:
                     writer.flush()
-                _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
-                dist.barrier()
-                logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
+                # ---- 存档策略（dcp_save_mode）----------------------------------
+                # `final_only`：训练中的周期性存档**只写 hf_ckpt**，不写完整 DCP（省 ≈3× 磁盘）。
+                #   完整 DCP（model+optimizer+extra_state）只在**收尾/轮末**写。
+                #   ⚠️ 代价：中途无法精确 resume —— `enable_resume` 只能接上最后一个完整 DCP。
+                _write_dcp = (args.train.dcp_save_mode != "final_only")
+                if _write_dcp:
+                    _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
+                    dist.barrier()
+                    logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
+                else:
+                    # hf_ckpt 要落在 <save_checkpoint_path>/hf_ckpt ⇒ 目录得先存在
+                    os.makedirs(save_checkpoint_path, exist_ok=True)
+                    logger.info_rank0(
+                        f"[ckpt] dcp_save_mode=final_only ⇒ step {global_step} 只写 hf_ckpt"
+                        f"（不写完整 DCP），路径 {save_checkpoint_path}/hf_ckpt")
                 save_hf_checkpoint_best_effort(
                     save_checkpoint_path,
                     state,
@@ -1530,8 +1635,9 @@ def main():
                     "当前 checkpoint 已完整保存, 不再继续训练。")
             break
 
-        if reached_max_steps:
-            if args.train.skip_final_save_on_max_steps and not stop_requested_by_file:
+        if reached_max_steps or al_finished:
+            if (args.train.skip_final_save_on_max_steps and reached_max_steps
+                    and not stop_requested_by_file):
                 logger.info_rank0(
                     "[smoke] skip_final_save_on_max_steps=true ⇒ 跳过收尾存档直接退出 "
                     f"(global_step={global_step})。⚠️ 仅供 smoke test，正式训练不要开。")
@@ -1575,9 +1681,15 @@ def main():
                         **_auto_learning_extra_state(),
                     },
                 }
-                _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
-                dist.barrier()
-                logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
+                # final_only 模式下这一份才是**完整 DCP** ⇒ 先确认空间够（不够就只写 hf_ckpt）
+                if _dcp_final_capacity_ok():
+                    _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
+                    dist.barrier()
+                    logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
+                else:
+                    os.makedirs(save_checkpoint_path, exist_ok=True)
+                    logger.info_rank0(
+                        f"[ckpt] 只写 hf_ckpt（空间不足以写完整 DCP），路径 {save_checkpoint_path}/hf_ckpt")
                 save_hf_checkpoint_best_effort(
                     save_checkpoint_path,
                     state,
@@ -1622,9 +1734,15 @@ def main():
                     **_auto_learning_extra_state(),
                 },
             }
-            _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
-            dist.barrier()
-            logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
+            # final_only 模式下这一份才是**完整 DCP** ⇒ 先确认空间够（不够就只写 hf_ckpt）
+            if _dcp_final_capacity_ok():
+                _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
+                dist.barrier()
+                logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
+            else:
+                os.makedirs(save_checkpoint_path, exist_ok=True)
+                logger.info_rank0(
+                    f"[ckpt] 只写 hf_ckpt（空间不足以写完整 DCP），路径 {save_checkpoint_path}/hf_ckpt")
             save_hf_checkpoint_best_effort(
                 save_checkpoint_path,
                 state,

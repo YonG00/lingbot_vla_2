@@ -1,0 +1,106 @@
+# =============================================================================
+# 正式配置：50 任务池 → **新增 PASS 4 个就收工**
+# 场景：48G 单卡 + BF16（`--train.enable_mixed_precision false`）
+# -----------------------------------------------------------------------------
+# 与 demo/smoke 配置的区别：这里的 cadence 与阈值都是**正式值**，不是 smoke 值。
+#
+# 收工靠框架原生的 `max_new_tasks_passed_this_run`（见 scheduler._select：
+#   `len(st.newly_passed) >= cap_passed ⇒ _finish("max_new_tasks_passed_reached")`）。
+# 另外两道保险丝防止在难任务上无限打转：attempted 上限 + 总步数上限。
+# =============================================================================
+enabled: true
+
+# ----- task pool -----
+#: null = 用 manifest 里的**全部**任务（当前 50 个）。build.py 里 `if cfg.task_names:`
+#: 只是一个「取子集」的过滤器，留空即不过滤。
+task_names: null
+
+#: ✅ 主收工条件：**本次新增 PASS 数一达到 4 就收工**（"从 50 个里尽快学出 4 个"）。
+#:
+#: ⚠️ 语义上它是「**上限**」而不是「**目标**」——框架**没有**"不到 4 个就不许停"的语义。
+#:    如果任务太难，可能先因别的条件停（`all_tasks_resolved` 池子空了 / `max_global_steps`
+#:    步数到顶），那时 newly_passed 可能只有 2、3 个。
+#:    字段名里的 `max_` 就是这个意思，别改成 `required_*`（那会误导）。
+#: 统计口径：`st.newly_passed` = 本次 run 里**首次** PASS 的任务（此前 PASS 过的不算）。
+max_new_tasks_passed_this_run: 4
+
+#: 🚫 刻意**不设**：限制"主动尝试多少个新任务"只会妨碍"尽快凑够 4 个"这个目标。
+#: 池子本身有界（50 个任务 × `max_attempts_per_task=2`），不会无限打转。
+max_new_tasks_attempted_this_run: null
+
+#: churn guard：同一任务最多「遗忘 → 回炉」几次（不占 attempt 预算）。
+max_reopens_per_task: 3
+
+# ----- task evaluation -----
+global_scout_val_trajs: 2
+active_train_probe_trajs: 4
+active_val_probe_trajs: 4
+#: ✅ 及格线（用户 2026-10-07 定）：闭环/开环 NMSE **≤ 0.35** 判 PASS。
+#: ⚠️ 这个数是「相对 Fixed BaselineMSE 的比值」，不是绝对误差；真实 baseline
+#:    由 task_baseline.json 提供（已用 50 任务 manifest 重算）。
+pass_nmse: 0.35
+
+# ----- train / eval cadence（正式值）-----
+eval_interval_steps: 50         # 一个 learning unit = 50 个 optimizer step
+min_steps_before_defer: 100     # 必须是 eval_interval_steps 的整数倍
+defer_retry_steps: 50           # 同上
+
+# ----- after PASS -----
+continue_after_pass: false      # 达标即转下一个任务，不继续磨
+post_pass_max_steps: 0
+post_pass_min_lp: 0.03
+
+# ----- learning progress -----
+min_lp50: 0.05
+
+# ----- attempts -----
+max_attempts_per_task: 2
+
+# ----- optional rescue -----
+#: 保持 false：打开后**每次 DEFER 前会先重扫一次 hardness**（多 1–2 分钟/次）。
+defer_resample_retry: false
+defer_retry_steps: 50
+
+# ----- overfit -----
+early_defer_on_overfit: true
+overfit_train_lp_min: 0.05
+overfit_val_lp_max: 0.00
+overfit_gap_growth_threshold: 0.10
+
+# ----- batch -----
+#: 🔴 硬约束：new_slots + replay_slots == batch_size，
+#:    且 batch_size 必须 == --train.dataloader_batch_size（= micro × gas × 卡数 = 1×10×1 = 10）。
+batch_size: 10
+new_slots: 7                    # 7 个新样本
+replay_slots: 3                 # 3 个复习样本（PASS 池；无 PASS 时自然退化为全 NEW）
+
+# ----- hardness -----
+hardness_probe_fraction: 0.33
+hardness_weight_min: 1.0
+hardness_weight_max: 3.0
+hardness_alpha: 2.0
+difficulty_unscored_default: 0.5
+#: 保持 false：打开后**每个 CONTINUE 都重扫一次 hardness**（最贵，每 unit +1–2 分钟）。
+refresh_hardness_on_continue: false
+
+# ----- replay -----
+replay_task_policy: uniform
+replay_sample_policy: pass_snapshot
+
+# ----- review -----
+review_after_task_transitions: 2
+forget_relative_threshold: 0.30
+
+# ----- scheduler -----
+rescan_candidates_after_transition: true
+#: 保险丝：总步数上限（**这是"钱的安全带"，不是任务限制**）。
+#: 不设 attempt 限制后，万一 50 个任务都学不出来，会一直换任务 ⇒ 必须有兜底。
+#: 4 个 PASS 大约 600–1500 步；给 20000 足够宽松，只在"极端学不出来"时才会触发。
+#: 想彻底不设上限 ⇒ 改成 null（风险：可能跑掉十几小时）。
+max_global_steps: 20000
+max_transitions: null
+
+# ----- misc -----
+seed: 7
+allow_image_augment: false
+allow_missing_baseline: false   # 正式跑必须有 baseline（已用 50 任务 manifest 重算）

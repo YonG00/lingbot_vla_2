@@ -88,6 +88,17 @@ OPEN_LOOP_TRAIN_IDS=${OPEN_LOOP_TRAIN_IDS:-}      # 空 = 用模块内置的 5 �
 OPEN_LOOP_VAL_IDS=${OPEN_LOOP_VAL_IDS:-}          # 空 = 用模块内置的 10 条 held-out val
 STOP_AND_SAVE_FILE=${STOP_AND_SAVE_FILE:-}        # 空 = <TRAIN_OUT>/STOP_AND_SAVE
 SKIP_FINAL_SAVE=${SKIP_FINAL_SAVE:-0}             # ⚠️ 仅供 smoke test：1 = max_steps 到顶时跳过收尾存档
+# 存档策略：always=每次存档都写**完整 DCP**（model+optimizer+extra_state，可精确 resume）；
+#           final_only=**训练中的周期性存档只写 hf_ckpt**，只有收尾/轮末才写完整 DCP。
+#           ⇒ 省磁盘约 3×（F32 下 72G→24G/份），代价：中途无法精确 resume。
+DCP_MODE=${DCP_MODE:-always}
+# final_only 时收尾存档前的容量预判（GB）；0=自动估（≈ hf_ckpt × 3，F32 下限 72G）
+DCP_FINAL_GB=${DCP_FINAL_GB:-0}
+# 步数编号起点：0=从零计（默认）。>0 时「接 MODEL_PATH 的权重起新 run，但编号接着旧模型」——
+#   例：MODEL_PATH 指向 global_step_500 的 hf_ckpt、STEP_OFFSET=500、MAX_STEPS=2000
+#   ⇒ 从 global_step_501 开始编号，存档落在 1000 / 1500 / 2000。
+#   ⚠️ 这不是 resume（optimizer / LR 全新）；且 MAX_STEPS 仍是**绝对**目标。
+STEP_OFFSET=${STEP_OFFSET:-0}
 
 PY=/data/miniconda3/envs/lingbotvla/bin/python
 [ -x "$PY" ] || { echo "❌ 找不到 $PY" >&2; exit 1; }
@@ -156,9 +167,11 @@ cat <<EOF
   训练规模    = ${EPOCHS} epoch × ${STEPS_PER_EPOCH} 步/轮，max_steps=${MAX_STEPS} ⇒ 总 ${MAX_STEPS} 步
   批大小      = micro ${MICRO} × gas ${GAS} × ${N_GPU} 卡 = gbs ${GBS}
   存档计划    = 每 ${SAVE_STEPS} 步一份（目标 ${SAVE_EVERY}，已对齐 max_steps）× ${N_SAVES} 份；轮末不存
+  存档策略    = DCP_MODE=${DCP_MODE}$([ "$DCP_MODE" = "final_only" ] && echo '（过程中只写 hf_ckpt；收尾/轮末才写完整 DCP）' || echo '（每次存档都写完整 DCP）')
   剪枝看门狗  = PRUNE=$PRUNE  keep-last=$PRUNE_KEEP  min-age=${PRUNE_MIN_AGE}s  ⇒ 单份 72G → 24G
   续训        = RESUME=$RESUME（$RESUME_BOOL）⇒ 从 $TRAIN_OUT/checkpoints 里最大那份接着跑
   初始权重    = $MODEL_PATH
+  编号起点    = STEP_OFFSET=$STEP_OFFSET（0=从零计；>0 ⇒ global_step 从 $((STEP_OFFSET + 1)) 起，MAX_STEPS 仍为绝对目标）
   开环验证    = 每 ${OPEN_LOOP_EVAL_STEPS} 步一次（0=关）；train_ids=${OPEN_LOOP_TRAIN_IDS:-<内置5条>}  val_ids=${OPEN_LOOP_VAL_IDS:-<内置10条>}
   STOP_AND_SAVE = ${STOP_AND_SAVE_FILE:-<TRAIN_OUT>/STOP_AND_SAVE}
   跳过收尾存档 = ${SKIP_FINAL_SAVE}（1=跳过；⚠️ 仅供 smoke test，正式训练保持 0）
@@ -231,6 +244,9 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.disk_guard true \
     --train.disk_guard_margin 1.1 \
     --train.disk_check_interval 50 \
+    --train.dcp_save_mode     "$DCP_MODE" \
+    --train.step_offset       "$STEP_OFFSET" \
+    --train.dcp_final_size_gb "$DCP_FINAL_GB" \
     "${OPEN_LOOP_ARGS[@]+"${OPEN_LOOP_ARGS[@]}"}"
 TRAIN_RC=$?      # 🔴 必须立刻接住：后面还有 echo/banner，否则脚本会返回 0 把失败吞掉
                  #    （2026-10-05 实测：训练因 resume 失败当场死，脚本却报 rc=0）

@@ -912,8 +912,23 @@ class OpenLoopValidator:
 
         ``ft`` 必须是**这条 item 所属数据集自己的** ``feature_transform``（审查 B5）。
         """
-        use_bf16 = bool(getattr(self.args.train, "use_bf16", False))
-        dtype = torch.bfloat16 if use_bf16 else torch.float32
+        # 🔴 推理 dtype 必须跟**模型权重的实际 dtype** 对齐。
+        #    旧写法 `getattr(self.args.train, "use_bf16", False)` 在本仓**恒为 False**
+        #    —— 精度开关是 `enable_mixed_precision`（`arguments.py` 里没有 `use_bf16`），
+        #    于是 bf16 训练出来的权重 + 评测按 float32 喂输入 ⇒ `embed_suffix` 的
+        #    `state_proj(state)` 直接报
+        #      RuntimeError: mat1 and mat2 must have the same dtype, but got Float and BFloat16
+        #    （2026-10-07 A–G 回归首次跑到 bf16 组合时实测）。以前全是 F32 所以没暴露。
+        #    优先级：`config.action_fp32`（模型自己会 `_fp32_linear` 上转权重）> 模型权重 dtype。
+        _cfg0 = getattr(self, "_model_config", None)
+        if _cfg0 is not None and bool(getattr(_cfg0, "action_fp32", False)):
+            dtype = torch.float32
+        else:
+            _p0 = next(self.model.parameters(), None)
+            _dt = _p0.dtype if (_p0 is not None and _p0.dtype.is_floating_point) else None
+            dtype = _dt if _dt is not None else (
+                torch.bfloat16 if bool(getattr(self.args.train, "use_bf16", False)) else torch.float32)
+        use_bf16 = (dtype == torch.bfloat16)
 
         images = item["images"]
         img_masks = item["img_masks"]
