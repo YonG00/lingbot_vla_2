@@ -221,6 +221,9 @@ def build_auto_learning_parts(
                 "[auto_learning] ⚠️ allow_missing_baseline=true ⇒ NMSE=None，"
                 "所有任务会被排除出候选池（仅供 smoke / 单测）")
 
+    # ---- 按任务的通过阈值表（pass_metric="mse" 时必须有，fail-fast）----
+    _attach_pass_thresholds(cfg, cat, store, logger)
+
     return AutoLearningParts(
         cfg=cfg, catalog=cat, resolver=resolver, lazy_sampler=LazyAutoLearnSampler(),
         manifest_path=manifest_path, baseline_path=baseline_path, baseline_store=store,
@@ -375,6 +378,51 @@ def _verify_baseline_fingerprint(parts: AutoLearningParts, cfg: AutoLearningConf
             "  请重算：python -m lingbotvla.auto_learning.tools.compute_task_baseline "
             "--manifest <manifest.json> --config <lingbotvla_cli.yaml> --recompute")
     log.info_rank0(f"[auto_learning] baseline config 指纹对拍通过: {runtime_fp}")
+
+
+def _attach_pass_thresholds(
+    cfg: AutoLearningConfig,
+    cat: Any,
+    store: Any,
+    logger: Any = None,
+) -> None:
+    """`pass_metric="mse"` 时加载按任务的通过阈值表，并做三道 fail-fast。
+
+    1. 文件存在 + ``metric`` 口径匹配（防止把 nmse 单位的表当 mse 用）
+    2. ``config_fingerprint`` 与 baseline store 对拍（baseline 重算而阈值表没重算
+       ⇒ 两个数错位且**不报错**，必须拒绝启动）
+    3. 阈值表必须**覆盖 catalog 里全部任务**（缺的任务会被静默判成"永不 PASS"，
+       白白烧算力）
+    """
+    from ..decision.thresholds import PASS_METRIC_MSE, PassThresholds, active_metric
+
+    if active_metric(cfg) != PASS_METRIC_MSE:
+        return
+    if not getattr(cfg, "pass_thresholds_file", None):
+        raise ValueError(
+            "[auto_learning] pass_metric='mse' 但没有 pass_thresholds_file ⇒ 拒绝启动。\n"
+            "  先跑：python -m lingbotvla.auto_learning.tools.compute_pass_thresholds ...")
+    expect_fp = getattr(store, "config_fingerprint", None) if store is not None else None
+    thresholds = PassThresholds.load(
+        cfg.pass_thresholds_file,
+        expect_fingerprint=expect_fp,
+        require_metric=PASS_METRIC_MSE,
+        allow_fingerprint_mismatch=cfg.allow_thresholds_fingerprint_mismatch,
+    )
+    missing = [t for t in cat.task_names() if t not in thresholds]
+    if missing:
+        raise ValueError(
+            "[auto_learning] 阈值表没有覆盖全部任务 ⇒ 拒绝启动。\n"
+            f"  缺阈值的任务: {missing}\n"
+            "  （这些任务会被静默判成 needs_calibration、永远不 PASS，白白烧算力）\n"
+            "  请用 tools/compute_pass_thresholds.py 对全部任务重算（含闭环失败的写 null）。")
+    # 挂在 cfg 上（阈值模块用 getattr 取）；挂之前清掉可能残留的旧表
+    cfg.pass_thresholds = thresholds
+    if logger is not None:
+        logger.info_rank0(
+            f"[auto_learning] pass thresholds: {cfg.pass_thresholds_file}"
+            f"（metric=mse，{thresholds.n_usable}/{len(thresholds.tasks)} 个任务有可用线，"
+            f"config指纹={thresholds.config_fingerprint or '空'}）")
 
 
 def _guard_image_augment(cfg: AutoLearningConfig, args: Any, log: Any) -> None:

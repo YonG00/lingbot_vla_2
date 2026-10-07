@@ -1,0 +1,342 @@
+"""按任务的**通过阈值表**（pass thresholds）—— 判定口径的唯一入口。
+
+为什么要有这个模块
+------------------
+原来全框架只有**一个全局标量** `cfg.pass_nmse`，在 **5 个语义位置 / 7 个比较点**被比较：
+
+| # | 位置 | 语义 |
+|---|------|------|
+| 1 | ``decision/state_machine.py`` ``decide()`` | 主 PASS 判定（每个 unit 后） |
+| 2 | ``decision/state_machine.py`` ``forget_code()`` | 遗忘**原因码**分类 |
+| 3 | ``orchestration/scheduler.py`` bootstrap | 免费 PASS（scout→confirm） |
+| 4 | ``orchestration/scheduler.py`` rescan | 免费 PASS（状态迁移后重扫） |
+| 5 | ``orchestration/baselines.py`` | **uniform 对照组统计**（漏改 ⇒ 对比静默失效） |
+
+另外 ``decision/review.py`` 的 ``is_forgotten`` / ``_suspect`` 也读它。
+
+这些点各写各的比较 ⇒ 一旦改口径就必然漏改，而**漏改不会报错**（尤其第 5 处：只会让
+uniform / AL 两组的"通过"口径不一致，实验结论静默错掉）。所以本模块把口径收敛到
+**两个函数**：:func:`pass_line` 与 :func:`check_pass` / :func:`is_forgotten_ex`。
+
+两种口径
+--------
+* ``pass_metric="nmse"``（**默认，行为与改造前逐字一致**）：阈值 = ``cfg.pass_nmse``。
+* ``pass_metric="mse"``：阈值 = **该任务**在阈值表里的值（绝对动作 MSE）。
+
+⚠️ 两种口径**数学等价**（``nmse = mse / baseline_mse``，baseline 是该任务的固定常数），
+差别只在"拿哪个数去比 / 报告里显示哪个数"。切到 ``mse`` 的好处是量纲直观：
+直接和**成品模型**在同一任务上的绝对误差对比。
+
+🔴 为什么不再"全用 nmse"
+------------------------
+``nmse`` 的分母是**该任务自身的动作方差** ⇒ 分母尺度因任务而异，
+"跨任务比较"必须用它（否则基线大的任务天然吃亏）；而"判定"要的是绝对精度 ⇒ 用 MSE。
+⇒ **判定用 MSE，跨任务排序/统计仍用 NMSE**，各司其职（见 ``scheduler.py`` 的 worst/median 统计）。
+
+``None`` 阈值的语义（重要）
+---------------------------
+阈值表里某个任务可以是 ``None``，含义是"**该任务没有可用的通过线**"。
+正常标定流程里每个任务都会有开环分数 ⇒ 都有数值线；``None`` 只作为**异常兜底**
+（该任务评测结果缺失、或阈值表被显式标成 null 表示"暂不考核"）。
+此时 :func:`check_pass` 返回 :attr:`PassCheck.NO_THRESHOLD`：
+
+* **不判 PASS**（绝不回退成宽松阈值）
+* 上层应把它当成"待标定 / needs_calibration"，且**不消耗 attempt 预算**
+
+配置指纹
+--------
+阈值是从某个 ``task_baseline.json``（同一份数据/归一化/相机配置）标定出来的。
+若 baseline 重算而阈值表没重算，两个数会错位且**不报错** ⇒ 本模块在 ``load()`` 时
+**强校验 ``config_fingerprint``**，不一致直接 fail-fast（除非显式 ``allow_fingerprint_mismatch``）。
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, Tuple
+
+from .metrics import is_finite_metric
+
+#: 判定口径
+PASS_METRIC_NMSE = "nmse"
+PASS_METRIC_MSE = "mse"
+PASS_METRICS = (PASS_METRIC_NMSE, PASS_METRIC_MSE)
+
+#: 阈值表文件版本
+THRESHOLDS_VERSION = 1
+
+
+class ThresholdsError(ValueError):
+    """阈值表加载/校验失败（配置或文件问题，必须让人看到）。"""
+
+
+# --------------------------------------------------------------------------- #
+# 阈值表
+# --------------------------------------------------------------------------- #
+@dataclass
+class PassThresholds:
+    """一份按任务的通过阈值表（判定口径 = ``metric`` 指定的那个）。"""
+
+    config_fingerprint: str = ""
+    tasks: Dict[str, Optional[float]] = field(default_factory=dict)
+    metric: str = PASS_METRIC_MSE
+    margin: float = 0.0
+    stat: str = ""
+    reference: str = ""
+    version: int = THRESHOLDS_VERSION
+
+    # ---------------------------------------------------------------- #
+    def get(self, task: str) -> Optional[float]:
+        """取该任务的阈值；任务不在表里 ⇒ ``None``（= 无可用线）。"""
+        return self.tasks.get(task)
+
+    def __contains__(self, task: str) -> bool:
+        return task in self.tasks
+
+    @property
+    def n_usable(self) -> int:
+        return sum(1 for v in self.tasks.values() if v is not None)
+
+    # ---------------------------------------------------------------- #
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "version": self.version,
+            "metric": self.metric,
+            "config_fingerprint": self.config_fingerprint,
+            "margin": self.margin,
+            "stat": self.stat,
+            "reference": self.reference,
+            "tasks": dict(self.tasks),
+        }
+
+    @classmethod
+    def from_dict(cls, raw: Dict[str, Any]) -> "PassThresholds":
+        if not isinstance(raw, dict):
+            raise ThresholdsError(f"阈值表必须是 dict，实际 {type(raw).__name__}")
+        tasks_raw = raw.get("tasks")
+        if not isinstance(tasks_raw, dict):
+            raise ThresholdsError("阈值表缺少 'tasks'（必须是 dict: 任务名 → 阈值或 null）")
+        tasks: Dict[str, Optional[float]] = {}
+        for name, value in tasks_raw.items():
+            if value is None:
+                tasks[str(name)] = None
+                continue
+            # 允许写成 {"pass_threshold": x} 的详细形式
+            if isinstance(value, dict):
+                value = value.get("pass_threshold", value.get("threshold"))
+            if value is None:
+                tasks[str(name)] = None
+                continue
+            try:
+                tasks[str(name)] = float(value)
+            except (TypeError, ValueError):
+                raise ThresholdsError(
+                    f"任务 {name!r} 的阈值不是数字也不是 null：{value!r}"
+                ) from None
+        metric = str(raw.get("metric") or PASS_METRIC_MSE)
+        if metric not in PASS_METRICS:
+            raise ThresholdsError(f"阈值表 metric 非法：{metric!r}（只能是 {PASS_METRICS}）")
+        return cls(
+            config_fingerprint=str(raw.get("config_fingerprint") or ""),
+            tasks=tasks,
+            metric=metric,
+            margin=float(raw.get("margin") or 0.0),
+            stat=str(raw.get("stat") or ""),
+            reference=str(raw.get("reference") or ""),
+            version=int(raw.get("version") or THRESHOLDS_VERSION),
+        )
+
+    # ---------------------------------------------------------------- #
+    @classmethod
+    def load(
+        cls,
+        path: str,
+        *,
+        expect_fingerprint: Optional[str] = None,
+        allow_fingerprint_mismatch: bool = False,
+        require_metric: Optional[str] = None,
+    ) -> "PassThresholds":
+        """从 JSON 读阈值表并做**强校验**。
+
+        参数
+        ----
+        expect_fingerprint
+            调用方算出的 config 指纹（应与 ``task_baseline.json`` 的同一个）。
+            与文件里的不一致 ⇒ fail-fast（这是防"baseline 重算了、阈值没重算"的静默错判）。
+        allow_fingerprint_mismatch
+            显式放行（仅测试/临时用途），放行时会打印警告。
+        require_metric
+            要求文件的 ``metric`` 必须是它（防止把 nmse 单位的表当 mse 用）。
+        """
+        if not os.path.isfile(path):
+            raise ThresholdsError(f"阈值表文件不存在：{path}")
+        with open(path, encoding="utf-8") as f:
+            raw = json.load(f)
+        obj = cls.from_dict(raw)
+
+        if require_metric is not None and obj.metric != require_metric:
+            raise ThresholdsError(
+                f"阈值表 metric={obj.metric!r}，但当前口径要求 {require_metric!r}；"
+                "两者单位不同，混用会直接错判。"
+            )
+        if expect_fingerprint is not None:
+            if not obj.config_fingerprint:
+                raise ThresholdsError(
+                    f"阈值表 {path} 没有 config_fingerprint ⇒ 无法确认它与当前数据/归一化配置"
+                    "匹配（这类错位不会报错，只会静默错判），拒绝加载。"
+                )
+            if obj.config_fingerprint != expect_fingerprint and not allow_fingerprint_mismatch:
+                raise ThresholdsError(
+                    "阈值表与当前配置的 config_fingerprint 不一致：\n"
+                    f"  阈值表 : {obj.config_fingerprint}\n"
+                    f"  当前   : {expect_fingerprint}\n"
+                    "⇒ 多半是数据/归一化/相机配置变了但阈值表没重算。"
+                    "请重跑 tools/compute_pass_thresholds.py；"
+                    "确要用旧表请显式 allow_fingerprint_mismatch=True。"
+                )
+            if obj.config_fingerprint != expect_fingerprint:
+                import warnings
+
+                warnings.warn(
+                    "PassThresholds: 显式放行了 config_fingerprint 不一致 "
+                    f"({obj.config_fingerprint} != {expect_fingerprint})",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+        return obj
+
+    def save(self, path: str) -> None:
+        os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, ensure_ascii=False, indent=2, sort_keys=True)
+            f.write("\n")
+
+
+# --------------------------------------------------------------------------- #
+# 口径解析（**全框架唯一的判定入口**）
+# --------------------------------------------------------------------------- #
+def active_metric(cfg: Any) -> str:
+    """当前生效的判定口径（``"nmse"`` / ``"mse"``）。"""
+    metric = str(getattr(cfg, "pass_metric", PASS_METRIC_NMSE) or PASS_METRIC_NMSE)
+    if metric not in PASS_METRICS:
+        raise ThresholdsError(f"cfg.pass_metric 非法：{metric!r}")
+    return metric
+
+
+def attached_thresholds(cfg: Any) -> Optional[PassThresholds]:
+    """取挂在 cfg 上的阈值表（由 ``real/build.py`` 加载后挂上；没挂 ⇒ None）。"""
+    obj = getattr(cfg, "pass_thresholds", None)
+    return obj if isinstance(obj, PassThresholds) else None
+
+
+def pass_line(cfg: Any, task: str) -> Tuple[str, Optional[float]]:
+    """返回 ``(metric, 阈值)`` —— **本模块之外不应再出现裸的 ``pass_nmse`` 比较**。
+
+    * ``metric="nmse"`` ⇒ 阈值 = ``cfg.pass_nmse``（永远有值，沿用旧行为）
+    * ``metric="mse"``  ⇒ 阈值 = 阈值表里该任务的值；
+      表没挂 / 任务不在表里 / 表里是 ``None`` ⇒ 阈值 ``None``（= 无可用线，不判 PASS）
+    """
+    metric = active_metric(cfg)
+    if metric == PASS_METRIC_NMSE:
+        line = getattr(cfg, "pass_nmse", None)
+        return metric, (float(line) if line is not None else None)
+    table = attached_thresholds(cfg)
+    if table is None:
+        return metric, None
+    return metric, table.get(task)
+
+
+def metric_value(metric: str, *, nmse: Optional[float], mse: Optional[float]) -> Optional[float]:
+    """按口径挑出参与比较的那个数值。"""
+    return mse if metric == PASS_METRIC_MSE else nmse
+
+
+# --------------------------------------------------------------------------- #
+# 判定结果
+# --------------------------------------------------------------------------- #
+class PassCheck(str):
+    """判定结果（用 str 子类，日志/事件里可直接序列化）。"""
+
+    PASS = "pass"                    # 达标
+    BELOW = "below"                  # 有阈值但没到
+    NO_THRESHOLD = "no_threshold"    # 该任务没有可用阈值 ⇒ 不判 PASS（needs_calibration）
+    INVALID = "invalid"              # 指标非有限（NaN/Inf）
+
+
+def check_pass(cfg: Any, task: str, *, nmse: Optional[float], mse: Optional[float]) -> str:
+    """统一的"是否达标"判定。**所有 PASS 判定点都必须走这里。**
+
+    返回 :class:`PassCheck` 里的一个字符串常量。
+    """
+    metric, line = pass_line(cfg, task)
+    if line is None:
+        return PassCheck.NO_THRESHOLD
+    val = metric_value(metric, nmse=nmse, mse=mse)
+    if not is_finite_metric(val):
+        return PassCheck.INVALID
+    return PassCheck.PASS if float(val) <= line else PassCheck.BELOW
+
+
+def is_pass(cfg: Any, task: str, *, nmse: Optional[float], mse: Optional[float]) -> bool:
+    """:func:`check_pass` 的布尔快捷方式（``NO_THRESHOLD`` / ``INVALID`` 都算 False）。"""
+    return check_pass(cfg, task, nmse=nmse, mse=mse) == PassCheck.PASS
+
+
+def is_forgotten_ex(
+    cfg: Any,
+    task: str,
+    *,
+    cur_nmse: Optional[float],
+    cur_mse: Optional[float],
+    best_nmse: Optional[float],
+) -> bool:
+    """遗忘判定：**掉出及格线 或 相对退化超阈值**（文档 §34）。
+
+    * "掉出及格线"那半用 :func:`pass_line`（⇒ 口径跟着 ``pass_metric`` 走）。
+      该任务**没有可用阈值**时，这半**不参与判定**（只剩相对退化）。
+    * "相对退化"那半是 ``(cur − best) / best`` —— **尺度无关的比值**，
+      换成 mse 后数值几乎不变（分子分母同乘 baseline）⇒ 固定用 nmse 计算。
+    """
+    from .metrics import forget_ratio  # 局部导入，避免循环依赖
+
+    metric, line = pass_line(cfg, task)
+    if line is not None:
+        val = metric_value(metric, nmse=cur_nmse, mse=cur_mse)
+        if is_finite_metric(val) and float(val) > line:
+            return True
+    ratio = forget_ratio(best_nmse, cur_nmse)
+    thr = getattr(cfg, "forget_relative_threshold", None)
+    return ratio is not None and thr is not None and ratio > thr
+
+
+def forget_code_ex(
+    cfg: Any,
+    task: str,
+    *,
+    cur_nmse: Optional[float],
+    cur_mse: Optional[float],
+) -> str:
+    """遗忘**原因码**（掉出及格线 vs 相对退化）—— 与判定口径保持一致。
+
+    ⚠️ 这里从 `..types` 取 ReasonCode（**不能**从 `.state_machine` 取：本模块被
+    state_machine 反向依赖，会形成循环导入）。
+    """
+    from ..types import ReasonCode
+
+    metric, line = pass_line(cfg, task)
+    if line is not None:
+        val = metric_value(metric, nmse=cur_nmse, mse=cur_mse)
+        if val is not None and is_finite_metric(val) and float(val) > line:
+            return ReasonCode.FORGOTTEN_BELOW_PASS_LINE.value
+    return ReasonCode.FORGOTTEN_RELATIVE_DEGRADATION.value
+
+
+__all__ = [
+    "PASS_METRIC_NMSE", "PASS_METRIC_MSE", "PASS_METRICS",
+    "THRESHOLDS_VERSION", "ThresholdsError",
+    "PassThresholds", "PassCheck",
+    "active_metric", "attached_thresholds", "pass_line", "metric_value",
+    "check_pass", "is_pass", "is_forgotten_ex", "forget_code_ex",
+]

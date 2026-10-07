@@ -28,6 +28,7 @@ from ..decision.metrics import (
     train_val_gap,
 )
 from ..decision.review import Reviewer
+from ..decision.thresholds import PassCheck, check_pass, is_pass
 from ..decision.state_machine import (
     apply_defer,
     apply_pass,
@@ -294,12 +295,26 @@ class Scheduler:
             event["result"] = "metric_invalid"
             return event
 
-        if scout.nmse is not None and scout.nmse <= al.pass_nmse:
+        # 没有可用通过线（pass_metric="mse" 且阈值表里该任务是 null）⇒ 不训练、不消耗 attempt。
+        # 与 metric_invalid 的区别：metric 本身是好的，只是没标定出线 ⇒ needs_calibration。
+        if check_pass(al, name, nmse=scout.nmse, mse=scout.mse) == PassCheck.NO_THRESHOLD:
+            rec.pass_line_usable = False
+            rec.set_status(
+                TaskStatus.CANDIDATE,
+                "no_pass_threshold: 该任务没有可用通过线（needs_calibration），不参与训练",
+            )
+            event["result"] = "no_threshold"
+            event["note"] = "没有可用通过线，已排除出候选池（不消耗 attempt）"
+            return event
+
+        # 判定走统一入口 thresholds.is_pass（口径由 cfg.pass_metric 决定；
+        # mse 模式下任务没有可用阈值 ⇒ 不判 PASS，不会误放行）
+        if is_pass(al, name, nmse=scout.nmse, mse=scout.mse):
             confirm = self.evaluator.evaluate(name, EvalSplit.CONFIRM.value, rec.confirm_val_ids)
             self._record_eval(rec, confirm, kind="confirm")
             event["confirm_nmse"] = confirm.nmse
             event["confirm_trajs"] = confirm.n_trajs
-            if confirm.metric_valid and confirm.nmse is not None and confirm.nmse <= al.pass_nmse:
+            if confirm.metric_valid and is_pass(al, name, nmse=confirm.nmse, mse=confirm.mse):
                 apply_pass(
                     rec,
                     al,
@@ -308,6 +323,8 @@ class Scheduler:
                 )
                 rec.best_nmse = confirm.nmse
                 rec.current_val_nmse = confirm.nmse
+                rec.best_mse = confirm.mse
+                rec.current_val_mse = confirm.mse
                 self._mark_auto_pass(name)
                 event["result"] = "pass"
                 return event
@@ -381,6 +398,7 @@ class Scheduler:
         vm = self.evaluator.evaluate(name, EvalSplit.ACTIVE_VAL.value, pick.active_val_ids)
         pick.current_train_nmse = tm.nmse
         pick.current_val_nmse = vm.nmse
+        pick.current_val_mse = vm.mse
         pick.prev_train_nmse = tm.nmse
         pick.prev_val_nmse = vm.nmse
         pick.train_val_gap_ratio = train_val_gap(vm.nmse, tm.nmse)
@@ -504,6 +522,7 @@ class Scheduler:
         rec.prev_val_nmse = rec.current_val_nmse
         rec.current_train_nmse = tm.nmse
         rec.current_val_nmse = vm.nmse
+        rec.current_val_mse = vm.mse
         rec.lp50 = learning_progress(rec.prev_val_nmse, rec.current_val_nmse)
         rec.lp_train = learning_progress(rec.prev_train_nmse, rec.current_train_nmse)
         gap_prev = rec.train_val_gap_ratio
@@ -720,6 +739,8 @@ class Scheduler:
                 TaskStatus.EXHAUSTED.value,
             ):
                 continue
+            if not rec.pass_line_usable:
+                continue
             if only is not None and rec.task_name not in only:
                 continue
             scout = self.evaluator.evaluate(
@@ -736,7 +757,9 @@ class Scheduler:
             if (
                 rec.metric_valid
                 and is_finite_metric(scout.nmse)
-                and scout.nmse <= al.pass_nmse
+                # 判定走统一入口（口径由 cfg.pass_metric 决定；
+                # mse 模式下任务没有可用阈值 ⇒ 不判 PASS）
+                and is_pass(al, rec.task_name, nmse=scout.nmse, mse=scout.mse)
                 # 🔴 churn guard 已触发的任务**不能被 rescan 复活**：否则会出现
                 # 「EXHAUSTED → 免费 PASS → 又遗忘 → 回炉 → EXHAUSTED → …」的循环，
                 # 每次都不消耗 attempt（Monte Carlo 压力测试抓出来的）。
@@ -747,10 +770,8 @@ class Scheduler:
                 )
                 self._record_eval(rec, confirm, kind="rescan_confirm")
                 row["confirm_nmse"] = confirm.nmse
-                if (
-                    confirm.metric_valid
-                    and is_finite_metric(confirm.nmse)
-                    and confirm.nmse <= al.pass_nmse
+                if confirm.metric_valid and is_pass(
+                    al, rec.task_name, nmse=confirm.nmse, mse=confirm.mse
                 ):
                     apply_pass(
                         rec,
@@ -760,6 +781,8 @@ class Scheduler:
                     )
                     rec.best_nmse = confirm.nmse
                     rec.current_val_nmse = confirm.nmse
+                    rec.best_mse = confirm.mse
+                    rec.current_val_mse = confirm.mse
                     self._mark_auto_pass(rec.task_name)
                     row["auto_pass"] = True
             rows.append(row)

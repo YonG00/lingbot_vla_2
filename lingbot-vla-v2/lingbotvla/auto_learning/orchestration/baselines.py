@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional
 
 from ..config import DemoConfig
 from ..decision.metrics import median
+from ..decision.thresholds import is_pass
 from ..testing.sim import build_backend
 from ..state.registry import TaskRegistry
 from ..types import BatchComposition, EvalSplit, SampleRef
@@ -113,7 +114,9 @@ def run_uniform(
         m = backend.evaluator.evaluate(name, EvalSplit.ACTIVE_VAL.value, rec.active_val_ids)
         if m.nmse is not None:
             result.per_task_nmse[name] = m.nmse
-            if m.nmse <= al.pass_nmse:
+            # 🔴 必须与 AL 实验组走**同一个**判定入口（thresholds.is_pass），
+            # 否则两组的"通过"口径不一致 ⇒ 对比结论静默失效（且不会报错）。
+            if is_pass(al, name, nmse=m.nmse, mse=m.mse):
                 result.pass_tasks.append(name)
 
     vals = list(result.per_task_nmse.values())

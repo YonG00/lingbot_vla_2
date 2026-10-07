@@ -17,6 +17,13 @@ from ..config import AutoLearningConfig
 from ..state.registry import TaskRecord, TaskRegistry
 from ..types import Decision, ReasonCode, TaskStatus, Verdict
 from .metrics import forget_ratio, is_finite_metric
+from .thresholds import (
+    PassCheck,
+    check_pass,
+    forget_code_ex,
+    is_forgotten_ex,
+    pass_line,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -54,7 +61,14 @@ def decide_after_unit(
         )
 
     # ① 达标立刻 PASS —— 哪怕只训了 50 step（文档 §44）
-    if val <= cfg.pass_nmse:
+    #    🔴 判定口径**统一**走 decision/thresholds：默认 `nmse`（= 旧的全局 pass_nmse），
+    #       切到 `mse` 时按任务查阈值表。**不要在别处再写裸的 pass_nmse 比较**（否则口径会分叉）。
+    _metric, _line = pass_line(cfg, record.task_name)
+    _check = check_pass(
+        cfg, record.task_name, nmse=val, mse=record.current_val_mse
+    )
+    if _check == PassCheck.PASS:
+        _shown = record.current_val_mse if _metric == "mse" else val
         if (
             cfg.continue_after_pass
             and attempt_step < cfg.post_pass_max_steps
@@ -63,13 +77,13 @@ def decide_after_unit(
             return Verdict(
                 Decision.CONTINUE,
                 ReasonCode.CONTINUE_AFTER_PASS.value,
-                f"continue_after_pass: val={val:.4f} 已达标但仍在进步，"
+                f"continue_after_pass: {_metric}={_shown:.6g} 已达标但仍在进步，"
                 f"继续到 {cfg.post_pass_max_steps} step",
             )
         return Verdict(
             Decision.PASS,
             ReasonCode.VAL_BELOW_THRESHOLD.value,
-            f"val_nmse={val:.4f} <= pass_nmse={cfg.pass_nmse}",
+            f"{_metric}={_shown:.6g} <= threshold={_line:.6g}（task={record.task_name}）",
         )
 
     # ② 过拟合提前 DEFER（文档 §17.1）
@@ -114,7 +128,12 @@ def should_rescue(cfg: AutoLearningConfig, rescued: bool) -> bool:
 
 
 def forget_code(best: Optional[float], current: Optional[float], pass_nmse: float) -> str:
-    """遗忘的**原因码** —— 掉出及格线 vs 相对退化，两者处置不同（文档 §34）。"""
+    """遗忘的**原因码** —— 掉出及格线 vs 相对退化，两者处置不同（文档 §34）。
+
+    ⚠️ 这是**旧的口径固定版**（只认 nmse 及格线），保留是为了向后兼容与既有单测。
+    框架内部请走 `decision.thresholds.forget_code_ex(cfg, task, cur_nmse=…, cur_mse=…)`，
+    否则切到 `pass_metric="mse"` 时原因码会与判定口径分叉。
+    """
     if current is not None and current > pass_nmse:
         return ReasonCode.FORGOTTEN_BELOW_PASS_LINE.value
     return ReasonCode.FORGOTTEN_RELATIVE_DEGRADATION.value
@@ -156,6 +175,13 @@ def apply_pass(
             record.current_val_nmse
             if record.best_nmse is None
             else min(record.best_nmse, record.current_val_nmse)
+        )
+    # 绝对 MSE 与 nmse 同步记账（判定口径可能切到 mse；跨任务排序仍用 nmse）
+    if record.current_val_mse is not None:
+        record.best_mse = (
+            record.current_val_mse
+            if record.best_mse is None
+            else min(record.best_mse, record.current_val_mse)
         )
 
 
@@ -267,18 +293,21 @@ def mark_forgotten_if_needed(
     record: TaskRecord,
     cfg: AutoLearningConfig,
     current_nmse: Optional[float],
+    current_mse: Optional[float] = None,
 ) -> Tuple[bool, str]:
     """复查后更新遗忘标记（不改状态，状态由 `apply_reopen` 负责）。
 
     返回 `(是否遗忘, 原因码)`。
+
+    ⚠️ 遗留 API，框架内部已不走这里（review 用 `thresholds.is_forgotten_ex`）；
+    仅 nmse 时与统一口径一致，mse 判定请传 ``current_mse``。
     """
     if current_nmse is None:
         return False, ""
-    if current_nmse > cfg.pass_nmse:
+    task = getattr(record, "task_name", "")
+    if is_forgotten_ex(
+        cfg, task, cur_nmse=current_nmse, cur_mse=current_mse, best_nmse=record.best_nmse
+    ):
         record.forgotten = True
-        return True, ReasonCode.FORGOTTEN_BELOW_PASS_LINE.value
-    ratio = forget_ratio(record.best_nmse, current_nmse)
-    if ratio is not None and ratio > cfg.forget_relative_threshold:
-        record.forgotten = True
-        return True, ReasonCode.FORGOTTEN_RELATIVE_DEGRADATION.value
+        return True, forget_code_ex(cfg, task, cur_nmse=current_nmse, cur_mse=current_mse)
     return False, ""

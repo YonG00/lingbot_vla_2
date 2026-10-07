@@ -26,6 +26,11 @@ MAX_EVENTS = 2000
 #: 这些参数一变，历史状态的含义就变了 ⇒ resume 前必须显式确认
 SEMANTIC_KEYS = (
     "pass_nmse",
+    # 判定口径（"nmse" / "mse"）与阈值表路径 —— 换了它们，历史状态里"通过"的含义就变了。
+    # ⚠️ 新增这两项会让**旧存档**的指纹对不上 ⇒ resume 时要显式确认一次（这是有意的：
+    #    宁可提醒，也不要带着新口径跑旧状态）。
+    "pass_metric",
+    "pass_thresholds_file",
     "min_lp50",
     "max_attempts_per_task",
     "max_reopens_per_task",

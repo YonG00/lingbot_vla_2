@@ -31,7 +31,14 @@ class AutoLearningConfig:
     #: 「本次最多**主动尝试**多少个新任务」—— 这是第一阶段的主开关。
     #: 统计口径 = 曾经进入 TRAINING（attempt_count 0→1）的不同任务数。
     max_new_tasks_attempted_this_run: Optional[int] = None
-    #: 可选：「本次最多让多少个任务 newly PASS」后再收工（None = 不限）。
+    #: ✅ 主收工开关：「本次**新增 PASS 数一达到 N 就收工**」（None = 不按这个收工）。
+    #:    `scheduler._select()`：`len(st.newly_passed) >= N ⇒ _finish("max_new_tasks_passed_reached")`。
+    #:
+    #: ⚠️ 语义上它是**上限**，不是**目标** —— 框架**没有**"不到 N 个就不许停"的语义。
+    #:    任务太难时会先因 `all_tasks_resolved`（候选池空）或 `max_global_steps` 停，
+    #:    此时 `newly_passed` 可能 < N。
+    #:    所以**不要**改名成 `required_*` / `target_*` —— 那会让人误以为它有保证。
+    #: 口径：`newly_passed` = 本次 run 里**首次** PASS 的任务（此前 PASS 过的不计入）。
     max_new_tasks_passed_this_run: Optional[int] = None
     #: churn guard：同一任务最多被「遗忘 → 回炉」几次。
     #: **不占用 attempt 预算** —— attempt 只数真正的主训练机会（见下方 attempts 段）。
@@ -42,6 +49,20 @@ class AutoLearningConfig:
     active_train_probe_trajs: int = 4
     active_val_probe_trajs: int = 4
     pass_nmse: float = 0.30
+
+    # ----- 判定口径（review 讨论后新增；**默认与旧行为逐字一致**）-----
+    #: `"nmse"`（默认）⇒ 沿用全局标量 `pass_nmse`。
+    #: `"mse"` ⇒ **按任务**查阈值表（绝对动作 MSE），阈值来自参考模型（成品）实测。
+    #: 两者数学等价（`nmse = mse / baseline_mse`），切到 mse 的好处是量纲直观、
+    #: 可与参考模型在同一任务上的绝对误差直接对比。
+    #: ⚠️ 判定走 mse、**跨任务排序/统计仍用 nmse**（分母归一化，见 decision/thresholds.py）。
+    pass_metric: str = "nmse"
+    #: `pass_metric="mse"` 时的阈值表路径（由 tools/compute_pass_thresholds.py 产出）。
+    #: 表里每个任务可以是数字或 `null`（null = 该任务无可用通过线 ⇒ 不判 PASS）。
+    pass_thresholds_file: Optional[str] = None
+    #: 阈值表与当前数据的 config_fingerprint 不一致时是否放行。
+    #: 🔴 默认 **False ⇒ fail-fast**：这类错位不会报错、只会静默错判。
+    allow_thresholds_fingerprint_mismatch: bool = False
 
     # ----- train / eval cadence -----
     eval_interval_steps: int = 50
@@ -148,6 +169,17 @@ class AutoLearningConfig:
             raise ValueError(f"unsupported replay_sample_policy: {self.replay_sample_policy}")
         if self.hardness_weight_max < self.hardness_weight_min:
             raise ValueError("hardness_weight_max must be >= hardness_weight_min")
+        # ---- 判定口径 ----
+        if self.pass_metric not in ("nmse", "mse"):
+            raise ValueError(
+                f"unsupported pass_metric: {self.pass_metric!r}（只能是 'nmse' / 'mse'）"
+            )
+        if self.pass_metric == "mse" and not self.pass_thresholds_file:
+            raise ValueError(
+                "pass_metric='mse' 时必须同时给 pass_thresholds_file"
+                "（按任务的阈值表，由 tools/compute_pass_thresholds.py 产出）；"
+                "否则所有任务都会因『无可用阈值』而无法判 PASS。"
+            )
 
     # ---------------------------------------------------------------- #
     @property

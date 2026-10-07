@@ -84,12 +84,22 @@ class TaskRecord:
     status: str = TaskStatus.CANDIDATE.value
     baseline_mse: Optional[float] = None
     metric_valid: bool = True
+    #: 该任务当前判定口径下**有没有可用的通过线**。
+    #: nmse 口径恒 True；mse 口径下，阈值表里该任务是 null ⇒ False（needs_calibration）。
+    #: False 的任务**不进候选池、不消耗 attempt**（类比 `metric_valid=False`，但语义独立：
+    #: rescan 里 `metric_valid` 会被重新洗白，而它不会 —— 通过线是配置层面的，与 scout 无关）。
+    pass_line_usable: bool = True
     scout_nmse: Optional[float] = None
     current_val_nmse: Optional[float] = None
     current_train_nmse: Optional[float] = None
     prev_val_nmse: Optional[float] = None
     prev_train_nmse: Optional[float] = None
     best_nmse: Optional[float] = None
+    #: 绝对动作 MSE —— 判定口径 `pass_metric="mse"` 时参与比较；
+    #: 与 nmse 同步记录（nmse 仍用于**跨任务**排序/统计，两者共用同一个 baseline）。
+    #: 旧存档没有这两个键 ⇒ `from_dict` 走默认 None（向后兼容）。
+    current_val_mse: Optional[float] = None
+    best_mse: Optional[float] = None
     train_val_gap_ratio: Optional[float] = None
     lp50: Optional[float] = None
     lp_train: Optional[float] = None
@@ -160,8 +170,10 @@ class TaskRecord:
             "total_steps": self.total_task_steps,
             "scout_nmse": self.scout_nmse,
             "val_nmse": self.current_val_nmse,
+            "val_mse": self.current_val_mse,
             "train_nmse": self.current_train_nmse,
             "best_nmse": self.best_nmse,
+            "best_mse": self.best_mse,
             "lp50": self.lp50,
             "overfit": self.overfit,
             "forgotten": self.forgotten,
@@ -253,13 +265,14 @@ class TaskRegistry:
     def candidate_records(self) -> List[TaskRecord]:
         """可被 scheduler 选中的任务。
 
-        `metric_valid` + `nmse` 有限，两个条件缺一不可 ——
-        否则 NaN 会进 `min(...)`，排序结果未定义（测试方案 §I01）。
+        `metric_valid` + `nmse` 有限 + **有可用通过线**，三个条件缺一不可 ——
+        否则 NaN 会进 `min(...)`，排序结果未定义（测试方案 §I01）；
+        没有通过线的任务（`pass_metric="mse"` 且阈值表 null）不该被选中白烧 attempt。
         """
         return [
             r
             for r in self.by_status(TaskStatus.CANDIDATE)
-            if r.metric_valid and is_finite_metric(r.scout_nmse)
+            if r.metric_valid and is_finite_metric(r.scout_nmse) and r.pass_line_usable
         ]
 
     def coverage(self) -> float:

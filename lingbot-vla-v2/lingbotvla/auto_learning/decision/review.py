@@ -10,9 +10,10 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from ..config import AutoLearningConfig
-from .metrics import forget_ratio, is_forgotten
+from .metrics import forget_ratio, is_finite_metric
 from ..state.registry import TaskRecord, TaskRegistry
-from .state_machine import apply_reopen, forget_code
+from .state_machine import apply_reopen
+from .thresholds import forget_code_ex, is_forgotten_ex, metric_value, pass_line
 from ..types import EvalSplit, TaskStatus
 
 
@@ -54,7 +55,7 @@ class Reviewer:
             scout = self.evaluator.evaluate(rec.task_name, EvalSplit.REVIEW.value, rec.scout_val_ids)
             rec.last_eval_step = global_step
             rec.note_eval({"step": global_step, "split": "review_scout", "nmse": scout.nmse})
-            suspect = self._suspect(rec, scout.nmse)
+            suspect = self._suspect(rec, scout.nmse, scout.mse)
             outcome = ReviewOutcome(
                 task=rec.task_name,
                 scout_nmse=scout.nmse,
@@ -75,10 +76,23 @@ class Reviewer:
             outcome.confirm_nmse = confirm.nmse
             outcome.forget_ratio = forget_ratio(rec.best_nmse, confirm.nmse)
             rec.current_val_nmse = confirm.nmse
+            rec.current_val_mse = confirm.mse
             rec.note_eval({"step": global_step, "split": "review_confirm", "nmse": confirm.nmse})
+            rec.note_eval(
+                {"step": global_step, "split": "review_confirm", "mse": confirm.mse}
+            )
 
-            if is_forgotten(confirm.nmse, rec.best_nmse, cfg.pass_nmse, cfg.forget_relative_threshold):
-                code = forget_code(rec.best_nmse, confirm.nmse, cfg.pass_nmse)
+            # 🔴 遗忘判定统一走 thresholds（口径跟随 cfg.pass_metric；无可用阈值时只剩相对退化）
+            if is_forgotten_ex(
+                cfg,
+                rec.task_name,
+                cur_nmse=confirm.nmse,
+                cur_mse=confirm.mse,
+                best_nmse=rec.best_nmse,
+            ):
+                code = forget_code_ex(
+                    cfg, rec.task_name, cur_nmse=confirm.nmse, cur_mse=confirm.mse
+                )
                 status = apply_reopen(
                     rec,
                     cfg,
@@ -95,11 +109,20 @@ class Reviewer:
         return outcomes
 
     # ---------------------------------------------------------------- #
-    def _suspect(self, rec: TaskRecord, nmse: Optional[float]) -> bool:
+    def _suspect(self, rec: TaskRecord, nmse: Optional[float],
+                 mse: Optional[float] = None) -> bool:
+        """疑似退化 ⇒ 值得补一次 confirm。
+
+        口径与正式判定**保持一致**：先看"掉出及格线"（跟随 `cfg.pass_metric`），
+        再看相对退化。该任务没有可用阈值时，只剩相对退化这一条。
+        """
         cfg = self.cfg
         if nmse is None:
             return True
-        if nmse > cfg.pass_nmse:
-            return True
+        metric, line = pass_line(cfg, rec.task_name)
+        if line is not None:
+            val = metric_value(metric, nmse=nmse, mse=mse)
+            if is_finite_metric(val) and float(val) > line:
+                return True
         ratio = forget_ratio(rec.best_nmse, nmse)
         return ratio is not None and ratio > cfg.forget_relative_threshold
