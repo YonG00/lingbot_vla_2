@@ -809,7 +809,12 @@ def main():
                         f"(steps_done={_al_state.get('steps_done')}, "
                         f"step_in_unit={_al_state.get('step_in_unit')})")
                 if start_step == 0:  # resume at the end of epoch
-                    iter(train_dataloader)  # clear resume state and prefetch data
+                    # ⚠️ [Stage B1] Auto Learning 开启时**不要**在这里建迭代器：
+                    #    此刻 hook 还没建、sampler 还没 `set_request()` ⇒ 会报
+                    #    「AutoLearnSampler 还没收到 TrainRequest」。
+                    #    epoch 循环开头还会再 `iter()` 一次（那时已 prime 过）⇒ 不丢语义。
+                    if not _al_on:
+                        iter(train_dataloader)  # clear resume state and prefetch data
                 dist.barrier()
                 logger.info_rank0(f"Load distributed checkpoint from {cp} successfully!")
                 loaded = True

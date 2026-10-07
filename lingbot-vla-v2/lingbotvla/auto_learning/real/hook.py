@@ -80,11 +80,25 @@ class AutoLearnLoopHook:
 
         # 跨过边界：把上一个 unit 的结果回填（若有），然后推进到下一个 train_unit
         self._drain_pending_unit(global_step)
+        req = self._open_next_unit()
+        if req is None:
+            return StepDirective(finished=True)
+        return StepDirective(rebuild_iterator=True, request=req,
+                             step_in_unit=0, unit_steps=self._unit_steps)
+
+    def _open_next_unit(self):
+        """推进 scheduler 直到发布下一个 `train_unit` 的 `TrainRequest`。
+
+        返回该 request；scheduler 已经结束（`finished`）时返回 **None**。
+
+        副作用：`_unit_steps` / `_step_in_unit` / `_unit_losses` 复位，并把 request
+        交给 sampler —— 🔴 **必须在重建 `iter(train_dataloader)` 之前**完成，
+        否则 sampler 的 `__iter__` 会因「还没收到 TrainRequest」直接报错。
+        """
         while self.scheduler.next_action() != "train_unit":
             if self.scheduler.state.finished:
-                return StepDirective(finished=True)
-            ev = self.scheduler.advance()
-            self._record(ev)
+                return None
+            self._record(self.scheduler.advance())
 
         ev = self.scheduler.advance()          # 触发 _train_unit（deferred）
         self._record(ev)
@@ -93,9 +107,9 @@ class AutoLearnLoopHook:
             raise RuntimeError("scheduler 没有发布 pending TrainRequest（defer_train 未生效？）")
         self._unit_steps = int(self.scheduler.pending_train_steps)
         self._step_in_unit = 0
+        self._unit_losses = []
         self.sampler.set_request(req)
-        return StepDirective(rebuild_iterator=True, request=req,
-                             step_in_unit=0, unit_steps=self._unit_steps)
+        return req
 
     def on_step_end(self, global_step: int, loss: float) -> None:
         self._step_in_unit += 1
@@ -181,6 +195,46 @@ class AutoLearnLoopHook:
         self._steps_done = int(raw.get("steps_done", 0))
         self.scheduler.resume()
         self.scheduler.defer_train = True
+        self._resume_inflight_unit()
+
+    def _resume_inflight_unit(self) -> None:
+        """resume 后处理「存档落在 learning unit 中途」的情况。
+
+        🔴 为什么**不能**接着跑（G9 Phase 2 实测踩到）
+        --------------------------------------------
+        * `scheduler._pending_train` 是**瞬态**字段，不进 `to_state()` ⇒ 恢复后
+          `pending_train_request is None`，`complete_train_unit()` 无从回填；
+        * sampler 的 `compositions` 也只在内存里 ⇒ 存档前已消费的 k 步的
+          `n_new`/`n_old` 补不回来，`stats_upto()` 会因「只产出 n-k 个 batch」
+          直接 fail-fast（§12）；
+        * 若不发布新 request，`on_step_begin()` 又会因 `_step_in_unit < _unit_steps`
+          直接 early-return ⇒ 循环开头的 `iter(train_dataloader)` 撞上
+          「AutoLearnSampler 还没收到 TrainRequest」。
+
+        ⇒ 统一策略：**本 unit 从头重跑**（`_step_in_unit` 归零 + 重新发布 request）。
+        scheduler 只会看到一个完整、自洽的 unit；代价是丢掉 k 步算力（权重已更新，
+        不可回退），日志里明说，不静默。
+
+        ⚠️ 判据是 `_unit_steps > 0`（**有 unit 在飞**），不是 `_step_in_unit > 0`：
+        `_step_in_unit == 0` 也可能意味着「unit 已开、但一步都还没跑」，
+        此时 request 同样已经丢了，必须重发。
+        """
+        if self._unit_steps <= 0:
+            return
+        dropped, unit_steps = self._step_in_unit, self._unit_steps
+        self._step_in_unit = 0
+        self._unit_steps = 0
+        self._unit_losses = []
+        if self.logger is not None:
+            try:
+                self.logger.info_rank0(
+                    f"[auto_learning] resume 时有一个 learning unit 在飞"
+                    f"（已跑 {dropped}/{unit_steps} 步，pending request 与采样统计"
+                    f"都是瞬态、没进存档）⇒ 本 unit 从头重跑，"
+                    f"丢弃这 {dropped} 步的统计（权重已更新，不可回退）")
+            except Exception:  # noqa: BLE001 —— 日志失败不该打断 resume
+                pass
+        self._open_next_unit()
 
 
 def build_hook(

@@ -239,6 +239,119 @@ def test_extra_state_rejects_bad_version():
         hook.load_extra_state({"version": 99})
 
 
+# --------------------------------------------------------------------------- #
+# 🔴 resume 落在 unit 中途（G9 Phase 2 实测踩到的坑，2026-10-07）
+# --------------------------------------------------------------------------- #
+def test_resume_mid_unit_republishes_request():
+    """存档落在 unit 中途 ⇒ 恢复后**必须**已经重新发布 request。
+
+    修复前：`on_step_begin()` 因 `_step_in_unit(1) < _unit_steps(5)` 直接
+    early-return，既不发布 request 也不要求重建 ⇒ 循环开头的
+    `iter(train_dataloader)` 撞上「AutoLearnSampler 还没收到 TrainRequest」。
+    """
+    cfg = _cfg()
+    n = cfg.auto_learning.eval_interval_steps
+    bs = cfg.auto_learning.batch_size
+    hook, sched, sampler = _hook(cfg)
+
+    # 跑到 unit 中途（1/n 步）后存档
+    hook.on_step_begin(0)
+    it = iter(sampler)
+    [next(it) for _ in range(bs)]
+    hook.on_step_end(1, loss=0.3)
+    raw = hook.extra_state()
+    assert raw["step_in_unit"] == 1 and raw["unit_steps"] == n
+
+    hook2, sched2, sampler2 = _hook(cfg)
+    hook2.load_extra_state(raw)
+
+    # ① 恢复后必须已经有 pending request，否则下面的 iter 会炸
+    assert sched2.pending_train_request is not None
+    it2 = iter(sampler2)                       # 修复前这里抛 RuntimeError
+    d = hook2.on_step_begin(0)                 # prime：unit 内 ⇒ 不要求重建
+    assert d.rebuild_iterator is False
+    assert d.unit_steps == n
+
+    # ② 本 unit 从头重跑满 n 步 ⇒ 记账完整（scheduler 只看到一个自洽的 unit）
+    for _ in range(n):
+        [next(it2) for _ in range(bs)]
+        hook2.on_step_end(0, loss=0.1)
+    assert sched2.state.units_run == sched.state.units_run
+    hook2.on_step_begin(n)
+    assert sched2.state.units_run == sched.state.units_run + 1
+    assert sched2.state.global_samples_seen == n * bs
+
+
+def test_resume_at_unit_end_does_not_silently_drop_the_unit():
+    """存档正好落在「unit 已跑满、还没回填」⇒ 恢复后该 unit 仍会被记账。"""
+    cfg = _cfg()
+    n = cfg.auto_learning.eval_interval_steps
+    bs = cfg.auto_learning.batch_size
+    hook, sched, sampler = _hook(cfg)
+
+    hook.on_step_begin(0)
+    it = iter(sampler)
+    for _ in range(n):
+        [next(it) for _ in range(bs)]
+        hook.on_step_end(0, loss=0.1)
+    assert sched.pending_train_request is not None      # 还没回填
+    raw = hook.extra_state()
+    assert raw["step_in_unit"] == n
+
+    hook2, sched2, sampler2 = _hook(cfg)
+    hook2.load_extra_state(raw)
+    it2 = iter(sampler2)
+    for _ in range(n):
+        [next(it2) for _ in range(bs)]
+        hook2.on_step_end(0, loss=0.1)
+    hook2.on_step_begin(n)
+    assert sched2.state.units_run == sched.state.units_run + 1, \
+        "恢复后这个 unit 必须被记账，不能静默丢掉"
+
+
+def test_resume_at_unit_start_republishes_request():
+    """存档落在「unit 已开、0 步还没跑」⇒ 也必须重新发布 request。
+
+    判据必须是 `_unit_steps > 0`（有 unit 在飞），而不是 `_step_in_unit > 0`：
+    此例 `step_in_unit == 0` 但 request 已经丢了，只按后者判会漏掉。
+    """
+    cfg = _cfg()
+    n = cfg.auto_learning.eval_interval_steps
+    bs = cfg.auto_learning.batch_size
+    hook, sched, sampler = _hook(cfg)
+
+    hook.on_step_begin(0)
+    it = iter(sampler)
+    for _ in range(n):
+        [next(it) for _ in range(bs)]
+        hook.on_step_end(0, loss=0.1)
+    hook.on_step_begin(n)                       # 跨边界 ⇒ 回填 + 开下一个 unit
+    raw = hook.extra_state()
+    assert raw["step_in_unit"] == 0 and raw["unit_steps"] == n
+
+    hook2, sched2, sampler2 = _hook(cfg)
+    hook2.load_extra_state(raw)
+    assert sched2.pending_train_request is not None, \
+        "unit 在飞（哪怕 0 步）⇒ 恢复时必须重发 request"
+    iter(sampler2)                              # 修复前这里抛 RuntimeError
+    assert hook2.on_step_begin(0).rebuild_iterator is False
+
+
+def test_resume_with_no_unit_in_flight_is_a_noop():
+    """`_unit_steps == 0`（没有 unit 在飞）⇒ 恢复时不该乱发 request。"""
+    cfg = _cfg()
+    hook, sched, sampler = _hook(cfg)
+    raw = hook.extra_state()
+    assert raw["unit_steps"] == 0 and raw["step_in_unit"] == 0
+
+    hook2, sched2, sampler2 = _hook(cfg)
+    hook2.load_extra_state(raw)
+    assert sched2.pending_train_request is None, "没有在飞的 unit ⇒ 不该凭空发 request"
+    d = hook2.on_step_begin(0)                  # prime 负责开第一个 unit
+    assert d.rebuild_iterator is True
+    iter(sampler2)
+
+
 def test_extra_state_is_json_serialisable(tmp_path):
     import json
 
