@@ -403,6 +403,12 @@ B1-8  48GB BF16 smoke fixes（等用户开卡）
 
 ### 18.2 G9 的两个变体（都是 `rc=0`）
 
+> ⚠️ **【已被 `265b350` 取代】** 本节记录的「resume 时 unit **从头重跑**」策略已废止：
+> 现在**只在 unit 边界存档**，落在 unit 中途的存档恢复时**直接 fail-fast**，
+> 并且 G9 的验收标准从「`rc=0`」升级为「**语义等价**」。
+> 请看 **`docs/stage_b1_closure_guide.md`**（含新的 A–G 回归脚本 `tools/al_b1_regression.sh`）。
+> 下表仅作历史记录。
+
 | 变体 | 存档时 `step_in_unit` | 恢复行为 |
 |---|---|---|
 | 中途存档（`save_steps=4`，unit = 3 步） | `1/3` | 日志：`resume 时有一个 learning unit 在飞（已跑 1/3 步）⇒ 本 unit 从头重跑` |
@@ -431,9 +437,11 @@ B1-8  48GB BF16 smoke fixes（等用户开卡）
    本次只为把 replay 路径在真机上打通。
 2. 🔴 **`smoke_2task.yaml` 的 `pass_nmse=1.66` 是 smoke 值**，由探针实测的 scout 推出，
    **不能用于正式训练**（正式门槛要按真实 baseline 定）。
-3. ⚠️ **resume 会把中断的 unit 从头重跑**（见 18.2）。`scheduler._pending_train`（request）与
+3. ~~⚠️ **resume 会把中断的 unit 从头重跑**（见 18.2）。`scheduler._pending_train`（request）与
    sampler 的 `compositions`（统计）都是瞬态、不进存档，接不下去 ⇒ 代价是丢 k 步算力
-   （权重已更新，不可回退），日志里明说。**未中断的运行曲线不受影响。**
+   （权重已更新，不可回退），日志里明说。**未中断的运行曲线不受影响。**~~
+   ⇒ **已废止（`265b350`）**：改为「只在 unit 边界存档 + 中途存档恢复时 fail-fast」，
+   详见 `docs/stage_b1_closure_guide.md`。
 4. ⚠️ 单任务 smoke 的 `--data.episode_ids_file` 只给 train 回合 ⇒ `TaskEntry.val_sample_ids`
    为空（评测走 `val_traj_ids` 另一条路，不受影响）。
 5. ⚠️ **一份 DCP 约 31G**；磁盘紧张时会让 `tests/test_disk_guard.py` 假红 —— 已修（见 18.5）。

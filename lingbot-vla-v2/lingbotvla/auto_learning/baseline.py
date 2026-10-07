@@ -184,6 +184,22 @@ def file_sha256(path: str, *, chunk: int = 1 << 20) -> Optional[str]:
     return h.hexdigest()[:16]
 
 
+def _canon_seq(v) -> List[str]:
+    """把 `cameras` / `joints` 规范化成**字符串列表**再进指纹。
+
+    🔴 为什么必须规范化：同一份配置在**两个来源**里的 Python 表示可能不同 ——
+
+    * `compute_task_baseline.py` 直接读 yaml ⇒ `joints: [{'arm.position': 14}]`（dict）
+    * 训练侧 args（命令行解析后）⇒ `["{'arm.position': 14}"]`（str）
+
+    二者 `str()` 之后完全相同 ⇒ 规范化后指纹一致。
+    不做这一步的话，P1-5 的「运行时对拍」会因为**表示差异**而假性报错。
+    """
+    if not v:
+        return []
+    return [str(x) for x in v]
+
+
 def baseline_fingerprint(
     *,
     dataset_root: Optional[str] = None,
@@ -210,8 +226,8 @@ def baseline_fingerprint(
         "sha256_train": sha256_train,
         "norm_stats_sha256": file_sha256(norm_stats_file) if norm_stats_file else None,
         "norm_stats_path": os.path.basename(norm_stats_file) if norm_stats_file else None,
-        "cameras": list(cameras or []),
-        "joints": list(joints or []),
+        "cameras": _canon_seq(cameras),
+        "joints": _canon_seq(joints),
         "chunk_size": chunk_size,
         "img_size": img_size,
         "per_episode_stride": bool(per_episode_stride),

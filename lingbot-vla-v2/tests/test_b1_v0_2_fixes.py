@@ -230,6 +230,24 @@ def test_runtime_fingerprint_changes_when_chunk_changes():
     assert a != b, "chunk_size 变了指纹必须变（否则旧分母会被错误复用）"
 
 
+def test_fingerprint_canonicalises_joints_and_cameras():
+    """🔴 yaml 直读（dict）与训练侧 args（str）必须算出**同一个**指纹。
+
+    否则 P1-5 的运行时对拍会因为「同一份配置的两种 Python 表示」而假性报错。
+    """
+    from lingbotvla.auto_learning.baseline import baseline_fingerprint
+
+    as_dict = {"cameras": ["c1"], "joints": [{"arm.position": 14}]}
+    as_str = {"cameras": ["c1"], "joints": ["{'arm.position': 14}"]}
+    fp_dict = baseline_fingerprint(cameras=as_dict["cameras"], joints=as_dict["joints"])
+    fp_str = baseline_fingerprint(cameras=as_str["cameras"], joints=as_str["joints"])
+    assert fp_dict == fp_str, "joints 的 dict / str 表示必须规范化成同一指纹"
+
+    # 换了相机或 joints ⇒ 必须变
+    assert fp_dict != baseline_fingerprint(cameras=["c2"], joints=as_dict["joints"])
+    assert fp_dict != baseline_fingerprint(cameras=["c1"], joints=[{"end.position": 14}])
+
+
 def test_baseline_fingerprint_mismatch_fails_fast():
     store = BaselineStore(path="/tmp/x.json", config_fingerprint="deadbeef")
     parts = types.SimpleNamespace(baseline_store=store)
