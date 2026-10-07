@@ -25,6 +25,10 @@ set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY=${PY:-/data/miniconda3/envs/lingbotvla/bin/python}
+# 🔴 torchrun 在 conda env 的 bin 里；脚本被 `bash tools/...` 直接调用时 PATH 常没有它
+#    ⇒ 显式补上（首次跑出 rc=127 `torchrun: command not found`，2026-10-07）
+export PATH="$(dirname "$PY"):$PATH"
+export PY
 PHASES=${PHASES:-/data/train/phases}
 SPLIT_1=${SPLIT_1:-/data/train/task_splits}
 SPLIT_2=${SPLIT_2:-/data/train/task_splits_2task}
@@ -71,6 +75,11 @@ al_train() {
     local max_steps="$6" save_steps="$7" resume="$8"; shift 8
     local rb; [ "$resume" = "1" ] && rb=true || rb=false
     local log="$LOGS/${tag}.log"
+    # 可选提速开关：NUM_WORKERS=<n> ⇒ 覆盖 config 的 data.num_workers（默认 8）。
+    # B1 收口后 sampler 走 `stats_upto(已消费步数)`，**允许 num_workers>0（含 prefetch）**，
+    # 所以可以安全调大以并行化视频解码（num_workers=0 时单步会慢一个数量级）。
+    local extra_workers=()
+    [ -n "${NUM_WORKERS:-}" ] && extra_workers=(--data.num_workers "$NUM_WORKERS")
     local cmd=(
       bash "$REPO/train.sh" tasks/vla/train_lingbotvla.py "$CFG_YAML"
       --model.model_path "$MODEL_BASE"
@@ -95,6 +104,7 @@ al_train() {
       --train.auto_learning "$cfg"
       --train.auto_learning_manifest "$manifest"
       --train.auto_learning_baseline "$BASELINE_FOR_RUN"
+      "${extra_workers[@]+"${extra_workers[@]}"}"
       "${@}"
     )
     echo "[al_train] $tag ⇒ $out  (max_steps=$max_steps save_steps=$save_steps resume=$rb)" | tee -a "$log"

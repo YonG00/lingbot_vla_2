@@ -10,12 +10,17 @@
 #
 # 环境变量：
 #   TASK       任务名（默认 click_bell；必须在 RoboTwin 的 50 个官方任务里）
+#   TASKS      多任务（逗号或空格分隔），**一次调用**跑完 ⇒ inference server 常驻、
+#              模型**只加载一次**（底层 launcher 的 queue 模式：跑完一个任务腾出槽位、
+#              直接接下一个，不重启 server）。与 TASK 二选一；给了 TASKS 就忽略 TASK。
+#              例：TASKS="place_fan,stack_blocks_two" EPISODES=10 CKPT_ROOT=... bash ...
 #   CONFIG     RoboTwin task_config（默认 demo_clean）—— 合法值 = task_config/*.yml：
 #              demo_clean / demo_randomized（**不是** clean/randomized）
 #   EPISODES   每个任务的回合数（默认 10；官方客户端默认是 100）
 #   CKPT_ROOT  训练输出目录（默认 /data/outputs/single/$TASK）
 #   STEP       评哪一步的 ckpt（默认 500）
-#   TAG        输出子目录名（默认 step${STEP}_${CONFIG#demo_}）
+#   TAG        输出子目录名（默认 step${STEP}_${CONFIG#demo_}）；
+#              单任务落 ${TAG}/${TASK}/，多任务落 ${TAG}/${各任务}/（布局一致）
 #   PORT       起始端口（默认 9330）
 #   DRY_RUN    1 = 只打印计划
 #
@@ -30,6 +35,7 @@ set -euo pipefail
 
 REPO=/data/code/lingbot-vla-v2
 TASK=${TASK:-click_bell}
+TASKS=${TASKS:-}          # 非空 ⇒ 多任务一次调用（server 常驻、模型只加载一次）
 CONFIG=${CONFIG:-demo_clean}
 EPISODES=${EPISODES:-10}
 CKPT_ROOT=${CKPT_ROOT:-/data/outputs/single/$TASK}
@@ -59,22 +65,38 @@ YAML="$(dirname "$(dirname "$(dirname "$CKPT")")")/lingbotvla_cli.yaml"
    ⇒ launcher（deploy/lingbot_vla_v2_policy.py:276）要求 --model_path 是
      <CKPT_ROOT>/checkpoints/global_step_N/hf_ckpt，当前层级不对"
 
-# ---- ② 任务清单 ---------------------------------------------------------------
-TL=/data/train/task_splits/${TASK}.eval.txt
-printf '%s\n' "$TASK" > "$TL"
+# ---- ② 任务清单（多任务时全部写进一个清单 ⇒ launcher 排队跑，server 不重启）----
+if [[ -n "$TASKS" ]]; then
+    TASK_LIST_STR="$(printf '%s' "$TASKS" | tr ',' ' ')"
+    read -r -a _task_arr <<< "$TASK_LIST_STR"
+    N_TASKS=${#_task_arr[@]}
+    TL=/data/train/task_splits/${N_TASKS}task.eval.txt
+    printf '%s\n' "${_task_arr[@]}" > "$TL"
+    TASK_DESC="$TASK_LIST_STR
+  任务个数    : $N_TASKS（一次调用 ⇒ 模型只加载一次、server 常驻排队换任务）"
+else
+    N_TASKS=1
+    TL=/data/train/task_splits/${TASK}.eval.txt
+    printf '%s\n' "$TASK" > "$TL"
+    TASK_DESC="$TASK"
+fi
 
 # ---- ③ Qwen3-VL backbone（必须 export）---------------------------------------
 [[ -d "$QWEN3VL" ]] || die "QWEN3VL 路径不存在: $QWEN3VL"
 export QWEN3VL_PATH="$QWEN3VL"
 [[ -d "$ROBOTWIN_DIR" ]] || die "RoboTwin 仓库不存在: $ROBOTWIN_DIR"
 
-OUT=/data/eval_results/closed_loop/${TAG}/${TASK}
+if [[ "$N_TASKS" -gt 1 ]]; then
+    OUT=/data/eval_results/closed_loop/${TAG}      # launcher 会按任务建子目录
+else
+    OUT=/data/eval_results/closed_loop/${TAG}/${TASK}
+fi
 mkdir -p "$OUT"
 
 hr
 cat <<EOF
-  任务        : $TASK
-  条件        : $CONFIG   （回合数 $EPISODES）
+  任务        : $TASK_DESC
+  条件        : $CONFIG   （每任务回合数 $EPISODES）
   ckpt        : $CKPT
   输出        : $OUT
   端口        : $PORT  （1 GPU × 1 server）

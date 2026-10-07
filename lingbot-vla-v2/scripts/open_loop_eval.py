@@ -201,7 +201,8 @@ def evaluate_single_trajectory(
     steps=300,
     action_horizon=16,
     save_plot_path=None,
-    max_infer_time = 10
+    max_infer_time = 10,
+    no_plot = False,
 ):
     # Ensure steps doesn't exceed trajectory length
     if LEROBOT_DATASET_API == "v2":
@@ -281,21 +282,22 @@ def evaluate_single_trajectory(
     logging.info(f"gt_action_joints vs time {gt_action_across_time.shape}")
     logging.info(f"pred_action_joints vs time {pred_action_across_time.shape}")
 
-    # Plot trajectory results
-    plot_trajectory_results(
-        state_joints_across_time=state_joints_across_time,
-        gt_action_across_time=gt_action_across_time,
-        pred_action_across_time=pred_action_across_time,
-        traj_id=traj_id,
-        action_keys=policy.vla.feature_transform.org_features['actions'],
-        action_horizon=action_horizon,
-        save_plot_path=save_plot_path or f"/tmp/open_loop_eval/traj_{traj_id}.jpeg",
-    )
+    # Plot trajectory results (skip when no_plot=True，批量标定时用，省 matplotlib 开销)
+    if not no_plot:
+        plot_trajectory_results(
+            state_joints_across_time=state_joints_across_time,
+            gt_action_across_time=gt_action_across_time,
+            pred_action_across_time=pred_action_across_time,
+            traj_id=traj_id,
+            action_keys=policy.vla.feature_transform.org_features['actions'],
+            action_horizon=action_horizon,
+            save_plot_path=save_plot_path or f"/tmp/open_loop_eval/traj_{traj_id}.jpeg",
+        )
 
     return mse, mae
 
 
-def main(policy, robo_name, data_root, traj_ids, chunk_size, save_plot_path, max_infer_time):
+def main(policy, robo_name, data_root, traj_ids, chunk_size, save_plot_path, max_infer_time, no_plot=False):
 
     policy.data_config.num_episode = None
     policy.data_config.chunk_size = policy.config.chunk_size
@@ -340,6 +342,7 @@ def main(policy, robo_name, data_root, traj_ids, chunk_size, save_plot_path, max
             save_plot_path=os.path.join(save_plot_path,f'{traj_id}.png'),
             action_horizon=chunk_size,
             max_infer_time=max_infer_time,
+            no_plot=no_plot,
         )
         print(f"MSE for trajectory {traj_id}: {mse}, MAE: {mae}")
         all_mse.append(mse)
@@ -383,6 +386,7 @@ if __name__ == "__main__":
 
     parser.add_argument('--save_plot_path', type=str, default='./open_loop_test/')
     parser.add_argument('--use_bf16', action='store_true', help='use bfloat16 to reduce GPU memory')
+    parser.add_argument('--no_plot', action='store_true', help='skip trajectory plots (批量标定提速)')
     args = parser.parse_args()
 
     os.makedirs(args.save_plot_path, exist_ok=True)
@@ -408,4 +412,4 @@ if __name__ == "__main__":
     data_path = args.data_path if args.data_path is not None else model.data_config.train_path
     
     model.reset(args.robo_name)
-    main(model, args.robo_name, data_path, traj_ids, args.use_length, args.save_plot_path, args.max_infer_time)
+    main(model, args.robo_name, data_path, traj_ids, args.use_length, args.save_plot_path, args.max_infer_time, no_plot=args.no_plot)
