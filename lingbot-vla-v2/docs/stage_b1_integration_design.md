@@ -369,3 +369,91 @@ B1-8  48GB BF16 smoke fixes（等用户开卡）
 - ❌ 不做多卡 Scheduler / all-rank evaluation
 - ❌ 不做 dynamic batch packing（v0 要求 `rmpad=false`）
 - ❌ 不为「更优雅」而重构既有已验证代码
+
+---
+
+## 18. 实测结果（2026-10-07 收口）
+
+单卡 **RTX 4090 48G**（`ctrl` = `autodl-pro-7909d1ce5113`），BF16，`micro=1 / gas=10 / gbs=10`，
+`rmpad=false`，`train_expert_only=true`。
+
+### 18.1 Gate C / D / E（G0–G10）
+
+| Gate | 内容 | 结果 |
+|---|---|---|
+| **C** | 无卡测试 §7.1–§7.11 | ✅ `pytest tests/ -q` = **346 passed / 10 skipped** |
+| **D** | G0–G6 接口 smoke | ✅ 全绿 |
+| **E** | G7–G10 完整 B1 smoke | ✅ 全绿 |
+
+逐项：
+
+| # | 内容 | 结果 |
+|---|---|---|
+| G0 | 环境 smoke（`QWEN3VL_PATH` / 4 个推理 server） | ✅ |
+| G1 | 既有 open-loop `selfcheck` 9/9 + `parity` 5/5 | ✅ 等价抽取未改数值 |
+| G2 | BF16 hardness（`forward_dtype()`） | ✅ |
+| G3 | 真实 40 回合 Fixed Baseline（+ 二次运行全命中缓存） | ✅ `click_bell mse=0.289230` |
+| G4 | 2→4 轨迹评测（tag 带 ids 指纹，避免命中旧 dataset 缓存） | ✅ |
+| G5 | 1 / 3-step training | ✅ |
+| **G6** | **7+3 provenance** | ✅ 运行时守卫 `BatchSampler._assert_provenance()` + 4 例无卡测试；2 任务实跑 `system/replay_slots=9`、`replay_unique_tasks=1` |
+| G7 | mini scheduler E2E | ✅ |
+| G8 | train → eval → train | ✅ |
+| **G9** | checkpoint → 重启 → resume | ✅ `rc=0`（两个变体，见 18.2） |
+| **G10** | 50-step unit | ✅ `rc=0`，`global_step=55`，55 步 **7分30秒**，VRAM max **45.47GB**；scout nmse 1.75 → step50 val nmse 0.5718 |
+
+### 18.2 G9 的两个变体（都是 `rc=0`）
+
+| 变体 | 存档时 `step_in_unit` | 恢复行为 |
+|---|---|---|
+| 中途存档（`save_steps=4`，unit = 3 步） | `1/3` | 日志：`resume 时有一个 learning unit 在飞（已跑 1/3 步）⇒ 本 unit 从头重跑` |
+| 边界存档（`save_steps=3`） | `3/3`（跑满但未回填） | 日志：`已跑 3/3 步 ⇒ 本 unit 从头重跑`；恢复后该 unit **被正常记账**（`units_run=1`、`attempt_step=3`、`global_samples_seen=30`），**没有静默丢掉** |
+
+### 18.3 多任务（2 任务）验证 —— 补上「真实 PASS 池 ⇒ Replay」
+
+单任务 smoke 里 PASS 池恒空，7+3 的「3」从来没在真机上出现过。用
+`tools/task_split.py --task click_bell,click_alarmclock` + `configs/auto_learning/smoke_2task.yaml` 补跑：
+
+| 观测 | 值 |
+|---|---|
+| bootstrap scout | `click_bell=1.7470` → candidate｜`click_alarmclock=1.5174` → confirm `1.6025` ≤ `pass_nmse=1.66` ⇒ **auto-PASS** |
+| select | `click_bell`（hardness 扫 14 条轨迹 / coverage 0.351） |
+| **Replay** | **`system/replay_slots = 9`**（3 步 × 3 槽）｜`replay_unique_tasks = 1` |
+| 记账 | `units_run=1`、`global_samples_seen=30`、`training/loss=0.3585` |
+| 结束 | `val_nmse=1.6390 ≤ 1.66` ⇒ PASS ⇒ `pass_pool_size=2` ⇒ `all_tasks_resolved` |
+
+`pass_nmse=1.66` 的取法：先跑一次**探针**（`max_steps=1`）把两个任务的 scout 打出来，
+再取「**低于最小 scout 的候选任务、但高于另一个任务的 scout**」的值 ⇒
+① 不会有任务在 bootstrap 被误判，② 一定有一个任务先进 PASS 池，给另一个任务当 Replay 源。
+
+### 18.4 已知限制（如实记录）
+
+1. 🔴 **多任务只验证到 2 个任务 / 1 个 unit / 9 个 replay slot**。真正的 4 任务正式实验属 B2；
+   本次只为把 replay 路径在真机上打通。
+2. 🔴 **`smoke_2task.yaml` 的 `pass_nmse=1.66` 是 smoke 值**，由探针实测的 scout 推出，
+   **不能用于正式训练**（正式门槛要按真实 baseline 定）。
+3. ⚠️ **resume 会把中断的 unit 从头重跑**（见 18.2）。`scheduler._pending_train`（request）与
+   sampler 的 `compositions`（统计）都是瞬态、不进存档，接不下去 ⇒ 代价是丢 k 步算力
+   （权重已更新，不可回退），日志里明说。**未中断的运行曲线不受影响。**
+4. ⚠️ 单任务 smoke 的 `--data.episode_ids_file` 只给 train 回合 ⇒ `TaskEntry.val_sample_ids`
+   为空（评测走 `val_traj_ids` 另一条路，不受影响）。
+5. ⚠️ **一份 DCP 约 31G**；磁盘紧张时会让 `tests/test_disk_guard.py` 假红 —— 已修（见 18.5）。
+6. ⚠️ resume 跑会出现 2 条 `Error detected in torch::autograd::CopySlices` 警告；不 resume 的
+   run（G10）为 0 条、§28 Legacy 也有 ⇒ **既有行为、非 Auto Learning 引入**。
+
+### 18.5 顺手修掉的既有问题
+
+| 问题 | 修法 |
+|---|---|
+| `tests/test_disk_guard.py` 的 T5/T5b/T6/T6b/T7 断言依赖**宿主机真实剩余空间**（`/data` 剩 78G 时靠「78 ≥ 77」踩线通过，剩 37.7G 就假红） | 新增 `_FixedDisk` 上下文管理器把 `disk_avail_gb` 钉住 |
+| `tools/task_split.py` 不能一次切多个任务（而多任务 manifest **必须只含目标任务**） | `--task` 支持逗号分隔；多任务时额外产出 `combined.*_ids.json` |
+
+### 18.6 §28 Legacy Training Regression（用最终代码复跑）
+
+`auto_learning` 关闭时 LEGACY（`/data/tmp/legacy/lingbot-vla-v2`）与
+INTEG（`/data/code/lingbot-vla-v2`）**逐位一致**：
+
+| step | Loss（LEGACY = INTEG） | GradNorm（LEGACY = INTEG） |
+|---|---|---|
+| 1 | 0.4130 | 2.1039 |
+| 2 | 0.3952 | 2.3264 |
+| 3 | 0.3497 | 2.3168 |

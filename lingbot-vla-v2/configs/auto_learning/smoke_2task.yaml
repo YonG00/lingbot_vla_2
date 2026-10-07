@@ -1,0 +1,21 @@
+# Stage B1 smoke：**多任务**（2 任务）Auto Learning。
+#
+# 目的：把「真实 PASS 池 ⇒ Replay slot」这条路径在 GPU 上跑通 —— 单任务 smoke
+# （`smoke_click_bell.yaml`）里 PASS 池恒空，7+3 的「3」从来没在真机上出现过。
+#
+# ⚠️ cadence 与阈值都是 **smoke 值**，不是正式默认值：
+#    - `eval_interval_steps: 3`、`min_steps_before_defer: 6` ⇒ 一个任务 1~2 个 unit 就判定完
+#    - `pass_nmse: 100.0` ⇒ 第一个 unit 结束必然 PASS（真实 nmse 在 1.5 附近）。
+#      **正式训练必须按真实 baseline 重定这个门槛**，绝不能用这个值。
+enabled: true
+task_names: [click_bell, click_alarmclock]
+batch_size: 10
+new_slots: 7
+replay_slots: 3
+eval_interval_steps: 3
+# 给 4 个 unit 的机会去跨过 pass_nmse（一个 unit 大约把 val nmse 压 4~7%）
+min_steps_before_defer: 12
+defer_retry_steps: 6
+max_attempts_per_task: 1
+pass_nmse: 1.66
+seed: 7
