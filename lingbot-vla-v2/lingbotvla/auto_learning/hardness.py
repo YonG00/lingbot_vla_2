@@ -124,11 +124,18 @@ class HardnessScorer:
 
         if not items:
             raise ValueError("items 为空，无法打分")
-        batch = default_collate([dict(it) for it in items])
-        if self.require_joint_mask and "joint_mask" not in batch:
+        # 🔴 `joint_mask` 的存在性必须在 **collate 之前**查：
+        #    `default_collate` 遇到非标准类型（比如测试替身）会先抛一句很难懂的
+        #    `TypeError: batch must contain tensors, numpy arrays, ...`，
+        #    把「缺 joint_mask」这个**真正的配置错误**盖掉（2026-10-07 实测：
+        #    `test_hardness_requires_joint_mask` 就是这样被藏了一整轮）。
+        #    先看原始 item ⇒ 报错永远指向真正的原因，也省掉一次无用的 collate。
+        if self.require_joint_mask and not all("joint_mask" in it for it in items):
             raise ValueError(
                 "缺少 `joint_mask` ⇒ 会落到未掩码分支，口径与训练不一致。"
                 "（确实要用未掩码口径请设 require_joint_mask=False）")
+
+        batch = default_collate([dict(it) for it in items])
 
         cfg = getattr(self.model, "config", None)
         batch = {k: (v.to(self.device) if torch.is_tensor(v) else v)
