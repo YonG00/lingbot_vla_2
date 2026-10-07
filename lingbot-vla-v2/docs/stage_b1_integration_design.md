@@ -381,7 +381,7 @@ B1-8  48GB BF16 smoke fixes（等用户开卡）
 
 | Gate | 内容 | 结果 |
 |---|---|---|
-| **C** | 无卡测试 §7.1–§7.11 | ✅ `pytest tests/ -q` = **346 passed / 10 skipped** |
+| **C** | 无卡测试 §7.1–§7.11 | ✅ `pytest tests/ -q` = **361 passed / 10 skipped**；`python -m lingbotvla.auto_learning.check --suite cpu` = **9 passed / 0 failed / 9 skipped** |
 | **D** | G0–G6 接口 smoke | ✅ 全绿 |
 | **E** | G7–G10 完整 B1 smoke | ✅ 全绿 |
 
@@ -444,16 +444,21 @@ B1-8  48GB BF16 smoke fixes（等用户开卡）
 
 | 问题 | 修法 |
 |---|---|
+| 🔴 **两个已提交的文件在远端工作区根本不存在**（`lingbotvla/auto_learning/check.py`、`tests/test_auto_learning_integration.py`）⇒ 之前远端跑的「346 passed」**根本没收集到** 那 15 个用例 | 补齐后重跑，立刻抓到下面的真失败；现为 **361 passed** |
+| 🔴 `HardnessScorer.score()` 先 `default_collate` 再查 `joint_mask` ⇒ 非标准类型会让 collate 先抛一句难懂的 `TypeError`，把「缺 `joint_mask`」这个**真正的配置错误**盖掉（`test_hardness_requires_joint_mask` 就这样被藏了一整轮） | 把存在性检查**提到 collate 之前**（直接看原始 item）：报错永远指向真正原因，也省一次无用 collate |
 | `tests/test_disk_guard.py` 的 T5/T5b/T6/T6b/T7 断言依赖**宿主机真实剩余空间**（`/data` 剩 78G 时靠「78 ≥ 77」踩线通过，剩 37.7G 就假红） | 新增 `_FixedDisk` 上下文管理器把 `disk_avail_gb` 钉住 |
 | `tools/task_split.py` 不能一次切多个任务（而多任务 manifest **必须只含目标任务**） | `--task` 支持逗号分隔；多任务时额外产出 `combined.*_ids.json` |
 
-### 18.6 §28 Legacy Training Regression（用最终代码复跑）
+### 18.6 §28 Legacy Training Regression（**最终代码**复跑）
 
 `auto_learning` 关闭时 LEGACY（`/data/tmp/legacy/lingbot-vla-v2`）与
-INTEG（`/data/code/lingbot-vla-v2`）**逐位一致**：
+INTEG（`/data/code/lingbot-vla-v2`）**逐位一致**（含 18.5 的 `hardness.py` 改动之后）：
 
 | step | Loss（LEGACY = INTEG） | GradNorm（LEGACY = INTEG） |
 |---|---|---|
 | 1 | 0.4130 | 2.1039 |
 | 2 | 0.3952 | 2.3264 |
 | 3 | 0.3497 | 2.3168 |
+
+> `hardness.py` 只在 `auto_learning.enabled=true` 时可达（`HardnessScorer` 仅由
+> `finish_auto_learning()` 构造，AL 关闭时该模块不会被 import），上面这次复跑是对这一点的实测确认。
