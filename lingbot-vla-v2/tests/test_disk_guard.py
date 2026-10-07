@@ -8,10 +8,15 @@
   T2  DCP save 抛异常 -> re-raise
   T3  HF async 正常
   T4  HF async 抛异常 -> hf_save_failed=True
-  T5  多卡收到相同 stop=True
+  T5  多卡收到相同 stop / T5b 多卡收到相同 hf_failed reason
   T6  HF 失败后不再进入下一次 Checkpointer.save()
-  T7  磁盘余量不足 -> allow=False (reason=disk)
+  T6b 余量不足 -> allow=False (reason=disk)
+  T7  首个 checkpoint 放行 + max_used 只增不减
   T8  fail-open: 读盘失败 / 占用无效 / 收集异常 -> 放行
+
+⚠️ 凡是断言依赖「剩余空间够不够」的用例（T5/T5b/T6/T6b/T7）都必须用
+   `_FixedDisk(...)` 把 `disk_avail_gb` 钉住 —— 否则测试结果会随宿主机
+   真实剩余空间变化（踩过：`/data` 只剩 37.7G 时 T7 假红）。
 """
 import logging
 import os
@@ -35,6 +40,29 @@ _REAL_DIST = _real_dist          # T5 会替换 cg.dist, 之后必须恢复, 否
 def _use_single_rank():
     """恢复真实 dist (未初始化) —— 即单卡语义。"""
     cg.dist = _REAL_DIST
+
+
+class _FixedDisk:
+    """把 `cg.disk_avail_gb` 固定成给定值（GB）。
+
+    🔴 涉及容量判定的用例**必须**用它：否则断言依赖**宿主机真实剩余空间**。
+    实测踩过：`/data` 剩 78G 时 T7 靠「78 >= 77」踩着 1G 余量通过；
+    跑完一轮训练存档后只剩 37.7G，T7 立刻变红 —— 与被测代码毫无关系。
+    单元测试不能依赖宿主磁盘状态。
+    """
+
+    def __init__(self, avail_gb):
+        self.avail_gb = avail_gb
+        self._orig = None
+
+    def __enter__(self):
+        self._orig = cg.disk_avail_gb
+        cg.disk_avail_gb = lambda path: self.avail_gb
+        return self
+
+    def __exit__(self, *exc):
+        cg.disk_avail_gb = self._orig
+        return False
 
 
 
@@ -180,29 +208,32 @@ def test_t4_hf_async_failure_sets_flag():
 def test_t5_all_ranks_receive_same_stop():
     store = {}
     flags, maxes = [], []
-    for rank in range(4):
-        cg.dist = FakeDist(rank, store)
-        # 只有 rank0 有实测结果; 其余 rank 的 saver 不可用
-        saver = RecordingSaver([[_result(before=2000.0, after=1000.0)]]) if rank == 0 else None
-        allow, max_used, _, reason = cg.disk_guard_check(TMP, saver, 0.0, 1.1, label=f"rank{rank}")
-        flags.append(allow)
-        maxes.append(max_used)
-        if rank == 0:
-            assert reason == "disk", reason
-        else:
-            assert reason == "disk", f"rank{rank} 也必须收到同一 reason: {reason}"
+    # 余量固定 10G ⇒ 1100G 的需求必然被拒（不依赖宿主机真实剩余空间）
+    with _FixedDisk(10.0):
+        for rank in range(4):
+            cg.dist = FakeDist(rank, store)
+            # 只有 rank0 有实测结果; 其余 rank 的 saver 不可用
+            saver = RecordingSaver([[_result(before=2000.0, after=1000.0)]]) if rank == 0 else None
+            allow, max_used, _, reason = cg.disk_guard_check(TMP, saver, 0.0, 1.1, label=f"rank{rank}")
+            flags.append(allow)
+            maxes.append(max_used)
+            if rank == 0:
+                assert reason == "disk", reason
+            else:
+                assert reason == "disk", f"rank{rank} 也必须收到同一 reason: {reason}"
     assert flags == [False] * 4, f"4 个 rank 必须一致 stop: {flags}"
     assert len(set(maxes)) == 1, f"4 个 rank 的 max_used 必须一致: {maxes}"
 
 
 def test_t5b_hf_failure_reason_broadcast():
     store = {}
-    for rank in range(4):
-        cg.dist = FakeDist(rank, store)
-        saver = RecordingSaver([[_result(err="ENOSPC", failed=True)]]) if rank == 0 else None
-        allow, _, _, reason = cg.disk_guard_check(TMP, saver, 0.0, 1.1)
-        assert allow is False, f"rank{rank} 必须 stop"
-        assert reason == "hf_failed", f"rank{rank} reason={reason}"
+    with _FixedDisk(1000.0):          # 余量充足 ⇒ 必须走到 hf_failed 这条分支
+        for rank in range(4):
+            cg.dist = FakeDist(rank, store)
+            saver = RecordingSaver([[_result(err="ENOSPC", failed=True)]]) if rank == 0 else None
+            allow, _, _, reason = cg.disk_guard_check(TMP, saver, 0.0, 1.1)
+            assert allow is False, f"rank{rank} 必须 stop"
+            assert reason == "hf_failed", f"rank{rank} reason={reason}"
 
 
 # ---------------------------------------------------------------------------
@@ -220,13 +251,14 @@ def test_t6_no_save_after_hf_failure():
     ])
     max_used = 0.0
     saved = []
-    for step in (545, 1090):
-        allow, max_used, _, reason = cg.disk_guard_check(TMP, saver, max_used, 1.1, label=f"step {step}")
-        if not allow:
-            assert reason == "hf_failed", reason
-            break
-        cg.dcp_save_or_abort(ckpt, TMP, {"model": None}, step)
-        saved.append(step)
+    with _FixedDisk(1000.0):                  # 余量充足 ⇒ 拒绝只能来自 hf_failed
+        for step in (545, 1090):
+            allow, max_used, _, reason = cg.disk_guard_check(TMP, saver, max_used, 1.1, label=f"step {step}")
+            if not allow:
+                assert reason == "hf_failed", reason
+                break
+            cg.dcp_save_or_abort(ckpt, TMP, {"model": None}, step)
+            saved.append(step)
     assert saved == [545], f"HF 失败后不得再存档, 实际存档: {saved}"
     assert ckpt.calls == [545], ckpt.calls
 
@@ -239,13 +271,14 @@ def test_t6b_disk_full_blocks_next_save():
     ])
     max_used = 0.0
     saved = []
-    for step in (545, 1090):
-        allow, max_used, _, reason = cg.disk_guard_check(TMP, saver, max_used, 1.1, label=f"step {step}")
-        if not allow:
-            assert reason == "disk", reason
-            break
-        cg.dcp_save_or_abort(ckpt, TMP, {"model": None}, step)
-        saved.append(step)
+    with _FixedDisk(10.0):                    # 余量只有 10G ⇒ 必然拒绝
+        for step in (545, 1090):
+            allow, max_used, _, reason = cg.disk_guard_check(TMP, saver, max_used, 1.1, label=f"step {step}")
+            if not allow:
+                assert reason == "disk", reason
+                break
+            cg.dcp_save_or_abort(ckpt, TMP, {"model": None}, step)
+            saved.append(step)
     assert saved == [], f"余量不足时不应存档, 实际: {saved}"
 
 
@@ -255,18 +288,21 @@ def test_t6b_disk_full_blocks_next_save():
 
 def test_t7_first_checkpoint_passes_and_tracks_max():
     _use_single_rank()
-    allow, max_used, avail, reason = cg.disk_guard_check(
-        TMP, RecordingSaver([[]]), 0.0, 1.1, label="first")
-    assert allow is True and max_used == 0.0 and avail is not None and reason == ""
+    # 余量固定 1000G ⇒ 与宿主机真实剩余空间解耦（曾因只剩 37.7G 而假红）
+    with _FixedDisk(1000.0):
+        allow, max_used, avail, reason = cg.disk_guard_check(
+            TMP, RecordingSaver([[]]), 0.0, 1.1, label="first")
+        assert allow is True and max_used == 0.0 and avail is not None and reason == ""
+        assert abs(avail - 1000.0) < 0.01, avail
 
-    allow, max_used, _, _ = cg.disk_guard_check(
-        TMP, RecordingSaver([[_result(before=500.0, after=430.0)]]), 0.0, 1.1)
-    assert allow is True and abs(max_used - 70.0) < 0.01, max_used
+        allow, max_used, _, _ = cg.disk_guard_check(
+            TMP, RecordingSaver([[_result(before=500.0, after=430.0)]]), 0.0, 1.1)
+        assert allow is True and abs(max_used - 70.0) < 0.01, max_used
 
-    # max 只增不减
-    allow, max_used, _, _ = cg.disk_guard_check(
-        TMP, RecordingSaver([[_result(before=100.0, after=90.0)]]), 500.0, 1.1)
-    assert abs(max_used - 500.0) < 0.01, max_used
+        # max 只增不减
+        allow, max_used, _, _ = cg.disk_guard_check(
+            TMP, RecordingSaver([[_result(before=100.0, after=90.0)]]), 500.0, 1.1)
+        assert abs(max_used - 500.0) < 0.01, max_used
 
 
 def test_t8_fail_open_paths():
