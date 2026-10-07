@@ -765,6 +765,7 @@ def main():
 
     load_checkpoint_path = None
     candidates = []
+    _al_state = None          # [Stage B1] 从 checkpoint 里读出的 Auto Learning 状态
     if args.train.load_checkpoint_path or args.train.enable_resume:
         if args.train.load_checkpoint_path:
             load_checkpoint_path = args.train.load_checkpoint_path
@@ -800,6 +801,13 @@ def main():
                     train_dataloader.load_state_dict(state["extra_state"]["train_dataloader"])
                 environ_meter.load_state_dict(state["extra_state"]["environ_meter"])
                 torch.set_rng_state(state["extra_state"]["torch_rng_state"])
+                # ---- [Stage B1] Auto Learning 状态（等 hook 建好后再应用）----
+                _al_state = state["extra_state"].get("auto_learning")
+                if _al_state is not None:
+                    logger.info_rank0(
+                        "[auto_learning] 从 checkpoint 读到 Auto Learning 状态 "
+                        f"(steps_done={_al_state.get('steps_done')}, "
+                        f"step_in_unit={_al_state.get('step_in_unit')})")
                 if start_step == 0:  # resume at the end of epoch
                     iter(train_dataloader)  # clear resume state and prefetch data
                 dist.barrier()
@@ -868,6 +876,13 @@ def main():
             _al_parts, model=model, processor=processor, args=args,
             writer=writer, logger=logger, use_depth_align=use_depth_align,
         )
+        if _al_state is not None:
+            # ⚠️ `load_extra_state()` 内部会调 `scheduler.resume()`
+            _al_hook.load_extra_state(_al_state)
+            logger.info_rank0(
+                f"[auto_learning] 已恢复：step={_al_hook.scheduler.state.global_step} "
+                f"unit={_al_hook.scheduler.state.units_run} "
+                f"task={_al_hook.scheduler.state.current_task}")
         logger.info_rank0("[auto_learning] hook 已挂上（unit 边界会重建 DataLoader 迭代器）")
         # 🔴 **必须 prime 一次**：`iter(train_dataloader)` 发生在 epoch 开头，
         #    早于循环体里的 `on_step_begin()` ⇒ 不先发布 request，sampler 的
@@ -1323,6 +1338,8 @@ def main():
                         "train_dataloader": train_dataloader.state_dict(),
                         "environ_meter": environ_meter.state_dict(),
                         "torch_rng_state": torch.get_rng_state(),
+                        # ---- [Stage B1] Auto Learning 状态（enabled=false 时是 None）----
+                        "auto_learning": (_al_hook.extra_state() if _al_hook is not None else None),
                     },
                 }
                 if args.train.global_rank == 0:
@@ -1426,6 +1443,8 @@ def main():
                         "train_dataloader": train_dataloader.state_dict(),
                         "environ_meter": environ_meter.state_dict(),
                         "torch_rng_state": torch.get_rng_state(),
+                        # ---- [Stage B1] Auto Learning 状态（enabled=false 时是 None）----
+                        "auto_learning": (_al_hook.extra_state() if _al_hook is not None else None),
                     },
                 }
                 _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
@@ -1466,6 +1485,8 @@ def main():
                     "train_dataloader": train_dataloader.state_dict(),
                     "environ_meter": environ_meter.state_dict(),
                     "torch_rng_state": torch.get_rng_state(),
+                    # ---- [Stage B1] Auto Learning 状态（enabled=false 时是 None）----
+                    "auto_learning": (_al_hook.extra_state() if _al_hook is not None else None),
                 },
             }
             _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
