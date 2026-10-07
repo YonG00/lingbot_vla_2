@@ -89,6 +89,7 @@ class BatchSampler:
 
         comp = BatchComposition(new=new_refs, old=old_refs)
         self._assert_train_only(comp)
+        self._assert_provenance(comp, prepared)
         self.n_batches += 1
         return comp
 
@@ -99,3 +100,30 @@ class BatchSampler:
         bad = [r for r in comp.refs if r.is_val]
         if bad:
             raise AssertionError(f"val sample 混进了训练 batch: {bad[:3]}")
+
+    @staticmethod
+    def _assert_provenance(comp: BatchComposition, prepared: PreparedRequest) -> None:
+        """**G6：逐 batch provenance 审计**（B1 集成测试清单里的 G6）。
+
+        每步都跑，代价只有 `batch_size` 次字符串比较；但一旦「某个 slot 的来源任务
+        错了」就会立刻炸，而不是等训练出一个说不清的模型：
+
+        * NEW ⇒ 必须全部来自**当前 active task**；
+        * Replay ⇒ 必须全部来自 `req.replay.tasks`（= PASS 池）里的某个 task。
+
+        ⚠️ 这条守的是**采样器侧**的来源正确性。另一类污染（旧 unit 的 batch 被
+        DataLoader 预取跨过 unit 边界）由「unit 边界重建迭代器 + `stats_upto()`
+        步数校验」守，见 `real/hook.py` 与设计文档 §5。
+        """
+        req = prepared.request
+        bad_new = [r for r in comp.new if r.task != req.task]
+        if bad_new:
+            raise AssertionError(
+                f"provenance 违规：{len(bad_new)}/{len(comp.new)} 个 NEW slot 不属于 "
+                f"active task {req.task!r}（例如 {bad_new[:2]}）")
+        allowed_old = set(req.replay.tasks)
+        bad_old = [r for r in comp.old if r.task not in allowed_old]
+        if bad_old:
+            raise AssertionError(
+                f"provenance 违规：{len(bad_old)}/{len(comp.old)} 个 Replay slot 不属于 "
+                f"PASS 池 {sorted(allowed_old)}（例如 {bad_old[:2]}）")

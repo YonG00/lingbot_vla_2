@@ -25,7 +25,7 @@ from lingbotvla.auto_learning.ports import (                         # noqa: E40
 )
 from lingbotvla.auto_learning.real.sampler import AutoLearnSampler   # noqa: E402
 from lingbotvla.auto_learning.sampling.sampler import BatchSampler   # noqa: E402
-from lingbotvla.auto_learning.types import SampleRef                 # noqa: E402
+from lingbotvla.auto_learning.types import BatchComposition, SampleRef  # noqa: E402
 
 _TMP_ROOT = REPO / ".pytest_tmp"
 
@@ -156,6 +156,98 @@ def test_seven_new_three_replay_when_pass_exists():
         assert comp.n_new == 7 and comp.n_old == 3
         assert all(r.task == "task_0" for r in comp.new), "NEW 必须来自当前 active task"
         assert all(r.task == "task_1" for r in comp.old), "OLD 必须来自 PASS pool"
+
+
+def test_g6_batch_provenance_from_index_stream():
+    """**G6：逐 batch provenance 审计** —— 从真实 index 流反查来源。
+
+    与上面那条的区别：这里不信 `comp.new` / `comp.old`，而是只看 DataLoader 真正
+    消费到的那串 `sample_id`（`sampler.__iter__` 的产出），按 `batch_size` 切回
+    每个 batch，再用 resolver 校验归属：
+
+      * 前 `new_slots` 个 ⇒ 必须全部落在 **active task 的 train 集**；
+      * 后 `replay_slots` 个 ⇒ 必须全部落在 **PASS pool 里某个 task 的 train 集**；
+      * 两段不重叠；任何 val / 别的任务的 id 都不允许出现。
+
+    `BatchComposition.refs == new + old` 是这条断言成立的前提（types.py）。
+    """
+    cfg = _cfg()
+    cat, res, owner = _world(n_tasks=4)
+    active, pass_tasks = "task_0", ["task_1", "task_2"]
+    replay = ReplayPlan(
+        tasks=list(pass_tasks),
+        probs={t: {sid: 1.0 for sid in cat.entry(t).train_sample_ids} for t in pass_tasks},
+        sample_ids={t: list(cat.entry(t).train_sample_ids) for t in pass_tasks},
+    )
+    s = _sampler(cfg, cat, res, seed=5)
+    s.set_request(_req(active, cat.entry(active), cfg, replay=replay))
+
+    bs = cfg.batch_size
+    stream = _draw(s, 30)                       # 30 个 batch = 300 个 index
+    assert all(len(b) == bs for b in stream)
+
+    active_train = set(cat.entry(active).train_sample_ids)
+    pass_train = {t: set(cat.entry(t).train_sample_ids) for t in pass_tasks}
+
+    for k, batch in enumerate(stream):
+        new_ids, old_ids = batch[:cfg.new_slots], batch[cfg.new_slots:]
+        assert len(new_ids) == cfg.new_slots and len(old_ids) == cfg.replay_slots
+
+        for sid in new_ids:                     # ① NEW 来自当前 active task
+            assert sid in active_train, \
+                f"batch {k}: NEW sample_id={sid} 不在 {active} 的 train 集"
+            assert res.resolve(active, sid).task == active
+
+        for sid in old_ids:                     # ② OLD 来自 PASS pool
+            own = owner.get(sid)
+            assert own in pass_train, \
+                f"batch {k}: OLD sample_id={sid} 属于 {own!r}，不在 PASS pool {pass_tasks}"
+            assert sid in pass_train[own]
+
+        assert not (set(new_ids) & set(old_ids)), f"batch {k}: NEW 与 OLD 出现重叠 id"
+
+
+def test_g6_provenance_holds_across_unit_boundaries():
+    """换一个 `TrainRequest`（新 unit）后 provenance 依然成立，且统计跟着走。"""
+    cfg = _cfg()
+    cat, res, owner = _world(n_tasks=4)
+    replay = ReplayPlan(
+        tasks=["task_1"],
+        probs={"task_1": {sid: 1.0 for sid in cat.entry("task_1").train_sample_ids}},
+        sample_ids={"task_1": list(cat.entry("task_1").train_sample_ids)},
+    )
+    s = _sampler(cfg, cat, res, seed=9)
+    for active in ("task_0", "task_2"):
+        s.set_request(_req(active, cat.entry(active), cfg, replay=replay))
+        for batch in _draw(s, 5):
+            for sid in batch[:cfg.new_slots]:
+                assert sid in set(cat.entry(active).train_sample_ids), \
+                    f"unit 切换后 NEW 必须跟着切到 {active}"
+        st = s.stats_upto(5)
+        assert st.steps == 5 and st.samples_seen == 5 * cfg.batch_size
+        assert set(st.new_slot_counts_by_task) == {active}
+
+
+def test_g6_provenance_assertion_actually_fires():
+    """G6 的运行时守卫必须**真的会响**（否则它只是装饰）。"""
+    cfg = _cfg()
+    cat, res, _ = _world(n_tasks=3)
+    s = _sampler(cfg, cat, res)
+    req = _req("task_0", cat.entry("task_0"), cfg)   # replay 为空
+    prepared = s.batch_sampler.prepare(req)
+
+    bad_new = BatchComposition(new=[SampleRef("task_1", 1, 0, 0)], old=[])
+    with pytest.raises(AssertionError, match="NEW slot"):
+        s.batch_sampler._assert_provenance(bad_new, prepared)
+
+    bad_old = BatchComposition(new=[SampleRef("task_0", 1, 0, 0)],
+                               old=[SampleRef("task_2", 2, 0, 0)])
+    with pytest.raises(AssertionError, match="Replay slot"):
+        s.batch_sampler._assert_provenance(bad_old, prepared)
+
+    # 正例：正常路径产出的 batch 必须安静通过
+    good = s.batch_sampler.build(prepared)
+    s.batch_sampler._assert_provenance(good, prepared)
 
 
 def test_replay_prefers_distinct_tasks():
