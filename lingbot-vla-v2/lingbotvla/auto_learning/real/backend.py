@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence
 
 from ..ports import Backend, TrajectoryMetrics
+from .determinism import deterministic_sampling
 
 
 # --------------------------------------------------------------------------- #
@@ -70,10 +71,12 @@ class RealHardnessScorer:
     ``dataset`` 必须是**训练数据集**（与 `sample_id` 同一索引空间）。
     """
 
-    def __init__(self, scorer: Any, dataset: Any, *, max_batch: int = 8):
+    def __init__(self, scorer: Any, dataset: Any, *, max_batch: int = 8, logger: Any = None):
         self.scorer = scorer
         self.dataset = dataset
         self.max_batch = int(max_batch)
+        self.logger = logger
+        self._aug_warned = False
 
     def score(self, task: str, sample_ids: Sequence[int]) -> Dict[int, float]:
         ids = [int(s) for s in sample_ids]
@@ -82,7 +85,21 @@ class RealHardnessScorer:
         out: Dict[int, float] = {}
         for i in range(0, len(ids), self.max_batch):
             chunk = ids[i:i + self.max_batch]
-            items = [self.dataset[j] for j in chunk]
+            # 🔴 review v0.2 #8：取 item **必须**在确定性上下文里 ——
+            #    否则 `image_augment=true` 会让同一 sample_id 两次扫描得到不同图，
+            #    并消耗全局 RNG（污染训练随机流）。
+            with deterministic_sampling(self.dataset) as rep:
+                if rep["n_ft"] == 0 and not self._aug_warned:
+                    self._aug_warned = True
+                    if self.logger is not None:
+                        try:
+                            self.logger.warning(
+                                "[auto_learning][hardness] 没能定位到 feature_transform ⇒ "
+                                "无法临时关闭图像增强；若数据集开了 image_augment，"
+                                "hardness 分数将不可复现。")
+                        except Exception:  # noqa: BLE001
+                            pass
+                items = [self.dataset[j] for j in chunk]
             vals = self.scorer.score(items)
             for sid, v in zip(chunk, vals):
                 out[sid] = float(v)
@@ -132,11 +149,11 @@ def build_real_backend(
     )
 
 
-def build_real_hardness(model: Any, dataset: Any, **kw) -> RealHardnessScorer:
+def build_real_hardness(model: Any, dataset: Any, *, logger: Any = None, **kw) -> RealHardnessScorer:
     """便捷构造：真实 `HardnessScorer` + 训练数据集。"""
     from ..hardness import HardnessScorer
 
-    return RealHardnessScorer(HardnessScorer(model, **kw), dataset)
+    return RealHardnessScorer(HardnessScorer(model, **kw), dataset, logger=logger)
 
 
 __all__ = ["RealEvaluator", "RealHardnessScorer", "RealTrainerStub",

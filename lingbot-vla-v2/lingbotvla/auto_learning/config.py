@@ -99,6 +99,13 @@ class AutoLearningConfig:
 
     # ----- misc -----
     seed: int = 0
+    #: 🔴 review v0.2 #8：v1 要求训练数据集 `image_augment=false`。
+    #: True 时**不 fail-fast**，而是打印强警告（hardness 侧仍会临时关增强 + 还原 RNG，
+    #: 但「同一个 sample_id 的难度」在不同扫描之间仍可能漂移）。默认 False。
+    allow_image_augment: bool = False
+    #: 🔴 review v0.2 #6：`enabled=true` 时 baseline store **默认必填**。
+    #: 仅 smoke / 单测允许设 True 跳过（此时 NMSE=None，所有任务会被排除出候选池）。
+    allow_missing_baseline: bool = False
 
     # ---------------------------------------------------------------- #
     def __post_init__(self) -> None:

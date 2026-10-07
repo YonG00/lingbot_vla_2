@@ -64,6 +64,23 @@ class EvaluatorAdapter:
         self.require_baseline = require_baseline
 
     # -- 内部 ---------------------------------------------------------------
+    def _clear_dataset_cache(self) -> None:
+        """清掉 validator 的数据集缓存（review v0.2 #5）。
+
+        * validator 没有该接口 ⇒ 直接返回（测试替身 / 旧版本）；
+        * 清理本身失败 ⇒ 只 warning，**不打断评测**（缓存多留一份不是正确性问题）。
+        """
+        clear = getattr(self.validator, "clear_dataset_cache", None)
+        if clear is None:
+            return
+        try:
+            freed = clear()
+        except Exception as e:  # noqa: BLE001
+            self.logger.warning(f"[auto_learning] clear_dataset_cache 失败（已忽略）: {e}")
+            return
+        if freed:
+            self.logger.info_rank0(f"[auto_learning] 已释放数据集缓存 {freed} 份")
+
     def _baseline_for(self, task_id: str):
         if self.baseline_store is None:
             return None
@@ -114,7 +131,16 @@ class EvaluatorAdapter:
         tag = f"{self.tag_prefix}_{task_id}_{split}_{ids_fingerprint(ids)}"
         t0 = time.time()
         # 🔴 走 evaluate_ids（内含 safe_eval_context），**不要**直接调 _evaluate_ids
-        raw = self.validator.evaluate_ids(ids, tag)
+        try:
+            raw = self.validator.evaluate_ids(ids, tag)
+        finally:
+            # 🔴 review v0.2 #5：`OpenLoopValidator` 的数据集缓存**按 tag 缓存、只增不减**，
+            #    而 tag 现在含 ids 指纹 ⇒ 正式长跑（50 任务 × scout2/confirm4/active…）
+            #    会不断产生新 key、内存持续增长。
+            #    ⇒ 每次评测后清掉；`evaluate_ids` 是 safe_eval_context 的**外层**，
+            #    走到这里 context 已经退出，清缓存不会污染评测状态。
+            #    （若将来 rebuild dataset 太慢，再改成小的 LRU，**不要**无限缓存。）
+            self._clear_dataset_cache()
         elapsed = time.time() - t0
 
         b_mse = float(baseline.mse) if baseline is not None else None

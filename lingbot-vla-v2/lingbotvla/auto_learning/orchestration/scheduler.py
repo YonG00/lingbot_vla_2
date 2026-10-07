@@ -453,13 +453,30 @@ class Scheduler:
     def pending_train_steps(self) -> int:
         return 0 if self._pending_train is None else self._pending_train[1]
 
-    def complete_train_unit(self, result: TrainResult) -> Dict[str, Any]:
-        """把外层跑完的 `TrainResult` 交回来，继续做 unit 级决策。"""
+    def complete_train_unit(self, result: TrainResult, *,
+                            allow_partial: bool = False) -> Dict[str, Any]:
+        """把外层跑完的 `TrainResult` 交回来，继续做 unit 级决策。
+
+        ``allow_partial=True``（**只在训练收尾时用**，见 hook 的 `flush_partial_unit`）：
+        unit 没跑满 ⇒ 按 `result.steps` 的**实际步数**记账，让 Scheduler 的账与
+        模型权重对齐（模型已经做了这 k 次 update，不能当成没发生）。
+        默认 `False` ⇒ 行为与既有调用**逐位不变**。
+        """
         if self._pending_train is None:
             raise RuntimeError("当前没有待完成的 train_unit（需 defer_train=True）")
         request, steps = self._pending_train
         self._pending_train = None
+        if allow_partial and 0 < int(result.steps) < int(steps):
+            steps = int(result.steps)
         return self._apply_train_result(request, steps, result)
+
+    def cancel_pending_train_unit(self) -> None:
+        """撤回尚未跑动（0 步）的 pending train_unit。
+
+        用途：训练收尾 / epoch 切换时，unit 刚发布但一步都没跑 ⇒ 模型没有被更新，
+        直接撤回即可（不改账）。**不要**用它丢一个已经跑过步的 unit。
+        """
+        self._pending_train = None
 
     def _apply_train_result(self, request, steps: int,
                             result: TrainResult) -> Dict[str, Any]:

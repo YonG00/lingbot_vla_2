@@ -136,6 +136,7 @@ def test_steps_within_unit_do_not_ask_for_rebuild():
 
 
 def test_unit_completes_and_advances_scheduler():
+    """🔴 review v0.2 #2：unit 的**最后一步跑完就当场回填**，不等下一个 `on_step_begin`。"""
     cfg = _cfg()
     hook, sched, sampler = _hook(cfg)
     n = cfg.auto_learning.eval_interval_steps
@@ -146,12 +147,12 @@ def test_unit_completes_and_advances_scheduler():
     for step in range(n):
         [next(it) for _ in range(cfg.auto_learning.batch_size)]
         hook.on_step_end(step, loss=0.2)
-    assert sched.pending_train_request is not None, "回填前应当还挂着 pending"
-
-    # 跨到下一步 ⇒ 自动 drain 上一个 unit
-    hook.on_step_begin(n)
+    # 最后一步结束时就应当已经记账（模型与 Scheduler 不再有「领先一个 unit」的窗口）
+    assert sched.pending_train_request is None, "unit 跑满 ⇒ 当场回填，不该还挂着 pending"
     assert sched.state.units_run >= 1, "unit 应当被记账"
     assert sched.state.global_step >= n
+    # 且此刻就是安全存档边界
+    assert hook.at_safe_checkpoint_boundary is True
 
 
 def test_unit_samples_seen_matches_batch_size_times_steps():
@@ -161,13 +162,14 @@ def test_unit_samples_seen_matches_batch_size_times_steps():
     bs = cfg.auto_learning.batch_size
 
     hook.on_step_begin(0)
+    before = sched.state.global_samples_seen
     it = iter(sampler)
     for step in range(n):
         [next(it) for _ in range(bs)]
         hook.on_step_end(step, loss=0.1)
-    before = sched.state.global_samples_seen
-    hook.on_step_begin(n)
+    # 当场回填 ⇒ 循环结束即已计入
     assert sched.state.global_samples_seen - before == n * bs
+    assert hook.at_safe_checkpoint_boundary is True
 
 
 def test_invariant_violation_fails_fast():
@@ -240,50 +242,37 @@ def test_extra_state_rejects_bad_version():
 
 
 # --------------------------------------------------------------------------- #
-# 🔴 resume 落在 unit 中途（G9 Phase 2 实测踩到的坑，2026-10-07）
+# 🔴 review v0.2 #2：unit 边界 / 存档 / resume 语义
 # --------------------------------------------------------------------------- #
-def test_resume_mid_unit_republishes_request():
-    """存档落在 unit 中途 ⇒ 恢复后**必须**已经重新发布 request。
+def test_resume_mid_unit_fails_fast():
+    """存档落在 unit **中途**（已跑过步）⇒ 恢复时**必须 fail-fast**，不静默重跑。
 
-    修复前：`on_step_begin()` 因 `_step_in_unit(1) < _unit_steps(5)` 直接
-    early-return，既不发布 request 也不要求重建 ⇒ 循环开头的
-    `iter(train_dataloader)` 撞上「AutoLearnSampler 还没收到 TrainRequest」。
+    旧实现在这里「把本 unit 从头重跑」：模型已做 k 次 update，resume 后又多做完整 N 次
+    ⇒ 轨迹 / sample exposure / LR 语义都与不中断运行不同。
     """
     cfg = _cfg()
     n = cfg.auto_learning.eval_interval_steps
     bs = cfg.auto_learning.batch_size
     hook, sched, sampler = _hook(cfg)
 
-    # 跑到 unit 中途（1/n 步）后存档
     hook.on_step_begin(0)
     it = iter(sampler)
     [next(it) for _ in range(bs)]
-    hook.on_step_end(1, loss=0.3)
+    hook.on_step_end(1, loss=0.3)          # 只跑了 1/n 步
     raw = hook.extra_state()
     assert raw["step_in_unit"] == 1 and raw["unit_steps"] == n
+    assert raw["at_boundary"] is False
 
     hook2, sched2, sampler2 = _hook(cfg)
-    hook2.load_extra_state(raw)
-
-    # ① 恢复后必须已经有 pending request，否则下面的 iter 会炸
-    assert sched2.pending_train_request is not None
-    it2 = iter(sampler2)                       # 修复前这里抛 RuntimeError
-    d = hook2.on_step_begin(0)                 # prime：unit 内 ⇒ 不要求重建
-    assert d.rebuild_iterator is False
-    assert d.unit_steps == n
-
-    # ② 本 unit 从头重跑满 n 步 ⇒ 记账完整（scheduler 只看到一个自洽的 unit）
-    for _ in range(n):
-        [next(it2) for _ in range(bs)]
-        hook2.on_step_end(0, loss=0.1)
-    assert sched2.state.units_run == sched.state.units_run
-    hook2.on_step_begin(n)
-    assert sched2.state.units_run == sched.state.units_run + 1
-    assert sched2.state.global_samples_seen == n * bs
+    with pytest.raises(RuntimeError) as err:
+        hook2.load_extra_state(raw)
+    msg = str(err.value)
+    assert "unit" in msg and "中途" in msg
+    assert "拒绝静默重跑" in msg
 
 
-def test_resume_at_unit_end_does_not_silently_drop_the_unit():
-    """存档正好落在「unit 已跑满、还没回填」⇒ 恢复后该 unit 仍会被记账。"""
+def test_resume_at_unit_end_is_already_accounted():
+    """🔴 unit 跑满就当场回填 ⇒ 「unit 末尾」其实已经是干净边界（unit_steps==0）。"""
     cfg = _cfg()
     n = cfg.auto_learning.eval_interval_steps
     bs = cfg.auto_learning.batch_size
@@ -294,27 +283,20 @@ def test_resume_at_unit_end_does_not_silently_drop_the_unit():
     for _ in range(n):
         [next(it) for _ in range(bs)]
         hook.on_step_end(0, loss=0.1)
-    assert sched.pending_train_request is not None      # 还没回填
+    assert sched.pending_train_request is None, "应当是当场回填"
     raw = hook.extra_state()
-    assert raw["step_in_unit"] == n
+    assert raw["step_in_unit"] == 0 and raw["unit_steps"] == 0
+    assert raw["at_boundary"] is True
 
     hook2, sched2, sampler2 = _hook(cfg)
-    hook2.load_extra_state(raw)
-    it2 = iter(sampler2)
-    for _ in range(n):
-        [next(it2) for _ in range(bs)]
-        hook2.on_step_end(0, loss=0.1)
-    hook2.on_step_begin(n)
-    assert sched2.state.units_run == sched.state.units_run + 1, \
-        "恢复后这个 unit 必须被记账，不能静默丢掉"
+    hook2.load_extra_state(raw)              # 干净边界 ⇒ 不报错
+    assert sched2.pending_train_request is None
+    assert sched2.state.units_run == sched.state.units_run
+    assert sched2.state.global_samples_seen == sched.state.global_samples_seen
 
 
 def test_resume_at_unit_start_republishes_request():
-    """存档落在「unit 已开、0 步还没跑」⇒ 也必须重新发布 request。
-
-    判据必须是 `_unit_steps > 0`（有 unit 在飞），而不是 `_step_in_unit > 0`：
-    此例 `step_in_unit == 0` 但 request 已经丢了，只按后者判会漏掉。
-    """
+    """存档落在「unit 已开、0 步未跑」⇒ 模型未被更新 ⇒ 安全地重发 request。"""
     cfg = _cfg()
     n = cfg.auto_learning.eval_interval_steps
     bs = cfg.auto_learning.batch_size
@@ -325,15 +307,15 @@ def test_resume_at_unit_start_republishes_request():
     for _ in range(n):
         [next(it) for _ in range(bs)]
         hook.on_step_end(0, loss=0.1)
-    hook.on_step_begin(n)                       # 跨边界 ⇒ 回填 + 开下一个 unit
+    hook.on_step_begin(n)                       # 跨边界 ⇒ 开下一个 unit（0 步）
     raw = hook.extra_state()
     assert raw["step_in_unit"] == 0 and raw["unit_steps"] == n
 
     hook2, sched2, sampler2 = _hook(cfg)
     hook2.load_extra_state(raw)
     assert sched2.pending_train_request is not None, \
-        "unit 在飞（哪怕 0 步）⇒ 恢复时必须重发 request"
-    iter(sampler2)                              # 修复前这里抛 RuntimeError
+        "unit 已发布但 0 步未跑 ⇒ 恢复时必须重发 request"
+    iter(sampler2)
     assert hook2.on_step_begin(0).rebuild_iterator is False
 
 
@@ -343,6 +325,7 @@ def test_resume_with_no_unit_in_flight_is_a_noop():
     hook, sched, sampler = _hook(cfg)
     raw = hook.extra_state()
     assert raw["unit_steps"] == 0 and raw["step_in_unit"] == 0
+    assert raw["at_boundary"] is True
 
     hook2, sched2, sampler2 = _hook(cfg)
     hook2.load_extra_state(raw)
@@ -350,6 +333,106 @@ def test_resume_with_no_unit_in_flight_is_a_noop():
     d = hook2.on_step_begin(0)                  # prime 负责开第一个 unit
     assert d.rebuild_iterator is True
     iter(sampler2)
+
+
+def test_flush_partial_unit_accounts_actual_steps():
+    """训练收尾：没跑满的 unit 按**实际步数**记账 ⇒ Scheduler 与模型对齐。"""
+    cfg = _cfg()
+    n = cfg.auto_learning.eval_interval_steps
+    bs = cfg.auto_learning.batch_size
+    hook, sched, sampler = _hook(cfg)
+
+    hook.on_step_begin(0)
+    it = iter(sampler)
+    k = n - 2
+    for _ in range(k):
+        [next(it) for _ in range(bs)]
+        hook.on_step_end(0, loss=0.1)
+    assert sched.pending_train_request is not None
+    assert hook.at_safe_checkpoint_boundary is False
+
+    ev = hook.flush_partial_unit(global_step=k)
+    assert ev is not None
+    assert sched.state.global_step == k, "应当按实际步数 k 记账（不是整个 unit）"
+    assert sched.state.global_samples_seen == k * bs
+    assert hook.at_safe_checkpoint_boundary is True
+
+
+def test_flush_partial_unit_cancels_zero_step_unit():
+    """unit 刚发布、0 步未跑 ⇒ 收尾时**撤回**，不改账（模型没动）。"""
+    cfg = _cfg()
+    hook, sched, sampler = _hook(cfg)
+    hook.on_step_begin(0)                       # 发布 unit，但一步都没跑
+    assert sched.pending_train_request is not None
+    before = sched.state.global_step
+
+    assert hook.flush_partial_unit(0) is None
+    assert sched.pending_train_request is None
+    assert sched.state.global_step == before
+    assert hook.at_safe_checkpoint_boundary is True
+
+
+def test_boundary_resume_equals_continuous_run():
+    """**无卡 deterministic resume**：连续跑 4 个 unit ≡ 跑 2 个 → 存 → 恢复 → 再跑 2 个。
+
+    逐项比较 Scheduler state / registry / sample-id 序列 / global_step / samples_seen。
+    （review v0.2 #2 的必加测试之一。）
+    """
+    cfg = _cfg()
+    n = cfg.auto_learning.eval_interval_steps
+    bs = cfg.auto_learning.batch_size
+
+    def _run_units(hook, sampler, n_units, topup=0):
+        """跑 n_units 个完整 unit；`topup` 用于恢复路径补跑最初那几步。"""
+        ids: list = []
+        it = iter(sampler)
+        for _ in range(n_units):
+            d = hook.on_step_begin(0)
+            if d.finished:
+                break
+            if d.rebuild_iterator:
+                it = iter(sampler)
+            for _ in range(n):
+                ids.extend(next(it) for _ in range(bs))
+                hook.on_step_end(0, loss=0.1)
+        return ids
+
+    # A：连续 4 个 unit
+    hookA, schedA, sampA = _hook(cfg)
+    idsA = _run_units(hookA, sampA, 4)
+
+    # B：2 个 unit → 存档 → 新 hook 恢复 → 再 2 个 unit
+    hookB, schedB, sampB = _hook(cfg)
+    idsB = _run_units(hookB, sampB, 2)
+    raw = hookB.extra_state()
+    assert raw["at_boundary"] is True
+
+    hookB2, schedB2, sampB2 = _hook(cfg)
+    hookB2.load_extra_state(raw)
+    idsB += _run_units(hookB2, sampB2, 2)
+
+    assert idsA == idsB, "boundary resume 的 sample-id 序列必须与连续运行完全一致"
+    assert schedA.state.to_state() == schedB2.state.to_state(), "Scheduler state 必须一致"
+    assert schedA.registry.to_state() == schedB2.registry.to_state(), "Registry 必须一致"
+    assert schedA.rng.getstate() == schedB2.rng.getstate(), "RNG 状态必须一致"
+
+
+def test_unique_batches_counts_batch_compositions_not_losses():
+    """🔴 review v0.2 #9：unique_batches 必须按 (new ids, old ids) 去重。"""
+    cfg = _cfg()
+    n = cfg.auto_learning.eval_interval_steps
+    bs = cfg.auto_learning.batch_size
+    hook, sched, sampler = _hook(cfg)
+
+    hook.on_step_begin(0)
+    it = iter(sampler)
+    for _ in range(n):
+        [next(it) for _ in range(bs)]
+        hook.on_step_end(0, loss=0.1)        # 所有 step 的 loss 完全相同
+    stats = sampler.stats_upto(n)
+    assert stats.unique_batches == n, "每步都是不同的 batch 组成 ⇒ unique_batches 应等于步数"
+    # 反证：按 loss 去重会得到 1
+    assert len({round(x, 12) for x in [0.1] * n}) == 1
 
 
 def test_extra_state_is_json_serialisable(tmp_path):

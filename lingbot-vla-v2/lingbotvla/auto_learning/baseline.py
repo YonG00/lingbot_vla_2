@@ -221,6 +221,71 @@ def baseline_fingerprint(
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
+def config_fingerprint_from_data_config(
+    data_cfg: Dict[str, Any],
+    *,
+    chunk_size: Optional[int] = None,
+    mu_weighting: str = MU_GLOBAL,
+) -> str:
+    """从「data 配置字典」算**配置级**指纹。
+
+    🔴 review v0.2 #6：CLI（`tools/compute_task_baseline.py`）与**训练侧**必须
+    走**同一个入口**算指纹，否则两处规则会悄悄抄歪 —— 那么「运行时配置对拍」
+    就变成了自己跟自己比，等于没查。
+    """
+    return baseline_fingerprint(
+        dataset_root=data_cfg.get("train_path"),
+        sha256_train=None,
+        norm_stats_file=data_cfg.get("norm_stats_file"),
+        cameras=data_cfg.get("cameras"),
+        joints=data_cfg.get("joints"),
+        chunk_size=chunk_size,
+        img_size=data_cfg.get("img_size"),
+        per_episode_stride=True,
+        mu_weighting=mu_weighting,
+    )
+
+
+def runtime_config_fingerprint(
+    args: Any,
+    model_config: Any = None,
+    *,
+    mu_weighting: str = MU_GLOBAL,
+) -> str:
+    """训练侧：按**本次真实运行配置**算配置级指纹（用于与 baseline store 对拍）。
+
+    为什么必须在训练侧重算（review v0.2 #6）
+    --------------------------------------
+    原实现直接 `BaselineStore.load(path)` —— 把**文件里自带的旧指纹**当成
+    「当前指纹」，于是「昨天用 chunk=50/norm=A 算的 baseline，今天换成
+    chunk=25/norm=B」也能命中 ⇒ NMSE 的分母是错的尺子，且**没有任何报错**。
+
+    field 取值与 CLI 保持一致（都用 `lingbotvla_cli.yaml` 的 data 段 + 有效 chunk_size），
+    chunk 的优先级：`data.chunk_size` → `train.chunk_size` → `model.config.chunk_size`。
+    """
+
+    def _g(obj: Any, key: str):
+        return getattr(obj, key, None) if obj is not None else None
+
+    data = _g(args, "data")
+    train = _g(args, "train")
+    data_cfg = {
+        "train_path": _g(data, "train_path"),
+        "norm_stats_file": _g(data, "norm_stats_file"),
+        "cameras": _g(data, "cameras"),
+        "joints": _g(data, "joints"),
+        "img_size": _g(data, "img_size"),
+    }
+    chunk: Optional[int] = None
+    for src in (_g(data, "chunk_size"), _g(train, "chunk_size"),
+                _g(model_config, "chunk_size")):
+        if src:
+            chunk = int(src)
+            break
+    return config_fingerprint_from_data_config(
+        data_cfg, chunk_size=chunk, mu_weighting=mu_weighting)
+
+
 def task_fingerprint(config_fingerprint: str, sha256_train: Optional[str]) -> str:
     """**任务级**指纹 = 配置级指纹 + 该 task 的 train split 哈希。
 
@@ -357,5 +422,6 @@ __all__ = [
     "FixedBaseline", "BaselineStore",
     "compute_mu", "trajectory_balanced_baseline", "build_baseline",
     "baseline_fingerprint", "task_fingerprint", "file_sha256", "compute_fixed_baseline",
+    "config_fingerprint_from_data_config", "runtime_config_fingerprint",
     "MU_GLOBAL", "MU_TRAJECTORY", "BASELINE_VERSION",
 ]

@@ -2,8 +2,12 @@
 
 设计（见 `docs/stage_b1_integration_design.md` §2 / §4）
 -----------------------------------------------------
-* 真实循环里 **一次 `next(data_iterator)` = 一个 optimizer step**
-  （`dataloader_batch_size = gbs // dp`、`num_micro_batch = gbs // (micro×dp)`，单卡下都为 1）。
+* 真实循环里 **一次 `next(data_iterator)` = 一个 optimizer step**。
+  ⚠️ 注意**不要**写成「单卡下 `num_micro_batch` 都为 1」（review v0.2 #3 已纠正）：
+  `num_micro_batch = dataloader_batch_size / micro_batch_size`，48GB BF16 smoke 是
+  `micro=1 / gbs=10 / dp=1` ⇒ `dataloader_batch_size = 10` ⇒ **num_micro_batch = 10**。
+  真正成立的是：**一个 DataLoader logical batch（10 个样本）被拆成 10 个 micro batch
+  做梯度累积，最终对应一个 optimizer step**。
 * 所以「每步独立采样」== 「sampler 每产出 `batch_size` 个 index 就换一批」。
 * DataLoader 在**主进程**按 `batch_size` 消费 sampler ⇒ `BatchSampler.build()` 恰好一次/step。
 * 真正的采样逻辑**一行都不重写**：`prepare(req)` 一个 unit 一次，`build()` 每步一次。
@@ -34,6 +38,16 @@ from ..ports import ReplayPlan, TrainRequest  # noqa: E402
 from ..sampling.sampler import BatchSampler, PreparedRequest  # noqa: E402
 
 
+def _composition_key(comp) -> tuple:
+    """一个 batch 组成的稳定 key = (NEW 的 sample id 序列, OLD 的 sample id 序列)。
+
+    🔴 review v0.2 #9：`unique_batches` 必须按**真实组成**去重，
+    不能拿 `round(loss, 12)` 去重（那是「不同 loss 值数量」，命名会误导）。
+    """
+    return (tuple(int(r.sample_id) for r in comp.new),
+            tuple(int(r.sample_id) for r in comp.old))
+
+
 @dataclass
 class UnitStats:
     """一个 learning unit（若干 optimizer step）的采样统计（测试方案 §5.4）。"""
@@ -46,11 +60,11 @@ class UnitStats:
     old_slot_counts_by_task: Counter = field(default_factory=Counter)
     unique_replay_tasks_per_batch: List[int] = field(default_factory=list)
     per_step_losses: List[float] = field(default_factory=list)
-
-    @property
-    def unique_batches(self) -> int:
-        """不同 batch 组合数（用「每步的 (new, old) 元组」去重近似）。"""
-        return len(set(self._step_keys)) if hasattr(self, "_step_keys") else 0
+    #: 🔴 review v0.2 #9：真正「不同 batch 组合数」——
+    #: 按每步的 `(new sample ids, old sample ids)` 去重，而不是「不同 loss 值数量」。
+    unique_batches: int = 0
+    #: 内部用：每步的 batch 组成 key（仅 `stats_upto()` 填充）。
+    _step_keys: set = field(default_factory=set, repr=False)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -62,6 +76,7 @@ class UnitStats:
             "mean_unique_replay_tasks": (
                 sum(self.unique_replay_tasks_per_batch) / len(self.unique_replay_tasks_per_batch)
                 if self.unique_replay_tasks_per_batch else 0.0),
+            "unique_batches": self.unique_batches,
         }
 
     def check_invariants(self) -> List[str]:
@@ -140,6 +155,8 @@ class AutoLearnSampler(_SamplerBase):
             for r in comp.old:
                 st.old_slot_counts_by_task[r.task] += 1
             st.unique_replay_tasks_per_batch.append(len(comp.old_tasks))
+            st._step_keys.add(_composition_key(comp))
+        st.unique_batches = len(st._step_keys)
         return st
 
     @property
@@ -173,8 +190,7 @@ class AutoLearnSampler(_SamplerBase):
         for r in comp.old:
             st.old_slot_counts_by_task[r.task] += 1
         st.unique_replay_tasks_per_batch.append(len(comp.old_tasks))
-        self._step_keys.add((tuple(r.sample_id for r in comp.new),
-                             tuple(r.sample_id for r in comp.old)))
+        self._step_keys.add(_composition_key(comp))
         self._last_comp = comp
 
     # -- resume -------------------------------------------------------------

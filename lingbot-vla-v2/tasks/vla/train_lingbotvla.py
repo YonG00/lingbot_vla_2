@@ -496,13 +496,37 @@ def main():
             data_collate_fn.append(OmniDataCollatorWithPadding())
     
     # ---- [Stage B1] Auto Learning：v0 要求 rmpad=false（保固定 micro batch 与 7+3 slot 语义）----
-    _al_cfg = getattr(args.train, "auto_learning", None)
-    _al_on = bool(_al_cfg is not None and getattr(_al_cfg, "enabled", False))
+    # 🔴 review v0.2 #1：`args.train.auto_learning` 是**配置文件路径字符串**，不是 config 对象。
+    #    旧代码 `getattr(_al_cfg, "enabled", False)` 对 str 恒为 False
+    #    ⇒ Auto Learning 的保护（rmpad 约束 / resume 分支 / step-1 sanity）**全部静默失效**。
+    #    这里改成读**真实 parsed config**。
+    _al_path = getattr(args.train, "auto_learning", None)
+    _al_hook = None
+    _al_on = False
+    if _al_path:
+        from lingbotvla.auto_learning.real.build import (
+            auto_learning_enabled, check_rmpad_for_auto_learning,
+        )
+        _al_on = auto_learning_enabled(_al_path)
+        # 🔴 review v0.2 #1：fail-fast，**不静默强改**用户配置 ——
+        #    实际运行配置必须与命令行/日志一致，否则后面所有排查都对不上号。
+        check_rmpad_for_auto_learning(
+            _al_on, args.train.rmpad, args.train.rmpad_with_pos_ids)
+
+    # ---- [Stage B1] Auto Learning：区分「同一 run 的 resume」与「从 base checkpoint 起新 run」----
+    # 语义（review v0.2 #7）：
+    #   * `enable_resume=true` 且没显式给 load_checkpoint_path ⇒ **同一 run 的续训**
+    #     ⇒ checkpoint 里**必须**有 Auto Learning 状态，缺了就 fail-fast（不猜）。
+    #   * 显式给 `load_checkpoint_path` ⇒ 「加载某个 base checkpoint 起新 run」
+    #     ⇒ 允许 AL 状态从零开始（会明确打印）。
+    _al_resume_mode = "disabled"
     if _al_on:
-        if args.train.rmpad or args.train.rmpad_with_pos_ids:
-            logger.info_rank0("[auto_learning] enabled ⇒ 强制 rmpad=false（v0 语义要求）")
-        args.train.rmpad = False
-        args.train.rmpad_with_pos_ids = False
+        if args.train.enable_resume and not args.train.load_checkpoint_path:
+            _al_resume_mode = "same_run"
+        elif args.train.load_checkpoint_path:
+            _al_resume_mode = "explicit_load"
+        else:
+            _al_resume_mode = "fresh"
 
     if args.data.dataloader_type == "native":
         if args.data.datasets_type == 'vla':
@@ -511,15 +535,24 @@ def main():
             args.train.compute_train_steps(args.data.max_seq_len, args.data.train_size, len(train_dataset))
         
         # ---- [Stage B1] Auto Learning：第一段（不需要模型；**必须在 build_dataloader 之前**）----
-        from lingbotvla.auto_learning.real.build import build_auto_learning_parts
-        args._auto_learning_train_dataset = train_dataset     # Hardness 要用同一索引空间
-        _al_parts = build_auto_learning_parts(
-            config_path=args.train.auto_learning,
-            manifest_path=args.train.auto_learning_manifest,
-            train_dataset=train_dataset,
-            baseline_path=args.train.auto_learning_baseline,
-            logger=logger,
-        )
+        # 🔴 review v0.2 #10：disabled 时**一个对象都不建、不 import、不挂属性**
+        #    （字面零侵入；legacy checkpoint schema 也不多写键）。
+        _al_parts = None
+        if _al_on:
+            from lingbotvla.auto_learning.real.build import build_auto_learning_parts
+            args._auto_learning_train_dataset = train_dataset     # Hardness 要用同一索引空间
+            _al_parts = build_auto_learning_parts(
+                config_path=args.train.auto_learning,
+                manifest_path=args.train.auto_learning_manifest,
+                train_dataset=train_dataset,
+                baseline_path=args.train.auto_learning_baseline,
+                logger=logger,
+            )
+            if _al_parts is None:
+                # enabled=true 却建不出 parts ⇒ 配置/自检有问题，不能继续
+                raise RuntimeError(
+                    "[auto_learning] enabled=true 但 build_auto_learning_parts() 返回 None"
+                    "（配置或 task split 自检未通过）")
         _al_sampler = _al_parts.lazy_sampler if _al_parts is not None else None
         _al_hook = None
 
@@ -741,6 +774,14 @@ def main():
             disk_avail_before_gb=disk_avail_before_gb,
         )
 
+    def _auto_learning_extra_state() -> Dict[str, Any]:
+        """[Stage B1] 要写进 `extra_state` 的 Auto Learning 字段。
+
+        🔴 review v0.2 #10：`enabled=false`（`_al_hook is None`）时**连键都不写** ——
+        legacy checkpoint 的 schema 保持原样，不做无意义的 `auto_learning: None`。
+        """
+        return {} if _al_hook is None else {"auto_learning": _al_hook.extra_state()}
+
     environ_meter = helper.EnvironMeter(
         config=model_config,
         global_batch_size=args.train.global_batch_size,
@@ -808,6 +849,20 @@ def main():
                         "[auto_learning] 从 checkpoint 读到 Auto Learning 状态 "
                         f"(steps_done={_al_state.get('steps_done')}, "
                         f"step_in_unit={_al_state.get('step_in_unit')})")
+                elif _al_on and _al_resume_mode == "same_run":
+                    # 🔴 review v0.2 #7：同一 run 的续训却缺 AL 状态 ⇒ **fail-fast**，
+                    #    绝不静默从零 bootstrap（那会让 Scheduler/采样流与训练历史错位）。
+                    raise RuntimeError(
+                        "[auto_learning] enable_resume=true（同一 run 续训），但 checkpoint 里"
+                        "**没有** Auto Learning 状态 ⇒ 拒绝静默从零 bootstrap。\n"
+                        "  ⛔ 这通常意味着：该 checkpoint 是「Auto Learning 之前的」存档，"
+                        "或它来自另一个 run。\n"
+                        "  处理办法：① 用带 AL 状态的存档；② 若确实要从 base 起新 run，"
+                        "请改用 --train.load_checkpoint_path <ckpt> 明确表达「从 base 加载」。")
+                elif _al_on and _al_state is None:
+                    logger.info_rank0(
+                        "[auto_learning] 本次是「从 base checkpoint 起新的 Auto Learning run」"
+                        f"（mode={_al_resume_mode}）⇒ Auto Learning 状态从零开始")
                 if start_step == 0:  # resume at the end of epoch
                     # ⚠️ [Stage B1] Auto Learning 开启时**不要**在这里建迭代器：
                     #    此刻 hook 还没建、sampler 还没 `set_request()` ⇒ 会报
@@ -875,6 +930,8 @@ def main():
             disable=args.train.local_rank != 0,
         )
     # ---- [Stage B1] Auto Learning：第二段（需要模型）----
+    #: 前几个 step 的 schema 审计 / sanity fail-fast 是否还没做（resume 后第一步会再做一次）
+    _al_audit_pending = False
     if _al_parts is not None:
         from lingbotvla.auto_learning.real.build import finish_auto_learning
         _al_hook = finish_auto_learning(
@@ -893,7 +950,16 @@ def main():
         #    早于循环体里的 `on_step_begin()` ⇒ 不先发布 request，sampler 的
         #    `__iter__` 会因为「还没收到 TrainRequest」直接报错。
         _al_hook.on_step_begin(0)
+        _al_audit_pending = True
         logger.info_rank0("[auto_learning] 第一个 learning unit 的 TrainRequest 已发布")
+
+    # ---- [Stage B1] Auto Learning：checkpoint 边界门控状态（review v0.2 #2）----
+    #: 上一个**真正落盘成功**的 global_step（用于「收尾存档是否需要补一次」的判断）
+    _last_saved_step = None
+    #: 到点了但不在 unit 边界 ⇒ 欠一次存档，等最近的边界补上
+    _al_deferred_save = False
+    #: STOP_AND_SAVE 请求：AL 开启时不在 unit 中途停 —— 等到边界再停+存档
+    _al_stop_pending = False
 
     for epoch in range(start_epoch, args.train.num_train_epochs):
         current_epoch_for_eval = epoch + 1
@@ -1102,19 +1168,26 @@ def main():
             optimizer.zero_grad()
             if _al_hook is not None:
                 _al_hook.on_step_end(global_step, locals().get("total_loss"))
-            # ---- [Stage B1] §39 运行时字段审计 + §40 sanity（只在 step 0 打一次）----
-            if _al_on and global_step == 1:
+            # ---- [Stage B1] §39 运行时字段审计 + §40 sanity ----
+            # 触发时机：Auto Learning 启用后的**第一个 step**（新建 run 或 resume 后的第一步）。
+            # 🔴 review v0.2 #7：sanity 的**关键错误直接 raise**，不再 catch 成一句 warning
+            #    然后继续烧卡 —— 那与 B1 的 P0 原则冲突。
+            #    schema 审计（纯诊断）仍只打印。
+            if _al_on and _al_audit_pending:
+                _al_audit_pending = False
+                from lingbotvla.auto_learning.real.sanity import (
+                    assert_batch_sane, assert_loss_sane, audit_batch_schema,
+                    format_schema_audit,
+                )
+                for _mb in micro_batches:
+                    assert_batch_sane(_mb)          # 全 0 mask / NaN / Inf ⇒ 直接抛
+                assert_loss_sane(total_loss)        # loss 非有限 ⇒ 直接抛
                 try:
-                    from lingbotvla.auto_learning.real.sanity import (
-                        assert_batch_sane, format_schema_audit,
-                    )
-                    from lingbotvla.auto_learning.real.sanity import audit_batch_schema
-                    for _mb in micro_batches:
-                        assert_batch_sane(_mb)
                     logger.info_rank0("\n" + format_schema_audit(
                         audit_batch_schema(micro_batches[0])))
-                except Exception as _e:  # noqa: BLE001 —— 审计失败要可见，但不打断训练
-                    logger.warning(f"[auto_learning][sanity] {type(_e).__name__}: {_e}")
+                except Exception as _e:  # noqa: BLE001 —— 纯诊断，失败不影响训练
+                    logger.warning(
+                        f"[auto_learning][schema] 审计打印失败（忽略）: {type(_e).__name__}: {_e}")
             if hasattr(grad_norm, "full_tensor"):
                 grad_norm = grad_norm.full_tensor().item()
 
@@ -1305,7 +1378,25 @@ def main():
                                     current_pred_feats=future_video_current_preds,
                                 )
 
-            if args.train.save_steps and global_step % args.train.save_steps == 0:
+            # ---- [Stage B1] 存档触发（review v0.2 #2：只在 **unit 边界** 落盘）----
+            # `_save_due`：本步正好是 save_steps 的整数倍，或之前欠下的一次存档到期。
+            _save_due = bool(args.train.save_steps and global_step % args.train.save_steps == 0)
+            if (_al_deferred_save and _al_hook is not None
+                    and _al_hook.at_safe_checkpoint_boundary):
+                _save_due = True
+            if _save_due:
+                if _al_hook is not None and not _al_hook.at_safe_checkpoint_boundary:
+                    # 不在 unit 边界 ⇒ 推迟到最近的边界（最多 eval_interval_steps-1 步）
+                    if not _al_deferred_save:
+                        logger.info_rank0(
+                            f"[auto_learning] step {global_step} 不是 learning unit 边界"
+                            f"（unit 内 {_al_hook.step_in_unit}/{_al_hook.unit_steps} 步）"
+                            f"⇒ 存档推迟到最近的边界，避免存下「模型领先 Scheduler 一个 unit」的状态。")
+                    _al_deferred_save = True
+                    _save_due = False
+                else:
+                    _al_deferred_save = False
+            if _save_due:
                 # [DiskCheck] 本次 checkpoint 开始前: 收上一份的实测占用 + 判断余量
                 _disk_avail_before_gb = -1.0
                 if args.train.disk_guard:
@@ -1322,7 +1413,7 @@ def main():
 
                 helper.empty_cache()
                 save_checkpoint_path = os.path.join(args.train.save_checkpoint_path, f"global_step_{global_step}")
-                
+
                 # param_to_name = {}
                 # for name, param in model.named_parameters():
                 #     param_to_name[name] = param
@@ -1343,8 +1434,8 @@ def main():
                         "train_dataloader": train_dataloader.state_dict(),
                         "environ_meter": environ_meter.state_dict(),
                         "torch_rng_state": torch.get_rng_state(),
-                        # ---- [Stage B1] Auto Learning 状态（enabled=false 时是 None）----
-                        "auto_learning": (_al_hook.extra_state() if _al_hook is not None else None),
+                        # ---- [Stage B1] Auto Learning 状态（disabled 时**不写这个键**）----
+                        **_auto_learning_extra_state(),
                     },
                 }
                 if args.train.global_rank == 0:
@@ -1360,6 +1451,7 @@ def main():
                     current_epoch_step_for_eval,
                     disk_avail_before_gb=_disk_avail_before_gb,
                 )
+                _last_saved_step = global_step
 
             # --- 训练中原地 open-loop validation（不触发 checkpoint 保存）---
             if open_loop_validator is not None and \
@@ -1367,27 +1459,44 @@ def main():
                 open_loop_validator.validate(global_step)
 
             # --- STOP_AND_SAVE：外部 touch 该文件 ⇒ 收尾存档并正常退出 ---
-            if stop_and_save_path and os.path.exists(stop_and_save_path):
+            if stop_and_save_path and (os.path.exists(stop_and_save_path) or _al_stop_pending):
                 _stop_reason = ""
-                try:
-                    _stop_reason = open(stop_and_save_path).read().strip()
-                except Exception:
-                    pass
-                logger.info_rank0(
-                    f"[STOP_AND_SAVE] 检测到 {stop_and_save_path}"
-                    + (f"（内容: {_stop_reason}）" if _stop_reason else "")
-                    + f"，将在 step {global_step} 收尾存档后正常退出。")
-                try:
-                    os.replace(stop_and_save_path, stop_and_save_path + ".done")
+                _stop_file_exists = os.path.exists(stop_and_save_path)
+                if _stop_file_exists:
+                    try:
+                        _stop_reason = open(stop_and_save_path).read().strip()
+                    except Exception:
+                        pass
+                if _al_hook is not None and not _al_hook.at_safe_checkpoint_boundary:
+                    # 🔴 review v0.2 #2：AL 开启时**不在 unit 中途停** ——
+                    #    继续走到最近的 unit 边界再收尾存档，保证存档干净可恢复。
+                    if not _al_stop_pending:
+                        logger.info_rank0(
+                            f"[STOP_AND_SAVE] 检测到 {stop_and_save_path}"
+                            + (f"（内容: {_stop_reason}）" if _stop_reason else "")
+                            + f"：当前 step {global_step} 落在 learning unit 中途 ⇒ "
+                            "继续跑到最近的 unit 边界再收尾存档"
+                            f"（还需约 {_al_hook.unit_steps - _al_hook.step_in_unit} 步）。")
+                    _al_stop_pending = True
+                    # 注意：这里**不 break**，让本 unit 正常跑完；外层 for 继续推进。
+                else:
                     logger.info_rank0(
-                        f"[STOP_AND_SAVE] 已改名为 {stop_and_save_path}.done"
-                        "（避免下次启动立刻停）。")
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning(f"[STOP_AND_SAVE] ⚠️ 改名失败: {exc}；请手工删除该文件")
-                stop_requested_by_file = True
-                # 复用现有「收尾存档 + 正常退出」路径（步循环后的 reached_max_steps 分支）
-                reached_max_steps = True
-                break
+                        f"[STOP_AND_SAVE] 检测到 {stop_and_save_path}"
+                        + (f"（内容: {_stop_reason}）" if _stop_reason else "")
+                        + f"，将在 step {global_step} 收尾存档后正常退出。")
+                    if _stop_file_exists:
+                        try:
+                            os.replace(stop_and_save_path, stop_and_save_path + ".done")
+                            logger.info_rank0(
+                                f"[STOP_AND_SAVE] 已改名为 {stop_and_save_path}.done"
+                                "（避免下次启动立刻停）。")
+                        except Exception as exc:  # noqa: BLE001
+                            logger.warning(f"[STOP_AND_SAVE] ⚠️ 改名失败: {exc}；请手工删除该文件")
+                    _al_stop_pending = False
+                    stop_requested_by_file = True
+                    # 复用现有「收尾存档 + 正常退出」路径（步循环后的 reached_max_steps 分支）
+                    reached_max_steps = True
+                    break
 
             if args.train.max_steps is not None and global_step >= args.train.max_steps:
                 logger.info_rank0(f"Reached max_steps={args.train.max_steps}, stopping training.")
@@ -1400,6 +1509,13 @@ def main():
             writer.flush()
         start_step = 0
         helper.print_device_mem_info(f"VRAM usage after epoch {epoch + 1}")
+
+        # ---- [Stage B1] Auto Learning：epoch 边界的「收尾记账」（review v0.2 #2）----
+        # 训练可能正好停在 unit 中途（max_steps 到顶 / STOP_AND_SAVE / epoch 切换）。
+        # 把没跑满的 unit 按**实际步数**记账（或撤回 0 步的），
+        # 使下面所有「收尾/轮末存档」都落在 `at_safe_checkpoint_boundary` 上。
+        if _al_hook is not None:
+            _al_hook.flush_partial_unit(global_step)
 
         # [DiskCheck] 步循环内已判定余量不足: 当前 checkpoint 已完整保存,
         # 跳过本轮剩余的所有存档, 正常结束训练。
@@ -1420,8 +1536,15 @@ def main():
                     "[smoke] skip_final_save_on_max_steps=true ⇒ 跳过收尾存档直接退出 "
                     f"(global_step={global_step})。⚠️ 仅供 smoke test，正式训练不要开。")
                 break
-            already_saved = args.train.save_steps and global_step % args.train.save_steps == 0
+            already_saved = (_last_saved_step == global_step)
             if not already_saved:
+                _al_save_unsafe = (_al_hook is not None
+                                   and not _al_hook.at_safe_checkpoint_boundary)
+                if _al_save_unsafe:
+                    logger.warning(
+                        "[auto_learning] ⚠️ 收尾存档时不在 learning unit 边界"
+                        "（flush_partial_unit 没生效？）—— 该存档恢复时会 fail-fast，"
+                        "请用上一个边界存档恢复。")
                 # [DiskCheck] 收尾存档前的容量判断
                 _disk_avail_before_gb = -1.0
                 if args.train.disk_guard:
@@ -1448,8 +1571,8 @@ def main():
                         "train_dataloader": train_dataloader.state_dict(),
                         "environ_meter": environ_meter.state_dict(),
                         "torch_rng_state": torch.get_rng_state(),
-                        # ---- [Stage B1] Auto Learning 状态（enabled=false 时是 None）----
-                        "auto_learning": (_al_hook.extra_state() if _al_hook is not None else None),
+                        # ---- [Stage B1] Auto Learning 状态（disabled 时**不写这个键**）----
+                        **_auto_learning_extra_state(),
                     },
                 }
                 _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
@@ -1463,8 +1586,13 @@ def main():
                     current_epoch_step_for_eval,
                     disk_avail_before_gb=_disk_avail_before_gb,
                 )
+                _last_saved_step = global_step
             break
         if args.train.save_epochs and (epoch + 1) % args.train.save_epochs == 0:
+            if _al_hook is not None and not _al_hook.at_safe_checkpoint_boundary:
+                logger.warning(
+                    "[auto_learning] ⚠️ 轮末存档时不在 learning unit 边界"
+                    "（flush_partial_unit 没生效？）—— 该存档恢复时会 fail-fast。")
             # [DiskCheck] 轮末存档前的容量判断
             _disk_avail_before_gb = -1.0
             if args.train.disk_guard:
@@ -1490,8 +1618,8 @@ def main():
                     "train_dataloader": train_dataloader.state_dict(),
                     "environ_meter": environ_meter.state_dict(),
                     "torch_rng_state": torch.get_rng_state(),
-                    # ---- [Stage B1] Auto Learning 状态（enabled=false 时是 None）----
-                    "auto_learning": (_al_hook.extra_state() if _al_hook is not None else None),
+                    # ---- [Stage B1] Auto Learning 状态（disabled 时**不写这个键**）----
+                    **_auto_learning_extra_state(),
                 },
             }
             _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
@@ -1505,6 +1633,7 @@ def main():
                 current_epoch_step_for_eval,
                 disk_avail_before_gb=_disk_avail_before_gb,
             )
+            _last_saved_step = global_step
 
     if max_steps_driven:
         data_loader_tqdm.close()

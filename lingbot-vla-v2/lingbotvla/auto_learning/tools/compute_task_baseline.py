@@ -128,7 +128,7 @@ def main() -> int:
     import yaml
 
     from lingbotvla.auto_learning.baseline import (
-        BaselineStore, baseline_fingerprint, compute_fixed_baseline,
+        BaselineStore, config_fingerprint_from_data_config, compute_fixed_baseline,
     )
     from lingbotvla.auto_learning.catalog import catalog_from_task_split
     from lingbotvla.auto_learning.model_config import effective_chunk_size
@@ -179,16 +179,10 @@ def main() -> int:
     print(f"[baseline] effective chunk_size = {eff_chunk}")
 
     # ---- 配置级指纹（**不含** per-task sha256_train）----
-    config_fp = baseline_fingerprint(
-        dataset_root=data_cfg.get("train_path"),
-        sha256_train=None,
-        norm_stats_file=data_cfg.get("norm_stats_file"),
-        cameras=data_cfg.get("cameras"),
-        joints=data_cfg.get("joints"),
-        chunk_size=eff_chunk,
-        img_size=data_cfg.get("img_size"),
-        per_episode_stride=True,
-        mu_weighting=a.mu_weighting,
+    # 🔴 与训练侧共用同一个入口（`config_fingerprint_from_data_config`），
+    #    这样训练时的「运行时指纹对拍」才是真的在查配置漂移（review v0.2 #6）。
+    config_fp = config_fingerprint_from_data_config(
+        data_cfg, chunk_size=eff_chunk, mu_weighting=a.mu_weighting,
     )
     print(f"[baseline] manifest = {manifest}")
     print(f"[baseline] tasks    = {len(tasks)} 个；mu_weighting={a.mu_weighting}")

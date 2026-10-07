@@ -116,6 +116,33 @@ def load_auto_learning_config(path: str) -> AutoLearningConfig:
     return cfg
 
 
+def auto_learning_enabled(config_path: Optional[str]) -> bool:
+    """Auto Learning 到底开没开（review v0.2 #1）。
+
+    🔴 `args.train.auto_learning` 是**配置文件路径字符串**，不是 config 对象 ⇒
+    `getattr(_al_cfg, "enabled", False)` 对 str 恒为 False，整个 AL 保护会静默失效。
+    唯一正确的判法：把配置文件**真解析**一遍。
+    """
+    if not config_path:
+        return False
+    return bool(load_auto_learning_config(config_path).enabled)
+
+
+def check_rmpad_for_auto_learning(enabled: bool, rmpad: bool,
+                                  rmpad_with_pos_ids: bool) -> None:
+    """v0 语义要求 rmpad=false；不满足 ⇒ **启动前 fail-fast**（review v0.2 #1）。
+
+    旧实现是「静默把 rmpad 强改成 False」——实际运行配置与命令行/日志不一致，
+    后面所有排查都对不上号。
+    """
+    if enabled and (rmpad or rmpad_with_pos_ids):
+        raise ValueError(
+            "[auto_learning] v0 要求 rmpad=false 且 rmpad_with_pos_ids=false"
+            "（保固定 micro batch 与 7 NEW + 3 Replay 语义）；"
+            f"当前 rmpad={rmpad}, rmpad_with_pos_ids={rmpad_with_pos_ids}。"
+            "请显式关掉它们，不要依赖静默强制。")
+
+
 def build_auto_learning_parts(
     *,
     config_path: Optional[str],
@@ -175,8 +202,24 @@ def build_auto_learning_parts(
             logger.info_rank0(
                 f"[auto_learning] baseline store: {baseline_path}"
                 f"（config指纹={store.config_fingerprint or '空'}，{len(store.tasks)} 个任务）")
-    elif logger is not None:
-        logger.warning("[auto_learning] 没有提供 baseline store ⇒ NMSE 会是 None（不推荐）")
+    else:
+        # 🔴 review v0.2 #6：正式 Auto Learning **必须有** baseline。
+        #    否则 Scheduler 拿到 NMSE=None ⇒ 任务被静默排除出候选池 ——
+        #    表现是「训练照跑、但什么任务都不选」，而不是任何报错。
+        if not cfg.allow_missing_baseline:
+            raise ValueError(
+                "[auto_learning] enabled=true 但没有可用的 baseline store "
+                f"（auto_learning_baseline={baseline_path!r}）⇒ 拒绝启动。\n"
+                "  缺 baseline 时 NMSE 恒为 None，所有任务会被排除出候选池"
+                "（不会报错，只是永远不选任务）。\n"
+                "  先跑：python -m lingbotvla.auto_learning.tools.compute_task_baseline "
+                "--manifest <manifest.json> --config <lingbotvla_cli.yaml>\n"
+                "  确实要无 baseline 跑 smoke：显式设 "
+                "auto_learning.allow_missing_baseline=true（仅供 smoke/单测）。")
+        if logger is not None:
+            logger.warning(
+                "[auto_learning] ⚠️ allow_missing_baseline=true ⇒ NMSE=None，"
+                "所有任务会被排除出候选池（仅供 smoke / 单测）")
 
     return AutoLearningParts(
         cfg=cfg, catalog=cat, resolver=resolver, lazy_sampler=LazyAutoLearnSampler(),
@@ -210,6 +253,11 @@ def finish_auto_learning(
     cfg = parts.cfg
     cat = parts.catalog
 
+    # ---- 启动前 fail-fast 三项（review v0.2 §14 Gate）----
+    validate_batch_alignment(cfg, args, log)
+    _verify_baseline_fingerprint(parts, cfg, args, model, log)
+    _guard_image_augment(cfg, args, log)
+
     # ---- Evaluator（复用 OpenLoopValidator + safe_eval_context）----
     first = cat.entry(cat.task_names()[0])
     validator = OpenLoopValidator(
@@ -230,7 +278,8 @@ def finish_auto_learning(
                 f"  先跑：python -m lingbotvla.auto_learning.tools.compute_task_baseline ...")
 
     # ---- Hardness（用**训练数据集**取样本；index 空间与 sample_id 一致）----
-    hardness = build_real_hardness(model, _dataset_for_hardness(model, args, processor))
+    hardness = build_real_hardness(model, _dataset_for_hardness(model, args, processor),
+                                   logger=log)
 
     # ---- Backend / Scheduler ----
     backend = build_real_backend(
@@ -257,6 +306,95 @@ def finish_auto_learning(
     return hook
 
 
+def validate_batch_alignment(cfg: AutoLearningConfig, args: Any, log: Any) -> None:
+    """AL 的 logical batch_size 必须 == 真实 DataLoader 的 batch_size（review v0.2 #3）。
+
+    错配的后果：sampler 按 `cfg.batch_size` 产出「7 NEW + 3 Replay」共 10 个 index，
+    但 DataLoader 按 `dataloader_batch_size` 消费 ⇒ 前 8 个进 optimizer batch #1、
+    「剩 2 个 + 下一组前 6 个」进 batch #2 …… 日志里的 7+3 依然「看起来正确」，
+    但**真实训练 batch 已经被切碎**。这种错配不会自己报警，必须启动时查。
+    """
+    tr = getattr(args, "train", None)
+
+    def _g(key):
+        return getattr(tr, key, None) if tr is not None else None
+
+    mbs, gbs, dls = _g("micro_batch_size"), _g("global_batch_size"), _g("dataloader_batch_size")
+    if dls is not None and int(dls) != int(cfg.batch_size):
+        raise ValueError(
+            f"[auto_learning] AL logical batch_size({cfg.batch_size}) != "
+            f"train.dataloader_batch_size({dls}) ⇒ 拒绝启动。\n"
+            f"  真实 DataLoader 按 dataloader_batch_size 消费 sampler 的 index ⇒ 会把"
+            f"「{cfg.new_slots} NEW + {cfg.replay_slots} Replay」切碎"
+            f"（日志仍显示 7+3，但真实训练 batch 已经错了）。\n"
+            f"  请令 auto_learning.batch_size == --train.dataloader_batch_size。")
+
+    dp = None
+    try:
+        from lingbotvla.distributed.parallel_state import get_parallel_state
+
+        ps = get_parallel_state()
+        dp = getattr(ps, "dp_size", None) or getattr(ps, "dp", None)
+    except Exception:  # noqa: BLE001 —— 无卡单测环境没有 parallel state
+        dp = None
+    num_micro = (int(dls) // int(mbs)) if (mbs and dls and int(mbs) > 0) else None
+    log.info_rank0(
+        "[auto_learning] batch 对齐检查通过："
+        f"AL logical batch_size={cfg.batch_size}"
+        f"（{cfg.new_slots} NEW + {cfg.replay_slots} Replay）"
+        f" | micro_batch_size={mbs} global_batch_size={gbs} "
+        f"dataloader_batch_size={dls} dp_size={dp} num_micro_batch={num_micro}；"
+        "1 个 DataLoader logical batch = 1 个 optimizer step")
+
+
+def _verify_baseline_fingerprint(parts: AutoLearningParts, cfg: AutoLearningConfig,
+                                 args: Any, model: Any, log: Any) -> None:
+    """baseline 的 config 指纹必须与**本次真实运行配置**一致（review v0.2 #6）。
+
+    原实现直接 `BaselineStore.load(path)`，把文件里自带的旧指纹当成「当前指纹」⇒
+    「昨天 chunk=50/norm=A 算的 baseline，今天 chunk=25/norm=B」也能命中，
+    NMSE 的分母是错的尺子且**无任何报错**。
+    """
+    store = parts.baseline_store
+    if store is None:
+        return
+    from ..baseline import runtime_config_fingerprint
+
+    runtime_fp = runtime_config_fingerprint(args, getattr(model, "config", None))
+    if not store.config_fingerprint:
+        raise RuntimeError(
+            "[auto_learning] baseline store 里没有 config_fingerprint ⇒ 无法确认它与"
+            "本次运行配置一致。请用 tools/compute_task_baseline.py --recompute 重算。")
+    if runtime_fp != store.config_fingerprint:
+        raise RuntimeError(
+            "[auto_learning] baseline 的 config 指纹与**本次运行配置**不一致 ⇒ 拒绝启动。\n"
+            f"  baseline 文件里 : {store.config_fingerprint}\n"
+            f"  本次运行算出来 : {runtime_fp}\n"
+            "  说明 数据路径 / 归一化统计 / 相机 / joints / chunk_size / img_size 变了 ⇒ "
+            "NMSE 的分母不再可比。\n"
+            "  请重算：python -m lingbotvla.auto_learning.tools.compute_task_baseline "
+            "--manifest <manifest.json> --config <lingbotvla_cli.yaml> --recompute")
+    log.info_rank0(f"[auto_learning] baseline config 指纹对拍通过: {runtime_fp}")
+
+
+def _guard_image_augment(cfg: AutoLearningConfig, args: Any, log: Any) -> None:
+    """v1 要求训练数据集 `image_augment=false`（review v0.2 #8）。"""
+    data = getattr(args, "data", None)
+    aug = bool(getattr(data, "image_augment", False)) if data is not None else False
+    if not aug:
+        return
+    if not cfg.allow_image_augment:
+        raise ValueError(
+            "[auto_learning] v1 要求训练数据集 `image_augment=false`。\n"
+            "  开了增强时，同一个 sample_id 两次 hardness 扫描可能拿到不同图 ⇒ "
+            "难度不可复现、硬度权重抖动。\n"
+            "  请把 --data.image_augment 设为 false；确实要开请显式设 "
+            "auto_learning.allow_image_augment=true。")
+    log.warning(
+        "[auto_learning] ⚠️ image_augment=true：hardness 扫描会临时关增强并还原 RNG，"
+        "但「同一 sample_id 的难度」仍可能漂移（allow_image_augment=true）")
+
+
 def _dataset_for_hardness(model: Any, args: Any, processor: Any) -> Any:
     """Hardness 要用的数据集 = **与训练同一份**（同一索引空间）。
 
@@ -272,4 +410,5 @@ def _dataset_for_hardness(model: Any, args: Any, processor: Any) -> Any:
 
 __all__ = ["AutoLearningParts", "SchedulerLoggerAdapter",
            "build_auto_learning_parts", "finish_auto_learning",
-           "load_auto_learning_config"]
+           "load_auto_learning_config", "auto_learning_enabled",
+           "check_rmpad_for_auto_learning", "validate_batch_alignment"]
