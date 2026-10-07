@@ -38,6 +38,9 @@ python tools/task_split.py --list
 # 生成 click_bell 的划分（默认 val_ratio=0.2 ⇒ 40 训练 / 10 验证）
 python tools/task_split.py --task click_bell
 
+# 多任务子集（逗号分隔）—— 多任务 Auto Learning / 课程子集用这个
+python tools/task_split.py --task click_bell,click_alarmclock --out /data/train/task_splits_2task
+
 # 全部 50 个任务都生成
 python tools/task_split.py --task all
 ```
@@ -50,6 +53,23 @@ python tools/task_split.py --task all
 ├── click_bell.val_ids.json     裸列表 [53, 60, ...] ⇒ 开环评测用
 └── manifest.json               参数 + 各任务明细 + 帧数 + sha256（审计 / 基线匹配）
 ```
+
+**多个任务时**额外产出一份合并白名单（单任务不产出，避免多余文件）：
+
+```
+/data/train/task_splits_2task/
+├── click_bell.train_ids.json / .val_ids.json
+├── click_alarmclock.train_ids.json / .val_ids.json
+├── combined.train_ids.json     ← 两个任务 train 回合的并集，喂 --data.episode_ids_file
+├── combined.val_ids.json       ← 两个任务 val 回合的并集
+└── manifest.json               ← **只含这 2 个任务**
+```
+
+> ⚠️ **manifest 必须只含你要用的那几个任务**：`TaskCatalog.attach_samples()` 要求
+> manifest 里**每个**任务在当前数据集白名单里都有样本，多列一个任务就直接报错
+> （`[<task>] 回合 N 在当前数据集里一个样本都没有`）。
+> 所以「多任务」要用 `--task a,b` 生成**配套的** manifest，**不要**拿 `--task all`
+> 的全量 manifest 去配一个 2 任务的白名单。
 
 ---
 
@@ -79,7 +99,7 @@ python scripts/open_loop_eval.py \
 
 | 参数 | 默认 | 说明 |
 |---|---|---|
-| `--task` | 必填 | 任务名，或 `all`（全部 50 个） |
+| `--task` | 必填 | 任务名、**逗号分隔的多个任务名**（如 `click_bell,click_alarmclock`），或 `all`（全部 50 个）。名字写错会直接报错并提示用 `--list` 查 |
 | `--list` | — | 列出全部任务名后退出 |
 | `--val-ratio` | `0.2` | 验证集比例（1/5 ⇒ 50 个回合里 10 条） |
 | `--strategy` | `quantile` | `quantile`=按长度分层（推荐）｜`seed`=固定种子随机｜`stride`=等间隔 |

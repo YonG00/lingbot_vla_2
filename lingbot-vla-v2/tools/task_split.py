@@ -182,7 +182,8 @@ def main() -> int:
         description="按 task 划分训练/验证回合，并提供开环评测轨迹索引",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    ap.add_argument("--task", default=None, help="任务名，或 'all'（全部 %d 个）" % len(TASK_ORDER))
+    ap.add_argument("--task", default=None,
+                    help="任务名、逗号分隔的多个任务名，或 'all'（全部 %d 个）" % len(TASK_ORDER))
     ap.add_argument("--list", action="store_true", help="列出全部任务名后退出")
     ap.add_argument("--val-ratio", type=float, default=0.2, help="验证集比例，默认 0.2 (=1/5)")
     ap.add_argument("--strategy", choices=STRATEGIES, default="quantile",
@@ -203,7 +204,19 @@ def main() -> int:
         die("必须给 --task <名字|all>（或用 --list 查看全部任务）")
 
     lengths = load_episodes(args.dataset)
-    tasks = TASK_ORDER if args.task == "all" else [args.task]
+    if args.task == "all":
+        tasks = list(TASK_ORDER)
+    else:
+        # 逗号分隔的多个任务（如 `--task click_bell,click_alarmclock`）——
+        # 多任务 Auto Learning / 课程子集都需要「一份只含这几个任务的 manifest」，
+        # 因为 `TaskCatalog.attach_samples()` 要求 manifest 里**每个**任务在
+        # 当前数据集白名单里都有样本（多列任务会直接报错）。
+        tasks = [t.strip() for t in args.task.split(",") if t.strip()]
+    unknown = [t for t in tasks if t not in TASK_ORDER]
+    if unknown:
+        die(f"未知任务 {unknown}（用 --list 查看全部 {len(TASK_ORDER)} 个任务名）")
+    if not tasks:
+        die("--task 解析后是空的")
 
     # --pick-* 需要划分结果：优先读 manifest，读不到就现算
     manifest_path = Path(args.out) / "manifest.json"
@@ -254,6 +267,13 @@ def main() -> int:
     for task, rec in records.items():
         write_json(out / f"{task}.train_ids.json", rec["train_ids"])
         write_json(out / f"{task}.val_ids.json", rec["val_ids"])
+    if len(records) > 1:
+        # 多任务时额外给一份**合并**白名单，直接喂 `--data.episode_ids_file`
+        # （单任务场景不写，避免和历史行为产生多余文件）
+        write_json(out / "combined.train_ids.json",
+                   sorted(i for r in records.values() for i in r["train_ids"]))
+        write_json(out / "combined.val_ids.json",
+                   sorted(i for r in records.values() for i in r["val_ids"]))
 
     manifest = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
