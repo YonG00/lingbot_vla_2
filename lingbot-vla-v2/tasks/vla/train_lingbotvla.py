@@ -352,6 +352,12 @@ class MyTrainingArguments(TrainingArguments):
             "省磁盘约 3×（F32 下 72G→24G/份），代价：中途无法精确 resume"
             "（`enable_resume` 只能接上最后一个完整 DCP）。")},
     )
+    hf_pass_interval: int = field(
+        default=0,
+        metadata={"help": "AL: 每新增 N 个非 Bootstrap 首次 PASS 导出独立 HF；0=关闭。"
+                  "此模式要求 save_hf_weights=false、dcp_save_mode=always，"
+                  "收尾只保留 DCP；HF 不经过 DCP 转换。"},
+    )
     dcp_final_size_gb: float = field(
         default=0.0,
         metadata={"help": (
@@ -790,6 +796,24 @@ def main():
         if args.train.enable_resume:
             raise ValueError("smoke_no_checkpoint 与 enable_resume 不可同时启用")
         logger.info_rank0("[smoke] NO_CHECKPOINT：本次禁用全部 DCP/HF 存档；不可 Resume")
+    if args.train.hf_pass_interval:
+        if (args.train.hf_pass_interval < 1 or args.train.smoke_no_checkpoint
+                or not args.train.auto_learning
+                or args.train.save_hf_weights
+                or args.train.async_save_hf_weights
+                or args.train.dcp_save_mode != "always"
+                or not args.train.save_steps or args.train.save_steps < 1
+                or args.train.save_epochs):
+            raise ValueError(
+                "hf_pass_interval 需要正式 AL、smoke_no_checkpoint=false、"
+                "save_hf_weights=false、async_save_hf_weights=false、"
+                "dcp_save_mode=always、save_steps>0、save_epochs=0")
+        logger.info_rank0(
+            f"[ckpt] 策略：每 {args.train.save_steps} 步 DCP；"
+            f"每新增 {args.train.hf_pass_interval} 个非 Bootstrap PASS 直接 HF；"
+            "最终只 DCP，无 HF")
+    _hf_milestone_index = 0
+    _hf_milestone_loaded = None
     hf_saver = AsyncHFCheckpointSaver(
         enabled=args.train.async_save_hf_weights and not args.train.smoke_no_checkpoint,
         max_pending=args.train.async_hf_max_pending,
@@ -829,7 +853,12 @@ def main():
         🔴 review v0.2 #10：`enabled=false`（`_al_hook is None`）时**连键都不写** ——
         legacy checkpoint 的 schema 保持原样，不做无意义的 `auto_learning: None`。
         """
-        return {} if _al_hook is None else {"auto_learning": _al_hook.extra_state()}
+        if _al_hook is None:
+            return {}
+        extra = {"auto_learning": _al_hook.extra_state()}
+        if args.train.hf_pass_interval:
+            extra["hf_pass_milestone_index"] = _hf_milestone_index
+        return extra
 
     def _dcp_final_capacity_ok() -> bool:
         """`final_only` 模式下，**收尾要写完整 DCP** ⇒ 先确认空间真的够。
@@ -924,6 +953,7 @@ def main():
                 torch.set_rng_state(state["extra_state"]["torch_rng_state"])
                 # ---- [Stage B1] Auto Learning 状态（等 hook 建好后再应用）----
                 _al_state = state["extra_state"].get("auto_learning")
+                _hf_milestone_loaded = state["extra_state"].get("hf_pass_milestone_index")
                 if _al_state is not None:
                     logger.info_rank0(
                         "[auto_learning] 从 checkpoint 读到 Auto Learning 状态 "
@@ -1049,6 +1079,14 @@ def main():
         #    `__iter__` 会因为「还没收到 TrainRequest」直接报错。
         _al_initial = _al_hook.on_step_begin(0)
         _al_audit_pending = not _al_initial.finished
+        if args.train.hf_pass_interval:
+            from lingbotvla.utils.al_checkpoint_policy import pass_milestone_index
+            # For old checkpoints without a persisted cursor, existing PASS
+            # milestones are historical: never re-export them after Resume.
+            observed = pass_milestone_index(
+                _al_hook.scheduler.state, args.train.hf_pass_interval)
+            _hf_milestone_index = (max(int(_hf_milestone_loaded), observed)
+                                   if _hf_milestone_loaded is not None else observed)
         if _al_initial.finished:
             logger.info_rank0(
                 "[auto_learning] Bootstrap 已满足停止条件；零训练步收工，"
@@ -1524,6 +1562,50 @@ def main():
                     _save_due = False
                 else:
                     _al_deferred_save = False
+            # PASS milestone is evaluated AFTER on_step_end's Scheduler decision
+            # and BEFORE checkpoint extra_state is captured.  Do not duplicate
+            # exports on periodic/final DCP boundaries; the DCP covers them.
+            _milestone_covered_by_dcp = False
+            if args.train.hf_pass_interval and _al_hook is not None:
+                from lingbotvla.utils.al_checkpoint_policy import (
+                    pass_milestone_index, milestone_action,
+                )
+                observed = pass_milestone_index(
+                    _al_hook.scheduler.state, args.train.hf_pass_interval)
+                final_due = bool(
+                    _al_hook.scheduler.state.finished
+                    or (args.train.max_steps is not None
+                        and global_step >= args.train.max_steps)
+                    or (stop_and_save_path and os.path.exists(stop_and_save_path)
+                        and _al_hook.at_safe_checkpoint_boundary)
+                    or (_al_stop_pending and _al_hook.at_safe_checkpoint_boundary)
+                )
+                action = milestone_action(
+                    observed_index=observed,
+                    committed_index=_hf_milestone_index,
+                    final_due=final_due, dcp_due=_save_due,
+                )
+                if action == "hf":
+                    from lingbotvla.utils.direct_hf_checkpoint import export_model_hf_direct
+                    logger.info_rank0(
+                        f"[ckpt] {observed * args.train.hf_pass_interval} 个新增 PASS"
+                        f" ⇒ step {global_step} 直接导出 HF（不写 DCP）")
+                    _hf_export_path = export_model_hf_direct(
+                        model, global_step=global_step,
+                        checkpoint_root=os.path.join(args.train.output_dir, "hf_milestones"),
+                        model_assets=model_assets if args.train.global_rank == 0 else None,
+                        save_dtype=(torch.float32 if args.train.enable_fp32
+                                    else torch.bfloat16),
+                    )
+                    if _hf_export_path is not None:
+                        logger.info_rank0(
+                            f"[ckpt] HF milestone saved successfully: {_hf_export_path}")
+                    _hf_milestone_index = observed
+                elif action == "covered_by_dcp":
+                    _milestone_covered_by_dcp = True
+                    logger.info_rank0(
+                        f"[ckpt] PASS 里程碑在 step {global_step} 与 DCP 重合，"
+                        "跳过 HF，待 DCP 保存成功后确认")
             if _save_due:
                 # [DiskCheck] 本次 checkpoint 开始前: 收上一份的实测占用 + 判断余量
                 _disk_avail_before_gb = -1.0
@@ -1574,9 +1656,13 @@ def main():
                 #   ⚠️ 代价：中途无法精确 resume —— `enable_resume` 只能接上最后一个完整 DCP。
                 _write_dcp = (args.train.dcp_save_mode != "final_only")
                 if _write_dcp:
+                    if _milestone_covered_by_dcp:
+                        _hf_milestone_index = observed
                     _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
                     dist.barrier()
                     logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
+                    if _milestone_covered_by_dcp:
+                        _hf_milestone_index = observed
                 else:
                     # hf_ckpt 要落在 <save_checkpoint_path>/hf_ckpt ⇒ 目录得先存在
                     os.makedirs(save_checkpoint_path, exist_ok=True)

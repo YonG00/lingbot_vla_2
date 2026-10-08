@@ -43,7 +43,7 @@ N_GPU=${N_GPU:-1}
 GBS=$(( MICRO * GAS * N_GPU ))
 
 MAX_STEPS=${MAX_STEPS:-20000}
-SAVE_EVERY=${SAVE_EVERY:-2000}
+SAVE_EVERY=${SAVE_EVERY:-1000}
 SAVE_EPOCHS=0                      # 只按步存档，不开轮末存档
 SMOKE_NO_CHECKPOINT=${SMOKE_NO_CHECKPOINT:-0}
 if [ "$SMOKE_NO_CHECKPOINT" = "1" ]; then
@@ -66,14 +66,16 @@ RESUME_BOOL=$([ "$RESUME" = "1" ] && echo true || echo false)
 
 # 剪枝看门狗：每份 hf_ckpt 校验通过后剪掉 DCP。
 # ⚠️ RESUME=1 时强制 keep-last≥1，否则看门狗会把要恢复的那份 DCP 剪掉。
-PRUNE=${PRUNE:-1}
+PRUNE=${PRUNE:-0}   # DCP 要可 Resume；不运行按 HF 完成情况剪 DCP 的旧看门狗
 PRUNE_KEEP=${PRUNE_KEEP:-1}
 PRUNE_MIN_AGE=${PRUNE_MIN_AGE:-300}
 
-# 存档策略：final_only = 过程中的周期存档只写 hf_ckpt，收尾才写完整 DCP（省 ~3× 磁盘）
-DCP_MODE=${DCP_MODE:-final_only}
+# 新正式策略：每 1000 optimizer steps DCP；新增每 2 个非 Bootstrap PASS 直接 HF；收尾仅 DCP。
+# 独立 HF 不读取 DCP；禁用原有每次 DCP 之后的自动 HF 转换。
+DCP_MODE=${DCP_MODE:-always}
+HF_PASS_INTERVAL=${HF_PASS_INTERVAL:-2}
 DCP_FINAL_GB=${DCP_FINAL_GB:-0}
-SAVE_HF_BOOL=$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo false || echo true)
+SAVE_HF_BOOL=false
 DISK_GUARD_BOOL=$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo false || echo true)
 
 # TensorBoard
@@ -126,15 +128,13 @@ STEPS_PER_EPOCH=$(( TOTAL_FRAMES / GBS ))
 [ "$STEPS_PER_EPOCH" -lt 1 ] && { echo "❌ 每轮步数为 0（train_frames=$TOTAL_FRAMES < gbs=${GBS}）" >&2; exit 1; }
 EPOCHS=$(( (MAX_STEPS + STEPS_PER_EPOCH - 1) / STEPS_PER_EPOCH + 1 ))
 
+# save_steps 的真实语义为全局 optimizer step 的模数；无需强行整除 MAX_STEPS。
+# 例如 MAX_STEPS=19500 时必须仍按 1000、2000… 保存，而不是改成 975。
 if [ "${SAVE_EVERY}" -le 0 ] 2>/dev/null; then
-    SAVE_STEPS=0; N_SAVES=1
+    SAVE_STEPS=0; N_SAVES=0
 else
-    SAVE_STEPS=$("$PY" -c "
-m, want = $MAX_STEPS, $SAVE_EVERY
-d = [x for x in range(1, m + 1) if m % x == 0 and x <= want]
-print(max(d) if d else 0)
-")
-    N_SAVES=$(( SAVE_STEPS > 0 ? MAX_STEPS / SAVE_STEPS : 1 ))
+    SAVE_STEPS=$SAVE_EVERY
+    N_SAVES=$(( MAX_STEPS / SAVE_STEPS ))
 fi
 
 MANIFEST="$SPLIT_DIR/manifest.json"
@@ -211,6 +211,7 @@ bash train.sh tasks/vla/train_lingbotvla.py /data/train/configs/robotwin_officia
   --train.save_epochs      $SAVE_EPOCHS \\
   --train.save_hf_weights  $SAVE_HF_BOOL \\
   --train.async_save_hf_weights false \\
+  --train.hf_pass_interval $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 0 || echo "$HF_PASS_INTERVAL") \\
   --train.enable_resume    $RESUME_BOOL \\
   --train.train_expert_only false \\
   --train.freeze_vision_encoder true \\
@@ -221,7 +222,7 @@ bash train.sh tasks/vla/train_lingbotvla.py /data/train/configs/robotwin_officia
   --train.disk_guard       $DISK_GUARD_BOOL \\
   --train.disk_guard_margin 1.1 \\
   --train.disk_check_interval 50 \\
-  --train.smoke_no_checkpoint $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo true || echo false) \
+  --train.smoke_no_checkpoint $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo true || echo false) \\
   --train.dcp_save_mode    $DCP_MODE \\
   --train.dcp_final_size_gb $DCP_FINAL_GB \\
   --train.auto_learning          $AL_CFG \\
@@ -292,6 +293,7 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.save_epochs      "$SAVE_EPOCHS" \
     --train.save_hf_weights  $SAVE_HF_BOOL \
     --train.async_save_hf_weights false \
+    --train.hf_pass_interval "$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 0 || echo "$HF_PASS_INTERVAL")" \
     --train.enable_resume    "$RESUME_BOOL" \
     --train.train_expert_only false \
     --train.freeze_vision_encoder true \
