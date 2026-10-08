@@ -46,6 +46,9 @@ class AutoLearningConfig:
 
     # ----- task evaluation -----
     global_scout_val_trajs: int = 2
+    #: 是否在 Bootstrap / 全池 Rescan 的 Scout PASS 后额外评估 4 条轨迹。
+    #: 默认 True 保持旧行为；高效开环实验可显式设 False。
+    scout_confirm_enabled: bool = True
     active_train_probe_trajs: int = 4
     active_val_probe_trajs: int = 4
     pass_nmse: float = 0.30
@@ -115,6 +118,9 @@ class AutoLearningConfig:
 
     # ----- scheduler -----
     rescan_candidates_after_transition: bool = True
+    #: 每 N 次实际训练任务切换后全池 Rescan（不计遗忘 review 的 REOPEN）。
+    #: 1 保持旧行为；50-task 低开销实验建议 3。轮次 rollover 的定向复扫不受此频率控制。
+    rescan_every_n_task_switches: int = 1
     max_global_steps: Optional[int] = None
     max_transitions: Optional[int] = None
 
@@ -138,6 +144,10 @@ class AutoLearningConfig:
                 f"new_slots({self.new_slots}) + replay_slots({self.replay_slots}) "
                 f"!= batch_size({self.batch_size})"
             )
+        if type(self.rescan_every_n_task_switches) is not int or self.rescan_every_n_task_switches < 1:
+            raise ValueError("rescan_every_n_task_switches 必须是 >= 1 的整数")
+        if type(self.scout_confirm_enabled) is not bool:
+            raise ValueError("scout_confirm_enabled 必须是布尔值")
         if self.eval_interval_steps <= 0:
             raise ValueError("eval_interval_steps must be > 0")
         if self.min_steps_before_defer % self.eval_interval_steps != 0:

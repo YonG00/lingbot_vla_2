@@ -33,11 +33,12 @@ max_reopens_per_task: 3
 
 # ----- task evaluation -----
 global_scout_val_trajs: 2
+scout_confirm_enabled: false      # 仅当前开环实验：2-traj Scout 直接判断，不补 4-traj Confirm
 active_train_probe_trajs: 4
 active_val_probe_trajs: 4
-#: ✅ 及格线（用户 2026-10-07 定）：闭环/开环 NMSE **≤ 0.35** 判 PASS。
-#: ⚠️ 这个数是「相对 Fixed BaselineMSE 的比值」，不是绝对误差；真实 baseline
-#:    由 task_baseline.json 提供（已用 50 任务 manifest 重算）。
+#: 兼容旧配置的 NMSE 数值；当前仍是默认 pass_metric=nmse，**尚未启用 GMean**。
+#: 要启用新标准，必须先完成配对标定、生成 --high-cv-policy warn 的表，
+#: 再显式设置 pass_metric: mse + pass_thresholds_file: 真实路径。
 pass_nmse: 0.35
 
 # ----- train / eval cadence（正式值）-----
@@ -93,6 +94,7 @@ forget_relative_threshold: 0.30
 
 # ----- scheduler -----
 rescan_candidates_after_transition: true
+rescan_every_n_task_switches: 3   # 每 3 次实际任务切换才全池重扫；rollover 定向扫描独立
 #: 保险丝：总步数上限（**这是"钱的安全带"，不是任务限制**）。
 #: 不设 attempt 限制后，万一 50 个任务都学不出来，会一直换任务 ⇒ 必须有兜底。
 #: 4 个 PASS 大约 600–1500 步；给 20000 足够宽松，只在"极端学不出来"时才会触发。

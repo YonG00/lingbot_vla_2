@@ -2,7 +2,7 @@
 
 设计要点：把整个流程拆成**原子动作**，一次 `advance()` 只做一件事：
 
-    bootstrap（2-val 扫描 → 4-val 确认）
+    bootstrap（2-val 扫描，4-val 确认可按配置关闭）
     select   （挑 scout NMSE 最低的 candidate → 建 baseline → hardness 扫描）
     train_unit（50 step + 4train/4val open-loop + 判定）
     review   （每 N 次 transition 复查 PASS pool）
@@ -63,6 +63,10 @@ class SchedulerState:
     global_samples_seen: int = 0
     round: int = 1
     transition_count: int = 0
+    #: 仅统计 _after_transition 的训练任务切换；不把 review 中的 REOPEN 算进去。
+    #: 必须持久化，确保 Resume 后的 Rescan 节奏正确。
+    task_switch_count: int = 0
+    full_rescan_count: int = 0
     current_task: Optional[str] = None
     attempt_step: int = 0
     rescued: bool = False
@@ -310,28 +314,33 @@ class Scheduler:
         # 判定走统一入口 thresholds.is_pass（口径由 cfg.pass_metric 决定；
         # mse 模式下任务没有可用阈值 ⇒ 不判 PASS，不会误放行）
         if is_pass(al, name, nmse=scout.nmse, mse=scout.mse):
-            confirm = self.evaluator.evaluate(name, EvalSplit.CONFIRM.value, rec.confirm_val_ids)
-            self._record_eval(rec, confirm, kind="confirm")
-            event["confirm_nmse"] = confirm.nmse
-            event["confirm_trajs"] = confirm.n_trajs
-            if confirm.metric_valid and is_pass(al, name, nmse=confirm.nmse, mse=confirm.mse):
-                apply_pass(
-                    rec,
-                    al,
-                    f"bootstrap scout={scout.nmse:.4f} → confirm={confirm.nmse:.4f}",
-                    ReasonCode.BOOTSTRAP_PASS.value,
-                )
-                rec.best_nmse = confirm.nmse
-                rec.current_val_nmse = confirm.nmse
-                rec.best_mse = confirm.mse
-                rec.current_val_mse = confirm.mse
-                self._mark_auto_pass(name)
-                event["result"] = "pass"
-                return event
-            # 4 条不通过 ⇒ 用更可信的 4-val 值当 scout 估计
-            rec.scout_nmse = confirm.nmse
-            rec.set_status(TaskStatus.CANDIDATE, "scout 疑似达标但 4-val 确认未通过")
-            event["result"] = "confirm_failed"
+            accepted = scout
+            if al.scout_confirm_enabled:
+                confirm = self.evaluator.evaluate(name, EvalSplit.CONFIRM.value, rec.confirm_val_ids)
+                self._record_eval(rec, confirm, kind="confirm")
+                event["confirm_nmse"] = confirm.nmse
+                event["confirm_trajs"] = confirm.n_trajs
+                if not (confirm.metric_valid and is_finite_metric(confirm.nmse)
+                        and is_pass(al, name, nmse=confirm.nmse, mse=confirm.mse)):
+                    # 4 条不通过 ⇒ 用更可信的 4-val 值当 scout 估计
+                    rec.scout_nmse = confirm.nmse
+                    rec.set_status(TaskStatus.CANDIDATE, "scout 疑似达标但 4-val 确认未通过")
+                    event["result"] = "confirm_failed"
+                    return event
+                accepted = confirm
+            apply_pass(
+                rec, al,
+                f"bootstrap scout={scout.nmse:.4f}"
+                + (f" → confirm={accepted.nmse:.4f}" if al.scout_confirm_enabled else " (2-traj direct)"),
+                ReasonCode.BOOTSTRAP_PASS.value,
+            )
+            rec.best_nmse = accepted.nmse
+            rec.current_val_nmse = accepted.nmse
+            rec.best_mse = accepted.mse
+            rec.current_val_mse = accepted.mse
+            self._mark_auto_pass(name)
+            event["result"] = "pass"
+            event["pass_source"] = "confirm" if al.scout_confirm_enabled else "scout_direct"
             return event
 
         rec.set_status(TaskStatus.CANDIDATE, "scout 未达标")
@@ -691,9 +700,12 @@ class Scheduler:
         st.attempt_step = 0
         st.rescued = False
         st.transition_count += 1
+        st.task_switch_count += 1
         self._record_transition(task, kind, reason, code, {})
-        if self.al.rescan_candidates_after_transition:
+        if (self.al.rescan_candidates_after_transition
+                and st.task_switch_count % self.al.rescan_every_n_task_switches == 0):
             self._rescan()
+            st.full_rescan_count += 1
         if (
             self.al.review_after_task_transitions > 0
             and st.transition_count % self.al.review_after_task_transitions == 0
@@ -765,26 +777,31 @@ class Scheduler:
                 # 每次都不消耗 attempt（Monte Carlo 压力测试抓出来的）。
                 and not is_terminal(rec, al)
             ):
-                confirm = self.evaluator.evaluate(
-                    rec.task_name, EvalSplit.CONFIRM.value, rec.confirm_val_ids
-                )
-                self._record_eval(rec, confirm, kind="rescan_confirm")
-                row["confirm_nmse"] = confirm.nmse
-                if confirm.metric_valid and is_pass(
-                    al, rec.task_name, nmse=confirm.nmse, mse=confirm.mse
-                ):
-                    apply_pass(
-                        rec,
-                        al,
-                        f"rescan 自动达标 scout={scout.nmse:.4f} → confirm={confirm.nmse:.4f}",
-                        ReasonCode.RESCAN_PASS.value,
+                accepted = scout
+                if al.scout_confirm_enabled:
+                    confirm = self.evaluator.evaluate(
+                        rec.task_name, EvalSplit.CONFIRM.value, rec.confirm_val_ids
                     )
-                    rec.best_nmse = confirm.nmse
-                    rec.current_val_nmse = confirm.nmse
-                    rec.best_mse = confirm.mse
-                    rec.current_val_mse = confirm.mse
-                    self._mark_auto_pass(rec.task_name)
-                    row["auto_pass"] = True
+                    self._record_eval(rec, confirm, kind="rescan_confirm")
+                    row["confirm_nmse"] = confirm.nmse
+                    if not (confirm.metric_valid and is_finite_metric(confirm.nmse)
+                            and is_pass(al, rec.task_name, nmse=confirm.nmse, mse=confirm.mse)):
+                        rows.append(row)
+                        continue
+                    accepted = confirm
+                apply_pass(
+                    rec, al,
+                    f"rescan 自动达标 scout={scout.nmse:.4f}"
+                    + (f" → confirm={accepted.nmse:.4f}" if al.scout_confirm_enabled else " (2-traj direct)"),
+                    ReasonCode.RESCAN_PASS.value,
+                )
+                rec.best_nmse = accepted.nmse
+                rec.current_val_nmse = accepted.nmse
+                rec.best_mse = accepted.mse
+                rec.current_val_mse = accepted.mse
+                self._mark_auto_pass(rec.task_name)
+                row["auto_pass"] = True
+                row["pass_source"] = "confirm" if al.scout_confirm_enabled else "scout_direct"
             rows.append(row)
         return rows
 
