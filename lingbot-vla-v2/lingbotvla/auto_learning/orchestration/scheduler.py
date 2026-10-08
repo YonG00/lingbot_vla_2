@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import random
+import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -42,6 +43,22 @@ from ..ports import Backend, ReplayPlan, TrainRequest, TrainResult
 from ..sampling.hardness_scan import HardnessScan, HardnessScanner
 from ..state.registry import TaskRecord, TaskRegistry
 from ..types import Decision, EvalSplit, ReasonCode, TaskStatus
+
+
+def _cuda_sync_for_timing() -> None:
+    """Hardness 计时用的**一次性** CUDA 同步（只在扫描前后各一次，绝不逐样本同步）。
+
+    * `perf_counter` 只测 CPU 墙钟；GPU 工作是异步的 ⇒ 不先同步会把「排队时间」
+      当成「扫描时间」（或反过来把真实耗时记成 0）。
+    * lazy import：`scheduler.py` 在 Stage A 是纯 Python 模块，不应硬依赖 torch；
+      无 CUDA / 无 torch 时静默降级为「只测 CPU 侧」。
+    """
+    try:
+        import torch  # noqa: PLC0415
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+    except Exception:  # noqa: BLE001 —— 计时绝不能影响训练
+        pass
 
 def _true_nmse(extra_state, task: str):
     """真值 NMSE 只用于 debug 列（Stage B 没有假世界时返回 None）。"""
@@ -416,7 +433,27 @@ class Scheduler:
         self._record_eval(pick, vm, kind="active_val")
 
         # hardness 扫描（一个 attempt 入口扫一次，文档 §26）
+        # 首次扫描含 train-mode 的 torch.compile / 预热（首跑实测该窗口 369 s，其中大部分是编译）
+        # ⇒ 用 `self.scans` 是否为空区分「预热」与「稳态」，避免把编译算进难度扫描成本。
+        _hardness_first = not self.scans
+        _cuda_sync_for_timing()
+        _hardness_t0 = time.perf_counter()
         scan = self.scanner.scan(pick, self.backend.catalog.entry(name))
+        _cuda_sync_for_timing()
+        _hardness_seconds = time.perf_counter() - _hardness_t0
+        if self.logger is not None:
+            self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_seconds",
+                                    round(_hardness_seconds, 3))
+            self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_samples",
+                                    int(scan.n_scanned))
+            self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_trajs",
+                                    len(scan.scanned_traj_ids))
+            self.logger.log_metrics(
+                st.global_step,
+                "auto_learning/hardness_scan_seconds_warmup" if _hardness_first
+                else "auto_learning/hardness_scan_seconds_steady",
+                round(_hardness_seconds, 3),
+            )
         self.scans[name] = scan
         pick.sample_probs = scan.probs
         pick.hardness_version = scan.version
@@ -435,6 +472,8 @@ class Scheduler:
             "hardness_coverage": round(scan.coverage, 3),
             "hardness_mean_loss": round(scan.mean_loss_scanned, 4),
             "n_samples": scan.n_total,
+            "hardness_scan_seconds": round(_hardness_seconds, 3),
+            "hardness_scan_is_first": bool(_hardness_first),
         }
 
     # ---------------------------------------------------------------- #
