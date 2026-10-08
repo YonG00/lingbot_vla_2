@@ -183,9 +183,9 @@ def _verify_export(output_dir: str) -> int:
         print("  ❌ 没有任何可比对张量")
         return 1
     print(f"  数值最大绝对差: {worst:.3e}（最差张量 {worst_key}；分块比较，块大小 {CHUNK}）")
-    ok = (not missing) and (not shape_bad) and worst == 0.0
+    ok = (not missing) and (not extra) and (not shape_bad) and worst == 0.0
     print(f"  判定          : {'✅ 与活模型逐位一致（按磁盘 dtype 语义）' if ok else '⚠️ 需人工确认容差'}")
-    return 0
+    return 0 if ok else 1
 
 
 def main() -> int:
