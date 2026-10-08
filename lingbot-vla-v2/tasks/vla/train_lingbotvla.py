@@ -364,6 +364,14 @@ class MyTrainingArguments(TrainingArguments):
             "dcp_save_mode=final_only 时用于**收尾存档前**的容量预判（GB）。"
             "0＝按已实测的 hf_ckpt 占用 ×3 粗估。F32 全量约 72G、bf16 约 31G。")},
     )
+    dcp_keep_last: int = field(
+        default=2,
+        metadata={"help": (
+            "DCP 保留份数：只保留最近 N 份**完整** DCP（默认 2；0=不清理）。"
+            "必须先确认新 DCP 完整成功、再删除更旧的；新 DCP 保存失败时**一份都不删**。"
+            "只作用于 save_checkpoint_path 下的 global_step_*，"
+            "绝不触碰 hf_milestones/（HF 里程碑独立管理）。Smoke 无存档模式不启用。")},
+    )
 
 @dataclass
 class MyDataArguments(DataArguments):
@@ -796,6 +804,8 @@ def main():
         if args.train.enable_resume:
             raise ValueError("smoke_no_checkpoint 与 enable_resume 不可同时启用")
         logger.info_rank0("[smoke] NO_CHECKPOINT：本次禁用全部 DCP/HF 存档；不可 Resume")
+    if args.train.dcp_keep_last is None or int(args.train.dcp_keep_last) < 0:
+        raise ValueError("dcp_keep_last 必须是 >=0 的整数（0=不清理，默认 2）")
     if args.train.hf_pass_interval:
         if (args.train.hf_pass_interval < 1 or args.train.smoke_no_checkpoint
                 or not args.train.auto_learning
@@ -859,6 +869,26 @@ def main():
         if args.train.hf_pass_interval:
             extra["hf_pass_milestone_index"] = _hf_milestone_index
         return extra
+
+    def _retention_after_save(saved_step: int) -> None:
+        """安全 DCP 保留策略（用户 2026-10-08 批准）。
+
+        * 只在 rank0 执行；Smoke 无存档 / keep_last<1 直接跳过；
+        * 仅当"本次保存已被验证为最新完整 DCP"时才删除更旧的（见 dcp_retention 模块）；
+        * 任何异常都不影响训练，且绝不触碰 HF 里程碑树。
+        """
+        try:
+            from lingbotvla.utils.dcp_retention import prune_dcps, should_prune
+            if not should_prune(smoke_no_checkpoint=args.train.smoke_no_checkpoint,
+                                keep_last=args.train.dcp_keep_last,
+                                is_rank0=args.train.global_rank == 0):
+                return
+            res = prune_dcps(args.train.save_checkpoint_path, int(args.train.dcp_keep_last),
+                             newest_verified_step=int(saved_step), logger=logger)
+            if res.get("failures"):
+                logger.warning(f"[ckpt-retention] 部分旧目录删除失败（不影响训练）: {res['failures']}")
+        except Exception as exc:  # noqa: BLE001 —— 清理出问题不能打断训练
+            logger.warning(f"[ckpt-retention] 清理异常（不影响训练）: {exc!r}")
 
     def _dcp_final_capacity_ok() -> bool:
         """`final_only` 模式下，**收尾要写完整 DCP** ⇒ 先确认空间真的够。
@@ -1661,6 +1691,7 @@ def main():
                     _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
                     dist.barrier()
                     logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
+                    _retention_after_save(global_step)
                     if _milestone_covered_by_dcp:
                         _hf_milestone_index = observed
                 else:
@@ -1812,6 +1843,7 @@ def main():
                     _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
                     dist.barrier()
                     logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
+                    _retention_after_save(global_step)
                 else:
                     os.makedirs(save_checkpoint_path, exist_ok=True)
                     logger.info_rank0(
@@ -1866,6 +1898,7 @@ def main():
                 _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
                 dist.barrier()
                 logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
+                _retention_after_save(global_step)
             else:
                 os.makedirs(save_checkpoint_path, exist_ok=True)
                 logger.info_rank0(

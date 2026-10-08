@@ -75,6 +75,9 @@ PRUNE_MIN_AGE=${PRUNE_MIN_AGE:-300}
 DCP_MODE=${DCP_MODE:-always}
 HF_PASS_INTERVAL=${HF_PASS_INTERVAL:-2}
 DCP_FINAL_GB=${DCP_FINAL_GB:-0}
+# 安全保留：只留最近 N 份**完整** DCP（新 DCP 校验成功后才删最旧；保存失败则一份都不删）。
+# HF 里程碑在 TRAIN_OUT/hf_milestones/ 独立管理，不受本策略影响；Smoke 无存档模式不启用。
+DCP_KEEP_LAST=${DCP_KEEP_LAST:-2}
 SAVE_HF_BOOL=false
 DISK_GUARD_BOOL=$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo false || echo true)
 
@@ -174,6 +177,7 @@ cat <<EOF
                 （AL 要求 new_slots+replay_slots == gbs；配置里是 7+3=10）
   存档计划    = $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 'NO_CHECKPOINT (无 DCP/HF，不支持 Resume)' || echo "每 ${SAVE_STEPS} 步一份 × ${N_SAVES} 份；DCP_MODE=${DCP_MODE}")
   剪枝看门狗  = PRUNE=$PRUNE keep-last=$PRUNE_KEEP min-age=${PRUNE_MIN_AGE}s
+  DCP 保留    = 最近 ${DCP_KEEP_LAST} 份完整 DCP（新份校验成功后才删最旧；HF 里程碑独立管理）
   续训        = RESUME=${RESUME}（${RESUME_BOOL}）
   编号起点    = STEP_OFFSET=${STEP_OFFSET}（0=从零计）
   初始权重    = $MODEL_PATH
@@ -225,6 +229,7 @@ bash train.sh tasks/vla/train_lingbotvla.py /data/train/configs/robotwin_officia
   --train.smoke_no_checkpoint $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo true || echo false) \\
   --train.dcp_save_mode    $DCP_MODE \\
   --train.dcp_final_size_gb $DCP_FINAL_GB \\
+  --train.dcp_keep_last $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 0 || echo "$DCP_KEEP_LAST") \\
   --train.auto_learning          $AL_CFG \\
   --train.auto_learning_manifest $MANIFEST \\
   --train.auto_learning_baseline $BASELINE
@@ -307,6 +312,7 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.smoke_no_checkpoint "$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo true || echo false)" \
     --train.dcp_save_mode    "$DCP_MODE" \
     --train.dcp_final_size_gb "$DCP_FINAL_GB" \
+    --train.dcp_keep_last "$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 0 || echo "$DCP_KEEP_LAST")" \
     --train.auto_learning          "$AL_CFG" \
     --train.auto_learning_manifest "$MANIFEST" \
     --train.auto_learning_baseline "$BASELINE"

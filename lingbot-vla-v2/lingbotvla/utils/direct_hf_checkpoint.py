@@ -28,13 +28,26 @@ def collect_full_model_on_cpu(model):
     )
     if _distributed() and dist.get_rank() != 0:
         return None
+    distributed = _distributed()
     snapshot = {}
     for key, tensor in full.items():
         if not isinstance(tensor, torch.Tensor) or getattr(tensor, "is_meta", False):
             raise TypeError(f"HF snapshot {key!r} is not a materialized Tensor")
+        # 记录"变换前"的存储指针，用来判断是否还需要复制（用户 10-08 复核 CPU clone）：
+        #   * 单进程：`get_model_state_dict` 返回的是**活参数本身**（别名）⇒ 必须复制，
+        #     否则训练继续更新权重会让快照变质（tests 的 live_snapshot 用例守这条）；
+        #   * 分布式 + cpu_offload：全量 state 是本次 gather **物化出的独立 CPU 张量** ⇒ 无需复制，
+        #     省掉一份 ×2 的 CPU 峰值（bf16 6B ≈ 12 GiB 而非 24 GiB）。
+        src_ptr = tensor.data_ptr()
         if tensor.device.type != "cpu":
-            tensor = tensor.detach().to("cpu")
-        snapshot[key] = tensor.detach().contiguous().clone()
+            tensor = tensor.detach().to("cpu")   # 这一步本身已是一次复制
+        else:
+            tensor = tensor.detach()
+        if not tensor.is_contiguous():
+            tensor = tensor.contiguous()         # 非连续时也会产生新存储
+        if (not distributed) and tensor.data_ptr() == src_ptr:
+            tensor = tensor.clone()              # 仍与活参数共享存储 ⇒ 必须复制
+        snapshot[key] = tensor
     return snapshot
 
 
@@ -93,6 +106,10 @@ def export_model_hf_direct(model, *, global_step: int, checkpoint_root: str,
                 raise OSError(f"not enough free space for HF ({free} < {int(need*1.10)} bytes)")
             save_model_weights(temp_dir, snapshot, save_dtype=save_dtype,
                                model_assets=model_assets)
+            # 发布前自检（最小、布局无关）：saving 必须真的产出文件，
+            # 否则视为失败（finally 会清掉 tmp 目录，绝不留"可用假象"）。
+            if not any(fn for _dp, _dn, fn in os.walk(temp_dir)):
+                raise OSError("HF snapshot produced no files before publish")
             os.replace(temp_dir, destination)
         except Exception as exc:
             error = f"Direct HF export step={global_step} failed: {exc!r}"
