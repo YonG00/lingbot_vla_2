@@ -163,6 +163,11 @@ class TrajectoryMetrics:
     wall_time_s: float = 0.0
     note: str = ""
 
+    @property
+    def gmean_mse(self) -> Optional[float]:
+        from .decision.gmean import geometric_mse
+        return geometric_mse(self.per_traj_mse, expected_count=self.n_trajs, ids=self.episode_ids)
+
     def to_row(self) -> Dict[str, object]:
         return {
             "task": self.task,

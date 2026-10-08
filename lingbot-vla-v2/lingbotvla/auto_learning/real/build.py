@@ -451,11 +451,12 @@ def _attach_pass_thresholds(
        白白烧算力）
     """
     from ..decision.thresholds import (
-        PASS_METRIC_MSE, PassThresholds, active_metric,
+        PASS_METRIC_MSE, PASS_METRIC_GMEAN, PassThresholds, active_metric,
         verify_threshold_stat_compatible,
     )
 
-    if active_metric(cfg) != PASS_METRIC_MSE:
+    metric = active_metric(cfg)
+    if metric not in (PASS_METRIC_MSE, PASS_METRIC_GMEAN):
         return
     if not getattr(cfg, "pass_thresholds_file", None):
         raise ValueError(
@@ -468,7 +469,7 @@ def _attach_pass_thresholds(
         require_metric=PASS_METRIC_MSE,
         allow_fingerprint_mismatch=cfg.allow_thresholds_fingerprint_mismatch,
     )
-    verify_threshold_stat_compatible(thresholds)
+    verify_threshold_stat_compatible(thresholds, pass_metric=metric)
     missing = [t for t in cat.task_names() if t not in thresholds]
     if missing:
         raise ValueError(

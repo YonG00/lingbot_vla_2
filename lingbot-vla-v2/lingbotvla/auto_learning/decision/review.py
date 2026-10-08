@@ -28,11 +28,17 @@ class ReviewOutcome:
     forgotten: bool = False
     action: str = "ok"
     code: str = ""
+    scout_gmean_mse: Optional[float] = None
+    confirm_gmean_mse: Optional[float] = None
+    best_gmean_mse: Optional[float] = None
 
     def to_row(self) -> Dict[str, Any]:
         return {
             "task": self.task,
             "scout_nmse": self.scout_nmse,
+            "scout_gmean_mse": self.scout_gmean_mse,
+            "confirm_gmean_mse": self.confirm_gmean_mse,
+            "best_gmean_mse": self.best_gmean_mse,
             "confirmed": self.confirmed,
             "confirm_nmse": self.confirm_nmse,
             "best_nmse": self.best_nmse,
@@ -54,14 +60,19 @@ class Reviewer:
         for rec in list(registry.by_status(TaskStatus.PASS)):
             scout = self.evaluator.evaluate(rec.task_name, EvalSplit.REVIEW.value, rec.scout_val_ids)
             rec.last_eval_step = global_step
-            rec.note_eval({"step": global_step, "split": "review_scout", "nmse": scout.nmse})
-            suspect = self._suspect(rec, scout.nmse, scout.mse)
+            rec.note_eval({"step": global_step, "split": "review_scout", "nmse": scout.nmse,
+                           "gmean_mse": scout.gmean_mse})
+            suspect = self._suspect(rec, scout.nmse, scout.mse, scout.gmean_mse)
             outcome = ReviewOutcome(
                 task=rec.task_name,
                 scout_nmse=scout.nmse,
                 confirmed=False,
                 best_nmse=rec.best_nmse,
-                forget_ratio=forget_ratio(rec.best_nmse, scout.nmse),
+                forget_ratio=(forget_ratio(rec.best_gmean_mse, scout.gmean_mse)
+                              if cfg.pass_metric == "gmean_mse"
+                              else forget_ratio(rec.best_nmse, scout.nmse)),
+                scout_gmean_mse=scout.gmean_mse,
+                best_gmean_mse=rec.best_gmean_mse,
             )
             if not suspect:
                 outcome.action = "ok"
@@ -74,12 +85,22 @@ class Reviewer:
             )
             outcome.confirmed = True
             outcome.confirm_nmse = confirm.nmse
-            outcome.forget_ratio = forget_ratio(rec.best_nmse, confirm.nmse)
+            outcome.confirm_gmean_mse = confirm.gmean_mse
+            if cfg.pass_metric == "gmean_mse" and not is_finite_metric(confirm.gmean_mse):
+                # Bad probes must not make a PASS task silently OK or falsely REOPEN.
+                outcome.action = "invalid_metric"
+                outcomes.append(outcome)
+                continue
+            outcome.forget_ratio = (forget_ratio(rec.best_gmean_mse, confirm.gmean_mse)
+                                    if cfg.pass_metric == "gmean_mse"
+                                    else forget_ratio(rec.best_nmse, confirm.nmse))
             rec.current_val_nmse = confirm.nmse
             rec.current_val_mse = confirm.mse
+            rec.current_val_gmean_mse = confirm.gmean_mse
             rec.note_eval({"step": global_step, "split": "review_confirm", "nmse": confirm.nmse})
             rec.note_eval(
-                {"step": global_step, "split": "review_confirm", "mse": confirm.mse}
+                {"step": global_step, "split": "review_confirm", "mse": confirm.mse,
+                 "gmean_mse": confirm.gmean_mse}
             )
 
             # 🔴 遗忘判定统一走 thresholds（口径跟随 cfg.pass_metric；无可用阈值时只剩相对退化）
@@ -89,14 +110,19 @@ class Reviewer:
                 cur_nmse=confirm.nmse,
                 cur_mse=confirm.mse,
                 best_nmse=rec.best_nmse,
+                cur_gmean_mse=confirm.gmean_mse,
+                best_gmean_mse=rec.best_gmean_mse,
             ):
                 code = forget_code_ex(
-                    cfg, rec.task_name, cur_nmse=confirm.nmse, cur_mse=confirm.mse
+                    cfg, rec.task_name, cur_nmse=confirm.nmse, cur_mse=confirm.mse,
+                    cur_gmean_mse=confirm.gmean_mse
                 )
                 status = apply_reopen(
                     rec,
                     cfg,
-                    f"review: current={confirm.nmse} best={rec.best_nmse}",
+                    (f"review: gmean={confirm.gmean_mse} best_gmean={rec.best_gmean_mse}"
+                     if cfg.pass_metric == "gmean_mse" else
+                     f"review: current={confirm.nmse} best={rec.best_nmse}"),
                     code,
                 )
                 outcome.forgotten = True
@@ -110,19 +136,20 @@ class Reviewer:
 
     # ---------------------------------------------------------------- #
     def _suspect(self, rec: TaskRecord, nmse: Optional[float],
-                 mse: Optional[float] = None) -> bool:
+                 mse: Optional[float] = None, gmean_mse: Optional[float] = None) -> bool:
         """疑似退化 ⇒ 值得补一次 confirm。
 
         口径与正式判定**保持一致**：先看"掉出及格线"（跟随 `cfg.pass_metric`），
         再看相对退化。该任务没有可用阈值时，只剩相对退化这一条。
         """
         cfg = self.cfg
-        if nmse is None:
+        if nmse is None or (cfg.pass_metric == "gmean_mse" and not is_finite_metric(gmean_mse)):
             return True
         metric, line = pass_line(cfg, rec.task_name)
         if line is not None:
-            val = metric_value(metric, nmse=nmse, mse=mse)
+            val = metric_value(metric, nmse=nmse, mse=mse, gmean_mse=gmean_mse)
             if is_finite_metric(val) and float(val) > line:
                 return True
-        ratio = forget_ratio(rec.best_nmse, nmse)
+        ratio = (forget_ratio(rec.best_gmean_mse, gmean_mse) if metric == "gmean_mse"
+                 else forget_ratio(rec.best_nmse, nmse))
         return ratio is not None and ratio > cfg.forget_relative_threshold

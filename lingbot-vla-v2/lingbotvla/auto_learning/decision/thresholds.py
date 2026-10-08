@@ -18,12 +18,14 @@
 uniform / AL 两组的"通过"口径不一致，实验结论静默错掉）。所以本模块把口径收敛到
 **两个函数**：:func:`pass_line` 与 :func:`check_pass` / :func:`is_forgotten_ex`。
 
-两种口径
+三种口径
 --------
 * ``pass_metric="nmse"``（**默认，行为与改造前逐字一致**）：阈值 = ``cfg.pass_nmse``。
-* ``pass_metric="mse"``：阈值 = **该任务**在阈值表里的值（绝对动作 MSE）。
+* ``pass_metric="mse"``：阈值 = **该任务**在阈值表里的值（算术平均动作 MSE）。
+* ``pass_metric="gmean_mse"``：阈值来自 ``stat="geomean"`` 的参考表；
+  候选也对逐轨迹 MSE 做等权几何聚合。
 
-⚠️ 两种口径**数学等价**（``nmse = mse / baseline_mse``，baseline 是该任务的固定常数），
+⚠️ 前两种口径**数学等价**（``nmse = mse / baseline_mse``，baseline 是该任务的固定常数），
 差别只在"拿哪个数去比 / 报告里显示哪个数"。切到 ``mse`` 的好处是量纲直观：
 直接和**成品模型**在同一任务上的绝对误差对比。
 
@@ -62,7 +64,8 @@ from .metrics import is_finite_metric
 #: 判定口径
 PASS_METRIC_NMSE = "nmse"
 PASS_METRIC_MSE = "mse"
-PASS_METRICS = (PASS_METRIC_NMSE, PASS_METRIC_MSE)
+PASS_METRIC_GMEAN = "gmean_mse"
+PASS_METRICS = (PASS_METRIC_NMSE, PASS_METRIC_MSE, PASS_METRIC_GMEAN)
 
 #: 阈值表文件版本
 THRESHOLDS_VERSION = 1
@@ -217,13 +220,16 @@ class PassThresholds:
 # --------------------------------------------------------------------------- #
 # 口径解析（**全框架唯一的判定入口**）
 # --------------------------------------------------------------------------- #
-def verify_threshold_stat_compatible(table: PassThresholds) -> None:
-    """The current runtime compares *arithmetic* per-trajectory MSE.
-
-    A reference geometric-mean threshold must never silently be compared to
-    candidate arithmetic MSE.  Supporting GMean as a real PASS metric requires
-    separately wiring the candidate geomean through all Scheduler/Review paths.
-    """
+def verify_threshold_stat_compatible(table: PassThresholds, *, pass_metric: str = PASS_METRIC_MSE) -> None:
+    """Fail closed unless reference statistic matches the selected candidate metric."""
+    if pass_metric == PASS_METRIC_GMEAN:
+        if table.metric != PASS_METRIC_MSE or table.stat != "geomean":
+            raise ThresholdsError("pass_metric='gmean_mse' 要求阈值表 metric='mse' 且 stat='geomean'")
+        import math
+        for task, value in table.tasks.items():
+            if value is not None and (not math.isfinite(value) or value <= 0):
+                raise ThresholdsError(f"gmean_mse: {task!r} 的阈值必须是有限正数或 null")
+        return
     if table.stat == "geomean":
         raise ThresholdsError(
             "阈值表 stat='geomean'，但运行时 pass_metric='mse' 仍比较候选轨迹的算术平均 MSE；"
@@ -232,7 +238,7 @@ def verify_threshold_stat_compatible(table: PassThresholds) -> None:
 
 
 def active_metric(cfg: Any) -> str:
-    """当前生效的判定口径（``"nmse"`` / ``"mse"``）。"""
+    """当前生效的判定口径（``nmse`` / ``mse`` / ``gmean_mse``）。"""
     metric = str(getattr(cfg, "pass_metric", PASS_METRIC_NMSE) or PASS_METRIC_NMSE)
     if metric not in PASS_METRICS:
         raise ThresholdsError(f"cfg.pass_metric 非法：{metric!r}")
@@ -259,12 +265,14 @@ def pass_line(cfg: Any, task: str) -> Tuple[str, Optional[float]]:
     table = attached_thresholds(cfg)
     if table is None:
         return metric, None
+    if metric == PASS_METRIC_GMEAN:
+        verify_threshold_stat_compatible(table, pass_metric=metric)
     return metric, table.get(task)
 
 
-def metric_value(metric: str, *, nmse: Optional[float], mse: Optional[float]) -> Optional[float]:
+def metric_value(metric: str, *, nmse: Optional[float], mse: Optional[float], gmean_mse: Optional[float] = None) -> Optional[float]:
     """按口径挑出参与比较的那个数值。"""
-    return mse if metric == PASS_METRIC_MSE else nmse
+    return gmean_mse if metric == PASS_METRIC_GMEAN else (mse if metric == PASS_METRIC_MSE else nmse)
 
 
 # --------------------------------------------------------------------------- #
@@ -279,7 +287,8 @@ class PassCheck(str):
     INVALID = "invalid"              # 指标非有限（NaN/Inf）
 
 
-def check_pass(cfg: Any, task: str, *, nmse: Optional[float], mse: Optional[float]) -> str:
+def check_pass(cfg: Any, task: str, *, nmse: Optional[float], mse: Optional[float],
+               gmean_mse: Optional[float] = None) -> str:
     """统一的"是否达标"判定。**所有 PASS 判定点都必须走这里。**
 
     返回 :class:`PassCheck` 里的一个字符串常量。
@@ -287,15 +296,16 @@ def check_pass(cfg: Any, task: str, *, nmse: Optional[float], mse: Optional[floa
     metric, line = pass_line(cfg, task)
     if line is None:
         return PassCheck.NO_THRESHOLD
-    val = metric_value(metric, nmse=nmse, mse=mse)
+    val = metric_value(metric, nmse=nmse, mse=mse, gmean_mse=gmean_mse)
     if not is_finite_metric(val):
         return PassCheck.INVALID
     return PassCheck.PASS if float(val) <= line else PassCheck.BELOW
 
 
-def is_pass(cfg: Any, task: str, *, nmse: Optional[float], mse: Optional[float]) -> bool:
+def is_pass(cfg: Any, task: str, *, nmse: Optional[float], mse: Optional[float],
+            gmean_mse: Optional[float] = None) -> bool:
     """:func:`check_pass` 的布尔快捷方式（``NO_THRESHOLD`` / ``INVALID`` 都算 False）。"""
-    return check_pass(cfg, task, nmse=nmse, mse=mse) == PassCheck.PASS
+    return check_pass(cfg, task, nmse=nmse, mse=mse, gmean_mse=gmean_mse) == PassCheck.PASS
 
 
 def is_forgotten_ex(
@@ -305,6 +315,8 @@ def is_forgotten_ex(
     cur_nmse: Optional[float],
     cur_mse: Optional[float],
     best_nmse: Optional[float],
+    cur_gmean_mse: Optional[float] = None,
+    best_gmean_mse: Optional[float] = None,
 ) -> bool:
     """遗忘判定：**掉出及格线 或 相对退化超阈值**（文档 §34）。
 
@@ -317,10 +329,12 @@ def is_forgotten_ex(
 
     metric, line = pass_line(cfg, task)
     if line is not None:
-        val = metric_value(metric, nmse=cur_nmse, mse=cur_mse)
+        val = metric_value(metric, nmse=cur_nmse, mse=cur_mse, gmean_mse=cur_gmean_mse)
         if is_finite_metric(val) and float(val) > line:
             return True
-    ratio = forget_ratio(best_nmse, cur_nmse)
+    # GMean 的相对退化也应使用 GMean 自己的历史最佳值。
+    ratio = (forget_ratio(best_gmean_mse, cur_gmean_mse)
+             if metric == PASS_METRIC_GMEAN else forget_ratio(best_nmse, cur_nmse))
     thr = getattr(cfg, "forget_relative_threshold", None)
     return ratio is not None and thr is not None and ratio > thr
 
@@ -331,6 +345,7 @@ def forget_code_ex(
     *,
     cur_nmse: Optional[float],
     cur_mse: Optional[float],
+    cur_gmean_mse: Optional[float] = None,
 ) -> str:
     """遗忘**原因码**（掉出及格线 vs 相对退化）—— 与判定口径保持一致。
 
@@ -341,14 +356,14 @@ def forget_code_ex(
 
     metric, line = pass_line(cfg, task)
     if line is not None:
-        val = metric_value(metric, nmse=cur_nmse, mse=cur_mse)
+        val = metric_value(metric, nmse=cur_nmse, mse=cur_mse, gmean_mse=cur_gmean_mse)
         if val is not None and is_finite_metric(val) and float(val) > line:
             return ReasonCode.FORGOTTEN_BELOW_PASS_LINE.value
     return ReasonCode.FORGOTTEN_RELATIVE_DEGRADATION.value
 
 
 __all__ = [
-    "PASS_METRIC_NMSE", "PASS_METRIC_MSE", "PASS_METRICS",
+    "PASS_METRIC_NMSE", "PASS_METRIC_MSE", "PASS_METRIC_GMEAN", "PASS_METRICS",
     "THRESHOLDS_VERSION", "ThresholdsError",
     "PassThresholds", "PassCheck",
     "active_metric", "attached_thresholds", "pass_line", "metric_value",

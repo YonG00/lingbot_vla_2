@@ -75,6 +75,19 @@ def config_fingerprint(al: Any, task_names: Sequence[str]) -> Dict[str, Any]:
                           if k != "target_total_passed_tasks"
                           or getattr(al, k, None) is not None}
     fp["task_names"] = list(task_names)
+    if getattr(al, "pass_metric", "nmse") == "gmean_mse":
+        # A same-path threshold rewrite must invalidate exact Resume: historical
+        # PASS/DEFER/REOPEN semantics depend on the *contents*, not just its path.
+        # Only for this new mode, so old NMSE/MSE DCP fingerprints stay identical.
+        import hashlib
+        from ..decision.thresholds import attached_thresholds
+
+        table = attached_thresholds(al)
+        blob = (json.dumps(table.to_dict(), ensure_ascii=False, sort_keys=True,
+                           allow_nan=False, separators=(",", ":"))
+                if table is not None else None)
+        fp["gmean_thresholds_sha256"] = (
+            hashlib.sha256(blob.encode("utf-8")).hexdigest() if blob is not None else None)
     return fp
 
 

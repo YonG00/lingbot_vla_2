@@ -100,6 +100,8 @@ class TaskRecord:
     #: 旧存档没有这两个键 ⇒ `from_dict` 走默认 None（向后兼容）。
     current_val_mse: Optional[float] = None
     best_mse: Optional[float] = None
+    current_val_gmean_mse: Optional[float] = None
+    best_gmean_mse: Optional[float] = None
     train_val_gap_ratio: Optional[float] = None
     lp50: Optional[float] = None
     lp_train: Optional[float] = None
@@ -171,9 +173,11 @@ class TaskRecord:
             "scout_nmse": self.scout_nmse,
             "val_nmse": self.current_val_nmse,
             "val_mse": self.current_val_mse,
+            "val_gmean_mse": self.current_val_gmean_mse,
             "train_nmse": self.current_train_nmse,
             "best_nmse": self.best_nmse,
             "best_mse": self.best_mse,
+            "best_gmean_mse": self.best_gmean_mse,
             "lp50": self.lp50,
             "overfit": self.overfit,
             "forgotten": self.forgotten,

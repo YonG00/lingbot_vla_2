@@ -311,7 +311,8 @@ class Scheduler:
 
         scout = self.evaluator.evaluate(name, EvalSplit.SCOUT.value, rec.scout_val_ids)
         rec.scout_nmse = scout.nmse
-        rec.metric_valid = scout.metric_valid
+        rec.metric_valid = (scout.metric_valid and
+                            (al.pass_metric != "gmean_mse" or is_finite_metric(scout.gmean_mse)))
         rec.last_eval_step = self.state.global_step
         self._record_eval(rec, scout, kind="scout")
 
@@ -337,14 +338,15 @@ class Scheduler:
             event["note"] = f"nmse={scout.nmse!r} 非有限值，已排除出候选池"
             return event
 
-        if not scout.metric_valid:
-            rec.set_status(TaskStatus.CANDIDATE, "metric_invalid: baseline≈0，不参与排序")
+        if not rec.metric_valid:
+            rec.set_status(TaskStatus.CANDIDATE, "metric_invalid: baseline/gmean 缺失或非法，不参与排序")
             event["result"] = "metric_invalid"
             return event
 
         # 没有可用通过线（pass_metric="mse" 且阈值表里该任务是 null）⇒ 不训练、不消耗 attempt。
         # 与 metric_invalid 的区别：metric 本身是好的，只是没标定出线 ⇒ needs_calibration。
-        if check_pass(al, name, nmse=scout.nmse, mse=scout.mse) == PassCheck.NO_THRESHOLD:
+        if check_pass(al, name, nmse=scout.nmse, mse=scout.mse,
+                      gmean_mse=scout.gmean_mse) == PassCheck.NO_THRESHOLD:
             rec.pass_line_usable = False
             rec.set_status(
                 TaskStatus.CANDIDATE,
@@ -356,7 +358,7 @@ class Scheduler:
 
         # 判定走统一入口 thresholds.is_pass（口径由 cfg.pass_metric 决定；
         # mse 模式下任务没有可用阈值 ⇒ 不判 PASS，不会误放行）
-        if is_pass(al, name, nmse=scout.nmse, mse=scout.mse):
+        if is_pass(al, name, nmse=scout.nmse, mse=scout.mse, gmean_mse=scout.gmean_mse):
             accepted = scout
             if al.scout_confirm_enabled:
                 confirm = self.evaluator.evaluate(name, EvalSplit.CONFIRM.value, rec.confirm_val_ids)
@@ -364,7 +366,8 @@ class Scheduler:
                 event["confirm_nmse"] = confirm.nmse
                 event["confirm_trajs"] = confirm.n_trajs
                 if not (confirm.metric_valid and is_finite_metric(confirm.nmse)
-                        and is_pass(al, name, nmse=confirm.nmse, mse=confirm.mse)):
+                        and is_pass(al, name, nmse=confirm.nmse, mse=confirm.mse,
+                                    gmean_mse=confirm.gmean_mse)):
                     # 4 条不通过 ⇒ 用更可信的 4-val 值当 scout 估计
                     rec.scout_nmse = confirm.nmse
                     rec.set_status(TaskStatus.CANDIDATE, "scout 疑似达标但 4-val 确认未通过")
@@ -381,6 +384,8 @@ class Scheduler:
             rec.current_val_nmse = accepted.nmse
             rec.best_mse = accepted.mse
             rec.current_val_mse = accepted.mse
+            rec.best_gmean_mse = accepted.gmean_mse
+            rec.current_val_gmean_mse = accepted.gmean_mse
             self._mark_auto_pass(name)
             if name not in self.state.bootstrap_passed:
                 self.state.bootstrap_passed.append(name)
@@ -453,6 +458,7 @@ class Scheduler:
         pick.current_train_nmse = tm.nmse
         pick.current_val_nmse = vm.nmse
         pick.current_val_mse = vm.mse
+        pick.current_val_gmean_mse = vm.gmean_mse
         pick.prev_train_nmse = tm.nmse
         pick.prev_val_nmse = vm.nmse
         pick.train_val_gap_ratio = train_val_gap(vm.nmse, tm.nmse)
@@ -606,6 +612,7 @@ class Scheduler:
         rec.current_train_nmse = tm.nmse
         rec.current_val_nmse = vm.nmse
         rec.current_val_mse = vm.mse
+        rec.current_val_gmean_mse = vm.gmean_mse
         rec.lp50 = learning_progress(rec.prev_val_nmse, rec.current_val_nmse)
         rec.lp_train = learning_progress(rec.prev_train_nmse, rec.current_train_nmse)
         gap_prev = rec.train_val_gap_ratio
@@ -639,6 +646,7 @@ class Scheduler:
             "loss": round(result.loss, 6),
             "train_nmse": rec.current_train_nmse,
             "val_nmse": rec.current_val_nmse,
+            "val_gmean_mse": rec.current_val_gmean_mse,
             "lp50": None if rec.lp50 is None else round(rec.lp50, 6),
             "lp_train": None if rec.lp_train is None else round(rec.lp_train, 6),
             "gap": None if rec.train_val_gap_ratio is None else round(rec.train_val_gap_ratio, 4),
@@ -662,6 +670,7 @@ class Scheduler:
             "loss": round(result.loss, 6),
             "train_nmse": rec.current_train_nmse,
             "val_nmse": rec.current_val_nmse,
+            "val_gmean_mse": rec.current_val_gmean_mse,
             "lp50": None if rec.lp50 is None else round(rec.lp50, 6),
             "overfit": rec.overfit,
             "decision": decision.value,
@@ -754,6 +763,12 @@ class Scheduler:
         st.pending_review = False
         outcomes = self.reviewer.review(self.registry, st.global_step)
         for o in outcomes:
+            if self.logger is not None:
+                self.logger.log_metrics(st.global_step, f"task/{o.task}/review_scout_gmean_mse",
+                                        o.scout_gmean_mse)
+                if o.confirmed:
+                    self.logger.log_metrics(st.global_step, f"task/{o.task}/review_confirm_gmean_mse",
+                                            o.confirm_gmean_mse)
             if o.forgotten:
                 self.state.transition_count += 1
                 kind = "REOPEN" if o.action == "reopen" else "REOPEN_EXHAUSTED"
@@ -839,7 +854,9 @@ class Scheduler:
             # 🔴 不能用裸的 `scout.metric_valid` —— 评测器可能把 metric_valid 置 True
             # 却给出 NaN/Inf。rescan 若把这种任务「重新洗白」回候选池，
             # 它就会带着 inf 进 `min(...)`（测试方案 §I01 抓出来的真 bug）。
-            rec.metric_valid = scout.metric_valid and is_finite_metric(scout.nmse)
+            rec.metric_valid = (scout.metric_valid and is_finite_metric(scout.nmse)
+                                and (al.pass_metric != "gmean_mse" or
+                                     is_finite_metric(scout.gmean_mse)))
             rec.last_eval_step = self.state.global_step
             self._record_eval(rec, scout, kind="rescan")
             row = {"task": rec.task_name, "nmse": scout.nmse, "status": rec.status}
@@ -848,7 +865,8 @@ class Scheduler:
                 and is_finite_metric(scout.nmse)
                 # 判定走统一入口（口径由 cfg.pass_metric 决定；
                 # mse 模式下任务没有可用阈值 ⇒ 不判 PASS）
-                and is_pass(al, rec.task_name, nmse=scout.nmse, mse=scout.mse)
+                and is_pass(al, rec.task_name, nmse=scout.nmse, mse=scout.mse,
+                            gmean_mse=scout.gmean_mse)
                 # 🔴 churn guard 已触发的任务**不能被 rescan 复活**：否则会出现
                 # 「EXHAUSTED → 免费 PASS → 又遗忘 → 回炉 → EXHAUSTED → …」的循环，
                 # 每次都不消耗 attempt（Monte Carlo 压力测试抓出来的）。
@@ -862,7 +880,8 @@ class Scheduler:
                     self._record_eval(rec, confirm, kind="rescan_confirm")
                     row["confirm_nmse"] = confirm.nmse
                     if not (confirm.metric_valid and is_finite_metric(confirm.nmse)
-                            and is_pass(al, rec.task_name, nmse=confirm.nmse, mse=confirm.mse)):
+                            and is_pass(al, rec.task_name, nmse=confirm.nmse, mse=confirm.mse,
+                                        gmean_mse=confirm.gmean_mse)):
                         rows.append(row)
                         continue
                     accepted = confirm
@@ -876,6 +895,8 @@ class Scheduler:
                 rec.current_val_nmse = accepted.nmse
                 rec.best_mse = accepted.mse
                 rec.current_val_mse = accepted.mse
+                rec.best_gmean_mse = accepted.gmean_mse
+                rec.current_val_gmean_mse = accepted.gmean_mse
                 self._mark_auto_pass(rec.task_name)
                 row["auto_pass"] = True
                 row["pass_source"] = "confirm" if al.scout_confirm_enabled else "scout_direct"
@@ -892,6 +913,7 @@ class Scheduler:
                 "n_trajs": metrics.n_trajs,
                 "nmse": metrics.nmse,
                 "mse": metrics.mse,
+                "gmean_mse": metrics.gmean_mse,
                 "baseline_mse": metrics.baseline_mse,
             }
         )
@@ -910,20 +932,24 @@ class Scheduler:
                 self.state.global_step, f"debug/{rec.task_name}/{kind}_mse", metrics.mse
             )
             self.logger.log_metrics(
+                self.state.global_step, f"task/{rec.task_name}/{kind}_gmean_mse", metrics.gmean_mse
+            )
+            self.logger.log_metrics(
                 self.state.global_step, f"debug/{rec.task_name}/baseline_mse", metrics.baseline_mse
             )
-            if kind == "active_val" and self.al.pass_metric == "mse":
+            if kind == "active_val" and self.al.pass_metric in ("mse", "gmean_mse"):
                 _, threshold = pass_line(self.al, rec.task_name)
                 if threshold is not None and threshold > 0:
                     self.logger.log_metrics(
                         self.state.global_step,
-                        f"task/{rec.task_name}/pass_threshold_mse", threshold,
+                        f"task/{rec.task_name}/pass_threshold_{self.al.pass_metric}", threshold,
                     )
-                    if is_finite_metric(metrics.mse):
+                    chosen = metrics.gmean_mse if self.al.pass_metric == "gmean_mse" else metrics.mse
+                    if is_finite_metric(chosen):
                         self.logger.log_metrics(
                             self.state.global_step,
                             f"task/{rec.task_name}/val_to_pass_threshold",
-                            float(metrics.mse) / threshold,
+                            float(chosen) / threshold,
                         )
 
     def _log_unit_metrics(self, row: Dict[str, Any]) -> None:
@@ -945,14 +971,17 @@ class Scheduler:
         lg.log_metrics(step, "diagnostics/current_task_val_nmse", row["val_nmse"])
         rec = self.registry.get(row["task"])
         lg.log_metrics(step, "current_skill/val_mse", rec.current_val_mse)
-        if self.al.pass_metric == "mse":
+        lg.log_metrics(step, "current_skill/val_gmean_mse", rec.current_val_gmean_mse)
+        if self.al.pass_metric in ("mse", "gmean_mse"):
             _, threshold = pass_line(self.al, row["task"])
             if threshold is not None and threshold > 0:
-                lg.log_metrics(step, "current_skill/pass_threshold_mse", threshold)
-                if is_finite_metric(rec.current_val_mse):
+                lg.log_metrics(step, f"current_skill/pass_threshold_{self.al.pass_metric}", threshold)
+                selected = (rec.current_val_gmean_mse if self.al.pass_metric == "gmean_mse"
+                            else rec.current_val_mse)
+                if is_finite_metric(selected):
                     lg.log_metrics(
                         step, "current_skill/val_to_pass_threshold",
-                        float(rec.current_val_mse) / threshold,
+                        float(selected) / threshold,
                     )
         lg.log_metrics(step, "current_skill/lp50", row["lp50"])
         lg.log_metrics(step, "current_skill/train_val_gap_ratio", row["gap"])

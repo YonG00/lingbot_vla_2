@@ -43,6 +43,13 @@ def decide_after_unit(
     不是写多少都只多跑一个单元）。
     """
     val = record.current_val_nmse
+    if cfg.pass_metric == "gmean_mse" and not is_finite_metric(record.current_val_gmean_mse):
+        # A missing candidate geometric aggregate must not silently fall back to arithmetic MSE.
+        if attempt_step >= (cfg.min_steps_before_defer if defer_after_steps is None else defer_after_steps):
+            return Verdict(Decision.DEFER, ReasonCode.METRIC_INVALID.value,
+                           "gmean_mse missing or nonfinite")
+        return Verdict(Decision.CONTINUE, ReasonCode.METRIC_INVALID.value,
+                       "gmean_mse missing or nonfinite")
     threshold = cfg.min_steps_before_defer if defer_after_steps is None else defer_after_steps
 
     # NaN / Inf 绝不能参与「达标」判断（测试方案 §I01）。
@@ -65,10 +72,12 @@ def decide_after_unit(
     #       切到 `mse` 时按任务查阈值表。**不要在别处再写裸的 pass_nmse 比较**（否则口径会分叉）。
     _metric, _line = pass_line(cfg, record.task_name)
     _check = check_pass(
-        cfg, record.task_name, nmse=val, mse=record.current_val_mse
+        cfg, record.task_name, nmse=val, mse=record.current_val_mse,
+        gmean_mse=record.current_val_gmean_mse
     )
     if _check == PassCheck.PASS:
-        _shown = record.current_val_mse if _metric == "mse" else val
+        _shown = (record.current_val_gmean_mse if _metric == "gmean_mse" else
+                  record.current_val_mse if _metric == "mse" else val)
         if (
             cfg.continue_after_pass
             and attempt_step < cfg.post_pass_max_steps
@@ -182,6 +191,11 @@ def apply_pass(
             record.current_val_mse
             if record.best_mse is None
             else min(record.best_mse, record.current_val_mse)
+        )
+    if is_finite_metric(record.current_val_gmean_mse):
+        record.best_gmean_mse = (
+            record.current_val_gmean_mse if record.best_gmean_mse is None
+            else min(record.best_gmean_mse, record.current_val_gmean_mse)
         )
 
 

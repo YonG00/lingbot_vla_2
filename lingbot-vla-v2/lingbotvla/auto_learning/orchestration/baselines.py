@@ -116,7 +116,7 @@ def run_uniform(
             result.per_task_nmse[name] = m.nmse
             # 🔴 必须与 AL 实验组走**同一个**判定入口（thresholds.is_pass），
             # 否则两组的"通过"口径不一致 ⇒ 对比结论静默失效（且不会报错）。
-            if is_pass(al, name, nmse=m.nmse, mse=m.mse):
+            if is_pass(al, name, nmse=m.nmse, mse=m.mse, gmean_mse=m.gmean_mse):
                 result.pass_tasks.append(name)
 
     vals = list(result.per_task_nmse.values())

@@ -146,6 +146,16 @@ class EvalResult:
     action_keys: List[str] = field(default_factory=list)
     baseline_fingerprint: Optional[str] = None
 
+    @property
+    def gmean_mse(self) -> Optional[float]:
+        from .decision.gmean import geometric_mse
+        # Do not accept a complete-looking but wrong trajectory set from a cached
+        # validator evaluation (e.g. scout 2 IDs accidentally reused for confirm 4).
+        if (len(self.per_traj_ids) != len(self.episode_ids)
+                or set(map(str, self.per_traj_ids)) != set(map(str, self.episode_ids))):
+            return None
+        return geometric_mse(self.per_traj_mse, expected_count=self.n_traj, ids=self.per_traj_ids)
+
     def to_trajectory_metrics(self, *, metric_valid: Optional[bool] = None) -> TrajectoryMetrics:
         """转成 Scheduler 认识的 `TrajectoryMetrics`（字段语义逐一对齐）。"""
         import math
@@ -170,7 +180,7 @@ class EvalResult:
     def to_dict(self) -> Dict[str, Any]:
         return {
             "task": self.task, "split": self.split, "episode_ids": list(self.episode_ids),
-            "mse": self.mse, "nmse": self.nmse, "baseline_mse": self.baseline_mse,
+            "mse": self.mse, "gmean_mse": self.gmean_mse, "nmse": self.nmse, "baseline_mse": self.baseline_mse,
             "mae": self.mae, "per_traj_mse": list(self.per_traj_mse),
             "per_traj_ids": list(self.per_traj_ids),
             "per_traj_frames": list(self.per_traj_frames),

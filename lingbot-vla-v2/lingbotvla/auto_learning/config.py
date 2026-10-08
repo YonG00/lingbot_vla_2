@@ -62,6 +62,7 @@ class AutoLearningConfig:
     #: 两者数学等价（`nmse = mse / baseline_mse`），切到 mse 的好处是量纲直观、
     #: 可与参考模型在同一任务上的绝对误差直接对比。
     #: ⚠️ 判定走 mse、**跨任务排序/统计仍用 nmse**（分母归一化，见 decision/thresholds.py）。
+    # "gmean_mse" ⇒ reference 与 candidate 均为逐轨迹 MSE 几何均值。
     pass_metric: str = "nmse"
     #: `pass_metric="mse"` 时的阈值表路径（由 tools/compute_pass_thresholds.py 产出）。
     #: 表里每个任务可以是数字或 `null`（null = 该任务无可用通过线 ⇒ 不判 PASS）。
@@ -206,13 +207,13 @@ class AutoLearningConfig:
         if self.hardness_weight_max < self.hardness_weight_min:
             raise ValueError("hardness_weight_max must be >= hardness_weight_min")
         # ---- 判定口径 ----
-        if self.pass_metric not in ("nmse", "mse"):
+        if self.pass_metric not in ("nmse", "mse", "gmean_mse"):
             raise ValueError(
-                f"unsupported pass_metric: {self.pass_metric!r}（只能是 'nmse' / 'mse'）"
+                f"unsupported pass_metric: {self.pass_metric!r}（只能是 'nmse' / 'mse' / 'gmean_mse'）"
             )
-        if self.pass_metric == "mse" and not self.pass_thresholds_file:
+        if self.pass_metric in ("mse", "gmean_mse") and not self.pass_thresholds_file:
             raise ValueError(
-                "pass_metric='mse' 时必须同时给 pass_thresholds_file"
+                "pass_metric='mse' / 'gmean_mse' 时必须同时给 pass_thresholds_file"
                 "（按任务的阈值表，由 tools/compute_pass_thresholds.py 产出）；"
                 "否则所有任务都会因『无可用阈值』而无法判 PASS。"
             )
