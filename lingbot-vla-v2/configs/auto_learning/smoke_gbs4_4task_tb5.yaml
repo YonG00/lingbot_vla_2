@@ -25,7 +25,9 @@ task_names:
   - turn_switch
   - place_container_plate
 
-# ----- 收工条件（本轮不设 early-stop，让流程自然跑满）-----
+# ----- 收工条件：总 PASS 达到 4 即收工 -----
+# ⚠️ 池子只有 4 个任务 ⇒ **4 个全 PASS 就会提前收工**（这是新目标语义的预期行为，
+#    不是异常退出；Runner 已按 stop_reason 识别，不会判失败）。
 max_new_tasks_passed_this_run: null
 target_total_passed_tasks: 4
 max_new_tasks_attempted_this_run: null

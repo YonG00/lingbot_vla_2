@@ -10,3 +10,8 @@ defer_retry_steps: 50        # 正式值
 max_attempts_per_task: 1
 pass_nmse: 0.30
 seed: 7
+
+# ----- hardness（显式固定，避免吃类默认漂移）-----
+# 类默认在 2026-10-08 由 0.33 改为 0.10（用户批准，用于正式与 GBS=4 smoke）；
+# 本配置是历史对照用的单/双任务 smoke，显式保留 0.33 以与其历史结果可比。
+hardness_probe_fraction: 0.33

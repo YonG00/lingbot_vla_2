@@ -192,7 +192,7 @@ def test_launcher_real_dry_run_no_checkpoint_is_consistent(tmp_path):
            'SAVE_EVERY': '10', 'PRUNE': '1', 'GAS':'4', 'MICRO':'1',
            'N_GPU': '1', 'TB':'0', 'TRAIN_OUT': str(tmp_path/'output')}
     proc = subprocess.run(['bash', str(ROOT/'experiment/robotwin/al_50task_bf16.sh')],
-                          env=env, text=True, capture_output=True, timeout=15)
+                          env=env, text=True, errors="replace", capture_output=True, timeout=15)
     assert proc.returncode == 0, proc.stdout + '\n' + proc.stderr
     out = proc.stdout
     assert '--train.save_steps       0' in out
@@ -210,7 +210,7 @@ def test_launcher_rejects_resume_with_no_checkpoint_before_touching_disk(tmp_pat
     env = {**os.environ, 'SMOKE_NO_CHECKPOINT':'1', 'RESUME':'1',
            'TRAIN_OUT':str(tmp_path/'out')}
     p = subprocess.run(['bash', str(ROOT/'experiment/robotwin/al_50task_bf16.sh')],
-                       env=env, text=True, capture_output=True, timeout=10)
+                       env=env, text=True, errors="replace", capture_output=True, timeout=10)
     assert p.returncode != 0
     assert '不支持 RESUME' in p.stderr
     assert not (tmp_path/'out').exists()

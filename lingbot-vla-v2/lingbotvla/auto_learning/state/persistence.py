@@ -149,6 +149,13 @@ def restore_state(sched, raw: Dict[str, Any], *, allow_config_change: bool = Fal
         sched.extra_state.load_state(raw["extra_state"])
     sched.registry.load_state(raw["registry"])
     sched.state.load_state(raw["scheduler"])
+    # ---- 兼容（审查 D7，用户 10-08 18:5x 口径）：`bootstrap_passed` 是补丁新增字段。
+    # 旧 DCP 里**没有这个键** ⇒ **不推断、不伪造**（`auto_passed` 可能含 Rescan 免费 PASS，
+    # 拿它当 Bootstrap 会让 `bootstrap_pass_count` 失真）⇒ 只把来源标记为不可用，
+    # 由统计端显式输出 unavailable。收工判定走 registry 当前状态，不受影响。
+    _raw_sched = raw.get("scheduler") or {}
+    if "bootstrap_passed" not in _raw_sched:
+        sched.state.bootstrap_passed_available = False
     sched.scans = {k: HardnessScan.from_state(v) for k, v in (raw.get("scans") or {}).items()}
     sched.metrics_rows = list(raw.get("metrics_rows") or [])
     sched.heatmap_rows = list(raw.get("heatmap_rows") or [])

@@ -107,7 +107,7 @@ export MASTER_PORT
 FAIL=0
 [ -x "$PY" ]                   || { echo "❌ 找不到 $PY" >&2; FAIL=1; }
 [ -f "$AL_CFG" ]               || { echo "❌ 找不到 AL 配置 $AL_CFG" >&2; FAIL=1; }
-[ -f "$SPLIT_DIR/manifest.json" ]       || { echo "❌ 缺 $SPLIT_DIR/manifest.json（先跑 tools/task_split.py --task all --out $SPLIT_DIR）" >&2; FAIL=1; }
+[ -f "$SPLIT_DIR/manifest.json" ]       || { echo "❌ 缺 $SPLIT_DIR/manifest.json（先跑 tools/task_split.py --task all --out ${SPLIT_DIR}）" >&2; FAIL=1; }
 [ -f "$SPLIT_DIR/combined.train_ids.json" ] || { echo "❌ 缺 $SPLIT_DIR/combined.train_ids.json" >&2; FAIL=1; }
 [ -f "$SPLIT_DIR/task_baseline.json" ]  || { echo "❌ 缺 $SPLIT_DIR/task_baseline.json（P1-5 起 baseline 默认必填）" >&2; FAIL=1; }
 [ -d "${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}" ] || {
@@ -123,7 +123,7 @@ print(len(ts), sum(t["train_frames"] for t in ts.values()))
 PYEOF
 )
 STEPS_PER_EPOCH=$(( TOTAL_FRAMES / GBS ))
-[ "$STEPS_PER_EPOCH" -lt 1 ] && { echo "❌ 每轮步数为 0（train_frames=$TOTAL_FRAMES < gbs=$GBS）" >&2; exit 1; }
+[ "$STEPS_PER_EPOCH" -lt 1 ] && { echo "❌ 每轮步数为 0（train_frames=$TOTAL_FRAMES < gbs=${GBS}）" >&2; exit 1; }
 EPOCHS=$(( (MAX_STEPS + STEPS_PER_EPOCH - 1) / STEPS_PER_EPOCH + 1 ))
 
 if [ "${SAVE_EVERY}" -le 0 ] 2>/dev/null; then
@@ -161,29 +161,29 @@ cat <<EOF
 ================================================================================
   仓库根      = $REPO
   数据划分    = $SPLIT_DIR
-    任务数    = $N_TASKS 个（train 帧合计 $TOTAL_FRAMES）
+    任务数    = $N_TASKS 个（train 帧合计 ${TOTAL_FRAMES}）
   AL 配置     = $AL_CFG
   AL manifest = $MANIFEST
   AL baseline = $BASELINE
   训练输出    = $TRAIN_OUT
   冻结配置    = train_expert_only=false + freeze_vision_encoder=true
-  精度        = MIXED=$MIXED（true=F32 / false=**bf16**）
-  image_augment = $AUGMENT（AL 要求 false）
+  精度        = MIXED=${MIXED}（true=F32 / false=**bf16**）
+  image_augment = ${AUGMENT}（AL 要求 false）
   训练规模    = ${EPOCHS} epoch × ${STEPS_PER_EPOCH} 步/轮，max_steps=${MAX_STEPS}（绝对）
   批大小      = micro ${MICRO} × gas ${GAS} × ${N_GPU} 卡 = gbs ${GBS}
                 （AL 要求 new_slots+replay_slots == gbs；配置里是 7+3=10）
   存档计划    = $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 'NO_CHECKPOINT (无 DCP/HF，不支持 Resume)' || echo "每 ${SAVE_STEPS} 步一份 × ${N_SAVES} 份；DCP_MODE=${DCP_MODE}")
   剪枝看门狗  = PRUNE=$PRUNE keep-last=$PRUNE_KEEP min-age=${PRUNE_MIN_AGE}s
-  续训        = RESUME=$RESUME（$RESUME_BOOL）
-  编号起点    = STEP_OFFSET=$STEP_OFFSET（0=从零计）
+  续训        = RESUME=${RESUME}（${RESUME_BOOL}）
+  编号起点    = STEP_OFFSET=${STEP_OFFSET}（0=从零计）
   初始权重    = $MODEL_PATH
-  torchrun 端口 = $MASTER_PORT（被占会自动换）
-  TensorBoard = $([ "$TB" = "1" ] && echo "端口 $TB_PORT（logdir=$TRAIN_OUT/runs）" || echo "关闭")
-  收工条件    = 当前 PASS 总数达到 $AL_TOTAL_CAP（含 Bootstrap，通过 Registry 当前状态计算）
-                新增 PASS 上限 $AL_PASS_CAP（旧配置 max_new_tasks_passed_this_run）
+  torchrun 端口 = ${MASTER_PORT}（被占会自动换）
+  TensorBoard = $([ "$TB" = "1" ] && echo "端口 ${TB_PORT}（logdir=$TRAIN_OUT/runs）" || echo "关闭")
+  收工条件    = 当前 PASS 总数达到 ${AL_TOTAL_CAP}（含 Bootstrap，通过 Registry 当前状态计算）
+                新增 PASS 上限 ${AL_PASS_CAP}（旧配置 max_new_tasks_passed_this_run）
                 最多主动尝试 $AL_ATT_CAP 个任务（max_new_tasks_attempted_this_run）
-                总步数上限 $AL_MAXSTEPS（max_global_steps，兜底）
-  及格线      = pass_nmse=$AL_PASS_NMSE（nmse ≤ 该值判 PASS）
+                总步数上限 ${AL_MAXSTEPS}（max_global_steps，兜底）
+  及格线      = pass_nmse=${AL_PASS_NMSE}（nmse ≤ 该值判 PASS）
 ================================================================================
 EOF
 

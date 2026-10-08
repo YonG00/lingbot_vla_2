@@ -99,6 +99,10 @@ class SchedulerState:
     auto_passed: List[str] = field(default_factory=list)
     #: 只在 Bootstrap 阶段 PASS 的任务名；Rescan 免费 PASS 不计这里。
     bootstrap_passed: List[str] = field(default_factory=list)
+    #: `bootstrap_passed` 的**来源是否可靠**：补丁前的旧 DCP 没有该字段 ⇒ False。
+    #: False 时统计端**不推断、不显示为 0**，而是显式输出 unavailable（用户 10-08 18:5x 口径）。
+    #: 注意：收工判定走 registry 当前状态，与本字段无关。
+    bootstrap_passed_available: bool = True
     bootstrap_queue: List[str] = field(default_factory=list)
     pending_review: bool = False
     finished: bool = False
@@ -260,6 +264,15 @@ class Scheduler:
     def _current_total_passed(self) -> int:
         """只计当前 PASS 状态；不要用历史 auto_passed/newly_passed 累计数。"""
         return len(self.registry.by_status(TaskStatus.PASS))
+
+    def _bootstrap_pass_count(self) -> int:
+        """Bootstrap 阶段 PASS 且**当前仍 PASS** 的任务数（纯统计口径，不参与收工判定）。
+
+        只在 `state.bootstrap_passed_available` 为 True 时有意义；不可用时调用方不得输出数字。
+        """
+        return sum(1 for r in self.registry
+                   if r.status == TaskStatus.PASS.value
+                   and r.task_name in self.state.bootstrap_passed)
 
     def _total_pass_target_reached(self) -> bool:
         goal = self.al.target_total_passed_tasks
@@ -957,9 +970,12 @@ class Scheduler:
         lg.log_metrics(step, "curriculum/passed_tasks", summary["pass"])
         if self.al.target_total_passed_tasks is not None:
             lg.log_metrics(step, "curriculum/target_passed_tasks", self.al.target_total_passed_tasks)
-        lg.log_metrics(step, "curriculum/bootstrap_pass_count", sum(
-            1 for r in self.registry if r.status == TaskStatus.PASS.value
-            and r.task_name in self.state.bootstrap_passed))
+        if self.state.bootstrap_passed_available:
+            lg.log_metrics(step, "curriculum/bootstrap_pass_count", self._bootstrap_pass_count())
+        elif hasattr(lg, "log_text"):
+            # 旧存档没有可靠的 Bootstrap 来源：显式标记 unavailable（**不显示成 0**）
+            lg.log_text(step, "curriculum/bootstrap_pass_count_status",
+                        "unavailable_old_checkpoint")
         lg.log_metrics(step, "curriculum/newly_passed_count", len(self.state.newly_passed))
 
         lg.log_metrics(step, "skill_overview/candidate_count", summary["candidate"])
@@ -990,8 +1006,11 @@ class Scheduler:
             "stop_reason": self.state.stop_reason,
             "target_total_passed_tasks": self.al.target_total_passed_tasks,
             "current_total_pass_count": self._current_total_passed(),
-            "bootstrap_pass_count": sum(1 for r in self.registry if r.status == TaskStatus.PASS.value
-                                        and r.task_name in self.state.bootstrap_passed),
+            # 不可用时给 None（unknown），**不要给 0** —— 0 会被读成"确实没有 Bootstrap PASS"。
+            "bootstrap_pass_count": (self._bootstrap_pass_count()
+                                     if self.state.bootstrap_passed_available else None),
+            "bootstrap_pass_count_status": ("recorded" if self.state.bootstrap_passed_available
+                                            else "unavailable_old_checkpoint"),
             "newly_passed_count": len(self.state.newly_passed),
             "global_step": self.state.global_step,
             "units_run": self.state.units_run,

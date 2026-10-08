@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import math
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -10,6 +11,9 @@ import pytest
 from al_fixtures import make_cfg, scheduler_of
 from lingbotvla.auto_learning.config import AutoLearningConfig
 from lingbotvla.auto_learning.orchestration.scheduler import Scheduler
+
+# 测试必须能任意 CWD 运行（2026-10-08 审查 D6）：配置路径一律锚定仓库根。
+ROOT = Path(__file__).resolve().parents[1]
 from lingbotvla.auto_learning.state import persistence
 from lingbotvla.auto_learning.testing import fake_tasks as ft
 from lingbotvla.auto_learning.tools.build_gmean_thresholds import build_thresholds, main
@@ -48,7 +52,7 @@ def test_default_legacy_behavior_is_preserved():
 
 def test_formal_profile_enables_approved_cpu_behaviors_without_enabling_uncalibrated_pass():
     import yaml
-    with open('configs/auto_learning/formal_50task_4pass.yaml', encoding='utf-8') as f:
+    with open(ROOT / 'configs/auto_learning/formal_50task_4pass.yaml', encoding='utf-8') as f:
         al = AutoLearningConfig.from_dict(yaml.safe_load(f))
     assert al.global_scout_val_trajs == 2
     assert al.scout_confirm_enabled is False
