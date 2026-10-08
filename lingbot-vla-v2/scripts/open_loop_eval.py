@@ -297,7 +297,19 @@ def evaluate_single_trajectory(
     return mse, mae
 
 
-def main(policy, robo_name, data_root, traj_ids, chunk_size, save_plot_path, max_infer_time, no_plot=False):
+def main(policy, robo_name, data_root, traj_ids, chunk_size, save_plot_path, max_infer_time, no_plot=False,
+         fixed_seed_per_traj=False, noise_repeats=1, seed_base=1234):
+    """开环评测主循环。
+
+    ``fixed_seed_per_traj``：**每条轨迹前固定随机种子**（`seed_base + traj_id + k*1000003`）。
+        动机（2026-10-08 实测）：同一条 episode 跑两遍，MSE 相对差中位 **48.8%**（最大 720%），
+        因为去噪噪声按"第几次 randn"顺序消费、不重置 ⇒ 跨模型比较时噪声与轨迹差异混在一起。
+        固定种子后，**同一轨迹在任何模型/任何顺序下拿到同一份噪声** ⇒ 比较变成**配对**，
+        噪声在差值里被消掉。⚠️ 代价：与官方脚本的噪声流口径不再逐位对齐
+        ⇒ **parity/官方对拍用默认（不固定），阈值标定与模型比较建议开启**。
+    ``noise_repeats``：每条轨迹重复评测 k 次（不同噪声）取平均 ⇒ 单条噪声 ÷√k。
+        k=3 可把 4 条轨迹均值的标准误从 24.4% 压到 14.1%（实测推算）。
+    """
 
     policy.data_config.num_episode = None
     policy.data_config.chunk_size = policy.config.chunk_size
@@ -335,15 +347,30 @@ def main(policy, robo_name, data_root, traj_ids, chunk_size, save_plot_path, max
 
         print(f"Running trajectory: {traj_id}")
         policy.reset(robo_name)
-        mse, mae = evaluate_single_trajectory(
-            policy,
-            dataset,
-            traj_id,
-            save_plot_path=os.path.join(save_plot_path,f'{traj_id}.png'),
-            action_horizon=chunk_size,
-            max_infer_time=max_infer_time,
-            no_plot=no_plot,
-        )
+        _k = max(1, int(noise_repeats))
+        _ms, _mas = [], []
+        for _r in range(_k):
+            if fixed_seed_per_traj:
+                _s = int(seed_base) + int(traj_id) + 1000003 * _r
+                torch.manual_seed(_s)
+                if torch.cuda.is_available():
+                    torch.cuda.manual_seed_all(_s)
+            _mse, _mae = evaluate_single_trajectory(
+                policy,
+                dataset,
+                traj_id,
+                save_plot_path=os.path.join(save_plot_path, f'{traj_id}.png'),
+                action_horizon=chunk_size,
+                max_infer_time=max_infer_time,
+                no_plot=no_plot,
+            )
+            _ms.append(float(_mse))
+            _mas.append(float(_mae))
+        mse = float(np.mean(_ms))
+        mae = float(np.mean(_mas))
+        if _k > 1:
+            print(f"  [noise_repeats={_k}] per-repeat mse={['%.6f' % x for x in _ms]} "
+                  f"sd={float(np.std(_ms, ddof=1)) if _k > 1 else 0.0:.6f} ⇒ mean={mse:.6f}")
         print(f"MSE for trajectory {traj_id}: {mse}, MAE: {mae}")
         all_mse.append(mse)
         all_mae.append(mae)
@@ -387,6 +414,13 @@ if __name__ == "__main__":
     parser.add_argument('--save_plot_path', type=str, default='./open_loop_test/')
     parser.add_argument('--use_bf16', action='store_true', help='use bfloat16 to reduce GPU memory')
     parser.add_argument('--no_plot', action='store_true', help='skip trajectory plots (批量标定提速)')
+    # —— 降噪 / 可复现（2026-10-08 新增，默认关闭 ⇒ 与官方口径逐字兼容）——
+    parser.add_argument('--fixed_seed_per_traj', action='store_true',
+                        help='每条轨迹前固定随机种子 ⇒ 同轨迹跨模型/跨顺序拿到同一份去噪噪声（配对比较用；'
+                             '会与官方噪声流口径不同，parity 跑不要开）')
+    parser.add_argument('--noise_repeats', type=int, default=1,
+                        help='每条轨迹重复评测 k 次（不同噪声）取平均；k=3 可把单条噪声 ÷√3')
+    parser.add_argument('--seed_base', type=int, default=1234, help='--fixed_seed_per_traj 的种子基数')
     args = parser.parse_args()
 
     os.makedirs(args.save_plot_path, exist_ok=True)
@@ -412,4 +446,6 @@ if __name__ == "__main__":
     data_path = args.data_path if args.data_path is not None else model.data_config.train_path
     
     model.reset(args.robo_name)
-    main(model, args.robo_name, data_path, traj_ids, args.use_length, args.save_plot_path, args.max_infer_time, no_plot=args.no_plot)
+    main(model, args.robo_name, data_path, traj_ids, args.use_length, args.save_plot_path, args.max_infer_time,
+         no_plot=args.no_plot, fixed_seed_per_traj=args.fixed_seed_per_traj,
+         noise_repeats=args.noise_repeats, seed_base=args.seed_base)
