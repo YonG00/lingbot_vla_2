@@ -1,0 +1,128 @@
+# =============================================================================
+# 48G 单卡 BF16 · GBS=4 · 4 任务 AL **TB 验收 Smoke（5 步 unit）**（独立文件，不覆盖正式配置）
+# 用途：验证 TensorBoard 横轴对齐补丁 —— README 验收字段要求「第一个 5-step Unit 在 505、第二个在 510」。
+# 步数（记住 max_steps 是**绝对**值）：跑 5 步 ⇒ MAX_STEPS=505；跑 10 步 ⇒ MAX_STEPS=510。
+# -----------------------------------------------------------------------------
+# 目的：**不新增算法**，只用现有代码跑通真实训练 + 开环评测 + 决策 + 切换/Replay/Rescan/Resume。
+#
+# 训练侧（由启动器的 env 覆盖，见文件末尾"启动命令"）：
+#   MICRO=1 · GAS=4 · N_GPU=1 ⇒ GBS=4 · MIXED=false ⇒ torch_dtype=bfloat16
+#   （`tasks/vla/train_lingbotvla.py:464`: torch_dtype = "float32" if enable_mixed_precision else "bfloat16"）
+#   Learning Unit = **50 optimizer steps**（= 本文件 eval_interval_steps / min_steps_before_defer）
+#
+# 判定口径：`pass_metric: mse` + 逐任务 GMean-MSE 阈值表（候选倍率 **200×**、CV 策略 **warn**）
+#   ⚠️ 200× 仍是**候选**倍率（配对标定未完成），本 smoke 只验证流程，不代表正式通关线。
+#
+# 任务池：click_bell, click_alarmclock, turn_switch, place_container_plate
+#   ⚠️ 只是**候选池**：Scheduler 按策略自行选择训练顺序，不保证按此顺序。
+# =============================================================================
+enabled: true
+
+# ----- task pool（限定这 4 个；未知任务名会直接报错）-----
+task_names:
+  - click_bell
+  - click_alarmclock
+  - turn_switch
+  - place_container_plate
+
+# ----- 收工条件（本轮不设 early-stop，让流程自然跑满）-----
+max_new_tasks_passed_this_run: null
+max_new_tasks_attempted_this_run: null
+max_global_steps: 200          # AL 预算上限；phase1 用启动器 MAX_STEPS=50 更早结束
+max_transitions: null
+max_reopens_per_task: 1        # >0 才允许"遗忘复查 ⇒ REOPEN"路径被触发
+
+# ----- task evaluation -----
+global_scout_val_trajs: 2
+scout_confirm_enabled: false   # 【本轮决策】Bootstrap/Rescan 用 2 条 Scout 直接判定，不补 4-trajectory Confirm
+active_train_probe_trajs: 4
+active_val_probe_trajs: 4
+
+# ----- PASS 判定：NMSE 仅保留兼容值；正式判定走逐任务 GMean-MSE 阈值表 -----
+pass_metric: mse
+pass_thresholds_file: /data/eval_results/open_loop/ref50k/pass_thresholds_gmean200_warn.json
+pass_nmse: 0.35                # 兼容旧配置；mse 口径下不参与判定
+
+# ----- cadence：Learning Unit = **5 optimizer steps**（TB 验收用；README 的验收字段要求 5 步 unit）-----
+eval_interval_steps: 5
+min_steps_before_defer: 5
+defer_retry_steps: 5
+
+# ----- attempts -----
+# ⚠️ 必须 >= 2：本池 4 个任务里预计 2 个 bootstrap 就 PASS（click_bell / click_alarmclock），
+#    只剩 2 个候选。若 max_attempts_per_task=1，两次 DEFER 后候选池即空 ⇒ **永远到不了第 3 次
+#    任务切换** ⇒ `rescan_every_n_task_switches=3` 这条新逻辑就测不到。设为 2 让 DEFER 任务在
+#    defer_retry_steps 后可重训 ⇒ 能凑够第 3 次切换（Rescan 覆盖）。
+max_attempts_per_task: 2
+
+# ----- after PASS / rescue -----
+continue_after_pass: false
+post_pass_max_steps: 0
+post_pass_min_lp: 0.03
+min_lp50: 0.05
+defer_resample_retry: false
+
+# ----- overfit -----
+early_defer_on_overfit: true
+overfit_train_lp_min: 0.05
+overfit_val_lp_max: 0.00
+overfit_gap_growth_threshold: 0.10
+
+# ----- batch：必须 == --train.dataloader_batch_size = micro1 × gas4 × 1卡 = 4 -----
+batch_size: 4
+new_slots: 3
+replay_slots: 1
+
+# ----- hardness -----
+hardness_probe_fraction: 0.33
+hardness_weight_min: 1.0
+hardness_weight_max: 3.0
+hardness_alpha: 2.0
+difficulty_unscored_default: 0.5
+refresh_hardness_on_continue: false
+
+# ----- replay -----
+replay_task_policy: uniform
+replay_sample_policy: pass_snapshot
+
+# ----- review（遗忘复查保留）-----
+review_after_task_transitions: 2
+forget_relative_threshold: 0.30
+
+# ----- scheduler -----
+rescan_candidates_after_transition: true
+rescan_every_n_task_switches: 3   # 【本轮决策】每 3 次实际训练任务切换才做一次全池 Rescan
+
+# ----- misc -----
+seed: 7
+allow_image_augment: false
+allow_missing_baseline: false
+
+# =============================================================================
+# 分阶段执行计划（**等用户批准后再开卡**）
+# -----------------------------------------------------------------------------
+# 通用 env：MICRO=1 GAS=4 N_GPU=1 MIXED=false SAVE_EVERY=0 DCP_MODE=final_only TB=0 \
+#          MODEL_PATH=/data/outputs/single/click_bell/checkpoints/global_step_500/hf_ckpt \
+#          STEP_OFFSET=500 SPLIT_DIR=/data/train/task_splits_50 \
+#          AL_CFG=<本文件>
+#
+# 🔴🔴 **`max_steps` 是「绝对」目标，不是「本次还要训多少步」**（2026-10-08 踩坑 ⇒ 只训了 1 步就收尾）：
+#      `utils/arguments.py:337` + `tasks/vla/train_lingbotvla.py:708`
+#          `total_train_steps = min(total_train_steps, max_steps − step_offset)`
+#      ⇒ 从 step500 起（STEP_OFFSET=500）：
+#           再训  50 步 ⇒ MAX_STEPS=550     再训 100 步 ⇒ MAX_STEPS=600
+#           再训 150 步 ⇒ MAX_STEPS=650     再训 200 步 ⇒ MAX_STEPS=700
+#      ❌ 错误示范：`STEP_OFFSET=500 MAX_STEPS=50` ⇒ 50−500=−450 ⇒ **只跑 1 步**，日志表现为
+#         `Step 501/109823, Epoch 1, …` 后紧跟 `[auto_learning] 收尾：unit 没跑满 ⇒ 按实际步数记账`
+#
+# phase1（**再训 50 步** = 1 个 unit；验证真实训练/评测/决策/显存/收尾存档）
+#   MAX_STEPS=550 PRUNE=0 TRAIN_OUT=/data/outputs/al_smoke_gbs4_4task_p1
+#
+# phase2a（再训 100 步 = 2 个 unit；第 1、2 次任务切换）
+#   MAX_STEPS=600 PRUNE=0 TRAIN_OUT=/data/outputs/al_smoke_gbs4_4task_p2
+# phase2b（**Resume** 再训 100 步 ⇒ 共 200；第 3 次切换 ⇒ 全池 Rescan 应在此触发，验证节奏跨 resume 保持）
+#   RESUME=1 MAX_STEPS=700 PRUNE=1 PRUNE_KEEP=1 TRAIN_OUT=<同 phase2a>
+#
+# 现成脚本：`/data/tmp/run_phase1_v2.sh`（含 MAX_STEPS 前置校验 + 显存采样 + 汇总 + 成功才关机）
+# 首跑留档：`/data/outputs/al_smoke_gbs4_4task_p1_botched_run1`（日志/事件，坏存档已删）
+# =============================================================================
