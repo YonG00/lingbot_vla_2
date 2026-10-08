@@ -1,0 +1,10 @@
+- 训练日志(OUT 内副本) `/data/outputs/al_smoke_gbs4_4task_tb10/log.txt` — **不存在**
+- 看门狗触发标记 `/data/outputs/al_smoke_gbs4_4task_tb10/watchdog_killed` — **不存在**
+- runner 汇总 `/data/tmp/smoke_tb10_v2_summary.txt` — **不存在**
+- `/data/outputs/al_smoke_gbs4_4task_tb10/history.json` — **不存在**（该实现把 AL 状态存在 DCP 的 extra_state 中，无独立 history/registry/metrics 文件）
+- `/data/outputs/al_smoke_gbs4_4task_tb10/registry.json` — **不存在**（该实现把 AL 状态存在 DCP 的 extra_state 中，无独立 history/registry/metrics 文件）
+- `/data/outputs/al_smoke_gbs4_4task_tb10/metrics.json` — **不存在**（该实现把 AL 状态存在 DCP 的 extra_state 中，无独立 history/registry/metrics 文件）
+- `/data/outputs/al_smoke_gbs4_4task_tb10/metrics.csv` — **不存在**（该实现把 AL 状态存在 DCP 的 extra_state 中，无独立 history/registry/metrics 文件）
+- `/data/outputs/al_smoke_gbs4_4task_tb10/history.csv` — **不存在**（该实现把 AL 状态存在 DCP 的 extra_state 中，无独立 history/registry/metrics 文件）
+- `/data/outputs/al_smoke_gbs4_4task_tb10/registry.csv` — **不存在**（该实现把 AL 状态存在 DCP 的 extra_state 中，无独立 history/registry/metrics 文件）
+- `/data/outputs/al_smoke_gbs4_4task_tb10/al_state.json` — **不存在**（该实现把 AL 状态存在 DCP 的 extra_state 中，无独立 history/registry/metrics 文件）
