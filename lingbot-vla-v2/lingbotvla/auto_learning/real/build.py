@@ -450,7 +450,10 @@ def _attach_pass_thresholds(
     3. 阈值表必须**覆盖 catalog 里全部任务**（缺的任务会被静默判成"永不 PASS"，
        白白烧算力）
     """
-    from ..decision.thresholds import PASS_METRIC_MSE, PassThresholds, active_metric
+    from ..decision.thresholds import (
+        PASS_METRIC_MSE, PassThresholds, active_metric,
+        verify_threshold_stat_compatible,
+    )
 
     if active_metric(cfg) != PASS_METRIC_MSE:
         return
@@ -465,6 +468,7 @@ def _attach_pass_thresholds(
         require_metric=PASS_METRIC_MSE,
         allow_fingerprint_mismatch=cfg.allow_thresholds_fingerprint_mismatch,
     )
+    verify_threshold_stat_compatible(thresholds)
     missing = [t for t in cat.task_names() if t not in thresholds]
     if missing:
         raise ValueError(

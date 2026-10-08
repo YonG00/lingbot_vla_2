@@ -8,6 +8,7 @@ collective races the next training step.
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import torch
@@ -42,7 +43,10 @@ def resolve_export_dtype(export_dtype, save_dtype=None):
     if save_dtype is not None:
         if isinstance(save_dtype, torch.dtype):
             return save_dtype
-        return _DTYPE_ALIASES.get(str(save_dtype).lower().replace("torch.", ""), None)
+        key = str(save_dtype).lower().replace("torch.", "")
+        if key not in _DTYPE_ALIASES:
+            raise ValueError(f"unsupported legacy save_dtype: {save_dtype!r}")
+        return _DTYPE_ALIASES[key]
     if export_dtype is None:
         return None
     if isinstance(export_dtype, torch.dtype):
@@ -137,6 +141,51 @@ def collect_full_model_on_cpu(model):
     return snapshot
 
 
+def verify_hf_weight_files(output_dir, expected_keys):
+    """Fail closed before publishing a milestone or committing the PASS cursor.
+
+    Check the *actual* safetensors headers, not merely whether some assets or
+    an index file happen to exist.  This does not load 12 GiB of weights into
+    RAM; ``safe_open.keys()`` reads only tensor metadata.
+    """
+    from safetensors import safe_open
+
+    shards = sorted(name for name in os.listdir(output_dir)
+                    if name.endswith(".safetensors") and
+                    os.path.isfile(os.path.join(output_dir, name)))
+    if not shards:
+        raise OSError("HF export has no safetensors weight shard")
+
+    index_file = os.path.join(output_dir, "model.safetensors.index.json")
+    if os.path.isfile(index_file):
+        with open(index_file, encoding="utf-8") as fh:
+            index = json.load(fh)
+        weight_map = index.get("weight_map")
+        if not isinstance(weight_map, dict) or set(weight_map) != set(expected_keys):
+            raise OSError("HF weight index does not cover the complete model state")
+        if set(weight_map.values()) != set(shards):
+            raise OSError("HF weight index disagrees with shard files")
+    elif len(shards) != 1:
+        raise OSError("HF multi-shard weights missing safetensors index")
+
+    actual = set()
+    for name in shards:
+        path = os.path.join(output_dir, name)
+        if os.path.getsize(path) == 0:
+            raise OSError(f"HF weight shard is empty: {name}")
+        with safe_open(path, framework="pt", device="cpu") as f:
+            keys = set(f.keys())
+        if not keys or actual.intersection(keys):
+            raise OSError(f"HF shard is empty or contains duplicate keys: {name}")
+        if os.path.isfile(index_file):
+            if any(weight_map.get(k) != name for k in keys):
+                raise OSError(f"HF index contains incorrect shard mapping: {name}")
+        actual.update(keys)
+    if actual != set(expected_keys):
+        raise OSError(f"HF tensor coverage mismatch: missing={len(set(expected_keys)-actual)}, "
+                      f"extra={len(actual-set(expected_keys))}")
+
+
 def export_model_hf_direct(model, *, global_step: int, checkpoint_root: str,
                            model_assets=None, export_dtype="native", save_dtype=None,
                            logger=None):
@@ -200,10 +249,8 @@ def export_model_hf_direct(model, *, global_step: int, checkpoint_root: str,
             save_model_weights(temp_dir, prepared, save_dtype=None,
                                model_assets=model_assets)
             del prepared
-            # 发布前自检（最小、布局无关）：saving 必须真的产出文件，
-            # 否则视为失败（finally 会清掉 tmp 目录，绝不留"可用假象"）。
-            if not any(fn for _dp, _dn, fn in os.walk(temp_dir)):
-                raise OSError("HF snapshot produced no files before publish")
+            # 禁止把仅有 config/半套权重/损坏索引的 HF 里程碑发布成成功。
+            verify_hf_weight_files(temp_dir, snapshot.keys())
             os.replace(temp_dir, destination)
         except Exception as exc:
             error = f"Direct HF export step={global_step} failed: {exc!r}"

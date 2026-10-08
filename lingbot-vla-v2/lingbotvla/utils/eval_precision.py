@@ -88,6 +88,20 @@ def describe_precision(info: Dict[str, Any]) -> str:
             f" | 指标={info.get('metric', METRIC_DTYPE_LABEL)}")
 
 
+def fp32_error_fp64_aggregation(pred, gt):
+    """Compute physical-action error in FP32, then promote for FP64 reduction.
+
+    Cast *before subtraction*: evaluating two float64 inputs and merely
+    casting the resulting difference to float64 would silently violate the
+    advertised `error=fp32` metric contract.
+    """
+    import numpy as np
+
+    pr32 = np.asarray(pred, dtype=np.float32)
+    gt32 = np.asarray(gt, dtype=np.float32)
+    return np.asarray(pr32 - gt32, dtype=np.float64), np.asarray(gt32, dtype=np.float64)
+
+
 def metric_arrays_for_aggregation(err, gt):
     """误差按 fp32 计算、聚合用 fp64：返回 (err64, gt64)。"""
     import numpy as np

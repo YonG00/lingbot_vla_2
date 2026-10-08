@@ -217,6 +217,20 @@ class PassThresholds:
 # --------------------------------------------------------------------------- #
 # 口径解析（**全框架唯一的判定入口**）
 # --------------------------------------------------------------------------- #
+def verify_threshold_stat_compatible(table: PassThresholds) -> None:
+    """The current runtime compares *arithmetic* per-trajectory MSE.
+
+    A reference geometric-mean threshold must never silently be compared to
+    candidate arithmetic MSE.  Supporting GMean as a real PASS metric requires
+    separately wiring the candidate geomean through all Scheduler/Review paths.
+    """
+    if table.stat == "geomean":
+        raise ThresholdsError(
+            "阈值表 stat='geomean'，但运行时 pass_metric='mse' 仍比较候选轨迹的算术平均 MSE；"
+            "两者不是同一个统计量，拒绝静默错判 PASS。"
+            "请先实现并验收候选 GMean-MSE 完整判定链路；不能只更换阈值表。")
+
+
 def active_metric(cfg: Any) -> str:
     """当前生效的判定口径（``"nmse"`` / ``"mse"``）。"""
     metric = str(getattr(cfg, "pass_metric", PASS_METRIC_NMSE) or PASS_METRIC_NMSE)
@@ -338,5 +352,6 @@ __all__ = [
     "THRESHOLDS_VERSION", "ThresholdsError",
     "PassThresholds", "PassCheck",
     "active_metric", "attached_thresholds", "pass_line", "metric_value",
+    "verify_threshold_stat_compatible",
     "check_pass", "is_pass", "is_forgotten_ex", "forget_code_ex",
 ]

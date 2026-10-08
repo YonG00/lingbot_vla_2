@@ -85,11 +85,12 @@ def test_direct_hf_atomic_export_without_dcp(tmp_path, monkeypatch):
     def fake_save(path, state_dict, **kw):
         calls.append((dict(state_dict), kw))
         Path(path).mkdir(parents=True)
-        (Path(path)/'weights.txt').write_text(str(list(state_dict)))
+        from safetensors.torch import save_file
+        save_file(dict(state_dict), str(Path(path)/'model.safetensors'))
     fake_models.save_model_weights = fake_save
     out = export_model_hf_direct(torch.nn.Linear(2,2), global_step=250,
                                  checkpoint_root=str(tmp_path))
-    assert Path(out,'weights.txt').is_file()
+    assert Path(out,'model.safetensors').is_file()
     assert calls and 'weight' in calls[0][0]
     assert not (tmp_path/'global_step_250'/'model').exists()
     assert not (tmp_path/'global_step_250'/'optimizer').exists()
@@ -97,8 +98,8 @@ def test_direct_hf_atomic_export_without_dcp(tmp_path, monkeypatch):
                                    checkpoint_root=str(tmp_path))
     assert again != out
     assert '_retry_001' in again
-    assert Path(out,'weights.txt').is_file()
-    assert Path(again,'weights.txt').is_file()
+    assert Path(out,'model.safetensors').is_file()
+    assert Path(again,'model.safetensors').is_file()
 
 
 def test_failed_export_keeps_no_final_or_temp(tmp_path, monkeypatch):

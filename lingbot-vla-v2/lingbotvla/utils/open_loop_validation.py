@@ -62,7 +62,9 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tupl
 
 import numpy as np
 
-from lingbotvla.utils.eval_precision import METRIC_DTYPE_LABEL, metric_arrays_for_aggregation
+from lingbotvla.utils.eval_precision import (
+    METRIC_DTYPE_LABEL, fp32_error_fp64_aggregation,
+)
 import torch
 
 from lingbotvla.data.dataset import build_vla_dataset
@@ -332,8 +334,7 @@ def aggregate_chunks(chunks: List[tuple]) -> Dict[str, Any]:
     for ep_key in order:
         gts = np.concatenate([g for g, _ in groups[ep_key]], axis=0)
         prs = np.concatenate([p for _, p in groups[ep_key]], axis=0)
-        err = prs - gts                                 # 误差按输入精度（fp32）计算
-        err64, gt64 = metric_arrays_for_aggregation(err, gts)   # 聚合提升 fp64
+        err64, gt64 = fp32_error_fp64_aggregation(prs, gts)
         per_traj.append({
             "episode": ep_key,
             "mse": float(np.mean(err64 ** 2)),
@@ -354,8 +355,7 @@ def aggregate_chunks(chunks: List[tuple]) -> Dict[str, Any]:
     # B) 离线口径：所有帧 pool 在一起，逐维方差 → 对各维取均值
     gt_all = np.concatenate(gt_chunks, axis=0)       # (N, D)
     pr_all = np.concatenate(pred_chunks, axis=0)
-    err_all = pr_all - gt_all
-    err_all64, gt_all64 = metric_arrays_for_aggregation(err_all, gt_all)
+    err_all64, gt_all64 = fp32_error_fp64_aggregation(pr_all, gt_all)
     mse_pooled = float(np.mean(err_all64 ** 2))
     mean_baseline_mse = float(np.var(gt_all64, axis=0).mean())
 
