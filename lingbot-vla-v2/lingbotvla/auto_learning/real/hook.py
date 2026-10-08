@@ -207,12 +207,40 @@ class AutoLearnLoopHook:
                     f"本 unit 实际跑了 {stats.steps} 步，但 scheduler 要求 {self._unit_steps} 步。\n"
                     f"  常见原因：unit 内步数被提前 break / 训练循环结构与 hook 不匹配 /\n"
                     f"   unit 边界没重建 DataLoader 迭代器（prefetch 跨边界）。")
+        # Ratio mode: each rank owns local slots; scheduler accounting must
+        # observe the same GLOBAL NEW/Replay counts on every rank.
+        new_counts = dict(stats.new_slot_counts_by_task)
+        old_counts = dict(stats.old_slot_counts_by_task)
+        samples_seen = stats.samples_seen
+        if self.cfg.new_ratio is not None and int(getattr(self.cfg, "_ratio_dp_size", 1)) > 1:
+            from collections import Counter
+            import torch.distributed as dist
+            dp_size = int(self.cfg._ratio_dp_size)
+            if not dist.is_initialized():
+                raise RuntimeError("ratio mode: torch.distributed not initialized")
+            from lingbotvla.distributed.parallel_state import get_parallel_state
+            dp_group = get_parallel_state().dp_group
+            if dp_group is None and dist.get_world_size() != dp_size:
+                raise RuntimeError("ratio mode: DP process group missing in multi-axis topology")
+            if dp_group is not None and dist.get_world_size(group=dp_group) != dp_size:
+                raise RuntimeError("ratio mode: DP group size mismatch")
+            gathered = [None] * dp_size
+            dist.all_gather_object(
+                gathered, (stats.steps, samples_seen, new_counts, old_counts),
+                group=dp_group)
+            if any(int(item[0]) != stats.steps for item in gathered):
+                raise RuntimeError("ratio mode: DP ranks consumed different optimizer steps")
+            new_counts = dict(sum((Counter(item[2]) for item in gathered), Counter()))
+            old_counts = dict(sum((Counter(item[3]) for item in gathered), Counter()))
+            samples_seen = sum(int(item[1]) for item in gathered)
+            if samples_seen != stats.steps * int(self.cfg._ratio_global_batch_size):
+                raise RuntimeError("ratio mode: global sample accounting mismatch")
         result = TrainResult(
             loss=(sum(self._unit_losses) / len(self._unit_losses)) if self._unit_losses else 0.0,
             steps=stats.steps,
-            samples_seen=stats.samples_seen,
-            old_slot_counts=dict(stats.old_slot_counts_by_task),
-            new_slot_counts=dict(stats.new_slot_counts_by_task),
+            samples_seen=samples_seen,
+            old_slot_counts=old_counts,
+            new_slot_counts=new_counts,
             per_step_losses=list(self._unit_losses),
             batches_built=stats.steps,
             # 🔴 review v0.2 #9：按**真实 batch 组成**去重，不是「不同 loss 值数量」

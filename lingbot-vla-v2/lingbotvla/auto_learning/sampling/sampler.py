@@ -1,4 +1,4 @@
-"""Batch 组装：`7 NEW + 3 OLD`（文档 §27–§29）。
+"""Batch 组装：静态 slots 或运行时按全局 NEW 比例分配的本地 slots。
 
 分工：
   * `prepare(req)` —— 把一个 learning unit 要用的分布**编译一次**
@@ -67,18 +67,33 @@ class BatchSampler:
         return PreparedRequest(request=req, new_table=new_table, replay_slots=slots)
 
     # ---------------------------------------------------------------- #
-    def build(self, prepared: PreparedRequest) -> BatchComposition:
-        """抽**一个 optimizer step** 的 batch。"""
+    def build(self, prepared: PreparedRequest, *, logical_step: int | None = None) -> BatchComposition:
+        """Draw a logical batch; ratio mode uses a per-rank, per-step RNG.
+
+        Do NOT advance scheduler.rng in ratio mode. Different local 70:30
+        allocations must not silently desynchronize scheduler decisions.
+        """
         req = prepared.request
+        rng = self.rng
+        if self.cfg.new_ratio is not None:
+            if logical_step is None:
+                raise ValueError("ratio mode requires logical_step for reproducible rank sampling")
+            rank = int(getattr(self.cfg, "_ratio_dp_rank", 0))
+            mask = (1 << 64) - 1
+            # Stable, non-Python-hash seed; identical after DCP Resume.
+            seed = ((int(self.cfg.seed) * 0x9e3779b97f4a7c15) ^
+                    (rank * 0xbf58476d1ce4e5b9) ^
+                    (int(logical_step) * 0x94d049bb133111eb)) & mask
+            rng = random.Random(seed)
         want_old = req.replay_slots if prepared.replay_slots else 0
         want_new = req.batch_size - want_old  # 没有 PASS task ⇒ 全 NEW（文档 §27）
 
         new_refs: List[SampleRef] = [
             self.resolver.resolve(req.task, sid)
-            for sid in prepared.new_table.draw_without_replacement(want_new, self.rng)
+            for sid in prepared.new_table.draw_without_replacement(want_new, rng)
         ]
         old_refs: List[SampleRef] = (
-            sample_replay_refs(prepared.replay_slots, want_old, self.resolver, self.rng)
+            sample_replay_refs(prepared.replay_slots, want_old, self.resolver, rng)
             if want_old
             else []
         )

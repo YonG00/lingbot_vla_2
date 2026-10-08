@@ -102,6 +102,9 @@ class AutoLearningConfig:
     batch_size: int = 10
     new_slots: int = 7
     replay_slots: int = 3
+    # Optional ratio mode. None retains exact legacy fixed-slot behavior.
+    # With new_ratio=0.7, slots are derived from runtime GBS/DP rank.
+    new_ratio: Optional[float] = None
 
     # ----- hardness -----
     hardness_probe_fraction: float = 0.10
@@ -142,7 +145,24 @@ class AutoLearningConfig:
         self.validate()
 
     def validate(self) -> None:
-        if self.new_slots + self.replay_slots != self.batch_size:
+        if type(self.batch_size) is not int or self.batch_size < 1:
+            raise ValueError("batch_size must be a positive integer")
+        if self.new_ratio is not None:
+            from .batch_ratio import ratio_plan
+            if hasattr(self, "_ratio_dp_size"):
+                plan = ratio_plan(
+                    global_batch_size=int(self._ratio_global_batch_size),
+                    dp_size=int(self._ratio_dp_size),
+                    dp_rank=int(self._ratio_dp_rank), new_ratio=self.new_ratio)
+                if self.batch_size != plan.local_batch_size:
+                    raise ValueError("runtime local batch size changed after ratio binding")
+            else:
+                plan = ratio_plan(global_batch_size=self.batch_size, dp_size=1,
+                                  dp_rank=0, new_ratio=self.new_ratio)
+            self.new_slots, self.replay_slots = plan.local_new, plan.local_replay
+        elif (type(self.new_slots) is not int or type(self.replay_slots) is not int
+              or self.new_slots < 0 or self.replay_slots < 0
+              or self.new_slots + self.replay_slots != self.batch_size):
             raise ValueError(
                 f"new_slots({self.new_slots}) + replay_slots({self.replay_slots}) "
                 f"!= batch_size({self.batch_size})"

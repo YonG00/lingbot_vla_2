@@ -91,7 +91,7 @@ class UnitStats:
 
 
 class AutoLearnSampler(_SamplerBase):
-    """产出「7 NEW + 3 Replay」的 dataset local_idx（`SampleRef.sample_id`）。
+    """产出按 cfg 本地 NEW/Replay slots 的 dataset local_idx。
 
     生命周期::
 
@@ -171,7 +171,10 @@ class AutoLearnSampler(_SamplerBase):
                 raise RuntimeError(
                     "AutoLearnSampler 还没收到 TrainRequest —— 上层必须先 set_request(req) "
                     "再重建 DataLoader 迭代器")
-            comp = self.batch_sampler.build(self._prepared)
+            # Deterministic absolute AL step: independent of DataLoader prefetch
+            # depth and rank0's serialized RNG state on Resume.
+            logical_step = self._prepared.request.start_step + len(self.compositions)
+            comp = self.batch_sampler.build(self._prepared, logical_step=logical_step)
             self.compositions.append(comp)      # 按产出顺序留档（见 stats_upto）
             self._record(comp)
             yield from (int(r.sample_id) for r in comp.refs)
@@ -203,6 +206,11 @@ class AutoLearnSampler(_SamplerBase):
         return {
             "version": 1,
             "batch_size": self._batch_size,
+            "ratio_layout": (
+                {"new_ratio": float(self.batch_sampler.cfg.new_ratio),
+                 "global_batch_size": int(self.batch_sampler.cfg._ratio_global_batch_size),
+                 "dp_size": int(self.batch_sampler.cfg._ratio_dp_size)}
+                if self.batch_sampler.cfg.new_ratio is not None else None),
             "batches_built": self.batch_sampler.n_batches,
             "unit_steps_done": self.stats.steps,
         }
@@ -212,6 +220,16 @@ class AutoLearnSampler(_SamplerBase):
             raise ValueError(f"sampler state 必须是 dict，实际 {type(state).__name__}")
         if int(state.get("version", 0)) != 1:
             raise ValueError(f"sampler state 版本不符: {state.get('version')}")
+        if int(state.get("batch_size", -1)) != self._batch_size:
+            raise ValueError("AL Resume batch size changed; start a fresh run or restore original GBS")
+        cfg = self.batch_sampler.cfg
+        expected = (
+            {"new_ratio": float(cfg.new_ratio),
+             "global_batch_size": int(cfg._ratio_global_batch_size),
+             "dp_size": int(cfg._ratio_dp_size)}
+            if cfg.new_ratio is not None else None)
+        if state.get("ratio_layout") != expected:
+            raise ValueError("AL Resume ratio/GBS/DP layout changed; exact Resume refused")
         self.batch_sampler.n_batches = int(state.get("batches_built", 0))
         # unit 内位置：由 loop hook 决定是否从 unit 开头重放
         self.stats.steps = int(state.get("unit_steps_done", 0))

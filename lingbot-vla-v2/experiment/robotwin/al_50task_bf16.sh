@@ -174,7 +174,7 @@ cat <<EOF
   image_augment = ${AUGMENT}（AL 要求 false）
   训练规模    = ${EPOCHS} epoch × ${STEPS_PER_EPOCH} 步/轮，max_steps=${MAX_STEPS}（绝对）
   批大小      = micro ${MICRO} × gas ${GAS} × ${N_GPU} 卡 = gbs ${GBS}
-                （AL 要求 new_slots+replay_slots == gbs；配置里是 7+3=10）
+                （AL new_ratio 模式按 DP local batch 动态分配；无 new_ratio 时仍用静态 slots）
   存档计划    = $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 'NO_CHECKPOINT (无 DCP/HF，不支持 Resume)' || echo "每 ${SAVE_STEPS} 步一份 × ${N_SAVES} 份；DCP_MODE=${DCP_MODE}")
   剪枝看门狗  = PRUNE=$PRUNE keep-last=$PRUNE_KEEP min-age=${PRUNE_MIN_AGE}s
   DCP 保留    = 最近 ${DCP_KEEP_LAST} 份完整 DCP（新份校验成功后才删最旧；HF 里程碑独立管理）

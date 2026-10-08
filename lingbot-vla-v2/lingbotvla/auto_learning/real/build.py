@@ -6,7 +6,7 @@
         → attach_samples（回合 → dataset local_idx）
         → RealEvaluator / RealHardnessScorer
         → Backend → Scheduler
-        → AutoLearnSampler（7 NEW + 3 Replay）
+        → AutoLearnSampler（静态 slots / 动态全局 NEW:Replay 比例）
         → AutoLearnLoopHook（训练循环接线）
 
 **两段式构造**（因为训练脚本里 dataloader 早于模型）::
@@ -338,7 +338,7 @@ def finish_auto_learning(
 
 
 def validate_batch_alignment(cfg: AutoLearningConfig, args: Any, log: Any) -> None:
-    """AL 的 logical batch_size 必须 == 真实 DataLoader 的 batch_size（review v0.2 #3）。
+    """AL logical batch == per-rank DataLoader batch, not global GBS.
 
     错配的后果：sampler 按 `cfg.batch_size` 产出「7 NEW + 3 Replay」共 10 个 index，
     但 DataLoader 按 `dataloader_batch_size` 消费 ⇒ 前 8 个进 optimizer batch #1、
@@ -351,6 +351,34 @@ def validate_batch_alignment(cfg: AutoLearningConfig, args: Any, log: Any) -> No
         return getattr(tr, key, None) if tr is not None else None
 
     mbs, gbs, dls = _g("micro_batch_size"), _g("global_batch_size"), _g("dataloader_batch_size")
+    if cfg.new_ratio is not None:
+        from ..batch_ratio import ratio_plan
+        from lingbotvla.distributed.parallel_state import get_parallel_state
+        ps = get_parallel_state()  # fail-fast if DP topology not available
+        dp_size, dp_rank = int(ps.dp_size), int(ps.dp_rank)
+        if (gbs is None or dls is None or mbs is None
+                or _g("gradient_accumulation_steps") is None):
+            raise ValueError("[auto_learning] ratio mode requires resolved GBS/micro/GAS/local batch")
+        if (int(gbs) != int(dls) * dp_size
+                or int(dls) != int(mbs) * int(_g("gradient_accumulation_steps"))):
+            raise ValueError("[auto_learning] ratio mode: GBS != local_batch * DP, or local_batch != micro * GAS")
+        if _g("data_parallel_size") is not None and dp_size != int(_g("data_parallel_size")):
+            raise ValueError("[auto_learning] ratio mode: DP topology mismatch")
+        plan = ratio_plan(global_batch_size=int(gbs), dp_size=dp_size,
+                          dp_rank=dp_rank, new_ratio=cfg.new_ratio)
+        # cfg is per-process: scheduler issues per-rank TrainRequests.
+        cfg.batch_size, cfg.new_slots, cfg.replay_slots = (
+            plan.local_batch_size, plan.local_new, plan.local_replay)
+        # Runner derives independent sampling per (AL optimizer step, DP rank).
+        # All ranks keep scheduler RNG identical; rank seeds avoid identical streams.
+        cfg._ratio_dp_rank = dp_rank
+        cfg._ratio_dp_size = dp_size
+        cfg._ratio_global_batch_size = int(gbs)
+        log.info_rank0(
+            f"[auto_learning] global ratio plan: GBS={gbs}, DP={dp_size}, "
+            f"NEW={plan.global_new} Replay={plan.global_replay}; "
+            f"rank0 local={plan.local_new}+{plan.local_replay} "
+            "(no PASS replay pool => actual samples all NEW)")
     if dls is not None and int(dls) != int(cfg.batch_size):
         raise ValueError(
             f"[auto_learning] AL logical batch_size({cfg.batch_size}) != "

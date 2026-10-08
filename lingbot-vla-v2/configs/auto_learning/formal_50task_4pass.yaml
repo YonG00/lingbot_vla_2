@@ -67,11 +67,13 @@ overfit_val_lp_max: 0.00
 overfit_gap_growth_threshold: 0.10
 
 # ----- batch -----
-#: 🔴 硬约束：new_slots + replay_slots == batch_size，
-#:    且 batch_size 必须 == --train.dataloader_batch_size（= micro × gas × 卡数 = 1×10×1 = 10）。
+# new_ratio 启用后，实际每 rank 的 batch_size = micro * gas；NEW/Replay
+# 从全局 GBS 按 70/30 确定性分配（4×28 => 全局 78 NEW + 34 Replay）。
+# 以下 10/7/3 为旧静态配置的兼容值，在新模式下由运行时覆盖。
 batch_size: 10
-new_slots: 7                    # 7 个新样本
-replay_slots: 3                 # 3 个复习样本（PASS 池；无 PASS 时自然退化为全 NEW）
+new_slots: 7
+replay_slots: 3
+new_ratio: 0.7                 # 0.7 NEW / 0.3 Replay，空 PASS 池时全部为 NEW
 
 # ----- hardness -----
 hardness_probe_fraction: 0.10
