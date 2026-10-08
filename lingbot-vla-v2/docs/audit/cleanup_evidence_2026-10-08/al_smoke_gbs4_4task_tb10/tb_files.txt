@@ -1,0 +1,2 @@
+/data/outputs/al_smoke_gbs4_4task_tb10/runs/events.out.tfevents.1791449063.autodl-pro-7909d1ce5113.7061.0
+48K	/data/outputs/al_smoke_gbs4_4task_tb10/runs

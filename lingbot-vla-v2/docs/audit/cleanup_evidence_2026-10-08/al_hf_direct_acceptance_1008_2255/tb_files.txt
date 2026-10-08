@@ -1,0 +1,2 @@
+/data/outputs/al_hf_direct_acceptance_1008_2255/runs/events.out.tfevents.1791471577.autodl-pro-7909d1ce5113.5095.0
+16K	/data/outputs/al_hf_direct_acceptance_1008_2255/runs

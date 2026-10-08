@@ -1,0 +1,6 @@
+10/08/2026 22:48:05 - INFO - __main__ - Distributed checkpoint saved at /data/outputs/al_dcp_retention_test_1008_2242/checkpoints/global_step_505 successfully!
+10/08/2026 22:48:05 - INFO - __main__ - [ckpt-retention] 保留最近 2 份完整 DCP：保留 step=[505]｜删除 step=[]｜未完成（不动）step=[]
+10/08/2026 22:51:27 - INFO - __main__ - Distributed checkpoint saved at /data/outputs/al_dcp_retention_test_1008_2242/checkpoints/global_step_510 successfully!
+10/08/2026 22:51:27 - INFO - __main__ - [ckpt-retention] 保留最近 2 份完整 DCP：保留 step=[505, 510]｜删除 step=[]｜未完成（不动）step=[]
+10/08/2026 22:55:43 - INFO - __main__ - Distributed checkpoint saved at /data/outputs/al_dcp_retention_test_1008_2242/checkpoints/global_step_515 successfully!
+10/08/2026 22:55:45 - INFO - __main__ - [ckpt-retention] 保留最近 2 份完整 DCP：保留 step=[510, 515]｜删除 step=[505]｜未完成（不动）step=[]

@@ -1,0 +1,2 @@
+# /data/outputs/al_hf_direct_acceptance_1008_2255/checkpoints 清单
+24G	/data/outputs/al_hf_direct_acceptance_1008_2255/checkpoints/global_step_502

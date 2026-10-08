@@ -1,0 +1,12 @@
+# 可疑唯一内容扫描
+--- 大文件 top10 ---
+/data/outputs/al_hf_direct_acceptance_1008_2255/hf_milestones/global_step_501/hf_ckpt/model-00002-of-00006.safetensors
+/data/outputs/al_hf_direct_acceptance_1008_2255/hf_milestones/global_step_501/hf_ckpt/model-00004-of-00006.safetensors
+/data/outputs/al_hf_direct_acceptance_1008_2255/hf_milestones/global_step_501/hf_ckpt/model-00001-of-00006.safetensors
+/data/outputs/al_hf_direct_acceptance_1008_2255/hf_milestones/global_step_501/hf_ckpt/model-00005-of-00006.safetensors
+/data/outputs/al_hf_direct_acceptance_1008_2255/hf_milestones/global_step_501/hf_ckpt/model-00006-of-00006.safetensors
+/data/outputs/al_hf_direct_acceptance_1008_2255/hf_milestones/global_step_501/hf_ckpt/model-00003-of-00006.safetensors
+/data/outputs/al_hf_direct_acceptance_1008_2255/checkpoints/global_step_502/model/__0_4.distcp
+/data/outputs/al_hf_direct_acceptance_1008_2255/checkpoints/global_step_502/model/__0_0.distcp
+/data/outputs/al_hf_direct_acceptance_1008_2255/checkpoints/global_step_502/model/__0_9.distcp
+/data/outputs/al_hf_direct_acceptance_1008_2255/checkpoints/global_step_502/model/__0_5.distcp

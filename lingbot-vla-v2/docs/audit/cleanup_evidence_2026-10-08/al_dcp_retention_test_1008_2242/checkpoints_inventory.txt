@@ -1,0 +1,3 @@
+# /data/outputs/al_dcp_retention_test_1008_2242/checkpoints 清单
+24G	/data/outputs/al_dcp_retention_test_1008_2242/checkpoints/global_step_510
+24G	/data/outputs/al_dcp_retention_test_1008_2242/checkpoints/global_step_515

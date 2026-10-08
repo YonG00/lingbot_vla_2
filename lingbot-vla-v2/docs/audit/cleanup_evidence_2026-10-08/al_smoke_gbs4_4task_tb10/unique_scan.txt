@@ -1,0 +1,12 @@
+# 可疑唯一内容扫描
+--- 大文件 top10 ---
+/data/outputs/al_smoke_gbs4_4task_tb10/checkpoints/global_step_510/model/__0_4.distcp
+/data/outputs/al_smoke_gbs4_4task_tb10/checkpoints/global_step_510/model/__0_0.distcp
+/data/outputs/al_smoke_gbs4_4task_tb10/checkpoints/global_step_510/model/__0_9.distcp
+/data/outputs/al_smoke_gbs4_4task_tb10/checkpoints/global_step_510/model/__0_5.distcp
+/data/outputs/al_smoke_gbs4_4task_tb10/checkpoints/global_step_510/model/__0_3.distcp
+/data/outputs/al_smoke_gbs4_4task_tb10/checkpoints/global_step_510/model/__0_1.distcp
+/data/outputs/al_smoke_gbs4_4task_tb10/checkpoints/global_step_510/model/__0_10.distcp
+/data/outputs/al_smoke_gbs4_4task_tb10/checkpoints/global_step_510/model/__0_12.distcp
+/data/outputs/al_smoke_gbs4_4task_tb10/checkpoints/global_step_510/model/__0_15.distcp
+/data/outputs/al_smoke_gbs4_4task_tb10/checkpoints/global_step_510/model/__0_6.distcp

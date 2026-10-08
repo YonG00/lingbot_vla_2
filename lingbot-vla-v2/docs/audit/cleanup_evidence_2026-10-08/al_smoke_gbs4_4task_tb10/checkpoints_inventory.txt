@@ -1,0 +1,2 @@
+# /data/outputs/al_smoke_gbs4_4task_tb10/checkpoints 清单
+40G	/data/outputs/al_smoke_gbs4_4task_tb10/checkpoints/global_step_510

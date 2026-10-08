@@ -1,0 +1,2 @@
+/data/outputs/al_dcp_retention_test_1008_2242/runs/events.out.tfevents.1791470646.autodl-pro-7909d1ce5113.1825.0
+68K	/data/outputs/al_dcp_retention_test_1008_2242/runs
