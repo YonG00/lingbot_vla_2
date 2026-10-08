@@ -61,6 +61,8 @@ import traceback
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import numpy as np
+
+from lingbotvla.utils.eval_precision import METRIC_DTYPE_LABEL, metric_arrays_for_aggregation
 import torch
 
 from lingbotvla.data.dataset import build_vla_dataset
@@ -314,7 +316,8 @@ def aggregate_chunks(chunks: List[tuple]) -> Dict[str, Any]:
                 "mse_pooled": nan, "mean_baseline_mse": nan,
                 "mean_baseline_mse_per_traj": nan,
                 "per_traj_mse": [], "per_traj_mae": [],
-                "per_traj_ids": [], "per_traj_frames": []}
+                "per_traj_ids": [], "per_traj_frames": [],
+                "metric_dtype": METRIC_DTYPE_LABEL}
 
     groups: Dict[Any, List[tuple]] = {}
     order: List[Any] = []
@@ -329,28 +332,32 @@ def aggregate_chunks(chunks: List[tuple]) -> Dict[str, Any]:
     for ep_key in order:
         gts = np.concatenate([g for g, _ in groups[ep_key]], axis=0)
         prs = np.concatenate([p for _, p in groups[ep_key]], axis=0)
-        err = prs - gts
+        err = prs - gts                                 # 误差按输入精度（fp32）计算
+        err64, gt64 = metric_arrays_for_aggregation(err, gts)   # 聚合提升 fp64
         per_traj.append({
             "episode": ep_key,
-            "mse": float(np.mean(err ** 2)),
-            "mae": float(np.mean(np.abs(err))),
-            "baseline": float(np.var(gts, axis=0).mean()),
+            "mse": float(np.mean(err64 ** 2)),
+            "mae": float(np.mean(np.abs(err64))),
+            "baseline": float(np.var(gt64, axis=0).mean()),
             "frames": int(gts.shape[0]),
         })
         gt_chunks.append(gts)
         pred_chunks.append(prs)
 
     # A) 官方口径：先把整条轨迹的帧拼起来算一个 MSE，再对 trajectory 简单平均
-    mse = float(np.mean([t["mse"] for t in per_traj]))
-    mae = float(np.mean([t["mae"] for t in per_traj]))
-    mean_baseline_mse_per_traj = float(np.mean([t["baseline"] for t in per_traj]))
+    # 跨轨迹平均同样 fp64 累加（fp32 在轨迹多/尺度差异大时累积舍入）
+    mse = float(np.mean(np.asarray([t["mse"] for t in per_traj], dtype=np.float64)))
+    mae = float(np.mean(np.asarray([t["mae"] for t in per_traj], dtype=np.float64)))
+    mean_baseline_mse_per_traj = float(
+        np.mean(np.asarray([t["baseline"] for t in per_traj], dtype=np.float64)))
 
     # B) 离线口径：所有帧 pool 在一起，逐维方差 → 对各维取均值
     gt_all = np.concatenate(gt_chunks, axis=0)       # (N, D)
     pr_all = np.concatenate(pred_chunks, axis=0)
     err_all = pr_all - gt_all
-    mse_pooled = float(np.mean(err_all ** 2))
-    mean_baseline_mse = float(np.var(gt_all, axis=0).mean())
+    err_all64, gt_all64 = metric_arrays_for_aggregation(err_all, gt_all)
+    mse_pooled = float(np.mean(err_all64 ** 2))
+    mean_baseline_mse = float(np.var(gt_all64, axis=0).mean())
 
     r2 = (float(1.0 - mse_pooled / mean_baseline_mse)
           if mean_baseline_mse > 0 else nan)
@@ -367,6 +374,7 @@ def aggregate_chunks(chunks: List[tuple]) -> Dict[str, Any]:
         "r2": r2,                                         # = 1 - mse_pooled / mean_baseline_mse
         "per_traj_mse": [t["mse"] for t in per_traj],     # 供与官方逐条对齐
         "per_traj_mae": [t["mae"] for t in per_traj],
+        "metric_dtype": METRIC_DTYPE_LABEL,   # 误差 fp32 / 聚合 fp64（可核查）
         "per_traj_ids": [t["episode"] for t in per_traj],
         "per_traj_frames": [t["frames"] for t in per_traj],
     }
@@ -920,15 +928,22 @@ class OpenLoopValidator:
         #      RuntimeError: mat1 and mat2 must have the same dtype, but got Float and BFloat16
         #    （2026-10-07 A–G 回归首次跑到 bf16 组合时实测）。以前全是 F32 所以没暴露。
         #    优先级：`config.action_fp32`（模型自己会 `_fp32_linear` 上转权重）> 模型权重 dtype。
+        # 精度三分离（用户 2026-10-08）：权重 dtype / 推理 dtype / 指标 dtype。
+        # 决议抽到 eval_precision.resolve_inference_dtype（纯函数、可单测）；
+        # 显式请求与权重不一致时 fail-fast（不允许按 fp32 推理再 cast 结果）。
+        from lingbotvla.utils.eval_precision import describe_precision, resolve_inference_dtype
         _cfg0 = getattr(self, "_model_config", None)
-        if _cfg0 is not None and bool(getattr(_cfg0, "action_fp32", False)):
-            dtype = torch.float32
-        else:
-            _p0 = next(self.model.parameters(), None)
-            _dt = _p0.dtype if (_p0 is not None and _p0.dtype.is_floating_point) else None
-            dtype = _dt if _dt is not None else (
-                torch.bfloat16 if bool(getattr(self.args.train, "use_bf16", False)) else torch.float32)
+        _action_fp32 = bool(getattr(_cfg0, "action_fp32", False))
+        _p0 = next(self.model.parameters(), None)
+        _wdt = _p0.dtype if (_p0 is not None and _p0.dtype.is_floating_point) else None
+        _requested = str(getattr(self.args.train, "eval_inference_dtype", "auto") or "auto")
+        dtype, _prec = resolve_inference_dtype(
+            requested=_requested, action_fp32=_action_fp32, weight_dtype=_wdt,
+            fallback_bf16=bool(getattr(self.args.train, "use_bf16", False)))
         use_bf16 = (dtype == torch.bfloat16)
+        if not getattr(self, "_precision_logged", False):
+            self._precision_logged = True
+            self.logger.info_rank0(f"[open_loop] 精度口径：{describe_precision(_prec)}")
 
         images = item["images"]
         img_masks = item["img_masks"]

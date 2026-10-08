@@ -78,6 +78,9 @@ DCP_FINAL_GB=${DCP_FINAL_GB:-0}
 # 安全保留：只留最近 N 份**完整** DCP（新 DCP 校验成功后才删最旧；保存失败则一份都不删）。
 # HF 里程碑在 TRAIN_OUT/hf_milestones/ 独立管理，不受本策略影响；Smoke 无存档模式不启用。
 DCP_KEEP_LAST=${DCP_KEEP_LAST:-2}
+# HF 直出存储精度（与训练/评测精度解耦）：BF16 训练默认导出 bf16（约 12G），F32 训练默认 fp32。
+# 注意：若源权重是 fp32 而这里选 bf16，属于**有意降低存储精度、并非无损**（日志会明确标注）。
+HF_EXPORT_DTYPE=${HF_EXPORT_DTYPE:-$([ "$MIXED" = "true" ] && echo fp32 || echo bf16)}
 SAVE_HF_BOOL=false
 DISK_GUARD_BOOL=$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo false || echo true)
 
@@ -216,6 +219,7 @@ bash train.sh tasks/vla/train_lingbotvla.py /data/train/configs/robotwin_officia
   --train.save_hf_weights  $SAVE_HF_BOOL \\
   --train.async_save_hf_weights false \\
   --train.hf_pass_interval $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 0 || echo "$HF_PASS_INTERVAL") \\
+  --train.hf_export_dtype $HF_EXPORT_DTYPE \\
   --train.enable_resume    $RESUME_BOOL \\
   --train.train_expert_only false \\
   --train.freeze_vision_encoder true \\
@@ -299,6 +303,7 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.save_hf_weights  $SAVE_HF_BOOL \
     --train.async_save_hf_weights false \
     --train.hf_pass_interval "$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 0 || echo "$HF_PASS_INTERVAL")" \
+    --train.hf_export_dtype "$HF_EXPORT_DTYPE" \
     --train.enable_resume    "$RESUME_BOOL" \
     --train.train_expert_only false \
     --train.freeze_vision_encoder true \

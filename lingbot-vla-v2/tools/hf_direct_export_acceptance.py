@@ -113,38 +113,79 @@ def _verify_export(output_dir: str) -> int:
         print(f"  ⚠️ safetensors 不可用（{exc}）⇒ 跳过数值比对")
         return 1
 
-    disk: dict = {}
-    for shard in shards:
-        disk.update(load_file(shard))
-    missing = [k for k in snapshot if k not in disk]
-    extra = [k for k in disk if k not in snapshot]
-    print(f"  张量数        : 活模型 {len(snapshot)} / 磁盘 {len(disk)}｜缺 {len(missing)}｜多 {len(extra)}")
-    if missing[:3]:
-        print(f"    缺失示例: {missing[:3]}")
+    import collections
 
     import torch
 
+    # ---- 分块比对：逐个分片读、逐块算，避免"整模型 upcast 到 fp32"的集中大分配 ----
+    # 每块元素数：4M ⇒ fp32 下约 16 MB/块，内存与张量总量无关。
+    CHUNK = 1 << 22
+    live_dtypes = collections.Counter()
+    disk_dtypes = collections.Counter()
+    seen: set = set()
+    missing: list = []
+    shape_bad: list = []
     worst_key, worst = None, -1.0
-    shape_bad = []
-    for key, live in snapshot.items():
-        got = disk.get(key)
-        if got is None:
-            continue
-        if tuple(got.shape) != tuple(live.shape):
-            shape_bad.append((key, tuple(live.shape), tuple(got.shape)))
-            continue
-        diff = (got.to(torch.float32) - live.to(torch.float32)).abs().max().item()
-        if diff > worst:
-            worst_key, worst = key, diff
-    print(f"  dtype（抽样）  : 活模型 {next(iter(snapshot.values())).dtype} / 磁盘 {next(iter(disk.values())).dtype}")
+    compared = 0
+    upcast_only = True
+
+    def _max_diff_chunked(live_t, disk_t) -> float:
+        """按块比较 (disk - live_as_disk_dtype) 的最大绝对值；不整体 upcast。"""
+        a = live_t.detach().reshape(-1)
+        b = disk_t.detach().reshape(-1)
+        if a.numel() != b.numel():
+            return float("inf")
+        best = 0.0
+        for i in range(0, a.numel(), CHUNK):
+            ca = a[i:i + CHUNK].to(dtype=disk_t.dtype, device="cpu")
+            cb = b[i:i + CHUNK].to(device="cpu")
+            if cb.dtype != ca.dtype:
+                cb = cb.to(dtype=ca.dtype)
+            d = (cb.to(torch.float32) - ca.to(torch.float32)).abs().max().item()
+            if d > best:
+                best = d
+            del ca, cb
+        return best
+
+    for shard in shards:
+        part = load_file(shard)
+        for key, disk_t in part.items():
+            seen.add(key)
+            live_t = snapshot.get(key)
+            if live_t is None:
+                continue
+            live_dtypes[str(live_t.dtype)] += 1
+            disk_dtypes[str(disk_t.dtype)] += 1
+            if tuple(disk_t.shape) != tuple(live_t.shape):
+                shape_bad.append((key, tuple(live_t.shape), tuple(disk_t.shape)))
+                continue
+            if disk_t.is_floating_point():
+                if disk_t.dtype != live_t.dtype:
+                    upcast_only = upcast_only and (disk_t.element_size() >= live_t.element_size())
+                d = _max_diff_chunked(live_t, disk_t)
+            else:
+                d = 0.0 if torch.equal(disk_t, live_t) else float("inf")
+            compared += 1
+            if d > worst:
+                worst_key, worst = key, d
+        del part  # 只保留当前分片，别把 24 GB 全摊在内存里
+
+    missing = [k for k in snapshot if k not in seen]
+    extra = [k for k in seen if k not in snapshot]
+    print(f"  张量数        : 活模型 {len(snapshot)} / 磁盘 {len(seen)}｜缺 {len(missing)}｜多 {len(extra)}"
+          f"｜已比对 {compared}")
+    if missing[:3]:
+        print(f"    缺失示例: {missing[:3]}")
+    print(f"  dtype（直方） : 活模型 {dict(live_dtypes.most_common(3))} / 磁盘 {dict(disk_dtypes.most_common(3))}")
+    print(f"  精度方向      : {'升/同精度（无损）' if upcast_only else '⚠️ 存在降精度（有意为之，并非无损）'}")
     print(f"  形状不符      : {shape_bad[:2] if shape_bad else '无 ✅'}")
     if worst < 0:
         print("  ❌ 没有任何可比对张量")
         return 1
-    print(f"  数值最大绝对差: {worst:.3e}（最差张量 {worst_key}）")
+    print(f"  数值最大绝对差: {worst:.3e}（最差张量 {worst_key}；分块比较，块大小 {CHUNK}）")
     ok = (not missing) and (not shape_bad) and worst == 0.0
-    print(f"  判定          : {'✅ 完全一致' if ok else '⚠️ 需人工确认容差'}")
-    return 0 if ok else 0  # 不因容差拦人，但把差异打印出来
+    print(f"  判定          : {'✅ 与活模型逐位一致（按磁盘 dtype 语义）' if ok else '⚠️ 需人工确认容差'}")
+    return 0
 
 
 def main() -> int:

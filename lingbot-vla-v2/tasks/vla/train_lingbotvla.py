@@ -352,6 +352,20 @@ class MyTrainingArguments(TrainingArguments):
             "省磁盘约 3×（F32 下 72G→24G/份），代价：中途无法精确 resume"
             "（`enable_resume` 只能接上最后一个完整 DCP）。")},
     )
+    eval_inference_dtype: str = field(
+        default="auto",
+        metadata={"help": (
+            "开环评测的**推理** dtype：auto（默认，跟随权重实际 dtype）| bf16 | fp32。"
+            "显式指定时必须与权重精度一致，否则 fail-fast（不允许按 fp32 推理再 cast 结果）。"
+            "指标口径固定为 error=fp32 / aggregate=fp64。")},
+    )
+    hf_export_dtype: str = field(
+        default="native",
+        metadata={"help": (
+            "HF 直出的存储 dtype，与训练/评测精度**解耦**：native（默认，保持每个张量自身 dtype）"
+            "| bf16 | fp32。指定 bf16/fp32 时**只转换浮点权重**，整数/布尔状态原样保留；"
+            "若源为 fp32 而导出 bf16，日志会明确标注『有意降低存储精度、并非无损』。")},
+    )
     hf_pass_interval: int = field(
         default=0,
         metadata={"help": "AL: 每新增 N 个非 Bootstrap 首次 PASS 导出独立 HF；0=关闭。"
@@ -804,6 +818,12 @@ def main():
         if args.train.enable_resume:
             raise ValueError("smoke_no_checkpoint 与 enable_resume 不可同时启用")
         logger.info_rank0("[smoke] NO_CHECKPOINT：本次禁用全部 DCP/HF 存档；不可 Resume")
+    if str(args.train.eval_inference_dtype).lower() not in ("auto", "bf16", "fp32"):
+        raise ValueError(
+            f"eval_inference_dtype 只支持 auto/bf16/fp32，收到 {args.train.eval_inference_dtype!r}")
+    if str(args.train.hf_export_dtype).lower() not in ("native", "bf16", "fp32"):
+        raise ValueError(
+            f"hf_export_dtype 只支持 native/bf16/fp32，收到 {args.train.hf_export_dtype!r}")
     if args.train.dcp_keep_last is None or int(args.train.dcp_keep_last) < 0:
         raise ValueError("dcp_keep_last 必须是 >=0 的整数（0=不清理，默认 2）")
     if args.train.hf_pass_interval:
@@ -1624,8 +1644,8 @@ def main():
                         model, global_step=global_step,
                         checkpoint_root=os.path.join(args.train.output_dir, "hf_milestones"),
                         model_assets=model_assets if args.train.global_rank == 0 else None,
-                        save_dtype=(torch.float32 if args.train.enable_fp32
-                                    else torch.bfloat16),
+                        export_dtype=args.train.hf_export_dtype,
+                        logger=logger,
                     )
                     if _hf_export_path is not None:
                         logger.info_rank0(

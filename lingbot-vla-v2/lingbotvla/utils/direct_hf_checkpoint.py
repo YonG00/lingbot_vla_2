@@ -18,6 +18,92 @@ def _distributed() -> bool:
     return dist.is_available() and dist.is_initialized()
 
 
+#: 用户口径 → torch.dtype（None = native，保持每个张量自身 dtype）
+_DTYPE_ALIASES = {
+    "bf16": torch.bfloat16, "bfloat16": torch.bfloat16,
+    "fp32": torch.float32, "float32": torch.float32,
+    "fp16": torch.float16, "float16": torch.float16,
+    "native": None,
+}
+
+
+def _short_dtype(dtype) -> str:
+    """torch dtype → 与 `hf_export_dtype` 一致的短名（bf16/fp32/fp16/int64/bool…）。"""
+    name = str(dtype).replace("torch.", "")
+    return {"float32": "fp32", "bfloat16": "bf16", "float16": "fp16",
+            "float64": "fp64"}.get(name, name)
+
+
+def resolve_export_dtype(export_dtype, save_dtype=None):
+    """把 `native|bf16|fp32`（或旧 `save_dtype=` torch.dtype）解析为 torch.dtype；None=不改。
+
+    旧参数 `save_dtype` 保留为兼容别名：给了它就以它为准（torch.float32→fp32 等）。
+    """
+    if save_dtype is not None:
+        if isinstance(save_dtype, torch.dtype):
+            return save_dtype
+        return _DTYPE_ALIASES.get(str(save_dtype).lower().replace("torch.", ""), None)
+    if export_dtype is None:
+        return None
+    if isinstance(export_dtype, torch.dtype):
+        return export_dtype
+    key = str(export_dtype).lower().replace("torch.", "")
+    if key not in _DTYPE_ALIASES:
+        raise ValueError(f"unsupported hf export dtype: {export_dtype!r}（可选 native/bf16/fp32）")
+    return _DTYPE_ALIASES[key]
+
+
+def prepare_export_tensors(snapshot, export_dtype="native", *, save_dtype=None):
+    """整理待写出的张量，并给出**真实**精度报告（用户 2026-10-08 要求）。
+
+    规则：
+      * `native`：**完全不动**每个张量的 dtype（不复制、不转换）；
+      * 指定 bf16/fp32：**只转换浮点张量**；整数/布尔/其它非浮点状态**原样保留**
+        （绝不为存储精度破坏整型状态，例如 position ids / mask / 步数计数）；
+      * 报告源 dtype 直方图、目标 dtype、转换数量，以及**是否发生降精度**
+        （如 fp32 主权重 → bf16 存储 ⇒ 明确标记为"有意降低存储精度、并非无损"）。
+    """
+    target = resolve_export_dtype(export_dtype, save_dtype)
+    report = {
+        "target": "native" if target is None else _short_dtype(target),
+        "source_dtypes": {}, "converted": 0, "kept_non_float": 0,
+        "downcast_from": [], "not_lossless": False,
+    }
+    prepared = {}
+    downcast_sources = set()
+    for key, tensor in snapshot.items():
+        name = _short_dtype(tensor.dtype)
+        report["source_dtypes"][name] = report["source_dtypes"].get(name, 0) + 1
+        if target is None:
+            prepared[key] = tensor
+            continue
+        if not tensor.is_floating_point():
+            report["kept_non_float"] += 1          # 非浮点：绝不转换
+            prepared[key] = tensor
+            continue
+        if tensor.dtype != target:
+            if tensor.element_size() > torch.empty((), dtype=target).element_size():
+                downcast_sources.add(name)
+            tensor = tensor.to(dtype=target)
+            report["converted"] += 1
+        prepared[key] = tensor
+    if downcast_sources:
+        report["downcast_from"] = sorted(downcast_sources)
+        report["not_lossless"] = True
+    return prepared, report
+
+
+def format_export_report(report) -> str:
+    """一行可写进训练日志的精度说明（含"并非无损"的显式提示）。"""
+    src = ", ".join(f"{k}×{v}" for k, v in sorted(report["source_dtypes"].items()))
+    msg = (f"源 dtype {{{src}}} → 目标 {report['target']}｜转换 {report['converted']} 个浮点张量"
+           f"｜保留非浮点 {report['kept_non_float']} 个")
+    if report["not_lossless"]:
+        msg += (f"｜⚠️ 有意降低存储精度（{'+'.join(report['downcast_from'])}→{report['target']}），"
+                "**并非无损**：回读数值 = 源权重按目标 dtype 舍入后的结果")
+    return msg
+
+
 def collect_full_model_on_cpu(model):
     """Collect all-rank FSDP1/FSDP2 state with official PyTorch API."""
     from torch.distributed.checkpoint.state_dict import (
@@ -52,7 +138,8 @@ def collect_full_model_on_cpu(model):
 
 
 def export_model_hf_direct(model, *, global_step: int, checkpoint_root: str,
-                           model_assets=None, save_dtype=torch.bfloat16):
+                           model_assets=None, export_dtype="native", save_dtype=None,
+                           logger=None):
     """All ranks capture the same step; rank0 writes one atomic HF snapshot.
 
     Path is separate from DCP resume candidates. On a replay of the same
@@ -98,14 +185,21 @@ def export_model_hf_direct(model, *, global_step: int, checkpoint_root: str,
             os.makedirs(os.path.dirname(destination), exist_ok=True)
             if os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
+            # 精度脱钩：只按目标 dtype 转换**浮点**权重，非浮点状态原样保留（见 prepare_export_tensors）。
+            prepared, dtype_report = prepare_export_tensors(
+                snapshot, export_dtype, save_dtype=save_dtype)
+            if logger is not None:
+                logger.info_rank0(f"[ckpt] HF 导出精度：{format_export_report(dtype_report)}")
             # Fail before large writes if the filesystem is clearly full.
-            need = sum(t.numel() * torch.empty((), dtype=save_dtype).element_size()
-                       for t in snapshot.values())
+            need = sum(t.numel() * t.element_size() for t in prepared.values())
             free = shutil.disk_usage(os.path.dirname(destination)).free
             if free < need * 1.10:
                 raise OSError(f"not enough free space for HF ({free} < {int(need*1.10)} bytes)")
-            save_model_weights(temp_dir, snapshot, save_dtype=save_dtype,
+            # ⚠️ 传 `save_dtype=None`：否则 `save_model_weights` 会把**所有**张量一律 cast，
+            #    包括 int/bool 状态（那会破坏整型语义）。转换已在上面的 prepared 里做过。
+            save_model_weights(temp_dir, prepared, save_dtype=None,
                                model_assets=model_assets)
+            del prepared
             # 发布前自检（最小、布局无关）：saving 必须真的产出文件，
             # 否则视为失败（finally 会清掉 tmp 目录，绝不留"可用假象"）。
             if not any(fn for _dp, _dn, fn in os.walk(temp_dir)):
@@ -116,6 +210,13 @@ def export_model_hf_direct(model, *, global_step: int, checkpoint_root: str,
         finally:
             if temp_dir is not None and os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
+            # 失败时上面 `os.makedirs(os.path.dirname(destination))` 会留下空的
+            # `<root>/global_step_N/` 空壳 ⇒ 顺手清掉（成功时非空 ⇒ rmdir 失败，忽略）。
+            if destination is not None:
+                try:
+                    os.rmdir(os.path.dirname(destination))
+                except OSError:
+                    pass
     del snapshot
     if _distributed():
         outcome = [error]
