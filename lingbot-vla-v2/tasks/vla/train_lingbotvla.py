@@ -16,6 +16,7 @@ from PIL import Image
 from tqdm import trange
 from torch.utils.tensorboard import SummaryWriter
 from lingbotvla.utils.async_tb_writer import AsyncTBWriter
+from lingbotvla.utils.tb_task_loss import accumulate_task_losses, mean_task_losses
 from lingbotvla.checkpoint import build_checkpointer
 from lingbotvla.data import (
     OmniDataCollatorWithPacking,
@@ -1121,6 +1122,10 @@ def main():
             ignore_batch_num = 0
             torch.cuda.synchronize()
             start_time = time.time()
+            # [TB] 分任务 loss 累加器：跨**全部** micro-batch（= 完整 GBS）统计；纯日志，不碰梯度。
+            # 原实现只取最后一个 micro-batch（GAS=4 时只反映 1/4 样本，见 tb_task_loss.py 说明）。
+            _task_loss_sum = {}
+            _task_loss_cnt = {}
             for micro_batch in micro_batches:
                 future_video_targets = None
                 future_video_current_preds = None
@@ -1201,6 +1206,13 @@ def main():
                     router_z_loss = loss_log.get("router_z_loss", loss_log.get("moe_zloss/weighted", 0))
                     avg_lang_length = micro_batch['lang_masks'].sum(dim=-1).float().mean()
 
+                # [TB] 每个 micro-batch 累积一次（不论上面走的是哪个 model_outputs 分支）
+                if dataset_names is not None and "batch_mean_losses" in loss_log:
+                    _bml = loss_log["batch_mean_losses"]
+                    if hasattr(_bml, "detach"):
+                        _bml = _bml.detach().cpu()   # 每个 micro-batch 只同步一次
+                    accumulate_task_losses(_task_loss_sum, _task_loss_cnt,
+                                           dataset_names, _bml)
                 with model_bwd_context:
                     loss.backward()
 
@@ -1423,19 +1435,10 @@ def main():
                 writer.add_scalar("training/avg_lang_length", avg_lang_length, global_step)
                 writer.add_scalar("training/max_norm_batch", ignore_batch_num, global_step)
                 writer.add_scalar("steptime", delta_time, global_step)
-                # we only log the last mini batch if grad acc is activated
-                if dataset_names is not None and 'batch_mean_losses' in loss_log:
-                    batch_mean_losses = loss_log['batch_mean_losses']  # shape (B,)
-                    if hasattr(batch_mean_losses, "detach"):
-                        batch_mean_losses = batch_mean_losses.detach().cpu()
-
-                    group_losses = defaultdict(list)
-                    for name, loss_value in zip(dataset_names, batch_mean_losses):
-                        group_losses[name].append(loss_value.item() if hasattr(loss_value, "item") else float(loss_value))
-
-                    for name, values in group_losses.items():
-                        mean_loss = sum(values) / len(values)
-                        writer.add_scalar(f"detailed_loss/{name}", mean_loss, global_step)
+                # [TB] 按**完整 GBS**（全部 micro-batch）写分任务 loss；另写样本计数便于审计。
+                for _name, _mean in mean_task_losses(_task_loss_sum, _task_loss_cnt).items():
+                    writer.add_scalar(f"detailed_loss/{_name}", _mean, global_step)
+                    writer.add_scalar(f"detailed_loss_count/{_name}", _task_loss_cnt[_name], global_step)
 
                 if args.train.enable_profiling and global_step <= args.train.profile_end_step:
                     profiler.step()
