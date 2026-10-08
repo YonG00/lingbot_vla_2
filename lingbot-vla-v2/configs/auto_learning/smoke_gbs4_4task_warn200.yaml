@@ -72,7 +72,7 @@ new_slots: 3
 replay_slots: 1
 
 # ----- hardness -----
-hardness_probe_fraction: 0.33
+hardness_probe_fraction: 0.10
 hardness_weight_min: 1.0
 hardness_weight_max: 3.0
 hardness_alpha: 2.0

@@ -89,6 +89,17 @@ class SchedulerLoggerAdapter:
             obj["tb_step"] = int(obj["step"]) + self._tb_step_offset
         self._append(obj)
 
+    def log_text(self, step: int, name: str, value: str) -> None:
+        """记录人可读的任务名；JSONL 永远可读，TB Writer 支持时也落 Text。"""
+        tb_step = int(step) + self._tb_step_offset
+        self._append({"kind": "text", "step": int(step), "tb_step": tb_step,
+                      "name": name, "value": str(value)})
+        if self._writer is not None and hasattr(self._writer, "add_text"):
+            try:
+                self._writer.add_text(name, str(value), tb_step)
+            except Exception:  # noqa: BLE001 -- 诊断日志不能打断训练
+                pass
+
     def log_metrics(self, step: int, name: str, value: Any) -> None:
         # 真实训练器每个 optimizer step 都写 training/loss；Scheduler 产出的是
         # *unit 平均* loss。不能用同名 tag 在同一步写两种不同统计量。

@@ -27,6 +27,7 @@ task_names:
 
 # ----- 收工条件（本轮不设 early-stop，让流程自然跑满）-----
 max_new_tasks_passed_this_run: null
+target_total_passed_tasks: 4
 max_new_tasks_attempted_this_run: null
 max_global_steps: 200          # AL 预算上限；phase1 用启动器 MAX_STEPS=50 更早结束
 max_transitions: null
@@ -74,7 +75,7 @@ new_slots: 3
 replay_slots: 1
 
 # ----- hardness -----
-hardness_probe_fraction: 0.33
+hardness_probe_fraction: 0.10
 hardness_weight_min: 1.0
 hardness_weight_max: 3.0
 hardness_alpha: 2.0

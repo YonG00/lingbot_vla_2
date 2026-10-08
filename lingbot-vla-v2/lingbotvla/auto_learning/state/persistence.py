@@ -61,6 +61,7 @@ SEMANTIC_KEYS = (
     "rescan_candidates_after_transition",
     "max_new_tasks_attempted_this_run",
     "max_new_tasks_passed_this_run",
+    "target_total_passed_tasks",
     "global_scout_val_trajs",
     "active_val_probe_trajs",
     "active_train_probe_trajs",
@@ -68,7 +69,11 @@ SEMANTIC_KEYS = (
 
 
 def config_fingerprint(al: Any, task_names: Sequence[str]) -> Dict[str, Any]:
-    fp: Dict[str, Any] = {k: getattr(al, k, None) for k in SEMANTIC_KEYS}
+    # 兼容旧 DCP：新增的可选总目标为 None 时，不能凭空多出一个指纹键。
+    # 否则只升级代码不换策略也会触发 resume 的语义不一致错误。
+    fp: Dict[str, Any] = {k: getattr(al, k, None) for k in SEMANTIC_KEYS
+                          if k != "target_total_passed_tasks"
+                          or getattr(al, k, None) is not None}
     fp["task_names"] = list(task_names)
     return fp
 

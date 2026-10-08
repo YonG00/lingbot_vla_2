@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Auto Learning 正式跑：**50 任务池 → 新增 PASS 4 个就收工**（48G 单卡 + BF16）
+# Auto Learning 训练：支持当前 PASS 总数目标与无存档 Smoke 模式（48G 单卡 + BF16）
 # -----------------------------------------------------------------------------
 # 与 single_task_train.sh 的区别（那个是"单任务探针"）：
 #   ① 数据 = **50 个任务**的训练划分（`task_splits_50/combined.train_ids.json`）
@@ -22,7 +22,7 @@
 #       --out      /data/train/task_splits_50/task_baseline.json
 #
 # 收工条件（配置里写死，见 configs/auto_learning/formal_50task_4pass.yaml）：
-#   max_new_tasks_passed_this_run = 4   ← 新增 PASS 满 4 个就停
+#   target_total_passed_tasks = 4     ← 包含 Bootstrap PASS；当前累计满 4 即停
 #   max_global_steps             = 20000 ← 钱的安全带
 # =============================================================================
 
@@ -45,6 +45,15 @@ GBS=$(( MICRO * GAS * N_GPU ))
 MAX_STEPS=${MAX_STEPS:-20000}
 SAVE_EVERY=${SAVE_EVERY:-2000}
 SAVE_EPOCHS=0                      # 只按步存档，不开轮末存档
+SMOKE_NO_CHECKPOINT=${SMOKE_NO_CHECKPOINT:-0}
+if [ "$SMOKE_NO_CHECKPOINT" = "1" ]; then
+    if [ "${RESUME:-0}" = "1" ]; then
+        echo "❌ SMOKE_NO_CHECKPOINT=1 不支持 RESUME" >&2; exit 2
+    fi
+    SAVE_EVERY=0
+    SAVE_EPOCHS=0
+    PRUNE=0
+fi
 
 # 精度：**BF16**（48G 单卡必须）。true=F32 权重（≈73G，48G 放不下）
 MIXED=${MIXED:-false}
@@ -64,6 +73,8 @@ PRUNE_MIN_AGE=${PRUNE_MIN_AGE:-300}
 # 存档策略：final_only = 过程中的周期存档只写 hf_ckpt，收尾才写完整 DCP（省 ~3× 磁盘）
 DCP_MODE=${DCP_MODE:-final_only}
 DCP_FINAL_GB=${DCP_FINAL_GB:-0}
+SAVE_HF_BOOL=$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo false || echo true)
+DISK_GUARD_BOOL=$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo false || echo true)
 
 # TensorBoard
 TB=${TB:-1}
@@ -131,7 +142,7 @@ TRAIN_IDS="$SPLIT_DIR/combined.train_ids.json"
 BASELINE="$SPLIT_DIR/task_baseline.json"
 
 # ---- 从 AL 配置里读出真实收工条件（别在计划里写死）--------------------------
-read -r AL_PASS_CAP AL_ATT_CAP AL_MAXSTEPS AL_PASS_NMSE < <("$PY" - "$AL_CFG" <<'PYEOF'
+read -r AL_PASS_CAP AL_ATT_CAP AL_MAXSTEPS AL_PASS_NMSE AL_TOTAL_CAP < <("$PY" - "$AL_CFG" <<'PYEOF'
 import sys, yaml
 raw = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
 b = raw.get("auto_learning", raw) or {}
@@ -139,14 +150,14 @@ def g(k):
     v = b.get(k)
     return "null" if v is None else str(v)
 print(g("max_new_tasks_passed_this_run"), g("max_new_tasks_attempted_this_run"),
-      g("max_global_steps"), g("pass_nmse"))
+      g("max_global_steps"), g("pass_nmse"), g("target_total_passed_tasks"))
 PYEOF
 )
 
 # ---- 计划 -------------------------------------------------------------------
 cat <<EOF
 ================================================================================
-  Auto Learning 正式跑 — 50 任务池 → 新增 PASS 4 个收工
+  Auto Learning 运行计划 — 当前 PASS 目标 $AL_TOTAL_CAP 个
 ================================================================================
   仓库根      = $REPO
   数据划分    = $SPLIT_DIR
@@ -161,14 +172,15 @@ cat <<EOF
   训练规模    = ${EPOCHS} epoch × ${STEPS_PER_EPOCH} 步/轮，max_steps=${MAX_STEPS}（绝对）
   批大小      = micro ${MICRO} × gas ${GAS} × ${N_GPU} 卡 = gbs ${GBS}
                 （AL 要求 new_slots+replay_slots == gbs；配置里是 7+3=10）
-  存档计划    = 每 ${SAVE_STEPS} 步一份 × ${N_SAVES} 份；DCP_MODE=${DCP_MODE}
+  存档计划    = $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 'NO_CHECKPOINT (无 DCP/HF，不支持 Resume)' || echo "每 ${SAVE_STEPS} 步一份 × ${N_SAVES} 份；DCP_MODE=${DCP_MODE}")
   剪枝看门狗  = PRUNE=$PRUNE keep-last=$PRUNE_KEEP min-age=${PRUNE_MIN_AGE}s
   续训        = RESUME=$RESUME（$RESUME_BOOL）
   编号起点    = STEP_OFFSET=$STEP_OFFSET（0=从零计）
   初始权重    = $MODEL_PATH
   torchrun 端口 = $MASTER_PORT（被占会自动换）
   TensorBoard = $([ "$TB" = "1" ] && echo "端口 $TB_PORT（logdir=$TRAIN_OUT/runs）" || echo "关闭")
-  收工条件    = 新增 PASS 满 $AL_PASS_CAP 个就停（max_new_tasks_passed_this_run）
+  收工条件    = 当前 PASS 总数达到 $AL_TOTAL_CAP（含 Bootstrap，通过 Registry 当前状态计算）
+                新增 PASS 上限 $AL_PASS_CAP（旧配置 max_new_tasks_passed_this_run）
                 最多主动尝试 $AL_ATT_CAP 个任务（max_new_tasks_attempted_this_run）
                 总步数上限 $AL_MAXSTEPS（max_global_steps，兜底）
   及格线      = pass_nmse=$AL_PASS_NMSE（nmse ≤ 该值判 PASS）
@@ -197,7 +209,7 @@ bash train.sh tasks/vla/train_lingbotvla.py /data/train/configs/robotwin_officia
   --train.max_steps        $MAX_STEPS \\
   --train.save_steps       $SAVE_STEPS \\
   --train.save_epochs      $SAVE_EPOCHS \\
-  --train.save_hf_weights  true \\
+  --train.save_hf_weights  $SAVE_HF_BOOL \\
   --train.async_save_hf_weights false \\
   --train.enable_resume    $RESUME_BOOL \\
   --train.train_expert_only false \\
@@ -206,9 +218,10 @@ bash train.sh tasks/vla/train_lingbotvla.py /data/train/configs/robotwin_officia
   --train.rmpad            false \\
   --train.rmpad_with_pos_ids false \\
   --train.step_offset      $STEP_OFFSET \\
-  --train.disk_guard       true \\
+  --train.disk_guard       $DISK_GUARD_BOOL \\
   --train.disk_guard_margin 1.1 \\
   --train.disk_check_interval 50 \\
+  --train.smoke_no_checkpoint $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo true || echo false) \
   --train.dcp_save_mode    $DCP_MODE \\
   --train.dcp_final_size_gb $DCP_FINAL_GB \\
   --train.auto_learning          $AL_CFG \\
@@ -277,7 +290,7 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.max_steps        "$MAX_STEPS" \
     --train.save_steps       "$SAVE_STEPS" \
     --train.save_epochs      "$SAVE_EPOCHS" \
-    --train.save_hf_weights  true \
+    --train.save_hf_weights  $SAVE_HF_BOOL \
     --train.async_save_hf_weights false \
     --train.enable_resume    "$RESUME_BOOL" \
     --train.train_expert_only false \
@@ -286,9 +299,10 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.rmpad            false \
     --train.rmpad_with_pos_ids false \
     --train.step_offset      "$STEP_OFFSET" \
-    --train.disk_guard       true \
+    --train.disk_guard       "$DISK_GUARD_BOOL" \
     --train.disk_guard_margin 1.1 \
     --train.disk_check_interval 50 \
+    --train.smoke_no_checkpoint "$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo true || echo false)" \
     --train.dcp_save_mode    "$DCP_MODE" \
     --train.dcp_final_size_gb "$DCP_FINAL_GB" \
     --train.auto_learning          "$AL_CFG" \
@@ -299,12 +313,12 @@ set -e
 
 echo
 echo "================================================================================"
-echo "  训练结束 — AL 50 任务 / 新增 PASS 4 个"
+echo "  训练结束 — Auto Learning"
 echo "================================================================================"
-echo "  产出      : $TRAIN_OUT/checkpoints/global_step_*/"
+echo "  存档      : $([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo "本轮不保存 DCP/HF" || echo "$TRAIN_OUT/checkpoints/global_step_*/")"
 echo "  AL 事件   : $TRAIN_OUT/auto_learning_events.jsonl"
 echo "  决策摘要  : grep '\"action\": \"finish\"' $TRAIN_OUT/auto_learning_events.jsonl | tail -1"
-echo "  收工原因  : max_new_tasks_passed_reached(4) = 达标收工；all_tasks_resolved = 池子跑完了"
+echo "  收工原因  : target_total_passed_reached(N) = 当前总 PASS 达标；all_tasks_resolved = 池子跑完了"
 echo "  TensorBoard（本地隧道）:"
 echo "    ssh -N -L ${TB_PORT}:127.0.0.1:${TB_PORT} <user>@<host> -p <port>"
 echo "    然后浏览器打开 http://127.0.0.1:${TB_PORT}/"

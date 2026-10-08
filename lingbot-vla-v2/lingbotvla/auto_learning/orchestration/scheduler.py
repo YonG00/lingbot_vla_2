@@ -97,6 +97,8 @@ class SchedulerState:
     repassed: List[str] = field(default_factory=list)
     #: 免费 PASS（bootstrap 扫描 / rescan 被 transfer 带起来）
     auto_passed: List[str] = field(default_factory=list)
+    #: 只在 Bootstrap 阶段 PASS 的任务名；Rescan 免费 PASS 不计这里。
+    bootstrap_passed: List[str] = field(default_factory=list)
     bootstrap_queue: List[str] = field(default_factory=list)
     pending_review: bool = False
     finished: bool = False
@@ -255,8 +257,19 @@ class Scheduler:
         return event
 
     # ---------------------------------------------------------------- #
+    def _current_total_passed(self) -> int:
+        """只计当前 PASS 状态；不要用历史 auto_passed/newly_passed 累计数。"""
+        return len(self.registry.by_status(TaskStatus.PASS))
+
+    def _total_pass_target_reached(self) -> bool:
+        goal = self.al.target_total_passed_tasks
+        return (goal is not None and not self.state.bootstrap_queue
+                and self._current_total_passed() >= goal)
+
     def _budget_exhausted(self) -> Optional[str]:
         st = self.state
+        if self._total_pass_target_reached():
+            return f"target_total_passed_reached({self.al.target_total_passed_tasks})"
         if self.unit_budget is not None and st.units_run >= self.unit_budget:
             return f"unit_budget_reached({self.unit_budget})"
         if self.al.max_global_steps is not None and st.global_step >= self.al.max_global_steps:
@@ -356,6 +369,8 @@ class Scheduler:
             rec.best_mse = accepted.mse
             rec.current_val_mse = accepted.mse
             self._mark_auto_pass(name)
+            if name not in self.state.bootstrap_passed:
+                self.state.bootstrap_passed.append(name)
             event["result"] = "pass"
             event["pass_source"] = "confirm" if al.scout_confirm_enabled else "scout_direct"
             return event
@@ -448,12 +463,18 @@ class Scheduler:
                                     int(scan.n_scanned))
             self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_trajs",
                                     len(scan.scanned_traj_ids))
+            self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_mean_loss",
+                                    round(scan.mean_loss_scanned, 6))
+            self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_p90_loss",
+                                    round(scan.p90_loss_scanned, 6))
             self.logger.log_metrics(
                 st.global_step,
                 "auto_learning/hardness_scan_seconds_warmup" if _hardness_first
                 else "auto_learning/hardness_scan_seconds_steady",
                 round(_hardness_seconds, 3),
             )
+        if self.logger is not None and hasattr(self.logger, "log_text"):
+            self.logger.log_text(st.global_step, "curriculum/current_task_name", name)
         self.scans[name] = scan
         pick.sample_probs = scan.probs
         pick.hardness_version = scan.version
@@ -471,6 +492,7 @@ class Scheduler:
             "hardness_scanned_trajs": len(scan.scanned_traj_ids),
             "hardness_coverage": round(scan.coverage, 3),
             "hardness_mean_loss": round(scan.mean_loss_scanned, 4),
+            "hardness_p90_loss": round(scan.p90_loss_scanned, 4),
             "n_samples": scan.n_total,
             "hardness_scan_seconds": round(_hardness_seconds, 3),
             "hardness_scan_is_first": bool(_hardness_first),
@@ -741,6 +763,9 @@ class Scheduler:
         st.transition_count += 1
         st.task_switch_count += 1
         self._record_transition(task, kind, reason, code, {})
+        if self._total_pass_target_reached():
+            self._finish(f"target_total_passed_reached({self.al.target_total_passed_tasks})")
+            return
         if (self.al.rescan_candidates_after_transition
                 and st.task_switch_count % self.al.rescan_every_n_task_switches == 0):
             self._rescan()
@@ -894,11 +919,17 @@ class Scheduler:
         step = row["step"]
         lg = self.logger
         lg.log_metrics(step, "training/loss", row["loss"])
+        lg.log_metrics(step, f'task/{row["task"]}/unit_loss', row["loss"])
+        # TensorBoard 的当前任务名（Text 面板），同时保留按名字的 Scalar 方便过滤。
+        if hasattr(lg, "log_text"):
+            lg.log_text(step, "curriculum/current_task_name", row["task"])
+        lg.log_metrics(step, f'curriculum/active_task/{row["task"]}', 1)
         lg.log_metrics(step, "current_skill/task_id", self._task_index(row["task"]))
         lg.log_metrics(step, "current_skill/attempt", row["attempt"])
         lg.log_metrics(step, "current_skill/attempt_step", row["attempt_step"])
         lg.log_metrics(step, "current_skill/train_nmse", row["train_nmse"])
         lg.log_metrics(step, "current_skill/val_nmse", row["val_nmse"])
+        lg.log_metrics(step, "diagnostics/current_task_val_nmse", row["val_nmse"])
         rec = self.registry.get(row["task"])
         lg.log_metrics(step, "current_skill/val_mse", rec.current_val_mse)
         if self.al.pass_metric == "mse":
@@ -914,11 +945,23 @@ class Scheduler:
         lg.log_metrics(step, "current_skill/train_val_gap_ratio", row["gap"])
         lg.log_metrics(step, "current_skill/overfit", 1.0 if row["overfit"] else 0.0)
         lg.log_metrics(step, "system/global_samples_seen", self.state.global_samples_seen)
+        lg.log_metrics(step, "sampling/total_samples", self.state.global_samples_seen)
+        lg.log_metrics(step, "curriculum/units_completed", self.state.units_run)
+        lg.log_metrics(step, "sampling/replay_samples_per_unit", row["n_old"])
+        lg.log_metrics(step, "sampling/replay_distinct_tasks_per_unit", len(set(row["old_tasks"].split(","))) if row["old_tasks"] else 0)
         lg.log_metrics(step, "system/units_run", self.state.units_run)
         lg.log_metrics(step, "system/replay_slots", row["n_old"])
         lg.log_metrics(step, "system/replay_unique_tasks", len(set(row["old_tasks"].split(","))) if row["old_tasks"] else 0)
         summary = self.registry.summary()
         lg.log_metrics(step, "skill_overview/pass_count", summary["pass"])
+        lg.log_metrics(step, "curriculum/passed_tasks", summary["pass"])
+        if self.al.target_total_passed_tasks is not None:
+            lg.log_metrics(step, "curriculum/target_passed_tasks", self.al.target_total_passed_tasks)
+        lg.log_metrics(step, "curriculum/bootstrap_pass_count", sum(
+            1 for r in self.registry if r.status == TaskStatus.PASS.value
+            and r.task_name in self.state.bootstrap_passed))
+        lg.log_metrics(step, "curriculum/newly_passed_count", len(self.state.newly_passed))
+
         lg.log_metrics(step, "skill_overview/candidate_count", summary["candidate"])
         lg.log_metrics(step, "skill_overview/defer_count", summary["defer"])
         lg.log_metrics(step, "skill_overview/exhausted_count", summary["exhausted"])
@@ -927,8 +970,11 @@ class Scheduler:
         lg.log_metrics(step, "skill_overview/worst_scout_nmse", summary["worst_val_nmse"])
         lg.log_metrics(step, "skill_overview/current_round", self.state.round)
         lg.log_metrics(step, "memory/pass_pool_size", len(self.registry.by_status(TaskStatus.PASS)))
+        lg.log_metrics(step, "replay/available_tasks", len(self.registry.by_status(TaskStatus.PASS)))
         lg.log_metrics(step, "memory/forgotten_count", sum(1 for r in self.registry if r.forgotten))
+        lg.log_metrics(step, "curriculum/forgotten_tasks", sum(1 for r in self.registry if r.forgotten))
         lg.log_metrics(step, "memory/reopen_count", sum(r.reopen_count for r in self.registry))
+        lg.log_metrics(step, "curriculum/reopened_count", sum(r.reopen_count for r in self.registry))
 
     def _task_index(self, task: str) -> float:
         try:
@@ -942,6 +988,11 @@ class Scheduler:
         vals = [r.current_val_nmse for r in self.registry if r.current_val_nmse is not None]
         return {
             "stop_reason": self.state.stop_reason,
+            "target_total_passed_tasks": self.al.target_total_passed_tasks,
+            "current_total_pass_count": self._current_total_passed(),
+            "bootstrap_pass_count": sum(1 for r in self.registry if r.status == TaskStatus.PASS.value
+                                        and r.task_name in self.state.bootstrap_passed),
+            "newly_passed_count": len(self.state.newly_passed),
             "global_step": self.state.global_step,
             "units_run": self.state.units_run,
             "global_samples_seen": self.state.global_samples_seen,

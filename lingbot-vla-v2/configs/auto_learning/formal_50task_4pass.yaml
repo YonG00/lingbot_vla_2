@@ -1,11 +1,12 @@
 # =============================================================================
-# 正式配置：50 任务池 → **新增 PASS 4 个就收工**
+# 正式配置：50 任务池 → **当前累计 PASS 达到 4 个就收工**
 # 场景：48G 单卡 + BF16（`--train.enable_mixed_precision false`）
 # -----------------------------------------------------------------------------
 # 与 demo/smoke 配置的区别：这里的 cadence 与阈值都是**正式值**，不是 smoke 值。
 #
-# 收工靠框架原生的 `max_new_tasks_passed_this_run`（见 scheduler._select：
-#   `len(st.newly_passed) >= cap_passed ⇒ _finish("max_new_tasks_passed_reached")`）。
+# 收工靠新增的 `target_total_passed_tasks`：以 Registry 当前 PASS 状态计数，
+# 包含 Bootstrap 已 PASS 的任务；若当前 PASS 仅剩 2 个，须再取得 2 个才到目标。
+# 旧 `max_new_tasks_passed_this_run` 仍保留兼容，但本配置禁用它。
 # 另外两道保险丝防止在难任务上无限打转：attempted 上限 + 总步数上限。
 # =============================================================================
 enabled: true
@@ -15,14 +16,11 @@ enabled: true
 #: 只是一个「取子集」的过滤器，留空即不过滤。
 task_names: null
 
-#: ✅ 主收工条件：**本次新增 PASS 数一达到 4 就收工**（"从 50 个里尽快学出 4 个"）。
-#:
-#: ⚠️ 语义上它是「**上限**」而不是「**目标**」——框架**没有**"不到 4 个就不许停"的语义。
-#:    如果任务太难，可能先因别的条件停（`all_tasks_resolved` 池子空了 / `max_global_steps`
-#:    步数到顶），那时 newly_passed 可能只有 2、3 个。
-#:    字段名里的 `max_` 就是这个意思，别改成 `required_*`（那会误导）。
-#: 统计口径：`st.newly_passed` = 本次 run 里**首次** PASS 的任务（此前 PASS 过的不算）。
-max_new_tasks_passed_this_run: 4
+#: ✅ 当前 PASS 总数达到 4 立即停（并不保证所有任务都能学会）。
+#: BOOTSTRAP、Rescan、训练 PASS 都算；REOPEN 后要从当前 PASS 数减掉。
+#: 不额外使用旧的 "本轮新增 PASS" 限额。
+max_new_tasks_passed_this_run: null
+target_total_passed_tasks: 4
 
 #: 🚫 刻意**不设**：限制"主动尝试多少个新任务"只会妨碍"尽快凑够 4 个"这个目标。
 #: 池子本身有界（50 个任务 × `max_attempts_per_task=2`），不会无限打转。
@@ -76,7 +74,7 @@ new_slots: 7                    # 7 个新样本
 replay_slots: 3                 # 3 个复习样本（PASS 池；无 PASS 时自然退化为全 NEW）
 
 # ----- hardness -----
-hardness_probe_fraction: 0.33
+hardness_probe_fraction: 0.10
 hardness_weight_min: 1.0
 hardness_weight_max: 3.0
 hardness_alpha: 2.0

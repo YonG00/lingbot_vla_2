@@ -40,6 +40,9 @@ class AutoLearningConfig:
     #:    所以**不要**改名成 `required_*` / `target_*` —— 那会让人误以为它有保证。
     #: 口径：`newly_passed` = 本次 run 里**首次** PASS 的任务（此前 PASS 过的不计入）。
     max_new_tasks_passed_this_run: Optional[int] = None
+    #: 当前 Registry 中处于 PASS 状态的不同任务数达到 N 即结束。
+    #: 含 Bootstrap / Rescan PASS；REOPEN 后不计；None 保持旧收工语义。
+    target_total_passed_tasks: Optional[int] = None
     #: churn guard：同一任务最多被「遗忘 → 回炉」几次。
     #: **不占用 attempt 预算** —— attempt 只数真正的主训练机会（见下方 attempts 段）。
     max_reopens_per_task: Optional[int] = 3
@@ -101,7 +104,7 @@ class AutoLearningConfig:
     replay_slots: int = 3
 
     # ----- hardness -----
-    hardness_probe_fraction: float = 0.33
+    hardness_probe_fraction: float = 0.10
     hardness_weight_min: float = 1.0
     hardness_weight_max: float = 3.0
     hardness_alpha: float = 2.0
@@ -171,6 +174,9 @@ class AutoLearningConfig:
             value = getattr(self, name)
             if value is not None and value < 1:
                 raise ValueError(f"{name} must be >= 1 or None")
+        goal = self.target_total_passed_tasks
+        if goal is not None and (type(goal) is not int or goal < 1):
+            raise ValueError("target_total_passed_tasks must be a positive integer or None")
         if not 0.0 < self.hardness_probe_fraction <= 1.0:
             raise ValueError("hardness_probe_fraction must be in (0, 1]")
         if self.replay_task_policy not in ("uniform",):

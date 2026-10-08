@@ -303,6 +303,10 @@ class MyTrainingArguments(TrainingArguments):
         metadata={"help": "每个 step 后检查该文件；存在则收尾存档并正常退出。"
                           "None = <output_dir>/STOP_AND_SAVE。"},
     )
+    smoke_no_checkpoint: bool = field(
+        default=False,
+        metadata={"help": "只用于短流程 Smoke：跳过周期/轮末/正常结束时的全部 DCP 与 HF 保存；不可 Resume。"},
+    )
     skip_final_save_on_max_steps: bool = field(
         default=False,
         metadata={"help": "⚠️ 仅供 smoke test：max_steps 到顶时跳过收尾存档直接退出。"
@@ -782,8 +786,12 @@ def main():
         if args.train.save_checkpoint_path
         else None
     )
+    if args.train.smoke_no_checkpoint:
+        if args.train.enable_resume:
+            raise ValueError("smoke_no_checkpoint 与 enable_resume 不可同时启用")
+        logger.info_rank0("[smoke] NO_CHECKPOINT：本次禁用全部 DCP/HF 存档；不可 Resume")
     hf_saver = AsyncHFCheckpointSaver(
-        enabled=args.train.async_save_hf_weights,
+        enabled=args.train.async_save_hf_weights and not args.train.smoke_no_checkpoint,
         max_pending=args.train.async_hf_max_pending,
         logger=logger,
         failure_log_path=hf_failure_log_path,
@@ -800,7 +808,7 @@ def main():
     ) -> None:
         if args.train.global_rank != 0:
             return
-        if not args.train.save_hf_weights or checkpoint_path is None:
+        if args.train.smoke_no_checkpoint or not args.train.save_hf_weights or checkpoint_path is None:
             return
         hf_saver.submit(
             global_step=step,
@@ -1039,9 +1047,14 @@ def main():
         # 🔴 **必须 prime 一次**：`iter(train_dataloader)` 发生在 epoch 开头，
         #    早于循环体里的 `on_step_begin()` ⇒ 不先发布 request，sampler 的
         #    `__iter__` 会因为「还没收到 TrainRequest」直接报错。
-        _al_hook.on_step_begin(0)
-        _al_audit_pending = True
-        logger.info_rank0("[auto_learning] 第一个 learning unit 的 TrainRequest 已发布")
+        _al_initial = _al_hook.on_step_begin(0)
+        _al_audit_pending = not _al_initial.finished
+        if _al_initial.finished:
+            logger.info_rank0(
+                "[auto_learning] Bootstrap 已满足停止条件；零训练步收工，"
+                "不创建依赖 TrainRequest 的 DataLoader 迭代器。")
+        else:
+            logger.info_rank0("[auto_learning] 第一个 learning unit 的 TrainRequest 已发布")
 
     # ---- [Stage B1] Auto Learning：checkpoint 边界门控状态（review v0.2 #2）----
     #: 上一个**真正落盘成功**的 global_step（用于「收尾存档是否需要补一次」的判断）
@@ -1064,8 +1077,20 @@ def main():
                 initial=start_step,
                 disable=args.train.local_rank != 0,
             )
-        data_iterator = iter(train_dataloader)
+        # Bootstrap 已达目标时 LazySampler 没有 TrainRequest；不能贸然
+        # iter(train_dataloader)，否则多 worker 的预取会触发异常。
+        data_iterator = (iter(()) if _al_hook is not None
+                         and _al_hook.scheduler.state.finished
+                         else iter(train_dataloader))
         for epoch_step in range(start_step, args.train.train_steps):
+            # Unit 最后一步可能已触发 PASS/收工。下一轮切记**先检查再 ++step**，
+            # 否则会把未训练的一个 optimizer step 错报成已完成。
+            if _al_hook is not None and _al_hook.scheduler.state.finished:
+                al_finished = True
+                logger.info_rank0(
+                    f"[auto_learning] 正常收工 (global_step={global_step}; "
+                    f"reason={_al_hook.scheduler.state.stop_reason})")
+                break
             current_epoch_step_for_eval = epoch_step + 1
             global_step += 1
 
@@ -1482,7 +1507,8 @@ def main():
 
             # ---- [Stage B1] 存档触发（review v0.2 #2：只在 **unit 边界** 落盘）----
             # `_save_due`：本步正好是 save_steps 的整数倍，或之前欠下的一次存档到期。
-            _save_due = bool(args.train.save_steps and global_step % args.train.save_steps == 0)
+            _save_due = bool(not args.train.smoke_no_checkpoint and
+                             args.train.save_steps and global_step % args.train.save_steps == 0)
             if (_al_deferred_save and _al_hook is not None
                     and _al_hook.at_safe_checkpoint_boundary):
                 _save_due = True
@@ -1645,6 +1671,11 @@ def main():
             break
 
         if reached_max_steps or al_finished:
+            if args.train.smoke_no_checkpoint:
+                logger.info_rank0(
+                    f"[smoke] NO_CHECKPOINT：跳过收尾 DCP/HF (step={global_step}, "
+                    f"reached_max_steps={reached_max_steps}, al_finished={al_finished})")
+                break
             if (args.train.skip_final_save_on_max_steps and reached_max_steps
                     and not stop_requested_by_file):
                 logger.info_rank0(
@@ -1709,7 +1740,8 @@ def main():
                 )
                 _last_saved_step = global_step
             break
-        if args.train.save_epochs and (epoch + 1) % args.train.save_epochs == 0:
+        if (not args.train.smoke_no_checkpoint and args.train.save_epochs
+                and (epoch + 1) % args.train.save_epochs == 0):
             if _al_hook is not None and not _al_hook.at_safe_checkpoint_boundary:
                 logger.warning(
                     "[auto_learning] ⚠️ 轮末存档时不在 learning unit 边界"

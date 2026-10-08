@@ -33,6 +33,11 @@ class AsyncTBWriter:
         self._maybe_warn_queue_size()
         self._queue.put(("add_scalar", (tag, scalar_value, global_step)))
 
+    def add_text(self, tag, text_string, global_step):
+        """Text dashboard：记录当前任务的可读名称，不阻塞训练主线程。"""
+        self._maybe_warn_queue_size()
+        self._queue.put(("add_text", (tag, str(text_string), global_step)))
+
     def add_histogram(self, tag, values, global_step):
         self._queue.put(("add_histogram", (tag, values, global_step)))
 
