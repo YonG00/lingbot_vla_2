@@ -1028,6 +1028,12 @@ def main():
                 f"[auto_learning] 已恢复：step={_al_hook.scheduler.state.global_step} "
                 f"unit={_al_hook.scheduler.state.units_run} "
                 f"task={_al_hook.scheduler.state.current_task}")
+        # 训练器使用绝对 global_step（例如 501/505），Scheduler 使用本次 AL
+        # run 的相对步数（例如 1/5）。只校准 TB 写出轴，不改变训练/课程计数。
+        _al_hook.scheduler.logger.set_tb_step_offset(
+            train_global_step=global_step,
+            al_global_step=_al_hook.scheduler.state.global_step,
+        )
         logger.info_rank0("[auto_learning] hook 已挂上（unit 边界会重建 DataLoader 迭代器）")
         # 🔴 **必须 prime 一次**：`iter(train_dataloader)` 发生在 epoch 开头，
         #    早于循环体里的 `on_step_begin()` ⇒ 不先发布 request，sampler 的

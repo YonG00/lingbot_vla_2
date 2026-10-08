@@ -51,8 +51,17 @@ class SchedulerLoggerAdapter:
         self._log = repo_logger
         self._writer = writer
         self._event_path = event_path
+        # Scheduler.global_step 是本次 AL run 的相对步数；真实训练器（及其
+        # training/* TensorBoard 标签）可以从 step_offset=500 等绝对步数开始。
+        # 这个偏移只用于日志，不得改写 Scheduler 的预算/持久化计数。
+        self._tb_step_offset = 0
         if event_path:
             os.makedirs(os.path.dirname(os.path.abspath(event_path)), exist_ok=True)
+
+    def set_tb_step_offset(self, *, train_global_step: int,
+                           al_global_step: int) -> None:
+        """同步两套日志横轴；resume 后按实际恢复步数重算，不猜配置。"""
+        self._tb_step_offset = int(train_global_step) - int(al_global_step)
 
     # -- 转发 ---------------------------------------------------------------
     def info_rank0(self, msg, *a, **k):
@@ -75,14 +84,22 @@ class SchedulerLoggerAdapter:
             pass
 
     def log_event(self, event: Dict[str, Any]) -> None:
-        self._append({"kind": "event", **(event or {})})
+        obj = {"kind": "event", **(event or {})}
+        if obj.get("step") is not None:
+            obj["tb_step"] = int(obj["step"]) + self._tb_step_offset
+        self._append(obj)
 
     def log_metrics(self, step: int, name: str, value: Any) -> None:
-        self._append({"kind": "metric", "step": int(step), "name": name, "value": value})
+        # 真实训练器每个 optimizer step 都写 training/loss；Scheduler 产出的是
+        # *unit 平均* loss。不能用同名 tag 在同一步写两种不同统计量。
+        name = "auto_learning/unit_loss" if name == "training/loss" else name
+        tb_step = int(step) + self._tb_step_offset
+        self._append({"kind": "metric", "step": int(step), "tb_step": tb_step,
+                      "name": name, "value": value})
         if self._writer is not None:
             try:
                 if value is not None:
-                    self._writer.add_scalar(name, float(value), int(step))
+                    self._writer.add_scalar(name, float(value), tb_step)
             except Exception:  # noqa: BLE001
                 pass
 

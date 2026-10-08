@@ -28,7 +28,7 @@ from ..decision.metrics import (
     train_val_gap,
 )
 from ..decision.review import Reviewer
-from ..decision.thresholds import PassCheck, check_pass, is_pass
+from ..decision.thresholds import PassCheck, check_pass, is_pass, pass_line
 from ..decision.state_machine import (
     apply_defer,
     apply_pass,
@@ -835,6 +835,19 @@ class Scheduler:
             self.logger.log_metrics(
                 self.state.global_step, f"debug/{rec.task_name}/baseline_mse", metrics.baseline_mse
             )
+            if kind == "active_val" and self.al.pass_metric == "mse":
+                _, threshold = pass_line(self.al, rec.task_name)
+                if threshold is not None and threshold > 0:
+                    self.logger.log_metrics(
+                        self.state.global_step,
+                        f"task/{rec.task_name}/pass_threshold_mse", threshold,
+                    )
+                    if is_finite_metric(metrics.mse):
+                        self.logger.log_metrics(
+                            self.state.global_step,
+                            f"task/{rec.task_name}/val_to_pass_threshold",
+                            float(metrics.mse) / threshold,
+                        )
 
     def _log_unit_metrics(self, row: Dict[str, Any]) -> None:
         if self.logger is None:
@@ -847,6 +860,17 @@ class Scheduler:
         lg.log_metrics(step, "current_skill/attempt_step", row["attempt_step"])
         lg.log_metrics(step, "current_skill/train_nmse", row["train_nmse"])
         lg.log_metrics(step, "current_skill/val_nmse", row["val_nmse"])
+        rec = self.registry.get(row["task"])
+        lg.log_metrics(step, "current_skill/val_mse", rec.current_val_mse)
+        if self.al.pass_metric == "mse":
+            _, threshold = pass_line(self.al, row["task"])
+            if threshold is not None and threshold > 0:
+                lg.log_metrics(step, "current_skill/pass_threshold_mse", threshold)
+                if is_finite_metric(rec.current_val_mse):
+                    lg.log_metrics(
+                        step, "current_skill/val_to_pass_threshold",
+                        float(rec.current_val_mse) / threshold,
+                    )
         lg.log_metrics(step, "current_skill/lp50", row["lp50"])
         lg.log_metrics(step, "current_skill/train_val_gap_ratio", row["gap"])
         lg.log_metrics(step, "current_skill/overfit", 1.0 if row["overfit"] else 0.0)
