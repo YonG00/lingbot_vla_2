@@ -14,6 +14,10 @@ import re
 import sys
 
 REPLAY_RX = re.compile(r'\bReplayPlan\s*\(')
+# Bound parser work, not the entire TrainRequest repr. Long reprs may contain
+# legitimate ReplayPlans after 100k characters of unrelated task metadata.
+MAX_REQUEST_CHARS = 2_000_000
+MAX_PLAN_FIELD_CHARS = 8_192
 TAGS = ('sampling/replay_samples_per_unit', 'sampling/total_samples',
         'system/global_samples_seen', 'system/units_run', 'curriculum/units_completed')
 
@@ -72,13 +76,18 @@ def replay_tasks(row: dict) -> list[str]:
             if isinstance(value, list):
                 return [x for x in value if isinstance(x, str) and x]
         return []
-    if not isinstance(req, str) or len(req) > 100_000:
+    if not isinstance(req, str) or len(req) > MAX_REQUEST_CHARS:
         return []
-    m = REPLAY_RX.search(req)
-    if not m:
+    found = REPLAY_RX.finditer(req)
+    match = next(found, None)
+    # A second ReplayPlan makes provenance ambiguous: never guess which one
+    # was the actual TrainRequest replay allocation. Avoid collecting all matches.
+    if match is None or next(found, None) is not None:
         return []
-    tail = req[m.end():]
-    tm = re.search(r'\btasks\s*=\s*', tail)
+    # Read only the bounded ReplayPlan field, never parse the giant repr.
+    # The current production repr starts ReplayPlan(tasks=[...], ...).
+    tail = req[match.end():match.end() + MAX_PLAN_FIELD_CHARS]
+    tm = re.match(r'\s*tasks\s*=\s*', tail)
     if not tm:
         return []
     lit = _literal_after(tail, tm.end())

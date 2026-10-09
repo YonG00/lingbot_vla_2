@@ -89,3 +89,64 @@ def test_cli_preserves_historical_result(tmp_path,capsys):
     assert json.loads(new.read_text())['status']=='PASS'
     with pytest.raises(SystemExit):
         mod.main(['--audit-dir',str(audit),'--output',str(new)])
+
+
+def test_real_long_train_request_parses_bounded_replay_plan():
+    # Matches the real audit's 161,609-byte TrainRequest without shipping private logs.
+    head = "TrainRequest(dataset=" + "x" * 161_400
+    tail = ", replay=ReplayPlan(tasks=['click_bell', 'click_alarmclock'], batch_size=24, new_slots=17, replay_slots=7))"
+    req = (head + tail).ljust(161_609, ' ')
+    assert len(req) == 161_609
+    assert mod.replay_tasks({'request': req}) == ['click_bell', 'click_alarmclock']
+
+
+def test_real_end_of_unit_steps_and_long_request_passes():
+    rows = fixtures()
+    req = ('TrainRequest(meta=' + 'x' * 161_400 +
+           ", replay=ReplayPlan(tasks=['click_bell', 'click_alarmclock'], new_slots=17, replay_slots=7))")
+    for r in rows:
+        if r.get('kind') == 'event':
+            r['request'] = req
+        if r.get('name') == 'sampling/replay_samples_per_unit':
+            r['step'] += 3  # TB offsets: unit ends 503/506/509/512/515
+    result = verify(rows)
+    assert result['status'] == 'PASS', result['errors']
+    assert result['step_relation'] == {'unit_metric_step_relation':'end', 'metric_step_shift':500}
+    assert result['observed_replay_samples'] == 105
+
+
+@pytest.mark.parametrize('mutation', [
+    'two_plans','too_long','non_literal','missing_tasks','nested_other_field',
+    'metric_end_missing','metric_end_extra','metric_end_duplicate',
+    'metric_end_wrong_count','unit_length_incorrect',
+])
+def test_long_request_and_end_metrics_fail_closed(mutation):
+    rows = fixtures()
+    req = ('TrainRequest(metadata=' + 'x' * 161_400 +
+           ", replay=ReplayPlan(tasks=['click_bell', 'click_alarmclock'], new_slots=17))")
+    for r in rows:
+        if r.get('kind') == 'event': r['request'] = req
+        if r.get('name') == 'sampling/replay_samples_per_unit': r['step'] += 3
+    first = next(r for r in rows if r.get('kind') == 'event')
+    if mutation == 'two_plans':
+        first['request'] += " ReplayPlan(tasks=['fake'])"
+    elif mutation == 'too_long':
+        first['request'] = 'x' * (mod.MAX_REQUEST_CHARS + 1) + req
+    elif mutation == 'non_literal':
+        first['request'] = req.replace("['click_bell', 'click_alarmclock']", "eval('bad')")
+    elif mutation == 'missing_tasks':
+        first['request'] = req.replace('tasks=', 'missing=')
+    elif mutation == 'nested_other_field':
+        first['request'] = req.replace('tasks=', "metadata=[], tasks=")
+    elif mutation == 'metric_end_missing':
+        rows = [r for r in rows if not (r.get('name') == 'sampling/replay_samples_per_unit' and r.get('step') == 509)]
+    elif mutation == 'metric_end_extra':
+        rows.append({'kind':'metric','name':'sampling/replay_samples_per_unit','step':518,'value':21})
+    elif mutation == 'metric_end_duplicate':
+        rows.append(next(r.copy() for r in rows if r.get('name') == 'sampling/replay_samples_per_unit'))
+    elif mutation == 'metric_end_wrong_count':
+        next(r for r in rows if r.get('name') == 'sampling/replay_samples_per_unit')['value'] = 20
+    elif mutation == 'unit_length_incorrect':
+        first['steps'] = 2
+    result = verify(rows)
+    assert result['status'] == 'BLOCKED', mutation
