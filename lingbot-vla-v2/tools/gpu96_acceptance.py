@@ -383,7 +383,7 @@ def hf_plan(a: argparse.Namespace) -> int:
         'with this Python entry INSTEAD of tasks/vla/train_lingbotvla.py.\n'
         'Set --train.hf_export_dtype bf16, --train.hf_pass_interval 1,\n'
         '--train.save_hf_weights false, --train.async_save_hf_weights false,\n'
-        '--train.save_steps 0, --train.save_epochs 0,\n'
+        '--train.save_steps (far larger than the run), --train.save_epochs 0,\n'
         '--train.skip_final_save_on_max_steps true (acceptance only),\n'
         '--train.smoke_no_checkpoint false, and an isolated output directory.\n'
         'Do NOT forge PASS, modify Scheduler, or call direct_hf_checkpoint from a fake model.\n'
@@ -520,6 +520,47 @@ def run_ratio_gpu(a: argparse.Namespace) -> int:
 HF_NON_PASSING_TASKS = ('turn_switch', 'put_object_cabinet')
 
 
+#: 训练器 hf_pass_interval 的启动前置条件（与 tasks/vla/train_lingbotvla.py 的校验一一对应）。
+HF_REQUIRED_FLAGS = {
+    '--train.smoke_no_checkpoint': lambda v: v == 'false',
+    '--train.save_hf_weights': lambda v: v == 'false',
+    '--train.async_save_hf_weights': lambda v: v == 'false',
+    '--train.dcp_save_mode': lambda v: v == 'always',
+    '--train.save_steps': lambda v: int(v) >= 1,
+    '--train.save_epochs': lambda v: int(v) == 0,
+    '--train.hf_pass_interval': lambda v: int(v) >= 1,
+    '--train.hf_export_dtype': lambda v: v in ('bf16', 'fp32', 'native'),
+}
+
+
+def hf_flag_value(cmd: list, flag: str):
+    return cmd[cmd.index(flag) + 1] if flag in cmd else None
+
+
+def apply_hf_trainer_overrides(cmd: list) -> list:
+    """把 HF 验收命令归一化到满足训练器全部前置条件（否则启动即 ValueError ⇒ 零步失败）。
+
+    save_steps 取远大于本次步数的值：既满足 save_steps >= 1，又保证不会触发周期性 DCP；
+    配合 skip_final_save_on_max_steps=true ⇒ 整个验收只写一个 HF 里程碑、不写任何 DCP。
+    """
+    def set_flag(flag: str, value: str) -> None:
+        if flag in cmd:
+            cmd[cmd.index(flag) + 1] = value
+        else:
+            cmd.extend([flag, value])
+    for flag, value in (('--train.smoke_no_checkpoint', 'false'),
+                        ('--train.hf_pass_interval', '1'),
+                        ('--train.save_epochs', '0'),
+                        ('--train.save_hf_weights', 'false'),
+                        ('--train.async_save_hf_weights', 'false'),
+                        ('--train.dcp_save_mode', 'always'),
+                        ('--train.save_steps', '1000000000'),
+                        ('--train.skip_final_save_on_max_steps', 'true'),
+                        ('--train.hf_export_dtype', 'bf16')):
+        set_flag(flag, value)
+    return cmd
+
+
 def build_hf_smoke_config(base: dict, *, step_offset: int, steps: int) -> dict:
     """构造 HF 验收专用隔离 AL 配置（纯函数，便于 CPU 测试）。
 
@@ -530,9 +571,9 @@ def build_hf_smoke_config(base: dict, *, step_offset: int, steps: int) -> dict:
     if type(step_offset) is not int or type(steps) is not int or steps < 1:
         raise ValueError('step_offset/steps must be ints with steps >= 1')
     cfg = dict(base)
-    tasks = list(dict.fromkeys([*cfg.get('task_names', []), *HF_NON_PASSING_TASKS]))
-    if not tasks:
-        tasks = ['click_bell', 'click_alarmclock', *HF_NON_PASSING_TASKS]
+    # 正式 YAML 用 task_names: null 表示全部任务 ⇒ 必须容忍 None，否则解包 NoneType 崩溃。
+    base_tasks = list(cfg.get('task_names') or [])
+    tasks = list(dict.fromkeys([*base_tasks, *HF_NON_PASSING_TASKS]))
     cfg['task_names'] = tasks
     cfg['pass_metric'] = 'nmse'
     cfg['pass_nmse'] = 1.66
@@ -601,14 +642,10 @@ def run_hf(a: argparse.Namespace) -> int:
     cfg_path = a.output/'isolated_hf_nmse_smoke.yaml'
     cmd = trainer_command(a)
     cmd[cmd.index('tasks/vla/train_lingbotvla.py')] = 'tools/hf_direct_export_acceptance.py'
-    def replace_arg(flag: str, value: str) -> None:
-        cmd[cmd.index(flag)+1] = value
-    replace_arg('--train.smoke_no_checkpoint', 'false')
-    replace_arg('--train.hf_pass_interval', '1')
-    replace_arg('--train.max_steps', str(a.step_offset+a.steps))
-    cmd.extend(['--train.skip_final_save_on_max_steps','true',
-                '--train.hf_export_dtype', 'bf16',
-                '--train.auto_learning', str(cfg_path),
+    cmd[cmd.index('--train.max_steps')+1] = str(a.step_offset+a.steps)
+    # 归一化到训练器 hf_pass_interval 的全部前置条件（save_steps>0 / dcp_save_mode=always / async=false …）
+    apply_hf_trainer_overrides(cmd)
+    cmd.extend(['--train.auto_learning', str(cfg_path),
                 '--train.auto_learning_manifest', str(Path(a.split_dir)/'manifest.json'),
                 '--train.auto_learning_baseline', str(Path(a.split_dir)/'task_baseline.json')])
     print('HF PRODUCTION ACCEPTANCE: BF16, short AL, 1 forced policy decision, '

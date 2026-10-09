@@ -330,3 +330,27 @@ def test_hf_step_evidence_is_fail_closed(tmp_path):
     (tmp_path / 'train_hf.log').write_text('Step: 501/503 ...\nStep: 503/503 ...\n', encoding='utf-8')
     ev = accept.hf_step_evidence(tmp_path)
     assert ev == {'units_run': 2, 'steps_seen': 503}, ev
+
+
+def test_hf_smoke_config_tolerates_null_task_names():
+    """正式 YAML 用 `task_names: null`（= 全部任务）⇒ 不得解包 NoneType 崩溃。"""
+    cfg = accept.build_hf_smoke_config({'task_names': None, 'batch_size': 10},
+                                       step_offset=500, steps=3)
+    assert cfg['task_names'] == ['turn_switch', 'put_object_cabinet'], cfg['task_names']
+    assert cfg['target_total_passed_tasks'] == 2
+    cfg2 = accept.build_hf_smoke_config({}, step_offset=500, steps=3)
+    assert cfg2['task_names'] == ['turn_switch', 'put_object_cabinet']
+
+
+def test_hf_command_satisfies_every_trainer_precondition():
+    """镜像训练器 hf_pass_interval 的启动校验：任一条件不满足即启动 ValueError（曾因此零步失败）。"""
+    cmd = ['python', 'tools/hf_direct_export_acceptance.py', '--train.save_steps', '0',
+           '--train.hf_pass_interval', '0', '--train.smoke_no_checkpoint', 'true']
+    accept.apply_hf_trainer_overrides(cmd)
+    for flag, ok in accept.HF_REQUIRED_FLAGS.items():
+        val = accept.hf_flag_value(cmd, flag)
+        assert val is not None, f'{flag} 缺失'
+        assert ok(val), f'{flag}={val!r} 不满足训练器前置条件'
+    # save_steps 必须远大于本次步数 ⇒ 不触发周期 DCP；并显式跳过 max_steps 的 final DCP
+    assert int(accept.hf_flag_value(cmd, '--train.save_steps')) > 10 ** 6
+    assert accept.hf_flag_value(cmd, '--train.skip_final_save_on_max_steps') == 'true'

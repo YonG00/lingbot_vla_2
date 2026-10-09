@@ -1,0 +1,152 @@
+{
+  "status": "PASS",
+  "kind": "gmean_bf16_fp32_candidate_paired",
+  "git_head": "df373c48a3239b7a3af7eef34f1fd322bdb5d363",
+  "model_path": "/data/outputs/single/click_bell/checkpoints/global_step_500/hf_ckpt",
+  "candidate_norm_path": "/root/autodl-tmp/data/code/lingbot-vla-v2/assets/norm_stats/robotwin_competition_clean.json",
+  "paired_fixed_seed_per_traj": true,
+  "seed_base": 1234,
+  "noise_repeats": 1,
+  "thresholds_experimental_only": false,
+  "reference_model_not_run": true,
+  "results": [
+    {
+      "task": "click_bell",
+      "n_traj": 2,
+      "traj_ids": [
+        51,
+        52
+      ],
+      "threshold": null,
+      "bf16_gmean_mse": 0.008415877337929535,
+      "fp32_gmean_mse": 0.009226782488455033,
+      "bf16_vs_fp32_relative_difference": -0.0878860156874987
+    },
+    {
+      "task": "click_bell",
+      "n_traj": 4,
+      "traj_ids": [
+        51,
+        52,
+        56,
+        66
+      ],
+      "threshold": null,
+      "bf16_gmean_mse": 0.007728138299532234,
+      "fp32_gmean_mse": 0.008450752585794261,
+      "bf16_vs_fp32_relative_difference": -0.08550886787015202
+    },
+    {
+      "task": "click_bell",
+      "n_traj": 10,
+      "traj_ids": [
+        51,
+        52,
+        56,
+        66,
+        73,
+        75,
+        78,
+        84,
+        94,
+        97
+      ],
+      "threshold": null,
+      "bf16_gmean_mse": 0.008274085012650936,
+      "fp32_gmean_mse": 0.008933439263877617,
+      "bf16_vs_fp32_relative_difference": -0.0738074365035179
+    },
+    {
+      "task": "click_alarmclock",
+      "n_traj": 2,
+      "traj_ids": [
+        2003,
+        2011
+      ],
+      "threshold": null,
+      "bf16_gmean_mse": 0.022386193104717598,
+      "fp32_gmean_mse": 0.02346956139180644,
+      "bf16_vs_fp32_relative_difference": -0.046160568107892416
+    },
+    {
+      "task": "click_alarmclock",
+      "n_traj": 4,
+      "traj_ids": [
+        2003,
+        2011,
+        2027,
+        2032
+      ],
+      "threshold": null,
+      "bf16_gmean_mse": 0.031417835589501925,
+      "fp32_gmean_mse": 0.032211598582837474,
+      "bf16_vs_fp32_relative_difference": -0.024642148426575472
+    },
+    {
+      "task": "click_alarmclock",
+      "n_traj": 10,
+      "traj_ids": [
+        2003,
+        2011,
+        2027,
+        2032,
+        2034,
+        2036,
+        2037,
+        2042,
+        2043,
+        2045
+      ],
+      "threshold": null,
+      "bf16_gmean_mse": 0.025831530607667744,
+      "fp32_gmean_mse": 0.026137903285536893,
+      "bf16_vs_fp32_relative_difference": -0.011721394578679793
+    },
+    {
+      "task": "adjust_bottle",
+      "n_traj": 2,
+      "traj_ids": [
+        1,
+        5
+      ],
+      "threshold": null,
+      "bf16_gmean_mse": 0.5171165606511886,
+      "fp32_gmean_mse": 0.5205412913607887,
+      "bf16_vs_fp32_relative_difference": -0.006579172039642196
+    },
+    {
+      "task": "adjust_bottle",
+      "n_traj": 4,
+      "traj_ids": [
+        1,
+        5,
+        20,
+        21
+      ],
+      "threshold": null,
+      "bf16_gmean_mse": 0.4220521422244157,
+      "fp32_gmean_mse": 0.4247440260889735,
+      "bf16_vs_fp32_relative_difference": -0.0063376615072012355
+    },
+    {
+      "task": "adjust_bottle",
+      "n_traj": 10,
+      "traj_ids": [
+        1,
+        5,
+        20,
+        21,
+        28,
+        29,
+        33,
+        34,
+        41,
+        49
+      ],
+      "threshold": null,
+      "bf16_gmean_mse": 0.3977530284514316,
+      "fp32_gmean_mse": 0.397948952090123,
+      "bf16_vs_fp32_relative_difference": -0.0004923335962120934
+    }
+  ]
+}
