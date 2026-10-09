@@ -755,6 +755,12 @@ def main():
         lr_start=args.train.lr_start,
     )
 
+    # 🔴 多卡：**非 0 rank 没有 writer**。此前 `writer` 只在 rank0 分支里赋值 ⇒
+    #    rank≠0 走到 `finish_auto_learning(..., writer=writer, ...)` 直接
+    #    `UnboundLocalError: cannot access local variable 'writer'`（2026-10-09 2×4090 实测；
+    #    自动学习从来没有在多卡的 rank≠0 上跑过，所以此前没暴露）。
+    #    所有 `writer.add_*` 调用本身都在 `if args.train.global_rank == 0:` 里，置 None 安全。
+    writer = None
     if args.train.global_rank == 0:
         log_dir=f"{args.train.output_dir}/runs/"
         writer = AsyncTBWriter(log_dir=log_dir)

@@ -284,6 +284,9 @@ export PATH="$(dirname "$PY"):$PATH"
 export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
 export QWEN3VL_PATH=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
 export PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}
+#: 额外参数透传（空格分隔）。用于不改脚本就切换并行模式等，例如：
+#:   EXTRA_ARGS="--train.data_parallel_mode ddp"
+EXTRA_ARGS=${EXTRA_ARGS:-}
 
 set +e
 bash train.sh tasks/vla/train_lingbotvla.py \
@@ -320,6 +323,7 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.dcp_keep_last "$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 0 || echo "$DCP_KEEP_LAST")" \
     --train.auto_learning          "$AL_CFG" \
     --train.auto_learning_manifest "$MANIFEST" \
+    $EXTRA_ARGS \
     --train.auto_learning_baseline "$BASELINE"
 TRAIN_RC=$?
 set -e

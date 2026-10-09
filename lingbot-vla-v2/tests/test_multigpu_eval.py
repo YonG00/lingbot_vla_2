@@ -200,3 +200,20 @@ def test_scout_cache_write_guard(tmp_path):
     assert len(files) == 1
     doc = json.loads(files[0].read_text(encoding="utf-8"))
     assert doc["task"] == "click_bell" and doc["fingerprint"] == fp
+
+
+# ---------------------------------------------------------------------------
+# 训练器：非 0 rank 的 writer（2026-10-09 2×4090 实测的 UnboundLocalError）
+# ---------------------------------------------------------------------------
+def test_trainer_writer_defined_for_nonzero_ranks():
+    """`writer` 只在 rank0 分支里赋值 ⇒ rank≠0 走 `finish_auto_learning(writer=writer)` 会
+    `UnboundLocalError`。必须在 rank0 分支**之前**无条件初始化。"""
+    src = (REPO / "tasks/vla/train_lingbotvla.py").read_text(encoding="utf-8")
+    assert "writer = None" in src, "必须在 rank0 分支前把 writer 初始化为 None"
+    i_none = src.index("writer = None")
+    i_ctor = src.index("writer = AsyncTBWriter(")
+    i_al = src.index("writer=writer, logger=logger, use_depth_align=use_depth_align")
+    assert i_none < i_ctor < i_al, "初始化顺序应为：writer=None → rank0 建 writer → AL 使用"
+    # 所有 writer.add_* 必须在 rank0 守卫内（置 None 才安全）
+    add_lines = [l for l in src.splitlines() if "writer.add_" in l]
+    assert add_lines, "找不到 writer.add_* 调用（源码结构变了？）"
