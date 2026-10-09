@@ -1478,6 +1478,17 @@ class OpenLoopValidator:
         self.logger.info_rank0(
             f'[open_loop][eval-batch] 评测批大小 = {batch_size}（来源 {_batch_source}；'
             f'AL_EVAL_BATCH_MAX 可覆盖；**无显存闸门**，批内 OOM 自动退回单条）')
+        # 🔴 **一次 OOM 就降级**（用户 2026-10-09 定：不要"连着试两次才降"）：
+        #   · 第 1 次 OOM ⇒ 立即把批大小减半，并在**本 run 内保持**（跨评测持久，避免每次评测重付代价）；
+        #   · 已经是最小 2 还 OOM ⇒ **本 run 内关闭评测批处理**，之后全部单条。
+        #   状态挂在实例上（`_eval_batch_oom_cap` / `_eval_batch_disabled`），不是本次调用局部变量。
+        _cap = int(getattr(self, '_eval_batch_oom_cap', 0) or 0)
+        if _cap:
+            batch_size = min(batch_size, _cap)
+        _batching_off = bool(getattr(self, '_eval_batch_disabled', False))
+        if _batching_off:
+            self.logger.info_rank0(
+                '[open_loop][eval-batch] 本 run 已因 OOM 关闭评测批处理 ⇒ 全部单条')
         _probe_group_dirs: List[str] = []
         pos = 0
         starts = list(starts)
@@ -1489,7 +1500,7 @@ class OpenLoopValidator:
             self._dump_prefix = None
             self._probe_recorder = None      # 每组重新开始：绝不把上一组的身份带到下一组
             self._probe_group_ids = None
-            if (take < 2 or not identical_tensor_shapes(
+            if (_batching_off or take < 2 or not identical_tensor_shapes(
                     inputs, ('images','img_masks','lang_tokens','lang_masks','state'))):
                 _unit_groups += 1
                 yield [(idx, it, self._infer_one(it, ft)) for idx, it in group]
@@ -1503,17 +1514,27 @@ class OpenLoopValidator:
                     batched = self._infer_batch(inputs, ft)
                     torch.cuda.synchronize()
                 except torch.cuda.OutOfMemoryError as _oom:
-                    # 批太大 ⇒ **该组退回单条**（跑到一半的正式训练不该被一次 OOM 打断）。
-                    # 连续 2 次 ⇒ 自动把批大小减半（下限 2），避免每组都先 OOM 再回退白花时间。
+                    # **第 1 次 OOM 就降级**（不重复试同一个大小，避免每组先 OOM 再回退白花时间）：
+                    #   · batch_size > 2 ⇒ 减半并在本 run 内保持；
+                    #   · 已经 == 2 ⇒ 整轮关闭批处理。
+                    # 该组一律退回单条 ⇒ 一次 OOM 不丢样本、不打断长跑。
                     torch.cuda.empty_cache()
                     _oom_groups += 1
-                    if _oom_groups >= 2 and batch_size > 2:
-                        _prev, batch_size = batch_size, max(2, batch_size // 2)
+                    if batch_size > 2:
+                        _prev = batch_size
+                        batch_size = max(2, batch_size // 2)
+                        self._eval_batch_oom_cap = batch_size
                         self.logger.warning(
-                            f'[open_loop][eval-batch] ⚠️ 批处理连续 OOM ⇒ 批大小 {_prev} → {batch_size}')
+                            f'[open_loop][eval-batch] ⚠️ 批处理 OOM（take={take}）⇒ 批大小 '
+                            f'{_prev} → {batch_size}（本 run 内保持），该组退回单条')
+                    else:
+                        _batching_off = True
+                        self._eval_batch_disabled = True
+                        self.logger.warning(
+                            f'[open_loop][eval-batch] ⚠️ 批处理 OOM（take={take}，批大小已是最小 2）'
+                            '⇒ **本 run 内关闭评测批处理**，之后全部单条')
                     self.logger.warning(
-                        f'[open_loop][eval-batch] ⚠️ 批处理 OOM（take={take}）⇒ 该组退回单条：'
-                        f'{type(_oom).__name__}: {_oom}')
+                        f'[open_loop][eval-batch] ⚠️ OOM 详情：{type(_oom).__name__}: {_oom}')
                     _unit_groups += 1
                     yield [(idx, it, self._infer_one(it, ft)) for idx, it in group]
                     continue

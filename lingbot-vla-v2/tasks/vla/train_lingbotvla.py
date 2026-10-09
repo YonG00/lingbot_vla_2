@@ -1446,6 +1446,18 @@ def main():
             maxvio_str = f"MaxVio {maxvio_val.item() if torch.is_tensor(maxvio_val) else maxvio_val:.4f}, " if maxvio_val is not None else ""
             sigmoid_val = loss_log.get("moe_summary/topk_sigmoid_avg_rank0", loss_log.get("token_moe/avg_topk_sigmoid", None))
             sigmoid_str = f"AvgSigmoid {sigmoid_val.item() if torch.is_tensor(sigmoid_val) else sigmoid_val:.4f}, " if sigmoid_val is not None else ""
+            # 峰值显存（**默认关闭**，`AL_MEM_LOG=1` 才统计）：扫 micro / 定位 OOM 用。
+            # 用进程内 `max_memory_reserved()` —— 这是**真峰值**（nvidia-smi 轮询会漏瞬时峰）。
+            # 每步重置一次 ⇒ 打印的是"本步峰值"；重置只影响统计，不影响显存回收语义。
+            _mem_str = ""
+            if os.environ.get('AL_MEM_LOG'):
+                try:
+                    _mem_str = (f", PeakReserved {torch.cuda.max_memory_reserved()/1024**3:.2f}GiB, "
+                                f"PeakAlloc {torch.cuda.max_memory_allocated()/1024**3:.2f}GiB, "
+                                f"MemUsed {torch.cuda.memory_allocated()/1024**3:.2f}GiB")
+                    torch.cuda.reset_peak_memory_stats()
+                except Exception:  # noqa: BLE001 —— 诊断日志不能打断训练
+                    _mem_str = ""
             logger.info_rank0(
                 f"Step {global_step}/{args.train.train_steps}, "
                 f"Epoch {epoch+1}, "
@@ -1464,6 +1476,7 @@ def main():
                 f"StepTime {delta_time:.3f}s, "
                 f"Depth_Forward_Time {depth_forward_time: .3f}s, "
                 f"Ignore_Batch_Num {ignore_batch_num}"
+                f"{_mem_str}"
             )
 
 

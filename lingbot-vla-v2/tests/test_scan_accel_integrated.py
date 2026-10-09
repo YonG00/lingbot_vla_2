@@ -355,3 +355,110 @@ def test_eval_batch_size_env_override_and_validation(monkeypatch):
     monkeypatch.setenv('AL_EVAL_BATCH_MAX', '999')
     with pytest.raises(ValueError):
         fn(SimpleNamespace(args=_Args(24)))
+
+
+# ---------------------------------------------------------------------------
+# 2026-10-09 夜：**显存闸门废除** + 批内 OOM 回退（48G 多卡实测驱动）
+# ---------------------------------------------------------------------------
+def _oom_env(monkeypatch):
+    monkeypatch.setenv('AL_EVAL_BATCH_MODE', 'auto')
+    monkeypatch.setenv('AL_EVAL_BATCH_APPROVED', '1')
+    monkeypatch.setenv('AL_EVAL_BATCH_MAX', '4')
+    _cuda_stub(monkeypatch)
+    monkeypatch.setattr(torch.cuda, 'empty_cache', lambda: None)
+    monkeypatch.setattr(torch.cuda, 'OutOfMemoryError', torch.OutOfMemoryError,
+                        raising=False)
+
+
+def test_auto_batches_even_with_almost_no_free_memory(monkeypatch):
+    """**显存闸门已废除**：即使"空闲显存"看起来很少，也必须照常批处理。
+
+    历史：`free_before < reserve + 12`（22 GiB）在 2×48G DDP（空闲 21.4 GiB）上把每组都判成不足
+    ⇒ 批处理全程不生效。现在不做显存预判，只有 OOM 才回退。"""
+    _oom_env(monkeypatch)
+    monkeypatch.setattr(torch.cuda, 'mem_get_info', lambda: (2 * 1024**3, 48 * 1024**3))  # 只剩 2 GiB
+    logs = []
+    v = _validator(); v.logger = SimpleNamespace(info_rank0=lambda m, *a: logs.append(str(m)),
+                                                 warning=lambda m, *a: logs.append(str(m)))
+    calls = {'batch': 0, 'serial': 0}
+    ob, oo = v._infer_batch, v._infer_one
+    v._infer_batch = lambda items, ft: (calls.__setitem__('batch', calls['batch'] + 1), ob(items, ft))[1]
+    v._infer_one = lambda item, ft: (calls.__setitem__('serial', calls['serial'] + 1), oo(item, ft))[1]
+    inputs = [_item(float(i)) for i in range(4)]
+    v._noise_gen = None
+    got = [pr for g in v._prediction_groups(inputs, list(range(4)), _Transform(), 't') for _, _, pr in g]
+    assert len(got) == 4
+    assert calls['batch'] == 1 and calls['serial'] == 0, f'必须真批处理，实测 {calls}'
+    assert any('批处理 1 组 / 单条回退 0 组' in m for m in logs), logs
+
+
+def test_auto_oom_falls_back_single_for_that_group(monkeypatch):
+    """批内 OOM ⇒ **该组退回单条**（不抛、不打断长跑），且小结里能看到 OOM 回退组数。"""
+    _oom_env(monkeypatch)
+    warnings, infos = [], []
+    v = _validator()
+    v.logger = SimpleNamespace(info_rank0=lambda m, *a: infos.append(str(m)),
+                               warning=lambda m, *a: warnings.append(str(m)))
+    def _boom(items, ft):
+        raise torch.OutOfMemoryError('CUDA out of memory (synthetic)')
+    v._infer_batch = _boom
+    inputs = [_item(float(i)) for i in range(4)]
+    v._noise_gen = None
+    got = [pr for g in v._prediction_groups(inputs, list(range(4)), _Transform(), 't') for _, _, pr in g]
+    assert len(got) == 4, 'OOM 后必须逐条补齐，不能丢样本'
+    assert any('OOM' in w and '退回单条' in w for w in warnings), warnings
+    assert any('OOM 回退 1 组' in m for m in infos), infos
+
+
+def test_auto_single_oom_downgrades_immediately(monkeypatch):
+    """**一次 OOM 就降级**（用户 2026-10-09 定）：不重复试同一个大小。
+
+    8 条 / 批大小 4 / 每次批量都 OOM ⇒ 序列必须是 `[4, 2, 2, 2]`
+    （第 1 组用 4 撞 OOM ⇒ 立刻降 2；**不会**再试一次 4），且 8 条全部补齐不丢样本。"""
+    _oom_env(monkeypatch)
+    warnings, infos = [], []
+    v = _validator()
+    v.logger = SimpleNamespace(info_rank0=lambda m, *a: infos.append(str(m)),
+                               warning=lambda m, *a: warnings.append(str(m)))
+    seen_takes = []
+    def _boom(items, ft):
+        seen_takes.append(len(items))
+        raise torch.OutOfMemoryError('CUDA out of memory (synthetic)')
+    v._infer_batch = _boom
+    inputs = [_item(float(i)) for i in range(8)]
+    v._noise_gen = None
+    got = [pr for g in v._prediction_groups(inputs, list(range(8)), _Transform(), 't') for _, _, pr in g]
+    assert len(got) == 8, 'OOM 后必须逐条补齐，不能丢样本'
+    # 每个大小**只试一次**：4 撞一次 ⇒ 降 2；2 再撞一次 ⇒ 已到最小 ⇒ 整轮关闭（后续全单条）。
+    assert seen_takes == [4, 2], f'每个大小只试一次，实测 {seen_takes}'
+    assert any('4 → 2' in w for w in warnings), warnings
+    assert any('关闭评测批处理' in w for w in warnings), warnings
+    assert any('OOM 回退 2 组' in m for m in infos), infos
+    # 降级必须**跨评测持久**（否则每次评测都要重付一次 OOM 代价）
+    assert getattr(v, '_eval_batch_oom_cap', None) == 2
+    assert getattr(v, '_eval_batch_disabled', False) is True
+
+
+def test_auto_oom_at_min_batch_disables_batching_for_run(monkeypatch):
+    """已经是最小 2 还 OOM ⇒ **本 run 内关闭批处理**（之后全单条，不再反复撞 OOM）。"""
+    _oom_env(monkeypatch)
+    monkeypatch.setenv('AL_EVAL_BATCH_MAX', '2')
+    warnings = []
+    v = _validator()
+    v.logger = SimpleNamespace(info_rank0=lambda *_: None,
+                               warning=lambda m, *a: warnings.append(str(m)))
+    seen_takes, serial = [], {'n': 0}
+    def _boom(items, ft):
+        seen_takes.append(len(items))
+        raise torch.OutOfMemoryError('CUDA out of memory (synthetic)')
+    v._infer_batch = _boom
+    oo = v._infer_one
+    v._infer_one = lambda it, ft: (serial.__setitem__('n', serial['n'] + 1), oo(it, ft))[1]
+    inputs = [_item(float(i)) for i in range(6)]
+    v._noise_gen = None
+    got = [pr for g in v._prediction_groups(inputs, list(range(6)), _Transform(), 't') for _, _, pr in g]
+    assert len(got) == 6
+    assert seen_takes == [2], f'最小批也只试一次，实测 {seen_takes}'
+    assert serial['n'] == 6, '关闭后必须全部走单条'
+    assert getattr(v, '_eval_batch_disabled', False) is True
+    assert any('关闭评测批处理' in w for w in warnings), warnings

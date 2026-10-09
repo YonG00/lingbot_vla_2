@@ -303,5 +303,26 @@ def test_oom_falls_back_to_single_group():
     src = SRC.read_text(encoding="utf-8")
     assert "except torch.cuda.OutOfMemoryError as _oom:" in src
     assert "empty_cache()" in src and "_oom_groups += 1" in src
-    assert "_oom_groups >= 2 and batch_size > 2" in src, "连续 OOM 必须自适应降批大小"
+    # **一次 OOM 就降级**（用户 2026-10-09 定）：>2 ⇒ 立即减半并本 run 保持；==2 ⇒ 整轮关闭
+    assert "if batch_size > 2:" in src and "self._eval_batch_oom_cap = batch_size" in src
+    assert "self._eval_batch_disabled = True" in src
     assert "其中 OOM 回退" in src, "小结里必须能看到 OOM 回退组数"
+
+
+def test_trainer_mem_log_is_env_gated_and_syntactically_sane():
+    """扫 micro 用的峰值显存日志：**默认零开销**（`AL_MEM_LOG` 未设则不统计），且必须能编译。
+
+    踩过：第一次把统计块插进了 f-string 链中间 ⇒ SyntaxError（整条 `logger.info_rank0(...)`
+    是多行 f-string 拼接，插入点必须在**语句之前**）。
+    """
+    import ast
+    src_path = REPO / "tasks/vla/train_lingbotvla.py"
+    src = src_path.read_text(encoding="utf-8")
+    ast.parse(src)                                     # 必须能编译
+    assert "os.environ.get('AL_MEM_LOG')" in src
+    assert "_mem_str" in src and "max_memory_reserved()" in src
+    # 统计块必须出现在日志语句**之前**，而不是 f-string 链中间
+    i_block = src.index("_mem_str = (f\", PeakReserved")
+    i_log = src.index("logger.info_rank0(\n                f\"Step {global_step}")
+    assert i_block < i_log, "统计块必须在日志语句之前"
+    assert src.count("f\"{_mem_str}\"") == 1
