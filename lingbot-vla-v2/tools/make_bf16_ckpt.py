@@ -72,6 +72,31 @@ def _check_paths(src: Path, dst: Path) -> None:
         raise SystemExit("[bf16] ❌ 检测到 .bin 权重：本工具只支持 safetensors")
 
 
+def _sanitize_tensors(tensors: Dict[str, torch.Tensor]) -> Dict[str, int]:
+    """修掉 safetensors 的两条硬限制（真实 ckpt 一般不触发，但一旦触发就是硬失败）：
+
+    * **非连续张量** ⇒ `save_file` 抛 `ValueError: non contiguous tensor`（`.contiguous()` 解决）；
+    * **两个 key 共享存储**（tied weights）⇒ `save_file` 抛 `RuntimeError: Some tensors share memory`
+      （把后出现的那个 `clone()` 掉）。
+
+    返回计数 ``{"contiguous_fixed": n, "shared_cloned": m}``。
+    """
+    stats = {"contiguous_fixed": 0, "shared_cloned": 0}
+    seen: Dict[int, str] = {}
+    for key in list(tensors):
+        t = tensors[key]
+        if not t.is_contiguous():
+            t = t.contiguous()
+            stats["contiguous_fixed"] += 1
+        ptr = t.untyped_storage().data_ptr()
+        if ptr in seen:
+            t = t.clone()
+            stats["shared_cloned"] += 1
+        else:
+            seen[ptr] = key
+        tensors[key] = t
+    return stats
+
 def convert_one_shard(src_file: Path, dst_file: Path, dtype: torch.dtype) -> Tuple[int, int, int]:
     """转换单个分片。返回 (张量数, 源字节, 目标字节)。"""
     src_bytes = src_file.stat().st_size
@@ -86,6 +111,10 @@ def convert_one_shard(src_file: Path, dst_file: Path, dtype: torch.dtype) -> Tup
             else:
                 out[key] = tensor                       # int64/bool 等原样
                 n_other += 1
+    stats = _sanitize_tensors(out)
+    if stats["contiguous_fixed"] or stats["shared_cloned"]:
+        print(f"[bf16]   {src_file.name}: 防御修复 contiguous={stats['contiguous_fixed']} "
+              f"shared_cloned={stats['shared_cloned']}")
     dst_file.parent.mkdir(parents=True, exist_ok=True)
     save_file(out, str(dst_file), metadata={"format": "pt"})
     del out
@@ -117,15 +146,24 @@ def copy_other_files(src: Path, dst: Path, names: Sequence[str]) -> List[str]:
 
 def verify(src: Path, dst: Path, shards: Sequence[str], dtype: torch.dtype,
            sample: Optional[int] = None) -> Dict[str, Any]:
-    """逐张量校验：浮点 `dst == src.to(dtype)`（逐位），非浮点 `dst == src`。"""
+    """逐张量校验：浮点 `dst == src.to(dtype)`（逐位），非浮点 `dst == src`。
+
+    * 分片缺失/打不开 ⇒ 记为 problem（**返回值 ok=False，不抛异常**）；
+    * `sample=N` ⇒ 每片只逐位比对**前 N 个 key**（key 集合仍全量比对）。
+    """
     bad: List[Dict[str, str]] = []
     checked = 0
     keys_total = 0
     src_keys: set = set()
     dst_keys: set = set()
     for name in shards:
-        with safe_open(str(src / name), framework="pt", device="cpu") as fs, \
-             safe_open(str(dst / name), framework="pt", device="cpu") as fd:
+        try:
+            fs = safe_open(str(src / name), framework="pt", device="cpu")
+            fd = safe_open(str(dst / name), framework="pt", device="cpu")
+        except Exception as exc:  # noqa: BLE001
+            bad.append({"shard": name, "key": "<open>", "detail": f"{type(exc).__name__}: {exc}"})
+            continue
+        with fs, fd:
             ks, kd = set(fs.keys()), set(fd.keys())
             src_keys |= ks
             dst_keys |= kd
@@ -134,8 +172,8 @@ def verify(src: Path, dst: Path, shards: Sequence[str], dtype: torch.dtype,
                             "detail": f"missing={sorted(ks - kd)[:3]} extra={sorted(kd - ks)[:3]}"})
             keys_total += len(ks)
             for i, key in enumerate(sorted(ks & kd)):
-                if sample is not None and (i % max(1, keys_total // max(1, sample))) != 0:
-                    continue
+                if sample is not None and i >= sample:
+                    break
                 a = fs.get_tensor(key)
                 b = fd.get_tensor(key)
                 checked += 1
@@ -149,7 +187,8 @@ def verify(src: Path, dst: Path, shards: Sequence[str], dtype: torch.dtype,
                         bad.append({"shard": name, "key": key,
                                     "detail": f"non-float mismatch {b.dtype} vs {a.dtype}"})
     return {"ok": not bad and src_keys == dst_keys, "checked": checked,
-            "n_tensors": keys_total, "key_sets_equal": src_keys == dst_keys, "problems": bad[:10]}
+            "n_tensors": keys_total, "key_sets_equal": src_keys == dst_keys,
+            "problems": bad[:10]}
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -175,7 +214,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     src_sizes: Dict[str, int] = {}
     t0 = time.perf_counter()
     n_tensors = 0
+    seen_keys: Dict[str, str] = {}
     for name in p["shards"]:
+        with safe_open(str(src / name), framework="pt", device="cpu") as _fh:
+            dupes = [k for k in _fh.keys() if k in seen_keys]
+        if dupes:
+            raise SystemExit(f"[bf16] ❌ 跨分片重复 key（索引会歧义）：{dupes[:5]} @ {name}")
+        with safe_open(str(src / name), framework="pt", device="cpu") as _fh:
+            for k in _fh.keys():
+                seen_keys[k] = name
         n, sb, db = convert_one_shard(src / name, dst / name, dtype)
         n_tensors += n
         src_sizes[name] = db

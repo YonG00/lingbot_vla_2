@@ -97,3 +97,38 @@ time (for f in $CK/*.safetensors; do cat $f > /dev/null & done; wait)     # ③ 
 | `tools/make_bf16_ckpt.py` | BF16 副本工具（含逐张量校验、fail-closed） |
 | `tests/test_shard_prewarm.py` | 预读 6 项 CPU 测试（开关/线程/失败不阻塞/接线） |
 | `tests/test_make_bf16_ckpt.py` | 副本 6 项 CPU 测试（转换正确/篡改必被抓/拒绝覆盖） |
+
+## 8. 一键体检（推荐先跑这个）
+
+```bash
+PY=/data/miniconda3/envs/lingbotvla/bin/python
+$PY tools/load_accel_smoke.py                                   # A) 合成端到端（秒级、无副作用）
+$PY tools/load_accel_smoke.py --ckpt <hf_ckpt 目录>              # B) 真机实测（只读原目录）
+$PY tools/load_accel_smoke.py --ckpt <hf_ckpt> --write-copy <新目录>   # B+) 顺带生成 BF16 副本
+```
+
+**A 模式**（全部用仓库真实实现，不是替身）：
+1. 造 2 分片 F32 小 ckpt（含 int64 / bool / 0 维 / 空张量）；
+2. `make_bf16_ckpt` 转换 + **逐张量全量校验**；
+3. 用仓库自己的 `_resolve_weight_files()` + `StateDictIterator` **把副本读回来**核对 key/形状/dtype；
+4. 调 `_parallel_prewarm_shards()` 报告字节数/线程/耗时。
+
+**B 模式**：冷读 / 热读 / 并行冷读三条计时 + 判定"并行是否有收益"；`--write-copy` 才写盘。
+
+**退出码**：`0` 全部通过；`2` 失败（转换/校验/读回不一致）；`3` **部分完成** ——
+本机 transformers 版本与训练机不同、无法导入仓库加载器时，A 只验到"转换+校验"，
+**端到端读回必须在训练机上跑**（Mac 上没有 `transformers.utils.import_utils.is_safetensors_available`）。
+
+## 9. 已知边界与防御（单元测试覆盖）
+
+| 边界 | 行为 |
+|---|---|
+| 非连续张量 | safetensors `save_file` 会 `ValueError: non contiguous tensor` ⇒ 工具自动 `.contiguous()` |
+| 两个 key 共享存储（tied weights） | safetensors 会 `RuntimeError: Some tensors share memory` ⇒ 工具自动 `clone()` 去重 |
+| 跨分片重复 key | **拒绝转换**（HF 索引会歧义） |
+| 源含 `.bin` / 目标非空 / 目标=源或在其内部 | 拒绝（fail-closed） |
+| 分片缺失 / 打不开 | 校验返回 `ok=False` 且 CLI 非零退出（**不抛 traceback**） |
+| 0 维 / 空张量 | 正常处理（已实测可存可取） |
+| 无 `index.json` 的单文件 ckpt | 正常转换，不凭空造索引 |
+| `AL_SHARD_PREWARM_THREADS=abc` 等非法值 | 预读整体跳过并记日志，**不影响加载** |
+| 预读解析失败（路径不存在等） | 同上，只记 `[prewarm] ⚠️ …` |
