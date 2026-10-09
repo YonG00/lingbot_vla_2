@@ -131,7 +131,10 @@ def test_train_and_launcher_wiring():
     assert 'SAVE_EVERY=${SAVE_EVERY:-1000}' in launcher
     assert 'DCP_MODE=${DCP_MODE:-always}' in launcher
     assert 'HF_PASS_INTERVAL=${HF_PASS_INTERVAL:-2}' in launcher
-    assert 'SAVE_HF_BOOL=false' in launcher
+    # 2026-10-10：`SAVE_HF_BOOL=false` 由**写死**改为**默认关 + 可用 SAVE_HF=1 打开**
+    # （r2 run 因为写死 false ⇒ 只有 DCP、闭环评测没法跑）。
+    assert 'SAVE_HF_BOOL=$([ "${SAVE_HF:-0}" = "1" ] && echo true || echo false)' in launcher
+    assert 'SAVE_HF_BOOL=false' not in launcher, '不允许再写死（会再次导致只有 DCP、无 HF）'
     assert '--train.hf_pass_interval' in launcher
     assert 'SAVE_STEPS=$SAVE_EVERY' in launcher
     assert 'hf_milestones' in script

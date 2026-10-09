@@ -81,7 +81,11 @@ DCP_KEEP_LAST=${DCP_KEEP_LAST:-2}
 # HF 直出存储精度（与训练/评测精度解耦）：BF16 训练默认导出 bf16（约 12G），F32 训练默认 fp32。
 # 注意：若源权重是 fp32 而这里选 bf16，属于**有意降低存储精度、并非无损**（日志会明确标注）。
 HF_EXPORT_DTYPE=${HF_EXPORT_DTYPE:-$([ "$MIXED" = "true" ] && echo fp32 || echo bf16)}
-SAVE_HF_BOOL=false
+#: 是否在**每个存档点**同时导出 HF（默认关：DCP 更快省盘；HF 约 +12G、多花 1–2 分钟）。
+#: 🔴 2026-10-10 教训：这里写死 false ⇒ r2 run 只有 DCP、**一个 safetensors 都没有**，
+#:    闭环评测（要求 `<CKPT_ROOT>/checkpoints/global_step_N/hf_ckpt`）直接没法跑。
+#:    需要 HF 时：`SAVE_HF=1`（导出精度见上面的 HF_EXPORT_DTYPE，默认 bf16）。
+SAVE_HF_BOOL=$([ "${SAVE_HF:-0}" = "1" ] && echo true || echo false)
 DISK_GUARD_BOOL=$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo false || echo true)
 
 # TensorBoard

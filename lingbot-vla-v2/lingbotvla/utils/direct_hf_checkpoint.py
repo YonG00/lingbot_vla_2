@@ -188,28 +188,38 @@ def verify_hf_weight_files(output_dir, expected_keys):
 
 def export_model_hf_direct(model, *, global_step: int, checkpoint_root: str,
                            model_assets=None, export_dtype="native", save_dtype=None,
-                           logger=None):
+                           logger=None, snapshot=None):
     """All ranks capture the same step; rank0 writes one atomic HF snapshot.
 
     Path is separate from DCP resume candidates. On a replay of the same
     global step from an earlier DCP, keep the old milestone and add _retry_N.
-    """
-    snapshot = None
-    capture_error = None
-    try:
-        with torch.no_grad():
-            snapshot = collect_full_model_on_cpu(model)
-    except Exception as exc:
-        capture_error = repr(exc)
-    if _distributed():
-        errors = [None] * dist.get_world_size()
-        dist.all_gather_object(errors, capture_error)
-        if any(err is not None for err in errors):
-            raise RuntimeError(f"Direct HF state capture failed: {errors}")
-    elif capture_error is not None:
-        raise RuntimeError(f"Direct HF state capture failed: {capture_error}")
 
-    rank0 = not _distributed() or dist.get_rank() == 0
+    ``snapshot``：可选，**直接给已经收集好的全量 CPU state_dict**（键与 HF 权重键一致）⇒
+    跳过 `collect_full_model_on_cpu(model)`（此时 ``model`` 可为 ``None``）。
+    用途：**离线 DCP → HF 转换**（`tools/dcp_to_hf.py`）—— 不需要实例化 6B 模型、
+    不需要 GPU、也不需要 torch.distributed。写出/索引/资源复制/校验/原子发布**全部复用**本函数。
+    """
+    provided = snapshot is not None
+    capture_error = None
+    if not provided:
+        try:
+            with torch.no_grad():
+                snapshot = collect_full_model_on_cpu(model)
+        except Exception as exc:
+            capture_error = repr(exc)
+    elif not isinstance(snapshot, dict) or not snapshot:
+        raise ValueError("snapshot 必须是非空 dict（键 = HF 权重键，值 = CPU 张量）")
+    if not provided:
+        if _distributed():
+            errors = [None] * dist.get_world_size()
+            dist.all_gather_object(errors, capture_error)
+            if any(err is not None for err in errors):
+                raise RuntimeError(f"Direct HF state capture failed: {errors}")
+        elif capture_error is not None:
+            raise RuntimeError(f"Direct HF state capture failed: {capture_error}")
+
+    # 离线转换（调用方自带 snapshot）是**单进程**语义 ⇒ 恒为 rank0，且不做任何集合通信。
+    rank0 = True if provided else (not _distributed() or dist.get_rank() == 0)
     error = None
     destination = None
     if rank0:
