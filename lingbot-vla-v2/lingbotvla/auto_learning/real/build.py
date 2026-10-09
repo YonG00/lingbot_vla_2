@@ -377,6 +377,33 @@ def finish_auto_learning(
         f"[auto_learning] 已就绪：{len(cat)} 任务；batch={cfg.batch_size}"
         f"（{cfg.new_slots} NEW + {cfg.replay_slots} Replay）；"
         f"eval_interval={cfg.eval_interval_steps} 步；defer_train={scheduler.defer_train}")
+    # 验收钩子（默认关闭）：零 optimizer.step 时 Hardness 扫描不会被执行，
+    # 这里在模型加载完成后、训练开始前，用**同一个**真实 scorer 跑一次逐样本对拍。
+    # 复用 RealHardnessScorer 的阶段与报告逻辑（B8 → B1 → B8），不复制任何算法。
+    # 零 optimizer.step 时 Hardness 扫描不会执行；本钩子**默认关闭**且必须同时设
+    # AL_HARDNESS_REPORT_OUT（正式训练不会设）⇒ 只用于独立验收运行。
+    # 单卡限制：多卡 FSDP2 明确拒绝，避免 collective 死锁。
+    _selftest_n = int(os.environ.get('AL_HARDNESS_SELFTEST_IDS', '0') or 0)
+    if _selftest_n > 0 and os.environ.get('AL_HARDNESS_REPORT_OUT'):
+        try:
+            import torch.distributed as _dist
+            if _dist.is_available() and _dist.is_initialized() and _dist.get_world_size() > 1:
+                raise RuntimeError(
+                    'hardness selftest 不支持多卡 FSDP2（避免 collective 死锁）；请用单卡验收')
+            import time as _time
+            _task = (os.environ.get('AL_HARDNESS_SELFTEST_TASK') or str(next(iter(cat))))
+            _ids = list(range(1, _selftest_n + 1))
+            _t0 = _time.perf_counter()
+            hardness.score(_task, _ids)
+            logger.info_rank0(
+                f'[auto_learning][acceptance] hardness selftest: task={_task} '
+                f'samples={len(_ids)} seconds={_time.perf_counter() - _t0:.2f} '
+                f'(zero-step hook, phases from AL_HARDNESS_REPLAY_BATCH/REPEAT)')
+        except Exception as _exc:  # noqa: BLE001
+            try:
+                logger.warning(f'[auto_learning][acceptance] hardness selftest failed: {_exc!r}')
+            except Exception:
+                pass
     return hook
 
 

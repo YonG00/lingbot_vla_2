@@ -165,3 +165,51 @@ def test_hardness_single_process_phases_run_once_without_recursion(monkeypatch, 
             for sid, v in r["losses"].items():
                 per_sid.setdefault(int(sid), set()).add(round(float(v), 12))
     assert all(len(v) == 1 for v in per_sid.values()), per_sid
+
+
+def test_run_all_covers_batch4_by_using_a_four_trajectory_acceptance_config():
+    """要求1：Scout 只用 2 条轨迹时永远凑不出 Batch4 ⇒ 验收必须用 4 条轨迹的专用配置。"""
+    root = Path(__file__).resolve().parents[1]
+    cfg = root / acc.ACCEPTANCE_AL_CONFIG
+    assert cfg.exists(), cfg
+    text = cfg.read_text(encoding="utf-8")
+    assert "global_scout_val_trajs: 4" in text
+    cmd = acc.run_all_command("/tmp/out")
+    assert "--al-config" in cmd and str(acc.ACCEPTANCE_AL_CONFIG) in cmd, cmd
+    env = acc.build_run_all_env("/tmp/out")
+    assert env["AL_HARDNESS_REPLAY_BATCH"] == "1" and env["AL_HARDNESS_REPEAT"] == "1"
+    assert "AL_HARDNESS_BATCH_APPROVED" not in env  # 首轮不加 --include-auto
+
+
+def test_zero_step_hardness_selftest_hook_exists_and_is_opt_in():
+    """要求2：零 optimizer.step 时 hardness 扫描不会触发 ⇒ 需要显式钩子（默认关闭）。"""
+    src = (Path(__file__).resolve().parents[1] / "lingbotvla/auto_learning/real/build.py").read_text(encoding="utf-8")
+    assert "AL_HARDNESS_SELFTEST_IDS" in src
+    assert "AL_HARDNESS_REPORT_OUT" in src          # 必须同时开启报告才跑，避免影响正式训练
+    assert "hardness.score(" in src                 # 复用真实 scorer，不自造推理
+
+
+def test_run_all_env_forces_batch_coverage_and_selftest_without_auto():
+    """要求1/2/3：一次进程内强制覆盖 Batch1/2/4 + 零步 Hardness 自检；仍不设任何 APPROVED。"""
+    env = acc.build_run_all_env("/tmp/out2")
+    assert env["AL_EVAL_BATCH_FORCE_COVERAGE"] == "1"
+    assert env["AL_HARDNESS_SELFTEST_IDS"] == "9"
+    assert env["AL_HARDNESS_REPORT_OUT"].endswith("hardness_parity.json")
+    assert "AL_HARDNESS_BATCH_APPROVED" not in env and "AL_EVAL_BATCH_APPROVED" not in env
+    assert env["AL_HARDNESS_BATCH_MODE"] == "fixed"
+
+
+def test_probe_force_coverage_keeps_guards(monkeypatch):
+    """要求1：speedup 不达标不得阻止 Batch4 数值验收，但 parity/显存/失败保护不能被绕过。"""
+    text = (Path(__file__).resolve().parents[1] /
+            "lingbotvla/utils/open_loop_validation.py").read_text(encoding="utf-8")
+    assert "AL_EVAL_BATCH_FORCE_COVERAGE" in text
+    assert "if not safe or (not faster and not _force_cov):" in text, "守卫表达式必须保留 safe 优先"
+
+
+def test_selftest_refuses_multirank_and_stays_opt_in():
+    """要求2：默认关闭、正式训练不触发、多卡 FSDP2 明确拒绝（避免 collective 死锁）。"""
+    src = (Path(__file__).resolve().parents[1] / "lingbotvla/auto_learning/real/build.py").read_text(encoding="utf-8")
+    assert "AL_HARDNESS_SELFTEST_IDS" in src and "AL_HARDNESS_REPORT_OUT" in src
+    assert "get_world_size() > 1" in src and "FSDP2" in src
+    assert "hardness.score(" in src and "RuntimeError" in src

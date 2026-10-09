@@ -176,6 +176,10 @@ def build_run_all_env(out_dir, *, include_auto: bool = False, base_env=None) -> 
     env.update(RUN_ALL_ENV)
     env["AL_EVAL_BATCH_PROBE_OUT"] = str(Path(out_dir) / "eval_probe.json")
     env["AL_HARDNESS_REPORT_OUT"] = str(Path(out_dir) / "hardness_parity.json")
+    # 验收专用：强制覆盖 Batch1/2/4（speedup 不达标也继续数值验收；parity/显存/失败保护照旧）。
+    env['AL_EVAL_BATCH_FORCE_COVERAGE'] = '1'
+    # 零步 Hardness 自检（仅本次验收子进程；正式训练不会设这两个变量）。
+    env['AL_HARDNESS_SELFTEST_IDS'] = '9'
     if include_auto:
         # ⚠️ 仅本次子进程内生效；不写任何配置、不影响其它进程（PLAN/summary 会记录该事实）。
         env["AL_HARDNESS_BATCH_MODE"] = "auto"
@@ -185,11 +189,16 @@ def build_run_all_env(out_dir, *, include_auto: bool = False, base_env=None) -> 
     return env
 
 
-def run_all_command(out_dir, *, python="python", steps: int = 3, include_auto: bool = False) -> list:
+#: 验收专用 AL 配置（Scout 4 条轨迹 ⇒ 能真实成组到 Batch4；非正式配置）。
+ACCEPTANCE_AL_CONFIG = "configs/auto_learning/acceptance_scan_accel_2task.yaml"
+
+
+def run_all_command(out_dir, *, python="python", steps: int = 3, include_auto: bool = False,
+                    al_config: str = ACCEPTANCE_AL_CONFIG) -> list:
     """复用**已有** smoke 入口；Bootstrap 全 PASS ⇒ 零训练步（不执行 optimizer.step）。"""
     return [python, "tools/gpu96_acceptance.py", RUN_ALL_STAGE, "--micro", "24", "--gas", "1",
             "--target-total-passed-tasks", "2", "--max-named-tasks", "2",
-            "--steps", str(steps), "--execute"]
+            "--steps", str(steps), "--al-config", al_config, "--execute"]
 
 
 PLAN_TEXT = """\

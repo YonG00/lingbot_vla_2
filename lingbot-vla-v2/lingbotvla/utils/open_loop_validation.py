@@ -1207,7 +1207,9 @@ class OpenLoopValidator:
                 f'parity={parity} peak_free_gib={peak_free:.2f} '
                 f'serial_seconds={serial_seconds:.3f} batch_seconds={batch_seconds:.3f} '
                 f'profitable={faster} safe={safe}')
-            if not safe or not faster:
+            # 验收专用：speedup 不达标不阻止继续做 Batch4 数值验收；parity/显存/失败保护照旧。
+            _force_cov = os.environ.get('AL_EVAL_BATCH_FORCE_COVERAGE') == '1'
+            if not safe or (not faster and not _force_cov):
                 disabled = True
             elif mode == 'auto':
                 verified_shapes.add(sig)
