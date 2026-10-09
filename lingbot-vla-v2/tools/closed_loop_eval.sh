@@ -21,6 +21,8 @@
 #   STEP       评哪一步的 ckpt（默认 500）
 #   TAG        输出子目录名（默认 step${STEP}_${CONFIG#demo_}）；
 #              单任务落 ${TAG}/${TASK}/，多任务落 ${TAG}/${各任务}/（布局一致）
+#   PRECISION  推理精度：fp32（默认，与历史一致）| bf16。低于 fp32 时必须与权重精度一致
+#              （bf16 权重要用 bf16 服务；本项目 bf16 训练的 HF 导出默认就是 bf16）
 #   PORT       起始端口（默认 9330）
 #   DRY_RUN    1 = 只打印计划
 #
@@ -41,11 +43,16 @@ EPISODES=${EPISODES:-10}
 CKPT_ROOT=${CKPT_ROOT:-/data/outputs/single/$TASK}
 STEP=${STEP:-500}
 PORT=${PORT:-9330}
+PRECISION=${PRECISION:-fp32}
 QWEN3VL=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
 ROBOTWIN_DIR=${ROBOTWIN_DIR:-/data/code/RoboTwin-lingbot}
 CONDA_SH=${CONDA_SH:-/data/miniconda3/etc/profile.d/conda.sh}
 TAG=${TAG:-step${STEP}_${CONFIG#demo_}}
 DRY_RUN=${DRY_RUN:-0}
+
+[[ "$PRECISION" == "bf16" || "$PRECISION" == "fp32" ]] \
+    || die "PRECISION 只支持 fp32|bf16，收到 $PRECISION"
+if [[ "$PRECISION" == "bf16" ]]; then USE_BF16=true; USE_FP32=false; else USE_BF16=false; USE_FP32=true; fi
 
 hr() { printf '%.0s─' {1..78}; echo; }
 die() { echo "❌ $*" >&2; exit 1; }
@@ -100,6 +107,7 @@ cat <<EOF
   ckpt        : $CKPT
   输出        : $OUT
   端口        : $PORT  （1 GPU × 1 server）
+  推理精度    : $PRECISION  （use_bf16=$USE_BF16 / use_fp32=$USE_FP32）
   QWEN3VL_PATH: $QWEN3VL
   视频        : 关（--no_video）
 EOF
@@ -114,7 +122,7 @@ bash experiment/robotwin/start_robotwin_infer_and_eval.sh \
     --task_list_file "$TL" \
     --task_config "$CONFIG" \
     --num_gpus 1 --num_per_gpu 1 \
-    --use_fp32 true --use_bf16 false --use_compile false \
+    --use_fp32 "$USE_FP32" --use_bf16 "$USE_BF16" --use_compile false \
     --no_video \
     --test_num "$EPISODES" \
     --eval_workdir "$ROBOTWIN_DIR" \

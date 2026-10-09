@@ -170,3 +170,17 @@ def test_real_launcher_dry_run_flags(tmp_path, smoke, expected_steps, expected_i
     assert '--train.save_hf_weights  false \\' in proc.stdout
     assert '--train.smoke_no_checkpoint' in proc.stdout
     assert '--train.dcp_save_mode    always \\' in proc.stdout
+
+
+def test_closed_loop_script_has_precision_switch():
+    """闭环脚本原来把精度写死成 fp32（`--use_fp32 true --use_bf16 false`）⇒ 加 `PRECISION` 开关。
+
+    默认仍是 fp32（行为不变）；`PRECISION=bf16` 时传 `--use_bf16 true --use_fp32 false`。
+    """
+    from pathlib import Path
+    script = (Path(__file__).resolve().parents[1] / "tools/closed_loop_eval.sh").read_text(
+        encoding="utf-8")
+    assert 'PRECISION=${PRECISION:-fp32}' in script
+    assert 'USE_BF16=true; USE_FP32=false' in script
+    assert '--use_fp32 "$USE_FP32" --use_bf16 "$USE_BF16"' in script
+    assert '--use_fp32 true --use_bf16 false' not in script, "不允许再写死 fp32"
