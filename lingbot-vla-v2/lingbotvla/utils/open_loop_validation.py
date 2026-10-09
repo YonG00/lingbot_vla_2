@@ -138,12 +138,16 @@ def _stochastic_gate_ok(self, *, take: int, sig, mode: str) -> Dict[str, Any]:
     if not path:
         return {"ok": False, "reasons": ["gate_not_configured"], "configured": False}
     try:
+        # 只取**数值相关**的形状：images/img_masks/state。
+        # lang_tokens/lang_masks 长度随任务指令变化 ⇒ 不参与签名（见 gate_payload 文档）；
+        # task 名同理，只作为 recorded_task 记录。
+        _shape_keys = ("images", "img_masks", "state")
         payload = sp.gate_payload(
             checkpoint=str(getattr(getattr(self.args, "model", None), "model_path", "") or ""),
             task=getattr(self, "_probe_task", None),
             batch_size=int(take),
             dtype=str(getattr(next(self.model.parameters()), "dtype", "")),
-            shapes=[{k: list(v) for k, v in sig[1]}],
+            shapes=[{k: list(v) for k, v in sig[1] if k in _shape_keys}],
             grids=[sig[2][0]] if sig[2] else [])
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "reasons": [f"gate_payload_failed:{type(exc).__name__}"],
@@ -683,6 +687,13 @@ def safe_eval_context(
     visual_cache_saved = None
     report = EvalSetupReport(rng_snap=rng_snap, train_flags=train_flags,
                              compile_flag=compile_flag)
+    # 🔴 评测区不让 dynamo 编译（2026-10-09）：评测会翻转 use_cache / attention /
+    #    _use_compile_predict_velocity / 逐模块 .training，全是编译图 guard 监视的状态
+    #    ⇒ 进出各一次就让**外层整模型图**失效并重编译（实测单次空窗 353 秒）。
+    #    评测热点本来就强制走 eager，关掉编译几乎零成本；AL_EVAL_DISABLE_COMPILE=0 可回退。
+    from lingbotvla.utils.compile_tuning import eval_compile_disabled
+    _compile_ctx = eval_compile_disabled(logger=logger)
+    _compile_ctx.__enter__()
     try:
         # ① 强制 eager：避免拿到训练用的编译产物；也避免 inference tensor 逃逸进 compile cache
         if compile_flag is not None:
@@ -723,6 +734,8 @@ def safe_eval_context(
             on_setup(report)
         yield report
     finally:
+        # 先退出"评测禁用编译"区间（此后只剩属性恢复，不会调用模型）
+        _compile_ctx.__exit__(None, None, None)
         # 全部临时状态恢复（顺序与设置相反）
         _restore_use_cache(use_cache_saved)
         _restore_eager_attention(attn_saved)

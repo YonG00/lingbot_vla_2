@@ -158,7 +158,8 @@ safe = peak_free >= reserve and (parity or gate.ok)   # parity 仍照常计算�
 | 没设 `AL_EVAL_BATCH_APPROVED=1` | 直接 `RuntimeError`（原有的独立批准门，未改） |
 | 模式不是 `auto`（`serial`/`probe`） | 门不参与 |
 | gate 文件缺失 / 非法 JSON / kind 不符 | 不开门 |
-| **签名不符**（换了 ckpt、任务、批大小、dtype、观测形状或 grid） | 不开门（这是"换权重必须重跑验收"的落点） |
+| **签名不符**（换了 ckpt、批大小、dtype、观测形状或 grid） | 不开门（这是"换权重必须重跑验收"的落点） |
+| 换了**任务名**或**指令 token 长度** | ✅ **仍然开门**（2026-10-09 修正：这两项只记录、不绑定 —— 见下） |
 | gate 里 `verdict_status != PASS` | 不开门 |
 | 全部匹配 | `gate=on`，该形状后续组走批量 |
 
@@ -167,6 +168,24 @@ safe = peak_free >= reserve and (parity or gate.ok)   # parity 仍照常计算�
 **回滚**：去掉那三个环境变量即可，代码路径与默认行为不变（`AL_EVAL_BATCH_MODE` 默认 `serial`）。
 
 ---
+
+## 6b. 绑定范围（2026-10-09 生产实测后修正）
+
+**签名只覆盖"数值相关"条件**：`ckpt` / `batch_size` / `dtype` / `images`·`img_masks`·`state` 形状 / `grid`。
+**刻意不绑定**：
+
+| 项 | 为什么 |
+|---|---|
+| **任务名** | 首次正式跑（131 个批处理组）只有 **9 组 `gate=on`** —— 因为 Bootstrap 会扫 50 个任务，绑单一任务名 ⇒ 其余 49 个全 `gate_signature_mismatch`。而任务名**不影响任何张量数值**。 |
+| **`lang_tokens`/`lang_masks` 长度** | 指令文本逐任务不同 ⇒ token 长度天然不同；但两种模式喂的是**同一份输入**，"批处理是否引入额外误差"这一比较对所有任务同样成立。 |
+| 形状的前导 batch 维 | 运行时 `inputs` 是原始 item（`[3,256,1536]`），验收工具若用 collate 后的形态（`[1,3,256,1536]`）会假性不符 ⇒ 比较时**剥离前导 1 维**。 |
+
+⚠️ **未生效的代价**：门不开时每组走 probe（串行 + 批量各一遍）⇒ 每组 1.60 s vs 纯串行 1.05 s，
+**比串行慢约 52%**。修正后（本版）签名在 50 个任务上通用；`task` 与指令长度仍写入
+`recorded_task` / `recorded_notes` 供追溯。
+
+**当前证据签名**：`5878276ba5e3fb3abecf4d985dbf4caa5ff30a5a4405cc22151eefa2370f8643`
+（新绑定；旧版 `67f925c2…` 因绑定旧语义**不再匹配**，需用新版工具重生成）。
 
 ## 7. 常见问题
 

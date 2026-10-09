@@ -331,32 +331,53 @@ def decide_metric(*, b1_gmeans: Sequence[Optional[float]], b2_gmeans: Sequence[O
 GATE_ENV = "AL_EVAL_BATCH_STOCHASTIC_APPROVED"
 
 
-def gate_payload(*, checkpoint: Optional[str], task: Optional[str], batch_size: int,
-                 dtype: Optional[str], shapes: Sequence[Any], grids: Sequence[Any]) -> Dict[str, Any]:
-    """门要绑定的"运行条件"（任一不符 ⇒ 证据不适用 ⇒ 门失效）。
+def gate_payload(*, checkpoint: Optional[str], batch_size: int, dtype: Optional[str],
+                 shapes: Sequence[Any], grids: Sequence[Any],
+                 task: Optional[str] = None, notes: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    """门要绑定的"数值相关运行条件"（任一不符 ⇒ 证据不适用 ⇒ 门失效）。
 
-    ``shapes`` / ``grids`` 会被规范化成字符串，保证 JSON 往返后签名稳定。
+    **刻意不绑定任务名**（2026-10-09 实测教训）：Bootstrap 会扫 50 个任务，绑定单一任务名
+    ⇒ 除该任务外全部 `gate_signature_mismatch`；而**任务名不影响任何张量数值**。
+    同理**不绑定 `lang_tokens`/`lang_masks` 的形状** —— 指令文本逐任务不同 ⇒ token 长度天然不同，
+    但两模式喂的是**同一份输入**，"批处理是否引入额外误差"这一比较对所有任务同样成立。
+
+    ``task`` 与 ``notes``（例如各任务的指令长度）只**记录**在文档里，不参与签名。
+    ``shapes`` 传数值相关的键（推荐：images / img_masks / state）。
+    形状比较时**剥离前导 1 维**（兼容 collate 与否两种形态）。
     """
     def _canon_shape(x: Any) -> str:
         import json as _json
         if isinstance(x, Mapping):
-            return _json.dumps({str(k): [int(v) for v in val] for k, val in sorted(dict(x).items())},
-                               sort_keys=True)
+            canon = {}
+            for k, v in sorted(dict(x).items()):
+                dims = [int(d) for d in v]
+                while len(dims) > 1 and dims[0] == 1:      # 剥离前导 batch 维
+                    dims = dims[1:]
+                canon[str(k)] = dims
+            return _json.dumps(canon, sort_keys=True)
         return str(x)
 
-    return {"checkpoint": None if checkpoint is None else str(checkpoint),
-            "task": None if task is None else str(task),
-            "batch_size": int(batch_size),
-            "dtype": None if dtype is None else str(dtype),
-            # 去掉空白 ⇒ 张量 repr / list repr 都能得到同一个串（避免签名假不一致）
-            "shapes": [_canon_shape(x) for x in shapes],
-            "grids": [str(x).replace(" ", "") for x in grids]}
+    payload = {"checkpoint": None if checkpoint is None else str(checkpoint),
+               "batch_size": int(batch_size),
+               "dtype": None if dtype is None else str(dtype),
+               # 去掉空白 ⇒ 张量 repr / list repr 都能得到同一个串（避免签名假不一致）
+               "shapes": [_canon_shape(x) for x in shapes],
+               "grids": [str(x).replace(" ", "") for x in grids]}
+    # 仅记录、不参与签名
+    payload["recorded_task"] = None if task is None else str(task)
+    payload["recorded_notes"] = dict(notes or {})
+    return payload
+
+
+def _binding_subset(payload: Mapping[str, Any]) -> Dict[str, Any]:
+    """签名只覆盖**数值相关**字段；`recorded_*` 仅作记录。"""
+    return {k: v for k, v in dict(payload).items() if not str(k).startswith("recorded_")}
 
 
 def gate_signature(payload: Mapping[str, Any]) -> str:
     import hashlib
     import json as _json
-    blob = _json.dumps(dict(payload), sort_keys=True, ensure_ascii=False)
+    blob = _json.dumps(_binding_subset(payload), sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
 

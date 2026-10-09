@@ -282,8 +282,12 @@ def test_tool_runs_a_discarded_warmup_before_measured_reps():
 # 随机性门（gate）：签名绑定 + fail-closed
 # ---------------------------------------------------------------------------
 def _payload(**over):
-    base = dict(checkpoint="/x/hf_ckpt", task="click_bell", batch_size=2,
-                dtype="torch.bfloat16",
+    """签名只覆盖**数值相关**条件：ckpt / 批大小 / dtype / 形状 / grid。
+
+    ⚠️ `task` 与 `lang_*` 长度只记录（`recorded_*`），**不参与签名** —— 见下方
+    `test_gate_is_task_and_instruction_length_agnostic`。
+    """
+    base = dict(checkpoint="/x/hf_ckpt", batch_size=2, dtype="torch.bfloat16",
                 shapes=[{"images": [1, 3, 256, 1536], "state": [1, 55]}],
                 grids=["tensor([[1,16,16]])"])
     base.update(over)
@@ -306,8 +310,8 @@ def test_gate_is_fail_closed_on_every_mismatch(tmp_path):
     assert sp.load_gate(None, payload=payload)["reasons"] == ["gate_not_configured"]
     assert sp.load_gate(str(tmp_path / "nope.json"), payload=payload)["reasons"][0].startswith(
         "gate_file_missing")
-    # 任一运行条件不同 ⇒ 签名不符 ⇒ 不通过
-    for over in ({"checkpoint": "/y/hf_ckpt"}, {"task": "shake_bottle"}, {"batch_size": 4},
+    # 任一**数值相关**条件不同 ⇒ 签名不符 ⇒ 不通过
+    for over in ({"checkpoint": "/y/hf_ckpt"}, {"batch_size": 4},
                  {"dtype": "torch.float32"},
                  {"shapes": [{"images": [1, 3, 224, 224], "state": [1, 55]}]},
                  {"grids": ["tensor([[1,16,20]])"]}):
@@ -431,3 +435,24 @@ def test_correlated_noise_is_not_flagged_as_bias():
     assert verdict["status"] == "PASS", verdict["reasons"]
     # 旧的 i.i.d. 零分布判据在此仅作对照记录（真实数据上它确实误报过，合成样例未必复现）
     assert 0.0 <= verdict["bias_pvalue"]["p_frac"] <= 1.0
+
+
+def test_gate_is_task_and_instruction_length_agnostic():
+    """**2026-10-09 生产教训**：Bootstrap 扫 50 个任务，若签名绑 `task` 名或指令长度，
+    除 1 个任务外全部 `gate_signature_mismatch`（实测 131 组只有 9 组 `gate=on`）。
+
+    ⇒ 签名只绑数值相关条件；任务名与指令长度只记录。
+    """
+    a = _payload(task="click_bell")
+    b = _payload(task="turn_switch")
+    assert sp.gate_signature(a) == sp.gate_signature(b)            # 任务名不影响签名
+    assert b["recorded_task"] == "turn_switch"                     # 但仍被记录
+    assert sp.load_gate  # 占位，语义在下面两条断言里体现
+
+    # 形状比较**剥离前导 batch 维**：[1,3,256,1536] 与 [3,256,1536] 视为同一条件
+    p1 = _payload(shapes=[{"images": [1, 3, 256, 1536], "state": [1, 55]}])
+    p2 = _payload(shapes=[{"images": [3, 256, 1536], "state": [55]}])
+    assert sp.gate_signature(p1) == sp.gate_signature(p2)
+    # 但真的换了尺寸 ⇒ 必须不符
+    p3 = _payload(shapes=[{"images": [1, 3, 224, 224], "state": [1, 55]}])
+    assert sp.gate_signature(p1) != sp.gate_signature(p3)

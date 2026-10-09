@@ -319,17 +319,20 @@ def execute(a: argparse.Namespace) -> int:
     _shapes, _grids = [], []
     try:
         for _it in items:
-            # 与运行时 `sig` 的构造保持一致（只取**第一个**样本的形状/grid）
+            # 与运行时保持一致的**数值相关**形状（不含 lang_*：长度随任务指令变化）
             _shapes.append({k: list(_it[k].shape) for k in
-                            ("images", "img_masks", "lang_tokens", "lang_masks", "state")})
+                            ("images", "img_masks", "state")})
             _grids.append(_it.get("image_grid_thw"))
+        _notes = {"lang_shapes": {k: list(_it[k].shape) for k in ("lang_tokens", "lang_masks")
+                                  if k in _it} for _it in items[:1]}
         _dtype = str(getattr(next(vla.parameters()), "dtype", ""))
     except Exception:  # noqa: BLE001
         _dtype = None
     gate_payload = sp.gate_payload(checkpoint=a.ckpt, task=a.task,
                                    batch_size=len(indices), dtype=_dtype,
                                    shapes=[_shapes[0]] if _shapes else [],
-                                   grids=[_grids[0]] if _grids else [])
+                                   grids=[_grids[0]] if _grids else [],
+                                   notes=_notes)
     gate_doc = sp.write_gate(str(out / "gate.json"), payload=gate_payload, verdict=verdict)
     doc["gate"] = {"signature": gate_doc["signature"], "payload": gate_payload,
                    "verdict_status": gate_doc["verdict_status"],

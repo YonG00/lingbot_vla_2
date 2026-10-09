@@ -668,6 +668,10 @@ def main():
     )
     logger.info_rank0(model)
     if args.train.use_compile:
+        # 🔴 提高 dynamo 重编译上限（默认 8 太小：超限后 dynamo 放弃编译、整段退回 eager，
+        #    表现是警告刷屏 + 之后每步变慢）。env AL_DYNAMO_CACHE_SIZE_LIMIT 可覆盖，0=跳过。
+        from lingbotvla.utils.compile_tuning import apply_dynamo_tuning
+        apply_dynamo_tuning(logger=logger)
         model = torch.compile(model)
 
     moe_param_groups = get_moe_param_groups(model, args.train)
