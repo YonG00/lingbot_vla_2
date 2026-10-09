@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import Any, Dict, List, Optional, Sequence
 
 from ..ports import Backend, TrajectoryMetrics
@@ -83,7 +84,12 @@ class RealHardnessScorer:
         if not ids:
             return {}
         out: Dict[int, float] = {}
+        data_seconds = 0.0
+        score_seconds = 0.0
+        batches = 0
         for i in range(0, len(ids), self.max_batch):
+            batches += 1
+            data_started = time.perf_counter()
             chunk = ids[i:i + self.max_batch]
             # 🔴 review v0.2 #8：取 item **必须**在确定性上下文里 ——
             #    否则 `image_augment=true` 会让同一 sample_id 两次扫描得到不同图，
@@ -100,9 +106,15 @@ class RealHardnessScorer:
                         except Exception:  # noqa: BLE001
                             pass
                 items = [self.dataset[j] for j in chunk]
+            data_seconds += time.perf_counter() - data_started
+            score_started = time.perf_counter()
             vals = self.scorer.score(items)
+            score_seconds += time.perf_counter() - score_started
             for sid, v in zip(chunk, vals):
                 out[sid] = float(v)
+        self.last_timing = {"data_wall_seconds": round(data_seconds, 5),
+                            "score_submit_seconds": round(score_seconds, 5),
+                            "batches": batches, "samples": len(ids)}
         return out
 
 

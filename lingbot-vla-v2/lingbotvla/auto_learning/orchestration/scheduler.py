@@ -3,7 +3,7 @@
 设计要点：把整个流程拆成**原子动作**，一次 `advance()` 只做一件事：
 
     bootstrap（2-val 扫描，4-val 确认可按配置关闭）
-    select   （挑 scout NMSE 最低的 candidate → 建 baseline → hardness 扫描）
+    select   （NMSE 模式按 scout NMSE；GMean 模式按 Scout/阈值倍率 → hardness 扫描）
     train_unit（50 step + 4train/4val open-loop + 判定）
     review   （每 N 次 transition 复查 PASS pool）
     rollover （本轮候选处理完，给 DEFER 第二次机会）
@@ -301,6 +301,27 @@ class Scheduler:
                 rec.set_status(TaskStatus.CANDIDATE, f"finished_mid_attempt: {reason}")
             self.state.current_task = None
 
+    def _timed_eval(self, task: str, split: str, episode_ids):
+        """Observe actual wall clock incl. CPU loading and GPU result materialization.
+
+        This does not batch or change inference order/RNG and incurs no extra
+        CUDA synchronization; each call already returns materialized metrics.
+        """
+        started = time.perf_counter()
+        result = self.evaluator.evaluate(task, split, episode_ids)
+        elapsed = time.perf_counter() - started
+        # Real deferred-training backend only: avoid changing Stage A simulated
+        # metrics / historical regression snapshots.
+        if self.defer_train and self.logger is not None:
+            self.logger.log_metrics(self.state.global_step,
+                                    f"task/{task}/{split}_eval_wall_seconds",
+                                    round(elapsed, 5))
+            if len(episode_ids):
+                self.logger.log_metrics(self.state.global_step,
+                                        f"task/{task}/{split}_eval_traj_per_second",
+                                        round(len(episode_ids) / max(elapsed, 1e-9), 5))
+        return result
+
     # ================================================================ #
     # 原子动作
     # ================================================================ #
@@ -309,8 +330,9 @@ class Scheduler:
         name = self.state.bootstrap_queue.pop(0)
         rec = self.registry.get(name)
 
-        scout = self.evaluator.evaluate(name, EvalSplit.SCOUT.value, rec.scout_val_ids)
+        scout = self._timed_eval(name, EvalSplit.SCOUT.value, rec.scout_val_ids)
         rec.scout_nmse = scout.nmse
+        rec.scout_gmean_mse = scout.gmean_mse
         rec.metric_valid = (scout.metric_valid and
                             (al.pass_metric != "gmean_mse" or is_finite_metric(scout.gmean_mse)))
         rec.last_eval_step = self.state.global_step
@@ -361,7 +383,7 @@ class Scheduler:
         if is_pass(al, name, nmse=scout.nmse, mse=scout.mse, gmean_mse=scout.gmean_mse):
             accepted = scout
             if al.scout_confirm_enabled:
-                confirm = self.evaluator.evaluate(name, EvalSplit.CONFIRM.value, rec.confirm_val_ids)
+                confirm = self._timed_eval(name, EvalSplit.CONFIRM.value, rec.confirm_val_ids)
                 self._record_eval(rec, confirm, kind="confirm")
                 event["confirm_nmse"] = confirm.nmse
                 event["confirm_trajs"] = confirm.n_trajs
@@ -370,6 +392,7 @@ class Scheduler:
                                     gmean_mse=confirm.gmean_mse)):
                     # 4 条不通过 ⇒ 用更可信的 4-val 值当 scout 估计
                     rec.scout_nmse = confirm.nmse
+                    rec.scout_gmean_mse = confirm.gmean_mse
                     rec.set_status(TaskStatus.CANDIDATE, "scout 疑似达标但 4-val 确认未通过")
                     event["result"] = "confirm_failed"
                     return event
@@ -396,6 +419,25 @@ class Scheduler:
         rec.set_status(TaskStatus.CANDIDATE, "scout 未达标")
         event["result"] = "candidate"
         return event
+
+    def _candidate_priority(self, rec: TaskRecord) -> tuple:
+        """Rank by the *active* pass metric, not an unrelated NMSE.
+
+        GMean: candidate geometric MSE / per-task geometric PASS line. This
+        equals (candidate/reference)/200 when the table uses a common 200x
+        multiplier. It measures proximity, not guaranteed learnability.
+        Old NMSE/MSE modes preserve the previous NMSE ordering exactly.
+        """
+        if self.al.pass_metric != "gmean_mse":
+            return (rec.scout_nmse, rec.task_name)
+        _, threshold = pass_line(self.al, rec.task_name)
+        value = rec.scout_gmean_mse
+        if not (is_finite_metric(value) and threshold is not None
+                and is_finite_metric(threshold) and threshold > 0):
+            raise ValueError(
+                f"GMean priority missing valid Scout/threshold for {rec.task_name}; "
+                "refuse to silently fall back to NMSE")
+        return (float(value) / float(threshold), rec.task_name)
 
     # ---------------------------------------------------------------- #
     def _select(self) -> Dict[str, Any]:
@@ -438,8 +480,11 @@ class Scheduler:
                 return {"action": "finish", "stop_reason": st.stop_reason}
             cands = maintenance
 
-        pick = min(cands, key=lambda r: (r.scout_nmse, r.task_name))
+        pick = min(cands, key=self._candidate_priority)
         name = pick.task_name
+        if al.pass_metric == "gmean_mse" and self.logger is not None:
+            self.logger.log_metrics(st.global_step, "curriculum/selected_scout_pass_ratio",
+                                    self._candidate_priority(pick)[0])
         if name not in st.trained_tasks:
             st.trained_tasks.append(name)
         # 「新任务」= 第一次进入训练 **且** 此前从未 PASS 过（首次 attempt 才登记）
@@ -492,6 +537,14 @@ class Scheduler:
                 else "auto_learning/hardness_scan_seconds_steady",
                 round(_hardness_seconds, 3),
             )
+        # Hardness batch scorer reports CPU-side times separately. These are
+        # NOT CUDA event times; total synchronized scan time above is authoritative.
+        profile = getattr(self.scanner.scorer, "last_timing", None)
+        if self.logger is not None and isinstance(profile, dict):
+            for key in ("data_wall_seconds", "score_submit_seconds", "batches", "samples"):
+                value = profile.get(key)
+                if value is not None:
+                    self.logger.log_metrics(st.global_step, f"auto_learning/hardness_{key}", value)
         if self.logger is not None and hasattr(self.logger, "log_text"):
             self.logger.log_text(st.global_step, "curriculum/current_task_name", name)
         self.scans[name] = scan
@@ -503,6 +556,9 @@ class Scheduler:
             "task": name,
             "step": st.global_step,
             "scout_nmse": pick.scout_nmse,
+            "scout_gmean_mse": pick.scout_gmean_mse,
+            "scout_pass_ratio": (self._candidate_priority(pick)[0]
+                                  if al.pass_metric == "gmean_mse" else None),
             "attempt": pick.attempt_count,
             "round": st.round,
             "baseline_train_nmse": tm.nmse,
@@ -847,10 +903,11 @@ class Scheduler:
                 continue
             if only is not None and rec.task_name not in only:
                 continue
-            scout = self.evaluator.evaluate(
+            scout = self._timed_eval(
                 rec.task_name, EvalSplit.SCOUT.value, rec.scout_val_ids
             )
             rec.scout_nmse = scout.nmse
+            rec.scout_gmean_mse = scout.gmean_mse
             # 🔴 不能用裸的 `scout.metric_valid` —— 评测器可能把 metric_valid 置 True
             # 却给出 NaN/Inf。rescan 若把这种任务「重新洗白」回候选池，
             # 它就会带着 inf 进 `min(...)`（测试方案 §I01 抓出来的真 bug）。
@@ -874,7 +931,7 @@ class Scheduler:
             ):
                 accepted = scout
                 if al.scout_confirm_enabled:
-                    confirm = self.evaluator.evaluate(
+                    confirm = self._timed_eval(
                         rec.task_name, EvalSplit.CONFIRM.value, rec.confirm_val_ids
                     )
                     self._record_eval(rec, confirm, kind="rescan_confirm")
@@ -882,6 +939,14 @@ class Scheduler:
                     if not (confirm.metric_valid and is_finite_metric(confirm.nmse)
                             and is_pass(al, rec.task_name, nmse=confirm.nmse, mse=confirm.mse,
                                         gmean_mse=confirm.gmean_mse)):
+                        # Confirm disagrees with Scout: prioritize using the
+                        # most recent *confirmed* observation, as Bootstrap does.
+                        rec.scout_nmse = confirm.nmse
+                        rec.scout_gmean_mse = confirm.gmean_mse
+                        rec.metric_valid = (confirm.metric_valid
+                                            and is_finite_metric(confirm.nmse)
+                                            and (al.pass_metric != "gmean_mse"
+                                                 or is_finite_metric(confirm.gmean_mse)))
                         rows.append(row)
                         continue
                     accepted = confirm

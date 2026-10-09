@@ -90,6 +90,8 @@ class TaskRecord:
     #: rescan 里 `metric_valid` 会被重新洗白，而它不会 —— 通过线是配置层面的，与 scout 无关）。
     pass_line_usable: bool = True
     scout_nmse: Optional[float] = None
+    #: Same Scout evaluation, persisted for metric-aligned GMean priority / resume.
+    scout_gmean_mse: Optional[float] = None
     current_val_nmse: Optional[float] = None
     current_train_nmse: Optional[float] = None
     prev_val_nmse: Optional[float] = None
@@ -171,6 +173,7 @@ class TaskRecord:
             "attempt_step": self.attempt_step,
             "total_steps": self.total_task_steps,
             "scout_nmse": self.scout_nmse,
+            "scout_gmean_mse": self.scout_gmean_mse,
             "val_nmse": self.current_val_nmse,
             "val_mse": self.current_val_mse,
             "val_gmean_mse": self.current_val_gmean_mse,

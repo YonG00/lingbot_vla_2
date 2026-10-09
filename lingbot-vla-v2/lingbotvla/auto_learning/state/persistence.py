@@ -76,6 +76,10 @@ def config_fingerprint(al: Any, task_names: Sequence[str]) -> Dict[str, Any]:
                           or getattr(al, k, None) is not None}
     fp["task_names"] = list(task_names)
     if getattr(al, "pass_metric", "nmse") == "gmean_mse":
+        # Fresh GMean experiment controls how Scout can produce PASS. Changing
+        # Confirm behavior must invalidate exact resume, without touching legacy
+        # NMSE/MSE checkpoint fingerprints.
+        fp["gmean_scout_confirm_enabled"] = bool(getattr(al, "scout_confirm_enabled", True))
         # A same-path threshold rewrite must invalidate exact Resume: historical
         # PASS/DEFER/REOPEN semantics depend on the *contents*, not just its path.
         # Only for this new mode, so old NMSE/MSE DCP fingerprints stay identical.
