@@ -1455,22 +1455,18 @@ class OpenLoopValidator:
                 'eval batching 需要单卡或 DDP（参数复制）；'
                 f'当前 world_size={_world_size()}、data_parallel_mode='
                 f'{_data_parallel_mode(self.args)!r}（分片并行不支持）')
-        reserve = float(os.environ.get('AL_EVAL_BATCH_RESERVE_GIB', '10'))
-        if not (8.0 <= reserve <= 64.0):
-            raise ValueError('unsafe eval batch reserve')
-        #: 组批前要求「空闲 ≥ reserve + headroom」。原为硬编码 +12 ⇒ 在 **48G 多卡**上
-        #: （DDP 已占 ~26.5 GB，空闲≈21.4 GiB < 22 GiB）会把**每一组**都判成显存不足 ⇒
-        #: 批处理全程不生效（2026-10-09 2×4090 实测：`批处理 0 组 / 单条回退 N 组`）。
-        #: 现在改为可调、默认 4 GiB，并配合批内 OOM 的**该组单条回退**（见下）双保险。
-        headroom = float(os.environ.get('AL_EVAL_BATCH_HEADROOM_GIB', '4'))
-        if not (0.0 <= headroom <= 64.0):
-            raise ValueError('unsafe eval batch headroom')
+        # 🔴 **显存闸门已废除**（用户 2026-10-09 定："去掉闸门，没用"）。
+        #    历史教训：组批前 `free_before < reserve + 12`（=22 GiB 硬阈值）在 2×48G DDP 上
+        #    （模型已占 26.5 GB/卡、空闲 21.4 GiB）把**每一组**都判成"显存不足" ⇒ 批处理全程不生效；
+        #    而 96G 单卡空闲 ~50 GiB 时又形同虚设 —— 这种绝对阈值既拦不住真危险、又误伤正常配置。
+        #    真正的保护是**经验性的**：批内 OOM ⇒ 该组退回单条（见下），连续 2 次自动降批大小。
+        #    环境变量 `AL_EVAL_BATCH_RESERVE_GIB` / `AL_EVAL_BATCH_HEADROOM_GIB` 一并废弃（不再读取）。
         # ---- 批大小 = **训练的前向批大小**（2026-10-09 用户定案）----
         # 旧设计：`min(2, AL_EVAL_BATCH_MAX)` 硬顶 2，且必须先"探测（串行+批量对照）"通过才放行；
         # 而判据是 atol=1e-5/rtol=1e-3，对**任何**两次运行都不可达（模型自身非确定实测 3.1e-2）
         # ⇒ 生产里每组探测必然失败 ⇒ 全程串行，还每组白付一次批量前向（比串行慢约 52%）。
         # 现改为：**不做数值判定**，直接按训练批大小成组批处理；只保留机械安全阀
-        #（形状一致 / 显存余量 / 成组不足 2 条即单条）。
+        #（形状一致 / 成组不足 2 条即单条；**显存不再预判**，靠批内 OOM 回退）。
         batch_size = _eval_batch_size(self)
         _batch_groups = 0          # 真正走批处理的组数
         _unit_groups = 0           # 因成组条件不足而单条的组数
@@ -1481,7 +1477,7 @@ class OpenLoopValidator:
                                      'micro_batch_size', None), int) else 'fallback:8')
         self.logger.info_rank0(
             f'[open_loop][eval-batch] 评测批大小 = {batch_size}（来源 {_batch_source}；'
-            f'AL_EVAL_BATCH_MAX 可覆盖，reserve={reserve}GiB headroom={headroom}GiB）')
+            f'AL_EVAL_BATCH_MAX 可覆盖；**无显存闸门**，批内 OOM 自动退回单条）')
         _probe_group_dirs: List[str] = []
         pos = 0
         starts = list(starts)
@@ -1493,10 +1489,8 @@ class OpenLoopValidator:
             self._dump_prefix = None
             self._probe_recorder = None      # 每组重新开始：绝不把上一组的身份带到下一组
             self._probe_group_ids = None
-            free_before = torch.cuda.mem_get_info()[0]/1024**3
             if (take < 2 or not identical_tensor_shapes(
-                    inputs, ('images','img_masks','lang_tokens','lang_masks','state'))
-                    or free_before < reserve + headroom):
+                    inputs, ('images','img_masks','lang_tokens','lang_masks','state'))):
                 _unit_groups += 1
                 yield [(idx, it, self._infer_one(it, ft)) for idx, it in group]
                 continue
@@ -1523,13 +1517,6 @@ class OpenLoopValidator:
                     _unit_groups += 1
                     yield [(idx, it, self._infer_one(it, ft)) for idx, it in group]
                     continue
-                total = torch.cuda.mem_get_info()[1] / 1024**3
-                peak_free = min(torch.cuda.mem_get_info()[0] / 1024**3,
-                                total - torch.cuda.max_memory_reserved()/1024**3)
-                if peak_free < reserve:
-                    raise RuntimeError(
-                        f'eval batch peak VRAM headroom guard failed (peak_free={peak_free:.2f} GiB '
-                        f'< reserve={reserve} GiB) ⇒ 请下调 AL_EVAL_BATCH_MAX 或调大 reserve')
                 _batch_groups += 1
                 yield [(idx, it, pr) for (idx,it),pr in zip(group,batched)]
                 continue
@@ -1608,11 +1595,13 @@ class OpenLoopValidator:
                     append_json_record(_probe_out, {
                         'kind': 'eval_batch_probe', 'mode': mode, 'batch': int(take),
                         'atol': 1e-5, 'rtol': 1e-3, 'parity': bool(parity),
-                        'peak_free_gib': float(peak_free), 'reserve_gib': float(reserve),
+                        'peak_free_gib': float(peak_free), 'reserve_gib': None,   # 闸门已废除
                         'serial_seconds': float(serial_seconds), 'batch_seconds': float(batch_seconds),
                         'speedup': (float(serial_seconds) / float(batch_seconds)
                                     if batch_seconds > 0 else None),
-                        'safe': bool(peak_free >= reserve and parity),
+                        # `safe` 原本 = 显存余量够 且 数值 parity；**两者都已退出判定链**
+                        # （闸门废除 + 严格 parity 对模型自身抖动不可达）⇒ 如实记 None，不假装有结论。
+                        'safe': None,
                         'faster': bool(batch_seconds < serial_seconds),
                         'per_traj': _per_traj,
                         'action_keys': list(keys),

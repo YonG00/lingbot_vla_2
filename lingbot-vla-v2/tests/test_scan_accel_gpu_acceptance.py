@@ -201,12 +201,17 @@ def test_run_all_env_forces_batch_coverage_and_selftest_without_auto():
 
 def test_auto_has_no_numeric_gate_but_keeps_mechanical_guards(monkeypatch):
     """**2026-10-09 定案**：auto 不再做数值判定（门/探测退出判定链），评测批大小跟随训练；
-    只保留**机械守卫**（形状一致 / 显存余量 / 成组不足 2 条即单条），probe 仍保留对照。"""
+    机械约束只剩**正确性**两条（形状一致 / 成组不足 2 条即单条）。
+
+    **显存闸门也已废除**（同日用户定："去掉闸门，没用"）：原 `free_before < reserve + 12`
+    在 2×48G DDP 上把每组都判成不足（批处理全程不生效）、96G 上又形同虚设；
+    改为**经验性保护** —— 批内 OOM ⇒ 该组退回单条 + 连续 2 次自动降批大小。"""
     text = (Path(__file__).resolve().parents[1] /
             "lingbotvla/utils/open_loop_validation.py").read_text(encoding="utf-8")
     assert "_eval_batch_size" in text, "批大小必须来自训练配置"
     assert "if mode == 'auto':" in text, "auto 必须有不经判定的直接批处理分支"
-    assert "eval batch peak VRAM headroom guard failed" in text, "显存守卫必须保留"
+    assert "eval batch peak VRAM headroom guard failed" not in text, "显存闸门必须已废除"
+    assert "except torch.cuda.OutOfMemoryError as _oom:" in text, "OOM 回退（经验性保护）必须存在"
     assert "take < 2 or not identical_tensor_shapes" in text, "成组机械守卫必须保留"
     assert "outputs_close" in text and "AL_EVAL_BATCH_PROBE_DIR" in text, "probe 诊断对照必须保留"
     for gone in ("_stochastic_gate_ok", "verified_shapes", "AL_EVAL_BATCH_FORCE_COVERAGE",

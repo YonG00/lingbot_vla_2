@@ -275,14 +275,27 @@ def test_validator_unwraps_before_assigning_self_model():
 # ---------------------------------------------------------------------------
 # 48G 多卡上"批处理全程不生效"的根因（2026-10-09 2×4090 实测）
 # ---------------------------------------------------------------------------
-def test_vram_headroom_is_configurable_and_defaults_small():
-    """组批前的显存余量门槛必须是 `reserve + headroom`，且 headroom 可调、默认 4——
-    原来硬编码 +12 ⇒ 48G 多卡（已占 26.5GB、空闲 21.4GiB）会把**每组**都判成显存不足。"""
+def test_vram_gate_is_gone():
+    """**显存闸门已废除**（用户 2026-10-09 定："去掉闸门，没用"）。
+
+    历史：组批前 `free_before < reserve + 12`（22 GiB 硬阈值）在 2×48G DDP 上
+    （已占 26.5 GB、空闲 21.4 GiB）把**每一组**都判成不足 ⇒ 批处理全程不生效；
+    96G 单卡又形同虚设。真正的保护是**经验性的 OOM 回退**。
+    """
     src = SRC.read_text(encoding="utf-8")
-    assert "AL_EVAL_BATCH_HEADROOM_GIB" in src
-    assert "free_before < reserve + headroom" in src
-    assert "free_before < reserve + 12" not in src, "硬编码 +12 必须移除"
-    assert "unsafe eval batch headroom" in src, "headroom 也要做范围校验"
+    # ⚠️ 用**代码级锚点**：废弃说明的注释里会出现同名文字（这轮已踩三次），
+    #    裸子串断言会误判 ⇒ 一律断言"那行代码"不存在。
+    for gone in ("os.environ.get('AL_EVAL_BATCH_RESERVE_GIB'",
+                 "os.environ.get('AL_EVAL_BATCH_HEADROOM_GIB'",
+                 "free_before = torch.cuda.mem_get_info()",
+                 "or free_before < reserve",
+                 "eval batch peak VRAM headroom guard failed"):
+        assert gone not in src, f"{gone} 必须随闸门一起移除（只在废弃注释里提及是可以的）"
+    # （`reserve + 12` 这类字样只允许出现在"历史教训"注释里 ⇒ 不做裸子串断言）
+    # 机械守卫只剩两条**正确性**约束（不是数值/显存预判）
+    assert "take < 2 or not identical_tensor_shapes(" in src
+    # 且必须仍会记录"闸门已废除"这件事（避免以后有人又加回来）
+    assert "显存闸门已废除" in src
 
 
 def test_oom_falls_back_to_single_group():
