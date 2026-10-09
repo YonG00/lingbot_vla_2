@@ -75,6 +75,10 @@ def audit_thresholds(table_path: Path, baseline_path: Path, *, required_multipli
     return {"status": "READY" if not excluded else "BLOCKED", "n_tasks": len(expected),
             "usable": table.n_usable, "excluded_null": excluded, "baseline_capped_tasks": sorted(capped),
             "high_cv_warning_tasks": sorted(high_cv),
+            "zero_step_risk": (
+                "target_total_passed_tasks 在实验 YAML 中固定为 4；若 Bootstrap 阶段已解析出 >= 4 个 PASS，"
+                "调度器会 all_tasks_resolved 零训练步收工 ⇒ 本实验不产生任何优化步（不得擅自改 target；"
+                "应改为先看首轮评测的 PASS 名单再决定）"),
             "note": "priority is candidate/effective PASS threshold; baseline-cap makes it differ from candidate/(200*reference)",
             "multiplier": float(mul), "table_sha256": _sha(table_path),
             "baseline_sha256": _sha(baseline_path),

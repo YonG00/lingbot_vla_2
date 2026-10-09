@@ -80,3 +80,47 @@ def normalized_action_predictions(predictions: Sequence[dict], action_keys: Sequ
             item[key] = value
         out.append(item)
     return out
+
+
+def action_diffs(ref, cand):
+    """逐元素比较两组已归一化动作，返回 (max_abs_diff, mean_abs_diff)；不可比 ⇒ (None, None)。"""
+    try:
+        a = [float(x) for x in _flatten(ref)]
+        b = [float(x) for x in _flatten(cand)]
+    except Exception:
+        return (None, None)
+    if not a or len(a) != len(b):
+        return (None, None)
+    d = [abs(x - y) for x, y in zip(a, b)]
+    return (max(d), sum(d) / len(d))
+
+
+def _flatten(obj):
+    import numpy as _np
+    if obj is None:
+        return []
+    if hasattr(obj, "detach"):
+        obj = obj.detach().cpu().numpy()
+    arr = _np.asarray(obj).reshape(-1)
+    return arr.tolist()
+
+
+def append_json_record(path, record) -> str:
+    """把一条记录并入 JSON 报告文件（不存在则创建；顶层为 {"records": [...]}）。"""
+    import json as _json
+    import os as _os
+    data = {"records": []}
+    if _os.path.exists(path):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                loaded = _json.load(fh)
+            if isinstance(loaded, dict) and isinstance(loaded.get("records"), list):
+                data = loaded
+        except Exception:
+            data = {"records": []}
+    data["records"].append(record)
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        _json.dump(data, fh, ensure_ascii=False, sort_keys=True, indent=1)
+    _os.replace(tmp, path)
+    return path

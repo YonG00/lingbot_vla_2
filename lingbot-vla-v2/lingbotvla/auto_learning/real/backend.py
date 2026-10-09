@@ -94,7 +94,8 @@ class RealHardnessScorer:
     def __init__(self, scorer: Any, dataset: Any, *, max_batch: int = 8, logger: Any = None):
         self.scorer = scorer
         self.dataset = dataset
-        self.max_batch = int(max_batch)
+        # 验收用：fixed 模式下可用 AL_HARDNESS_FIXED_BATCH 覆盖每批样本数（默认仍 8）。
+        self.max_batch = int(os.environ.get('AL_HARDNESS_FIXED_BATCH', max_batch))
         self.logger = logger
         self._aug_warned = False
         self._auto_batch = None
@@ -131,7 +132,8 @@ class RealHardnessScorer:
             chunk = ids[i:i + batch_size]
             i += len(chunk)
             gpu_before = gpu_reserved_before = None
-            if self._auto_batch is not None:
+            _hr_out = os.environ.get('AL_HARDNESS_REPORT_OUT')
+            if self._auto_batch is not None or _hr_out:
                 try:
                     import torch
                     if torch.cuda.is_available():
@@ -173,6 +175,31 @@ class RealHardnessScorer:
                                          free_after_gib=gpu_after, processed=len(chunk))
             for sid, v in zip(chunk, vals):
                 out[sid] = float(v)
+                if _hr_out:
+                    try:
+                        from ..scan_accel import append_json_record
+                        _pf = None
+                        if gpu_before is not None:
+                            try:
+                                import torch as _torch
+                                _extra = max(0.0, _torch.cuda.max_memory_reserved() / (1024 ** 3) - gpu_reserved_before)
+                                _pf = min(_torch.cuda.mem_get_info()[0] / (1024 ** 3), gpu_before - _extra)
+                            except Exception:
+                                _pf = gpu_before
+                        append_json_record(_hr_out, {
+                            'kind': 'hardness_scan', 'task': str(task),
+                            'batch': int(len(chunk)),
+                            'sample_ids': [int(s) for s in chunk],
+                            'losses': {int(s): float(out[int(s)]) for s in chunk},
+                            'free_before_gib': (None if gpu_before is None else float(gpu_before)),
+                            'peak_free_gib': (None if _pf is None else float(_pf)),
+                        })
+                    except Exception as _exc:  # noqa: BLE001
+                        if self.logger is not None:
+                            try:
+                                self.logger.warning(f'[hardness] report write failed: {_exc!r}')
+                            except Exception:
+                                pass
         self.last_timing = {"data_wall_seconds": round(data_seconds, 5),
                             "score_submit_seconds": round(score_seconds, 5),
                             "batches": batches, "samples": len(ids),

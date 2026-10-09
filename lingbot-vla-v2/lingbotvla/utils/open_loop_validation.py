@@ -1160,6 +1160,31 @@ class OpenLoopValidator:
                     normalized_action_predictions(batched,keys),atol=1e-5,rtol=1e-3)
             except (KeyError,TypeError,ValueError,IndexError):
                 parity = False
+            # 验收用：把本次 probe 的真实数值/显存/吞吐写成机器可读 JSON（默认关闭，不影响行为）。
+            _probe_out = os.environ.get('AL_EVAL_BATCH_PROBE_OUT')
+            if _probe_out:
+                try:
+                    _per_traj = []
+                    for _i, (_idx, _it) in enumerate(group):
+                        _mx, _mean = action_diffs(
+                            normalized_action_predictions([serial[_i]], keys),
+                            normalized_action_predictions([batched[_i]], keys))
+                        _per_traj.append({'dataset_index': int(_idx), 'max_abs_diff': _mx,
+                                         'mean_abs_diff': _mean})
+                    append_json_record(_probe_out, {
+                        'kind': 'eval_batch_probe', 'mode': mode, 'batch': int(take),
+                        'atol': 1e-5, 'rtol': 1e-3, 'parity': bool(parity),
+                        'peak_free_gib': float(peak_free), 'reserve_gib': float(reserve),
+                        'serial_seconds': float(serial_seconds), 'batch_seconds': float(batch_seconds),
+                        'speedup': (float(serial_seconds) / float(batch_seconds)
+                                    if batch_seconds > 0 else None),
+                        'safe': bool(peak_free >= reserve and parity),
+                        'faster': bool(batch_seconds < serial_seconds),
+                        'per_traj': _per_traj,
+                        'action_keys': list(keys),
+                    })
+                except Exception as _exc:  # noqa: BLE001
+                    self.logger.info_rank0(f'[open_loop][eval-batch] probe report failed: {_exc!r}')
             safe = peak_free >= reserve and parity
             faster = batch_seconds < serial_seconds  # batch must be worth adopting
             self.logger.info_rank0(f'[open_loop][eval-batch] mode={mode} batch={take} '
