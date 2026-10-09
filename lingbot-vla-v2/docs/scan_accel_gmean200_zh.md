@@ -2,6 +2,10 @@
 
 基于用户上传的 Git HEAD `2650590` 并先叠加前一轮 GMean 200× 选课补丁；**原 NMSE 正式配置不修改**。
 
+> **开 `AL_EVAL_BATCH_MODE=auto` 前必读**：本模式要求通过**随机性验收**（模型自身非确定，
+> strict parity 恒不可达）。步骤与门控见 `docs/eval_batch_auto_gate_guide.md`；
+> 缺 `AL_EVAL_BATCH_STOCHASTIC_APPROVED=<gate.json>` 时门不开、自动退化为串行。
+
 ## 实现边界
 
 1. **多轨迹批量开环推理（已接生产代码但未 GPU 验证）**：`OpenLoopValidator._infer_batch` 把同形状 item 的图像、mask、文本、state 按 batch 维组装，**为每条 chunk 逐次产生单样本噪声**，一次调用真实 `model.sample_actions`，拆分后用原 `ft.unapply` 回到物理 action 空间。`_infer_one` 语义不变，`aggregate_chunks` 不变。第一次遇到每个 batch/输入形状都要和串行输出比较，并测量 peak VRAM 与耗时。`probe` 只产生原串行指标；`auto` 仅在 `AL_EVAL_BATCH_APPROVED=1` 且该批次形状在本次 eval 已通过实时 parity/显存/吞吐检查后，才使用 batched 预测。多卡 FSDP 不支持。
