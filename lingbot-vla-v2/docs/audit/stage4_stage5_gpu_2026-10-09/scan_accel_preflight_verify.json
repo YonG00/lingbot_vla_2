@@ -1,0 +1,13 @@
+{
+  "status": "READY",
+  "task": "50-task GMean200 scan acceleration",
+  "checkpoint": "/data/outputs/single/click_bell/checkpoints/global_step_500/hf_ckpt",
+  "eval_mode": "serial",
+  "hardness_mode": "fixed",
+  "scout_cache_mode": "off",
+  "note": "Serial is unchanged by default. Probe never affects PASS. Auto must not be enabled before real GPU parity approval.",
+  "provenance_sha256": "a09e194d792652b4b682aa510b7c5be557a83486de26285e15fbc90093ea13fe",
+  "weight_shards": 6,
+  "cache_namespace": null,
+  "proof": "SHA256 of raw checkpoint shard bytes + code + norm + split + thresholds + baseline"
+}
