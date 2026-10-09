@@ -83,8 +83,14 @@ def normalized_action_predictions(predictions: Sequence[dict], action_keys: Sequ
 
 
 def action_diffs(ref, cand):
-    """逐元素比较两组已归一化动作，返回 (max_abs_diff, mean_abs_diff)；不可比 ⇒ (None, None)。"""
+    """逐元素比较两组已归一化动作，返回 (max_abs_diff, mean_abs_diff)；不可比 ⇒ (None, None)。
+
+    结构不匹配（key 集合/层级不同）⇒ 直接 (None, None)：数值相同也不算可比。
+    """
     try:
+        from .eval_batch_policy import same_structure as _ss
+        if not _ss(ref, cand):
+            return (None, None)
         a = [float(x) for x in _flatten(ref)]
         b = [float(x) for x in _flatten(cand)]
     except Exception:

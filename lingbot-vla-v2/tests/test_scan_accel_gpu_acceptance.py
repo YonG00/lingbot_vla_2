@@ -259,3 +259,24 @@ def test_parity_comparison_actually_compares_normalized_predictions():
     mx, mean = action_diffs(na, nc)
     assert mx is not None and abs(mx - 1e-2) < 1e-6, (mx, mean)  # 差值可见且量级正确
     assert mean is not None and 0 < mean < mx
+
+
+def test_structure_mismatch_never_passes_even_with_equal_numbers():
+    """用户 2026-10-09 要求的反例：key/层级不匹配不得因数值相同而判 parity=True。"""
+    from lingbotvla.auto_learning.eval_batch_policy import outputs_close, same_structure
+    from lingbotvla.auto_learning.scan_accel import action_diffs
+
+    a = [{"x": [1.0, 2.0]}]
+    b = [{"y": [1.0, 2.0]}]                     # key 名不同、数值相同 ⇒ 必须 False
+    assert same_structure(a, b) is False
+    assert outputs_close(a, b, atol=1e-5, rtol=1e-3) is False
+    assert action_diffs(a, b) == (None, None)
+
+    c = [{"x": [[1.0], [2.0]]}]                 # 层级不同、数值序列相同 ⇒ 必须 False
+    assert outputs_close(a, c, atol=1e-5, rtol=1e-3) is False
+    assert action_diffs(a, c) == (None, None)
+
+    d = [{"x": [1.0, 2.0], "z": [3.0]}]         # key 集合不同 ⇒ 必须 False
+    assert outputs_close(a, d, atol=1e-5, rtol=1e-3) is False
+
+    assert outputs_close(a, [{"x": [1.0, 2.0]}], atol=1e-5, rtol=1e-3) is True   # 完全相同 ⇒ True

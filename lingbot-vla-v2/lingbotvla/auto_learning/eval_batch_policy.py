@@ -63,8 +63,29 @@ def _flatten_numbers(obj: Any) -> list[float]:
     raise ValueError(f'unsupported prediction type {type(obj)!r}; cannot prove parity')
 
 
+def same_structure(a, b) -> bool:
+    """数值比较前的**结构守卫**：dict 的 key 集合与嵌套层级必须一致。
+
+    仅按数值打平会让 {"x":[1,2]} 与 {"y":[1,2]} 判成相等 ⇒ **假 PASS**。
+    （用户 2026-10-09 要求的反例：key/层级不匹配不得因数值相同而通过。）
+    """
+    if isinstance(a, dict) or isinstance(b, dict):
+        if not (isinstance(a, dict) and isinstance(b, dict)):
+            return False
+        if sorted(a) != sorted(b):
+            return False
+        return all(same_structure(a[k], b[k]) for k in a)
+    if isinstance(a, (list, tuple)) or isinstance(b, (list, tuple)):
+        if not (isinstance(a, (list, tuple)) and isinstance(b, (list, tuple))):
+            return False
+        return len(a) == len(b) and all(same_structure(x, y) for x, y in zip(a, b))
+    return True
+
+
 def outputs_close(ref:Sequence, candidate:Sequence, *, atol:float,rtol:float) -> bool:
     if len(ref)!=len(candidate):
+        return False
+    if not same_structure(ref, candidate):
         return False
     try:
         for a,b in zip(ref,candidate):
