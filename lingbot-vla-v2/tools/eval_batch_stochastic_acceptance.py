@@ -135,14 +135,39 @@ def _infer(validator, items: Sequence[Dict[str, Any]], ft, *, batch: int,
     t0 = time.perf_counter()
     with torch.inference_mode():
         if batch == 1:
-            preds = [validator._infer_core((it,), ft, fresh_visual_grid=False,
-                                           noise=noise[i:i + 1]) for i, it in enumerate(items)]
+            # ⚠️ `_infer_core` 返回的是 **list[dict]**（单条时也是长度 1 的 list）⇒ 必须展开，
+            #    否则拿到的 preds 是 [[dict]]，`p["actions"]` 会炸
+            #    （2026-10-09 GPU 首跑实测：TypeError: list indices must be integers or slices, not str）
+            preds = []
+            for i, it in enumerate(items):
+                preds.extend(validator._infer_core((it,), ft, fresh_visual_grid=False,
+                                                   noise=noise[i:i + 1]))
         else:
-            preds = validator._infer_batch(list(items), ft, noise=noise)
+            preds = list(validator._infer_batch(list(items), ft, noise=noise))
     if torch.cuda.is_available():
         torch.cuda.synchronize()
     return preds, time.perf_counter() - t0
 
+
+def _pred_array(pred: Dict[str, Any]) -> np.ndarray:
+    """把一条预测里的**所有浮点数组**按 key 排序打平成一个 1-D 数组。
+
+    ⚠️ **不要假设存在 `"actions"` 键**：真实 `ft.unapply()` 返回的是物理量键
+    （`action.arm.position` 之类），2026-10-09 GPU 实测 `p["actions"]` ⇒ `KeyError: 'actions'`。
+    按 key 排序保证两条路径取出**同一顺序**的元素，逐位/统计比较才有意义。
+    """
+    parts: List[np.ndarray] = []
+    for key in sorted(pred):
+        value = pred[key]
+        if hasattr(value, "detach"):
+            value = value.detach().float().cpu().numpy()
+        arr = np.asarray(value)
+        if arr.dtype.kind not in "fc":
+            continue
+        parts.append(arr.astype(np.float64).reshape(-1))
+    if not parts:
+        raise ValueError("预测里没有任何浮点数组（期望物理量动作）")
+    return np.concatenate(parts)
 
 def _numeric_level(validator, items, ft, *, reps: int, noise_base: torch.Tensor,
                    log) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
@@ -160,12 +185,12 @@ def _numeric_level(validator, items, ft, *, reps: int, noise_base: torch.Tensor,
                 preds, secs = _infer(validator, items, ft, batch=1,
                                      noise=noise_base.clone())
                 t["batch1"] += secs
-                b1_runs.append(np.stack([np.asarray(p["actions"], np.float64) for p in preds]))
+                b1_runs.append(np.stack([_pred_array(p) for p in preds]))
             else:
                 preds, secs = _infer(validator, items, ft, batch=len(items),
                                      noise=noise_base.clone())
                 t["batch2"] += secs
-                b2_runs.append(np.stack([np.asarray(p["actions"], np.float64) for p in preds]))
+                b2_runs.append(np.stack([_pred_array(p) for p in preds]))
         log(f"  rep {r + 1}/{reps} 完成（顺序 {order}；B1 累计 {t['batch1']:.2f}s / "
             f"B2 累计 {t['batch2']:.2f}s）")
     numeric = sp.decide_numeric(b1_runs=b1_runs, b2_runs=b2_runs, reps=reps)
@@ -335,6 +360,131 @@ def execute(a: argparse.Namespace) -> int:
     return 0 if verdict["status"] == "PASS" else 2
 
 
+# ---------------------------------------------------------------------------
+# CPU 端整链自测（--selftest）：用 stub 走完数值层 + 指标层
+# ---------------------------------------------------------------------------
+class _StubValidator:
+    """只实现被用到的接口；返回结构与**生产契约一致**（list[dict]、物理量键）。"""
+
+    def __init__(self, *, jitter: float = 1e-4, seed: int = 0):
+        self._rng = np.random.default_rng(seed)
+        self._jitter = jitter
+        self.calls: List[str] = []
+        self.device = torch.device("cpu")
+        self._model_config = types.SimpleNamespace(chunk_size=2, n_action_steps=2,
+                                                   max_action_dim=3, action_fp32=False)
+
+    def _one(self, noise_row):
+        j = self._rng.normal(0.0, self._jitter, size=(2, 3))
+        return {"action.arm.position": (np.asarray(noise_row, np.float64)[:2, :3] + j).astype(np.float32),
+                "action.gripper": np.asarray(noise_row, np.float64)[:2, :1].astype(np.float32)}
+
+    def _infer_core(self, items, ft, *, fresh_visual_grid, noise):
+        self.calls.append("core")
+        return [self._one(noise[i]) for i in range(len(items))]
+
+    def _infer_batch(self, items, ft, *, noise):
+        self.calls.append("batch")
+        return [self._one(noise[i]) for i in range(len(items))]
+
+
+class _StubDataset:
+    def __init__(self, n: int):
+        self._items = [{"images": torch.zeros(1, 3, 4, 4), "img_masks": torch.ones(1),
+                        "lang_tokens": torch.tensor([1]), "lang_masks": torch.ones(1),
+                        "state": torch.zeros(1), "image_grid_thw": torch.tensor([[1, 4, 4]])}
+                       for _ in range(n)]
+
+    def __len__(self):
+        return len(self._items)
+
+    def __getitem__(self, i):
+        return dict(self._items[i])
+
+
+class _StubFT:
+    def unapply(self, item):
+        return {"action.arm.position": np.zeros((2, 3), np.float32),
+                "action.gripper": np.zeros((2, 1), np.float32)}
+
+
+def selftest() -> int:
+    """**CPU 端整链自测**：用 stub 走完 `_numeric_level` + `_metric_level` + 总判定。
+
+    为什么必须有（2026-10-09 两次 GPU 试跑的血账）：
+      * `_infer_core` 返回 **list[dict]**（单条也是长度 1 的 list）⇒ 当 dict 用就炸；
+      * 真实 `ft.unapply()` **不含 `"actions"` 键**（是物理量键）⇒ 硬编码键名就炸。
+    两者都能在 CPU 上 1 秒暴露 ⇒ 以后**每次改这条路都必须先跑本自测**，再上 GPU。
+    """
+    import types as _types
+    mod = _types.ModuleType("lingbotvla.utils.open_loop_validation")
+
+    def _per_episode_starts(ep_map, stride):
+        return [0, 2]
+
+    def _pick_action_keys(ft, gt, pred):
+        return sorted(set(gt) & set(pred))
+
+    def _aggregate_chunks(chunks):
+        per, ids, frames = [], [], []
+        for ep, gt, pr in chunks:
+            per.append(float(np.mean((np.asarray(gt, np.float64) - np.asarray(pr, np.float64)) ** 2)))
+            ids.append(ep)
+            frames.append(len(gt))
+        return {"per_traj_mse": per, "per_traj_ids": ids, "per_traj_frames": frames, "n": len(per)}
+
+    mod.per_episode_starts = _per_episode_starts
+    mod.pick_action_keys = _pick_action_keys
+    mod.aggregate_chunks = _aggregate_chunks
+    saved = sys.modules.get("lingbotvla.utils.open_loop_validation")
+    sys.modules["lingbotvla.utils.open_loop_validation"] = mod      # 仅自测进程内替换（绕开 torchdata）
+
+    problems: List[str] = []
+    try:
+        v, ft, ds = _StubValidator(), _StubFT(), _StubDataset(4)
+        items = [ds[0], ds[2]]
+        noise_base = torch.zeros(2, 2, 3)
+        print("[selftest] 数值层 ……")
+        numeric, throughput, raw = _numeric_level(v, items, ft, reps=5, noise_base=noise_base,
+                                                  log=lambda m: None)
+        assert numeric["status"] in ("PASS", "BLOCKED"), numeric
+        for k in ("within_batch1", "within_batch2", "cross_batch1_batch2", "bias_pvalue"):
+            if k not in numeric:
+                problems.append(f"numeric_missing:{k}")
+        if raw["batch1"].shape[0] != 5 or raw["batch2"].shape[0] != 5:
+            problems.append("numeric_rep_count_wrong")
+        if "warmup_seconds" not in throughput:
+            problems.append("throughput_missing_warmup")
+
+        print("[selftest] 指标层 ……")
+        metric = _metric_level(v, ds, ft, [7, 7, 8, 8], reps=5,
+                               noise_all=torch.zeros(4, 2, 3), threshold=0.01,
+                               log=lambda m: None, max_episodes=2)
+        for k in ("batch1", "batch2", "threshold"):
+            if k not in metric:
+                problems.append(f"metric_missing:{k}")
+        print("[selftest] 总判定 ……")
+        verdict = sp.overall_verdict(numeric=numeric, metric=metric, throughput=throughput)
+        print(f"[selftest] numeric={numeric['status']} metric={metric['status']} "
+              f"verdict={verdict['status']} reasons={verdict['reasons']}")
+        if verdict["status"] not in ("PASS", "BLOCKED"):
+            problems.append("verdict_bad_status")
+    except Exception as exc:  # noqa: BLE001
+        problems.append(f"selftest_exception:{type(exc).__name__}:{exc}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        if saved is not None:
+            sys.modules["lingbotvla.utils.open_loop_validation"] = saved
+        else:
+            sys.modules.pop("lingbotvla.utils.open_loop_validation", None)
+
+    if problems:
+        print("[selftest] ❌ FAIL: " + "; ".join(problems))
+        return 2
+    print("[selftest] ✅ 整链结构与契约自测通过（数值层 + 指标层 + 总判定）")
+    return 0
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(description="Eval Batch 随机性验收（默认 PLAN ONLY）")
     ap.add_argument("--ckpt", default=DEFAULT_CKPT)
@@ -353,11 +503,15 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--no-metric-level", dest="metric_level", action="store_false", default=True,
                     help="跳过指标层（注意：跳过 ⇒ 总判定必然 BLOCKED）")
     ap.add_argument("--execute", action="store_true")
+    ap.add_argument("--selftest", action="store_true",
+                    help="CPU 端整链自测（stub 走完数值层+指标层；上 GPU 前必跑）")
     return ap
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     a = build_parser().parse_args(argv)
+    if a.selftest:
+        return selftest()
     return execute(a) if a.execute else plan(a)
 
 

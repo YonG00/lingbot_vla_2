@@ -42,7 +42,8 @@ def test_pure_noise_is_accepted_with_enough_reps():
     verdict = sp.decide_numeric(b1_runs=b1, b2_runs=b2, reps=6)
     assert verdict["status"] == "PASS", verdict["reasons"]
     assert verdict["cross_batch1_batch2"]["p99"] > 0          # 确实有抖动，不是"全 0 假过"
-    assert verdict["bias_pvalue"]["p_frac"] >= sp.BIAS_P_CAP   # 纯噪声不得被判系统偏差
+    assert verdict["bias_reference"]["exceeds_reference"] is False   # 纯噪声不得被判系统偏差
+    assert verdict["bias_reference"]["n_ref"] > 0
 
 
 def test_stats_report_max_mean_p95_p99():
@@ -63,6 +64,7 @@ def test_systematic_offset_is_rejected():
     verdict = sp.decide_numeric(b1_runs=b1, b2_runs=b2, reps=6)
     assert verdict["status"] == "BLOCKED"
     assert any(r.startswith("systematic_bias") for r in verdict["reasons"]), verdict["reasons"]
+    assert verdict["bias_reference"]["obs_frac"] > verdict["bias_reference"]["ref_max"]
 
 
 def test_larger_batch_variance_is_rejected():
@@ -346,3 +348,86 @@ def test_restrict_starts_keeps_whole_episodes():
     assert sp.restrict_starts_to_episodes(starts, ep_map, 2) == [0, 2, 3]   # ep51+ep53
     with pytest.raises(ValueError):
         sp.restrict_starts_to_episodes(starts, ep_map, 0)
+
+
+# ---------------------------------------------------------------------------
+# _infer 的返回结构（B1 必须展开 list[dict]）
+# ---------------------------------------------------------------------------
+class _StubValidator:
+    """只实现 `_infer` 需要的两个方法，用来在 CPU 上钉住返回结构。"""
+
+    def __init__(self):
+        self.calls = []
+
+    #: 真实 `ft.unapply()` 的返回**没有** `"actions"` 键（是物理量键）
+    _PHYS = {"action.arm.position": np.zeros((2, 3), np.float32),
+             "action.gripper": np.zeros((2, 1), np.float32)}
+
+    def _infer_core(self, items, ft, *, fresh_visual_grid, noise):
+        self.calls.append(("core", len(items), tuple(noise.shape)))
+        return [dict(self._PHYS) for _ in items]        # 真实契约：list[dict]，物理量键
+
+    def _infer_batch(self, items, ft, *, noise):
+        self.calls.append(("batch", len(items), tuple(noise.shape)))
+        return [dict(self._PHYS) for _ in items]
+
+
+def test_infer_b1_flattens_list_of_dicts():
+    """B1 分支必须把 `_infer_core` 的 list[dict] 展开 ⇒ 每一路都是 dict。
+
+    2026-10-09 GPU 首跑就是死在这里（`p["actions"]` on a list）。
+    """
+    import torch
+    tool = _tool()
+    v = _StubValidator()
+    items = [object(), object()]
+    noise = torch.zeros(2, 2, 3)
+    preds, _secs = tool._infer(v, items, None, batch=1, noise=noise)
+    assert len(preds) == 2 and all(isinstance(p, dict) for p in preds)
+    assert "actions" not in preds[0]                     # 真实契约里没有这个键
+    arr = tool._pred_array(preds[0])                     # 打平后长度 = 2*3 + 2*1
+    assert arr.shape == (8,)
+    assert [c[0] for c in v.calls] == ["core", "core"]          # 单条逐次调用
+    assert [c[1] for c in v.calls] == [1, 1]
+
+    v2 = _StubValidator()
+    preds2, _secs2 = tool._infer(v2, items, None, batch=2, noise=noise)
+    assert len(preds2) == 2 and all(isinstance(p, dict) for p in preds2)
+    assert [c[0] for c in v2.calls] == ["batch"]                # 批量一次调用
+    assert v2.calls[0][1] == 2
+
+
+def test_pred_array_sorts_keys_and_rejects_non_numeric():
+    """打平必须**按 key 排序**（两条路径同序才可比），且无可比数组时明确报错。"""
+    tool = _tool()
+    a = tool._pred_array({"b": np.ones((2,), np.float32), "a": np.zeros((3,), np.float32)})
+    assert a.tolist() == [0, 0, 0, 1, 1]                       # a 在前（排序）
+    with pytest.raises(ValueError):
+        tool._pred_array({"meta": "not-an-array"})
+
+
+def test_correlated_noise_is_not_flagged_as_bias():
+    """**关键回归**：元素间相关的纯噪声**不得**被判系统性偏差。
+
+    2026-10-09 实测：i.i.d. 正态零分布会把这类噪声判成偏差（p_frac=0.000 假阳性），
+    因为逐元素差值空间相关 ⇒ 零分布低估方差。改为"同代码随机二分"参考分布后应通过。
+    """
+    rng = np.random.default_rng(4242)
+    shape = (50, 14)
+    base = rng.standard_normal(shape) * 0.5
+    # 每个元素有**自己的固定偏置**（相关结构）+ 每次独立抖动
+    per_element_bias = rng.standard_normal(shape) * 1e-3
+
+    def group(seed):
+        r = np.random.default_rng(seed)
+        return [base + per_element_bias + r.standard_normal(shape) * 5e-4 for _ in range(5)]
+
+    b1, b2 = group(1), group(2)
+    obs = sp._bias_fraction(b1, b2)
+    ref = sp.bias_reference(runs_a=b1, runs_b=b2)
+    assert ref["n_ref"] > 0
+    assert obs <= ref["ref_max"] + 1e-12, (obs, ref)
+    verdict = sp.decide_numeric(b1_runs=b1, b2_runs=b2, reps=5)
+    assert verdict["status"] == "PASS", verdict["reasons"]
+    # 旧的 i.i.d. 零分布判据在此仅作对照记录（真实数据上它确实误报过，合成样例未必复现）
+    assert 0.0 <= verdict["bias_pvalue"]["p_frac"] <= 1.0

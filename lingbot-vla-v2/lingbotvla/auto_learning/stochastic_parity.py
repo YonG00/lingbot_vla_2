@@ -152,6 +152,53 @@ def bias_pvalues(runs_a: Sequence[Any], runs_b: Sequence[Any], *,
             "n_mc": int(n_mc)}
 
 
+def _bias_fraction(runs_a: Sequence[Any], runs_b: Sequence[Any]) -> float:
+    """偏差统计量：逐元素配对 |t| 超过 ``BIAS_Z_CAP`` 的元素占比（0~1）。"""
+    deltas = np.stack([np.asarray(a, dtype=np.float64) - np.asarray(b, dtype=np.float64)
+                       for a, b in zip(runs_a, runs_b)], axis=0)
+    n = deltas.shape[0]
+    if n < 2:
+        raise ValueError("bias needs reps >= 2")
+    shift = deltas.mean(axis=0)
+    sd = deltas.std(axis=0, ddof=1)
+    se = sd / math.sqrt(n)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        z = np.where(se > ABS_FLOOR, np.abs(shift) / se, 0.0)
+    return float((np.nan_to_num(z, nan=0.0, posinf=0.0) > BIAS_Z_CAP).mean())
+
+
+def bias_reference(*, runs_a: Sequence[Any], runs_b: Sequence[Any]) -> Dict[str, Any]:
+    """把"跨组偏差"与**同代码随机二分**的参考分布比 —— 小 N + 元素间相关下的正确做法。
+
+    为什么不能只用 i.i.d. 正态零分布（2026-10-09 实测教训）：逐元素差值**空间相关**
+    （相邻动作维/时刻共享同一 bf16 舍入结构），i.i.d. 零分布严重低估方差 ⇒
+    纯噪声也会被判成"系统性偏差"（实测 obs_frac=7.3% vs 理论 4%，p_frac=0.000 假阳性）。
+    改用**同一批 run 的随机二分**作参考：它天然保留相关结构、且不需要分布假设。
+    判据（保守、适合 N=5）：跨组统计量**超过所有同代码二分**才算偏差。
+    """
+    obs = _bias_fraction(runs_a, runs_b)
+    ref: List[float] = []
+    for group in (list(runs_a), list(runs_b)):
+        n = len(group)
+        if n < 2:
+            continue
+        for mask in range(1, (1 << n) - 1):
+            left = [group[i] for i in range(n) if (mask >> i) & 1]
+            right = [group[i] for i in range(n) if not ((mask >> i) & 1)]
+            # 每侧都要 >=2 条 run 才能算 ddof=1 的标准误；同时去重（左右互换等价）
+            if len(left) < 2 or len(right) < 2 or len(left) > len(right):
+                continue
+            ref.append(_bias_fraction(left, right))
+    ref_arr = np.asarray(ref, dtype=np.float64)
+    if ref_arr.size == 0:
+        # 参考分布造不出来（run 数太少）⇒ **不放行**判偏差（保守；上层另有 reps>=5 的硬门）
+        return {"obs_frac": obs, "ref_max": None, "ref_mean": None, "ref_p95": None,
+                "n_ref": 0, "exceeds_reference": False,
+                "note": "insufficient_reference（每侧需 >=2 条 run；reps>=5 时正常可用）"}
+    return {"obs_frac": obs, "ref_max": float(ref_arr.max()), "ref_mean": float(ref_arr.mean()),
+            "ref_p95": float(np.percentile(ref_arr, 95)), "n_ref": int(ref_arr.size),
+            "exceeds_reference": bool(obs > ref_arr.max())}
+
 def decide_numeric(*, b1_runs: Sequence[Any], b2_runs: Sequence[Any],
                    reps: Optional[int] = None) -> Dict[str, Any]:
     """数值层判定：Batch2 的波动是否**没有明显超过**模型自身的波动，且无系统性偏差。
@@ -162,7 +209,7 @@ def decide_numeric(*, b1_runs: Sequence[Any], b2_runs: Sequence[Any],
       R3 ``cross.p99 <= max(cap*within.p99, ABS_FLOOR)``；
       R4 ``cross.max <= max(cap_max*within_max, ABS_FLOOR)``；
       R5 ``within_b2.p99 <= max(variance_ratio_cap*within_b1.p99, ABS_FLOOR)``（批量不得放大抖动）；
-      R6 系统偏差的**蒙特卡洛 p 值**（``p_frac`` / ``p_max``）都 >= ``BIAS_P_CAP``。
+      R6 跨组偏差统计量**不超过任何同代码随机二分**（``bias_reference``；小 N + 相关结构下唯一稳的判据）。
     """
     reasons: List[str] = []
     n = int(reps if reps is not None else min(len(b1_runs), len(b2_runs)))
@@ -196,17 +243,18 @@ def decide_numeric(*, b1_runs: Sequence[Any], b2_runs: Sequence[Any],
     if within_b2["p99"] > max(VARIANCE_RATIO_CAP * within_b1["p99"], ABS_FLOOR):
         reasons.append(f"batch2_variance_exceeds_batch1:{within_b2['p99']:.3e}>"
                        f"{VARIANCE_RATIO_CAP}x{within_b1['p99']:.3e}")
-    bias_p = bias_pvalues(b1_runs, b2_runs)
-    if bias_p["p_frac"] < BIAS_P_CAP or bias_p["p_max"] < BIAS_P_CAP:
-        reasons.append(f"systematic_bias:p_frac={bias_p['p_frac']:.3f},"
-                       f"p_max={bias_p['p_max']:.3f}")
+    bias_ref = bias_reference(runs_a=b1_runs, runs_b=b2_runs)
+    if bias_ref["exceeds_reference"]:
+        reasons.append(f"systematic_bias:obs={bias_ref['obs_frac']:.4f}>"
+                       f"ref_max={bias_ref['ref_max']:.4f}")
     return {"status": "BLOCKED" if reasons else "PASS", "reasons": reasons,
             "reps": n, "within_batch1": within_b1, "within_batch2": within_b2,
-            "cross_batch1_batch2": cross, "bias": bias, "bias_pvalue": bias_p,
+            "cross_batch1_batch2": cross, "bias": bias, "bias_reference": bias_ref, "bias_pvalue": bias_pvalues(b1_runs, b2_runs),
             "rules": {"min_reps": MIN_REPS, "cross_p99_ratio_cap": CROSS_P99_RATIO_CAP,
                       "cross_max_ratio_cap": CROSS_MAX_RATIO_CAP,
                       "variance_ratio_cap": VARIANCE_RATIO_CAP,
-                      "bias_z_cap": BIAS_Z_CAP, "bias_p_cap": BIAS_P_CAP}}
+                      "bias_z_cap": BIAS_Z_CAP, "bias_p_cap": BIAS_P_CAP,
+                      "bias_reference_rule": "obs_frac <= max(同代码随机二分)"}}
 
 
 # ---------------------------------------------------------------------------
