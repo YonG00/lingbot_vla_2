@@ -62,6 +62,9 @@ MODEL_INPUT_FIELDS: Tuple[str, ...] = (
 #: 三类证据的固定文件名主干。
 EVIDENCE_STEMS: Tuple[str, ...] = ("noise", "serial_repeat", "batch_actions")
 
+#: 附加证据（不参与"三类必生成"的判定）：`layer0` = 第 0 层整层激活（作用域见 extra）。
+EXTRA_STEMS: Tuple[str, ...] = ("layer0",)
+
 _MANIFEST_KEY = "__manifest__"
 
 
@@ -188,6 +191,26 @@ def max_abs_diff(a: Any, b: Any) -> Optional[float]:
     return float(np.abs(x.astype(np.float64) - y.astype(np.float64)).max())
 
 
+def mean_abs_diff(a: Any, b: Any) -> Optional[float]:
+    """逐元素平均绝对差（**真实误差**，报告用；判 parity 用生产容差，不在这里放宽）。"""
+    import numpy as np
+
+    x, y = to_numpy(a), to_numpy(b)
+    if x is None or y is None or x.shape != y.shape or x.dtype.kind not in "fc":
+        return None
+    return float(np.abs(x.astype(np.float64) - y.astype(np.float64)).mean())
+
+
+def absmax(value: Any) -> Optional[float]:
+    """参考量级（|action| 的绝对值最大），用来判断误差是否"量级显著"。"""
+    import numpy as np
+
+    arr = to_numpy(value)
+    if arr is None or arr.dtype.kind not in "fc" or not arr.size:
+        return None
+    return float(np.max(np.abs(arr)))
+
+
 def array_stats(value: Any) -> Dict[str, Any]:
     """落盘清单里记录的数组摘要（形状/dtype/有限性/极值）。"""
     import numpy as np
@@ -277,8 +300,8 @@ def write_evidence(out_dir: str, stem: str, records: Sequence[Mapping[str, Any]]
     """
     import numpy as np
 
-    if stem not in EVIDENCE_STEMS:
-        raise ValueError(f"未知证据类型 {stem!r}，允许 {EVIDENCE_STEMS}")
+    if stem not in EVIDENCE_STEMS + EXTRA_STEMS:
+        raise ValueError(f"未知证据类型 {stem!r}，允许 {EVIDENCE_STEMS + EXTRA_STEMS}")
     os.makedirs(out_dir, exist_ok=True)
     payload: Dict[str, Any] = {}
     manifest: List[Dict[str, Any]] = []
@@ -579,6 +602,137 @@ def write_group_evidence(recorder: ProbeRecorder, out_dir: str,
     return files
 
 
+# ---------------------------------------------------------------------------
+# 单腿自检 / 跨腿对拍（GPU 四腿对照用；纯函数，可离线单测）
+# ---------------------------------------------------------------------------
+def detect_leg_problems(recorder: ProbeRecorder, expected: Sequence[Mapping[str, Any]],
+                        out_dir: Optional[str] = None, *,
+                        require_evidence_files: bool = True) -> Dict[str, Any]:
+    """**单腿**自检：文件齐 / 钩子执行 / 身份对得上 / 数值有限。
+
+    与 :func:`detect_problems` 的区别：本函数**不做**"串行 vs 批量"的组内比较
+    （一条腿可能只有串行或只有批量记录），跨腿比较交给 :func:`compare_evidence`。
+    """
+    problems: List[str] = list(recorder.errors)
+    checks: List[Dict[str, Any]] = []
+    if require_evidence_files and out_dir is not None:
+        file_problems, file_checks = _problem_file_checks(out_dir)
+        problems.extend(file_problems)
+        checks.extend(file_checks)
+
+    expected_list = [base_identity(e) for e in expected]
+    expected_keys = [base_key(e) for e in expected_list]
+    if len(set(expected_keys)) != len(expected_keys):
+        problems.append(f"duplicate_expected_sample:{expected_keys}")
+
+    batch_by_position = {int(r["identity"]["batch_position"]): r
+                         for r in recorder.by_path("batch")}
+    serial_by_key = {base_key(r["identity"]): r for r in recorder.by_path("serial")}
+    for position, base in enumerate(expected_list):
+        key = base_key(base)
+        record = batch_by_position.get(position) if recorder.by_path("batch") else serial_by_key.get(key)
+        if record is None:
+            problems.append(f"missing_record:pos{position}:{key}")
+            continue
+        declared = base_key(record["identity"])
+        if declared != key:
+            problems.append(f"sample_id_mismatch:pos{position}:{declared}!={key}")
+        for label, value in (("noise", record["noise"]), ("output", record["output"])):
+            if not all_finite(value):
+                problems.append(f"nonfinite:{label}:pos{position}")
+        for field, value in record["inputs"].items():
+            if not all_finite(value):
+                problems.append(f"nonfinite:input:{field}:pos{position}")
+    n_expected = len(expected_list)
+    if len(recorder) < n_expected:
+        problems.append(f"hooks_not_executed:records={len(recorder)}<expected={n_expected}")
+    checks.append({"check": "hooks_executed", "ok": bool(len(recorder) >= n_expected),
+                   "records": len(recorder), "expected": n_expected})
+    problems = sorted(set(problems))
+    return {"status": "BLOCKED" if problems else "PASS", "problems": problems,
+            "checks": checks, "n_records": len(recorder), "expected_keys": expected_keys}
+
+
+def load_leg(dir_path: str) -> Dict[str, Dict[str, Any]]:
+    """读回一条腿的三类证据，按**样本键**（不含推理路径）归并。
+
+    返回 ``{base_key: {'identity', 'inputs', 'noise', 'output', 'raw_shapes'}}``。
+    同一腿里同一 key 的多条记录（串行/批量）会合并（后到的不覆盖已有值）。
+    """
+    leg: Dict[str, Dict[str, Any]] = {}
+    for stem in EVIDENCE_STEMS:
+        try:
+            bundle = read_evidence(dir_path, stem)
+        except FileNotFoundError:
+            continue
+        for record in bundle["manifest"]["records"]:
+            key = base_key(record["identity"])
+            entry = leg.setdefault(key, {"identity": dict(record["identity"]),
+                                         "inputs": {}, "noise": None, "output": None,
+                                         "raw_shapes": dict(record.get("raw_shapes") or {})})
+            for name, meta in record["arrays"].items():
+                if not meta.get("present"):
+                    continue
+                value = bundle["arrays"][meta["npz_key"]]
+                if name == "noise" and entry["noise"] is None:
+                    entry["noise"] = value
+                elif name == "output" and entry["output"] is None:
+                    entry["output"] = value
+                elif name not in ("noise", "output"):
+                    entry["inputs"].setdefault(name, value)
+    return leg
+
+
+def compare_evidence(dir_a: str, dir_b: str, *,
+                     label_a: str = "A", label_b: str = "B") -> Dict[str, Any]:
+    """**跨腿**逐位对拍：噪声 / 实际入参（逐字段）/ 输出，并保留**真实误差**。
+
+    比对按样本身份配对（不是按顺序、不是按时间戳）。任何身份集合不一致 ⇒ BLOCKED。
+    """
+    leg_a, leg_b = load_leg(dir_a), load_leg(dir_b)
+    problems: List[str] = []
+    if not leg_a or not leg_b:
+        problems.append(f"empty_leg:{label_a}={len(leg_a)}:{label_b}={len(leg_b)}")
+    if set(leg_a) != set(leg_b):
+        problems.append(f"sample_set_mismatch:{sorted(set(leg_a) ^ set(leg_b))}")
+    per_sample: List[Dict[str, Any]] = []
+    for key in sorted(set(leg_a) & set(leg_b)):
+        ra, rb = leg_a[key], leg_b[key]
+        entry: Dict[str, Any] = {
+            "key": key, "dataset_index": ra["identity"]["dataset_index"],
+            "task": ra["identity"].get("task"), "chunk_start": ra["identity"].get("chunk_start"),
+            "episode_id": ra["identity"].get("episode_id"),
+        }
+        pairs = [("noise", ra["noise"], rb["noise"])]
+        for field in MODEL_INPUT_FIELDS:
+            pairs.append((field, ra["inputs"].get(field), rb["inputs"].get(field)))
+        for name, va, vb in pairs:
+            if va is None and vb is None:
+                continue
+            same = bitwise_identical(va, vb)
+            entry[f"{name}_bitwise"] = bool(same)
+            if not same:
+                entry[f"{name}_max_abs_diff"] = max_abs_diff(va, vb)
+                if name != "noise":
+                    problems.append(f"{name}_not_bitwise:{key}")
+                else:
+                    problems.append(f"noise_not_bitwise:{key}")
+        entry["output_bitwise"] = bool(bitwise_identical(ra["output"], rb["output"]))
+        entry["output_max_abs_diff"] = max_abs_diff(ra["output"], rb["output"])
+        entry["output_mean_abs_diff"] = mean_abs_diff(ra["output"], rb["output"])
+        entry["output_ref_absmax"] = absmax(ra["output"])
+        if ra["output"] is None or rb["output"] is None:
+            problems.append(f"missing_output:{key}")
+        elif not entry["output_bitwise"]:
+            # 🔴 跨腿判定必须把**输出**差异算进去（"Batch1 与 Batch2 还差吗"就靠这一条）
+            problems.append(f"output_not_bitwise:{key}:max={entry['output_max_abs_diff']}")
+        per_sample.append(entry)
+    problems = sorted(set(problems))
+    return {"status": "BLOCKED" if problems else "PASS", "label_a": label_a, "label_b": label_b,
+            "problems": problems, "per_sample": per_sample,
+            "n_a": len(leg_a), "n_b": len(leg_b)}
+
+
 def write_verdict(out_dir: str, verdict: Mapping[str, Any]) -> str:
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, "verdict.json")
@@ -624,9 +778,11 @@ def recorder_to_evidence(recorder: ProbeRecorder) -> Dict[str, List[Dict[str, An
 
 __all__ = [
     "IDENTITY_FIELDS", "INFERENCE_PATHS", "MODEL_INPUT_FIELDS", "EVIDENCE_STEMS",
+    "EXTRA_STEMS",
     "SCHEMA_VERSION", "ProbeRecorder", "all_finite", "array_stats", "base_identity",
     "base_key", "bitwise_identical", "detect_problems", "evidence_files",
     "identity_key", "make_identity", "max_abs_diff", "read_evidence",
     "recorder_to_evidence", "to_numpy", "write_evidence", "write_group_evidence",
+    "absmax", "mean_abs_diff", "detect_leg_problems", "load_leg", "compare_evidence",
     "write_verdict",
 ]
