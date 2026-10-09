@@ -103,6 +103,27 @@ def _rng_restore(snap: Dict[str, Any]) -> None:
     np.random.set_state(snap["numpy"])
 
 
+def _probe_repeat_env() -> bool:
+    """是否启用「同噪声第二次串行」诊断（默认关闭）。"""
+    return os.environ.get('AL_EVAL_BATCH_PROBE_REPEAT_SERIAL') == '1'
+
+
+def _probe_warn_legacy_dump(logger) -> None:
+    """旧的时间戳式诊断 dump 已停用：产物无法证明"同一样本"，不再产生新文件。
+
+    静默废弃 = 又一次"钩子静默失效"，所以这里必须**显式**告警。
+    """
+    legacy = [name for name in ('AL_EVAL_BATCH_NOISE_DUMP', 'AL_EVAL_BATCH_PROBE_DUMP')
+              if os.environ.get(name)]
+    if not legacy:
+        return
+    _warn = getattr(logger, "warning", None) or (lambda msg: print(msg))
+    _warn(
+        f"[open_loop][eval-batch] ⚠️ {legacy} 已停用：时间戳命名的 dump 无法证明样本身份。"
+        f"请改用 AL_EVAL_BATCH_PROBE_DIR=<目录>（写 noise/serial_repeat/batch_actions 三类带身份证据）"
+        f" + AL_EVAL_BATCH_PROBE_REPEAT_SERIAL=1（同噪声第二次串行）。本次不会产出旧格式文件。")
+
+
 def _world_size() -> int:
     try:
         import torch.distributed as dist
@@ -769,6 +790,15 @@ class OpenLoopValidator:
         self._normstats_logged = False    # 只在第一次 eval 时打印归一化统计指纹
         self._strict_logged = False
         self._noise_gen = None            # flow-matching noise 的专用 generator（每次 eval 重置）
+        # Eval Batch 诊断证据（默认关闭；只有显式设置 AL_EVAL_BATCH_PROBE_DUMP /
+        # AL_EVAL_BATCH_PROBE_REPEAT_SERIAL 才会录制 —— 见 `_probe_capture`）。
+        self._probe_recorder = None       # ProbeRecorder：按样本身份收集实际入参/噪声/输出
+        self._probe_group_ids = None      # 当前 probe 组的**基础身份**（批内顺序）
+        self._probe_pass = "serial"       # 下一次 `_infer_one` 属于哪条推理路径
+        self._probe_position = 0          # 当前样本在组内的位置（批内位置）
+        self._probe_ep_map = None         # local_idx → episode_index（真实数据，可为 None）
+        self._probe_task = None           # 任务名（由 evaluator 传入；未知 ⇒ None，不臆造）
+        self._probe_tag = None            # val / train_monitor / al_<task>_<split>_<ids>
 
         # 🔴 只支持单卡：多卡下 rank0 跑 eval 时其他 rank 会直接进入下一步 ⇒ FSDP2
         #    all-gather 死锁；且 rank0 上参数是分片的、评测结果无效。
@@ -914,179 +944,307 @@ class OpenLoopValidator:
             self._noise_gen = g
         return self._noise_gen
 
-    # -- 推理（glue 照抄 deploy.PolicyPreprocessMixin.sample_actions_batch）----
+    # -- Eval Batch 诊断录制（默认关闭；证据必须自带样本身份）-------------------
+    def _probe_identity_for(self, position: int, inference_path: str,
+                            repeat_index: int = 0) -> Optional[Dict[str, Any]]:
+        """把「批内位置」翻成**完整样本身份**（task/episode/chunk_start/dataset_index）。
+
+        身份字段全部来自真实数据（``_probe_ep_map`` 给出 episode_index，
+        ``chunk_start`` 由该回合首行 local_idx 推出）；拿不到就写 ``None`` —— 不臆造。
+        """
+        group_ids = getattr(self, "_probe_group_ids", None)
+        if not group_ids or position >= len(group_ids):
+            return None
+        from lingbotvla.utils.eval_batch_probe import make_identity
+        base = group_ids[position]
+        # `serial_repeat` 就是"同一份噪声的第二次串行" ⇒ repeat_index 恒为 1（身份的一部分）
+        repeat_index = 1 if inference_path == "serial_repeat" else repeat_index
+        return make_identity(
+            task=getattr(self, "_probe_task", None), episode_id=base.get("episode_id"),
+            chunk_start=base.get("chunk_start"), dataset_index=int(base["dataset_index"]),
+            inference_path=inference_path,
+            batch_position=(position if inference_path == "batch" else 0),
+            repeat_index=repeat_index)
+
+    def _probe_base_identity(self, dataset_index: int) -> Dict[str, Any]:
+        """单个 dataset_index 的基础身份（episode_index / 回合内 chunk 起点）。"""
+        ep_map = self._probe_ep_map
+        episode_id = chunk_start = None
+        if ep_map is not None and 0 <= int(dataset_index) < len(ep_map):
+            episode_id = int(ep_map[int(dataset_index)])
+            _first = int(np.searchsorted(np.asarray(ep_map), episode_id, side="left"))
+            chunk_start = int(dataset_index) - _first
+        return {"dataset_index": int(dataset_index), "episode_id": episode_id,
+                "chunk_start": chunk_start, "task": self._probe_task}
+
+    def _probe_capture(self, *, inputs: Dict[str, Any], noise, output,
+                       raw_shapes: Dict[str, Any]) -> None:
+        """记录一次 `sample_actions` 的**实际入参**与输出（未启用录制时零开销）。
+
+        ⚠️ 全部用 ``getattr``：诊断钩子**绝不允许**因为"实例上没有诊断属性"而
+        让真实推理路径崩掉（`_infer_one` / `_infer_batch` 会被单测按 AST 子集编译，
+        那里的实例只带生产必需属性）。
+        """
+        recorder = getattr(self, "_probe_recorder", None)
+        if recorder is None or not getattr(self, "_probe_group_ids", None):
+            return
+        position = int(getattr(self, "_probe_position", 0))
+        identity = self._probe_identity_for(position, getattr(self, "_probe_pass", "serial"))
+        if identity is None:
+            recorder.errors.append(f"missing_identity:position={position}")
+            return
+        recorder.add(identity=identity, inputs=inputs, noise=noise, output=output,
+                     raw_shapes=raw_shapes)
+        from lingbotvla.utils.eval_batch_probe import identity_key
+        try:
+            _first = float(np.asarray(noise).reshape(-1)[0])
+        except Exception:  # noqa: BLE001
+            _first = float("nan")
+        self.logger.info_rank0(
+            f"[diag] probe captured {identity_key(identity)} "
+            f"noise[0]={_first:.8f} raw_shapes={raw_shapes}")
+
+    def _infer_serial_group(self, inputs: Sequence[Dict[str, Any]], ft,
+                            path: str = "serial") -> List[Dict[str, np.ndarray]]:
+        """按批内顺序逐条**串行**推理（`_infer_one` 语义不变），并喂样本身份给录制器。"""
+        out: List[Dict[str, np.ndarray]] = []
+        _saved_pass = getattr(self, "_probe_pass", "serial")
+        _saved_pos = getattr(self, "_probe_position", 0)
+        self._probe_pass = path
+        try:
+            for position, item in enumerate(inputs):
+                self._probe_position = position
+                out.append(self._infer_one(item, ft))
+        finally:
+            self._probe_pass, self._probe_position = _saved_pass, _saved_pos
+        return out
+
+    def _write_probe_evidence(self, out_dir: str, *, require_repeat: bool,
+                              group_index: int = 0, extra: Optional[Dict[str, Any]] = None
+                              ) -> Dict[str, Any]:
+        """把当前 probe 组的录制结果写成三类证据 + 判定（**与 CPU 替身共用同一实现**）。"""
+        from lingbotvla.utils import eval_batch_probe as ebp
+        if self._probe_recorder is None or not self._probe_group_ids:
+            raise RuntimeError("没有可落盘的 probe 录制结果（钩子未执行）")
+        expected = [dict(base, task=self._probe_task) for base in self._probe_group_ids]
+        payload = dict(extra or {})
+        payload.update({"tag": self._probe_tag, "task": self._probe_task,
+                        "group_index": int(group_index),
+                        "group_dataset_indices": [int(b["dataset_index"]) for b in expected]})
+        files = ebp.write_group_evidence(self._probe_recorder, out_dir, expected, extra=payload)
+        verdict = ebp.detect_problems(self._probe_recorder, expected, out_dir,
+                                      require_repeat=require_repeat)
+        verdict["files"] = files
+        verdict["group"] = payload
+        ebp.write_verdict(out_dir, verdict)
+        self.logger.info_rank0(
+            f"[open_loop][eval-batch][diag] 证据已落盘 dir={out_dir} "
+            f"status={verdict['status']} records={verdict['n_records']} "
+            f"problems={verdict['problems']}")
+        return verdict
+
+    def _probe_note_error(self, out_dir: str, where: str, exc: BaseException) -> None:
+        """诊断失败**不得静默**：写显式 error 证据 + WARNING 日志（判定侧据此 BLOCKED）。"""
+        self.logger.warning(
+            f"[open_loop][eval-batch][ERROR] 诊断证据写入失败 ({where}): {type(exc).__name__}: {exc}")
+        try:
+            os.makedirs(out_dir, exist_ok=True)
+            with open(os.path.join(out_dir, "probe_error.json"), "w", encoding="utf-8") as fh:
+                json.dump({"kind": "eval_batch_probe_error", "where": where,
+                           "error": f"{type(exc).__name__}: {exc}",
+                           "note": "证据不完整 ⇒ 判定必须 BLOCKED（不得当作 PASS）"},
+                          fh, ensure_ascii=False, sort_keys=True, indent=1)
+        except Exception as _wexc:  # noqa: BLE001
+            self.logger.warning(
+                f"[open_loop][eval-batch][ERROR] 连 error 证据都写不了: {_wexc!r}")
+
+    # -- 推理：旧版 B=1 语义作为唯一基准；B>1 共用同一核心 ----------------------
     def _infer_one(self, item: Dict[str, Any], ft) -> Dict[str, np.ndarray]:
-        """对一条已 transform 的样本跑一次 ``model.sample_actions``，返回**物理量**动作块。
+        """原有单 Chunk 推理入口。其输入、RNG、缓存及反归一化语义不变。
 
         ``ft`` 必须是**这条 item 所属数据集自己的** ``feature_transform``（审查 B5）。
         """
-        # 🔴 推理 dtype 必须跟**模型权重的实际 dtype** 对齐。
-        #    旧写法 `getattr(self.args.train, "use_bf16", False)` 在本仓**恒为 False**
-        #    —— 精度开关是 `enable_mixed_precision`（`arguments.py` 里没有 `use_bf16`），
-        #    于是 bf16 训练出来的权重 + 评测按 float32 喂输入 ⇒ `embed_suffix` 的
-        #    `state_proj(state)` 直接报
-        #      RuntimeError: mat1 and mat2 must have the same dtype, but got Float and BFloat16
-        #    （2026-10-07 A–G 回归首次跑到 bf16 组合时实测）。以前全是 F32 所以没暴露。
-        #    优先级：`config.action_fp32`（模型自己会 `_fp32_linear` 上转权重）> 模型权重 dtype。
-        # 精度三分离（用户 2026-10-08）：权重 dtype / 推理 dtype / 指标 dtype。
-        # 决议抽到 eval_precision.resolve_inference_dtype（纯函数、可单测）；
-        # 显式请求与权重不一致时 fail-fast（不允许按 fp32 推理再 cast 结果）。
-        from lingbotvla.utils.eval_precision import describe_precision, resolve_inference_dtype
-        _cfg0 = getattr(self, "_model_config", None)
-        _action_fp32 = bool(getattr(_cfg0, "action_fp32", False))
-        _p0 = next(self.model.parameters(), None)
-        _wdt = _p0.dtype if (_p0 is not None and _p0.dtype.is_floating_point) else None
-        _requested = str(getattr(self.args.train, "eval_inference_dtype", "auto") or "auto")
-        dtype, _prec = resolve_inference_dtype(
-            requested=_requested, action_fp32=_action_fp32, weight_dtype=_wdt,
-            fallback_bf16=bool(getattr(self.args.train, "use_bf16", False)))
-        use_bf16 = (dtype == torch.bfloat16)
-        if not getattr(self, "_precision_logged", False):
-            self._precision_logged = True
-            self.logger.info_rank0(f"[open_loop] 精度口径：{describe_precision(_prec)}")
-
-        images = item["images"]
-        img_masks = item["img_masks"]
-        lang_tokens = item["lang_tokens"]
-        lang_masks = item["lang_masks"]
-        state = item["state"]
-        image_grid_thw = item.get("image_grid_thw", None)
-
-        if img_masks.ndim < 2:
-            images = images.unsqueeze(0)
-            img_masks = img_masks.unsqueeze(0)
-        if lang_tokens.ndim == 1:
-            lang_tokens = lang_tokens.unsqueeze(0)
-            lang_masks = lang_masks.unsqueeze(0)
-        if state.ndim == 1:
-            state = state.unsqueeze(0)
-
-        grid = image_grid_thw
-        if isinstance(grid, torch.Tensor):
-            grid = grid.to(device=self.device, dtype=torch.long)
-
-        # 可选：dump **模型输入**（供与官方逐值对拍）
-        if self.dump_dir and self._dump_prefix:
-            os.makedirs(self.dump_dir, exist_ok=True)
-            _p = os.path.join(self.dump_dir, f"{self._dump_prefix}_in")
-            for _k, _v in (("images", images), ("img_masks", img_masks),
-                           ("lang_tokens", lang_tokens), ("lang_masks", lang_masks),
-                           ("state", state), ("grid", grid)):
-                if _v is not None:
-                    np.save(f"{_p}_{_k}.npy",
-                            _v.detach().float().cpu().numpy())
-
-        # 显式喂噪声（形状/dtype/device 与 `sample_actions` 内部默认值一致）
-        _cfg = self._model_config
-        _shape = (1,
-                  int(getattr(_cfg, "n_action_steps", 50)),
-                  int(getattr(_cfg, "max_action_dim", 55)))
-        noise = torch.randn(
-            _shape,
-            generator=self._noise_generator(self.device),
-            device=self.device,
-            dtype=dtype,
-        )
-
-        _nd = os.environ.get('AL_EVAL_BATCH_NOISE_DUMP')
-        if _nd:
-            try:
-                import numpy as _npn
-                _tag = 'batch' if isinstance(noise, torch.Tensor) and noise.shape[0] > 1 else 'serial'
-                _npn.savez_compressed(f'{_nd}.{_tag}.{int(time.time()*1000)}.npz',
-                                      noise=_npn.asarray(noise.detach().float().cpu()))
-                self.logger.info_rank0(f'[diag] noise dumped tag={_tag} shape={tuple(noise.shape)} '
-                                      f'dtype={noise.dtype} first={float(noise.reshape(-1)[0]):.8f}')
-            except Exception as _ne:  # noqa: BLE001
-                self.logger.info_rank0(f'[diag] noise dump failed: {_ne!r}')
-        actions = self.model.sample_actions(
-            images.to(dtype=dtype, device=self.device),
-            img_masks.to(device=self.device),
-            lang_tokens.to(device=self.device),
-            lang_masks.to(device=self.device),
-            state.to(dtype=dtype, device=self.device),
-            noise=noise,
-            image_grid_thw=grid,
-        )
-        # 反归一化回物理量（与 deploy.LingbotVLAv2InferencePolicy.select_action 同路径）
-        # ⚠️ 必须 squeeze 掉 batch 维：``FeatureTransform.reverse_pad_and_concat`` 里是
-        #    ``item['actions'][:, action_joint_mask]``，要求 actions 是 **(T, D) 二维**；
-        #    传 (1, T, D) 会报
-        #      IndexError: The shape of the mask [55] at index 0 does not match the
-        #                  shape of the indexed tensor [1, 50, 55] at index 1
-        #    （2026-10-04 smoke 实测）。deploy 的单样本路径正是 ``.squeeze(0)``。
-        single = dict(item)
-        if actions.ndim == 3 and actions.shape[0] == 1:
-            actions = actions.squeeze(0)
-        single["actions"] = actions.to(dtype=torch.float32, device="cpu")
-        if use_bf16 and "state" in single:
-            single["state"] = single["state"].to(dtype=torch.float32)
-        return ft.unapply(single)
+        return self._infer_core((item,), ft, fresh_visual_grid=False)[0]
 
     def _infer_batch(self, items: Sequence[Dict[str, Any]], ft) -> List[Dict[str, np.ndarray]]:
-        """Real single-forward B>1 action inference, same ordered per-chunk noise.
+        """真正一次 B>1 forward；基于单条推理的同一核心而非第二套实现。
 
-        Only homogeneous transformed items qualify; no arbitrary padding,
-        episode mixing or reordering is allowed. ``_infer_one`` stays unchanged.
+        这里只保留 B>1 的可组批性守卫。视觉网格缓存刷新仍使用旧批量
+        实现的保存/恢复语义；不得以 CPU tests 替代真实 GPU parity。
         """
         from lingbotvla.auto_learning.scan_accel import identical_tensor_shapes
-        from lingbotvla.utils.eval_precision import resolve_inference_dtype
+
+        if len(items) < 2:
+            raise ValueError('batched eval requires at least two items')
         keys = ('images', 'img_masks', 'lang_tokens', 'lang_masks', 'state')
         if not identical_tensor_shapes(items, keys):
             raise ValueError('batch eval requires homogeneous transformed item shapes')
         if any(it['img_masks'].ndim != 1 or it['lang_tokens'].ndim != 1
                or it['state'].ndim != 1 for it in items):
             raise ValueError('unsupported pre-batched eval observation')
-        _p = next(self.model.parameters(), None)
-        weight_dtype = _p.dtype if _p is not None and _p.dtype.is_floating_point else None
-        dtype, _ = resolve_inference_dtype(
-            requested=str(getattr(self.args.train, 'eval_inference_dtype', 'auto') or 'auto'),
-            action_fp32=bool(getattr(self._model_config, 'action_fp32', False)),
+        return self._infer_core(items, ft, fresh_visual_grid=True)
+
+    def _infer_core(self, items: Sequence[Dict[str, Any]], ft, *,
+                    fresh_visual_grid: bool) -> List[Dict[str, np.ndarray]]:
+        """B1/Bn 唯一的观测准备、Noise、sample_actions 和 unapply 代码路径。
+
+        B1 的形状/缓存遵循历史 ``_infer_one``，保证默认 serial 语义不被
+        本次重构暗改。Bn 保留批量路径独有的缓存快照/恢复（不污染下一次
+        训练/评测）；这项不对称**仍未经过真实 6B 证伪**，不得把重构当成
+        "模型数值差异已解决"。
+
+        🔴 推理 dtype 必须跟**模型权重的实际 dtype** 对齐。
+           旧写法 `getattr(self.args.train, "use_bf16", False)` 在本仓**恒为 False**
+           —— 精度开关是 `enable_mixed_precision`（`arguments.py` 里没有 `use_bf16`），
+           于是 bf16 训练出来的权重 + 评测按 float32 喂输入 ⇒ `embed_suffix` 的
+           `state_proj(state)` 直接报
+             RuntimeError: mat1 and mat2 must have the same dtype, but got Float and BFloat16
+           （2026-10-07 A–G 回归首次跑到 bf16 组合时实测）。以前全是 F32 所以没暴露。
+           优先级：`config.action_fp32`（模型自己会 `_fp32_linear` 上转权重）> 模型权重 dtype。
+           精度三分离（用户 2026-10-08）：权重 dtype / 推理 dtype / 指标 dtype。
+           决议抽到 eval_precision.resolve_inference_dtype（纯函数、可单测）；
+           显式请求与权重不一致时 fail-fast（不允许按 fp32 推理再 cast 结果）。
+        """
+        from lingbotvla.utils.eval_precision import describe_precision, resolve_inference_dtype
+
+        if not items:
+            raise ValueError('empty eval inference items')
+        cfg = getattr(self, '_model_config', None)
+        param = next(self.model.parameters(), None)
+        weight_dtype = param.dtype if param is not None and param.dtype.is_floating_point else None
+        requested = str(getattr(self.args.train, 'eval_inference_dtype', 'auto') or 'auto')
+        dtype, precision = resolve_inference_dtype(
+            requested=requested,
+            action_fp32=bool(getattr(cfg, 'action_fp32', False)),
             weight_dtype=weight_dtype,
-            fallback_bf16=bool(getattr(self.args.train, 'use_bf16', False)))
-        fields = {k: torch.stack([it[k] for it in items]).to(device=self.device) for k in keys}
-        grid = (torch.stack([it['image_grid_thw'] for it in items])
-                if items[0].get('image_grid_thw') is not None else None)
-        if grid is not None:
+            fallback_bf16=bool(getattr(self.args.train, 'use_bf16', False)),
+        )
+        if not getattr(self, '_precision_logged', False):
+            self._precision_logged = True
+            self.logger.info_rank0(f'[open_loop] 精度口径：{describe_precision(precision)}')
+
+        # B1 逐字段按照旧 _infer_one 的 unsqueeze 条件准备；Bn 只是将
+        # 已准备好的 B1 张量沿 batch 维拼接，绝不另写一套 stack 转换。
+        keys = ('images', 'img_masks', 'lang_tokens', 'lang_masks', 'state')
+        prepared = []
+        for item in items:
+            data = {k: item[k] for k in keys}
+            if data['img_masks'].ndim < 2:
+                data['images'] = data['images'].unsqueeze(0)
+                data['img_masks'] = data['img_masks'].unsqueeze(0)
+            if data['lang_tokens'].ndim == 1:
+                data['lang_tokens'] = data['lang_tokens'].unsqueeze(0)
+                data['lang_masks'] = data['lang_masks'].unsqueeze(0)
+            if data['state'].ndim == 1:
+                data['state'] = data['state'].unsqueeze(0)
+            prepared.append(data)
+
+        if len(items) == 1:
+            data = prepared[0]
+        else:
+            if any(tuple(p[k].shape[0] for k in keys) != (1,) * len(keys)
+                   for p in prepared):
+                raise ValueError('batch eval requires exactly one observation per item')
+            if any(tuple(p[k].shape[1:]) != tuple(prepared[0][k].shape[1:])
+                   for p in prepared[1:] for k in keys):
+                raise ValueError('batch eval requires homogeneous prepared observations')
+            data = {k: torch.cat([p[k] for p in prepared], dim=0) for k in keys}
+
+        grids = [item.get('image_grid_thw') for item in items]
+        if len(items) == 1:
+            grid = grids[0]  # B1: 与旧 _infer_one 完全相同，不能擅自 stack
+        elif all(isinstance(g, torch.Tensor) for g in grids):
+            if any(g.ndim != 2 or g.shape[-1] != 3 for g in grids):
+                raise ValueError('batch eval requires per-item image_grid_thw shape (N,3)')
+            if any(g.shape != grids[0].shape for g in grids[1:]):
+                raise ValueError('batch eval requires homogeneous image_grid_thw')
+            grid = torch.stack(grids, dim=0)  # 模型按 (B,N,3) flatten
+        elif all(g is None for g in grids):
+            grid = None
+        else:
+            raise ValueError('batch eval requires all-or-none image_grid_thw')
+        if isinstance(grid, torch.Tensor):
             grid = grid.to(device=self.device, dtype=torch.long)
-        # Two sequential randn((1,...)) calls are NOT necessarily equal to a
-        # single randn((2,...)) on CUDA. Consume the original RNG in order.
-        shape = (1, int(getattr(self._model_config, 'n_action_steps', 50)),
-                 int(getattr(self._model_config, 'max_action_dim', 55)))
-        gen = self._noise_generator(self.device)
-        noise = torch.cat([torch.randn(shape, generator=gen, device=self.device, dtype=dtype)
-                           for _ in items], dim=0)
-        # Visual grids are cached by batch image count. Snapshot/restore around
-        # each call so changing batch sizes cannot poison later serial training.
-        grid_saved = _visual_grid_cache_clear(self.model)
+
+        # 保留原有单条输入诊断转储；默认关闭，不引入额外数据操作。
+        if len(items) == 1 and getattr(self, 'dump_dir', None) and getattr(self, '_dump_prefix', None):
+            os.makedirs(self.dump_dir, exist_ok=True)
+            path = os.path.join(self.dump_dir, f'{self._dump_prefix}_in')
+            for key, value in (('images', data['images']), ('img_masks', data['img_masks']),
+                               ('lang_tokens', data['lang_tokens']), ('lang_masks', data['lang_masks']),
+                               ('state', data['state']), ('grid', grid)):
+                if value is not None:
+                    np.save(f'{path}_{key}.npy', value.detach().float().cpu().numpy())
+
+        # 严格逐个 consume RNG，保持旧单 Chunk CUDA randn(1,T,D) 语义。
+        # ⚠️ 两次 randn((1,...)) **不等于** 一次 randn((B,...))（CUDA 上实测），
+        #    所以 Bn 也必须逐个抽再 cat，绝不改 RNG 消费顺序。
+        noise_shape = (1, int(getattr(cfg, 'n_action_steps', 50)),
+                       int(getattr(cfg, 'max_action_dim', 55)))
+        generator = self._noise_generator(self.device)
+        noise = torch.cat([
+            torch.randn(noise_shape, generator=generator, device=self.device, dtype=dtype)
+            for _ in items
+        ], dim=0)
+
+        # 模型内部 get_image_features 会按首个 grid 缓存视觉序列信息。
+        # 本重构不更改历史 serial 的缓存状态；Bn 继续使用原先隔离策略。
+        saved_cache = _visual_grid_cache_clear(self.model) if fresh_visual_grid else None
         try:
-            _nd = os.environ.get('AL_EVAL_BATCH_NOISE_DUMP')
-            if _nd:
-                try:
-                    import numpy as _npn
-                    _tag = 'batch' if isinstance(noise, torch.Tensor) and noise.shape[0] > 1 else 'serial'
-                    _npn.savez_compressed(f'{_nd}.{_tag}.{int(time.time()*1000)}.npz',
-                                          noise=_npn.asarray(noise.detach().float().cpu()))
-                    self.logger.info_rank0(f'[diag] noise dumped tag={_tag} shape={tuple(noise.shape)} '
-                                          f'dtype={noise.dtype} first={float(noise.reshape(-1)[0]):.8f}')
-                except Exception as _ne:  # noqa: BLE001
-                    self.logger.info_rank0(f'[diag] noise dump failed: {_ne!r}')
             actions = self.model.sample_actions(
-                fields['images'].to(dtype=dtype), fields['img_masks'],
-                fields['lang_tokens'], fields['lang_masks'],
-                fields['state'].to(dtype=dtype), noise=noise, image_grid_thw=grid)
+                data['images'].to(dtype=dtype, device=self.device),
+                data['img_masks'].to(device=self.device),
+                data['lang_tokens'].to(device=self.device),
+                data['lang_masks'].to(device=self.device),
+                data['state'].to(dtype=dtype, device=self.device),
+                noise=noise, image_grid_thw=grid,
+            )
         finally:
-            _visual_grid_cache_restore(self.model, grid_saved)
-        if actions.ndim != 3 or actions.shape[0] != len(items):
-            raise RuntimeError('batched sample_actions output has wrong batch shape')
-        result = []
+            if fresh_visual_grid:
+                _visual_grid_cache_restore(self.model, saved_cache)
+
+        if len(items) == 1 and isinstance(actions, torch.Tensor) and actions.ndim == 2:
+            # 兼容历史单条路径也接受 (T,D) 的模型输出。
+            actions = actions.unsqueeze(0)
+        if not isinstance(actions, torch.Tensor) or actions.ndim != 3 or actions.shape[0] != len(items):
+            raise RuntimeError('sample_actions output has wrong batch shape')
+
+        # 诊断：记录**实际喂进模型**的逐样本入参/噪声/输出（默认关闭 ⇒ 整段跳过）。
+        # `data[k][i]` / `grid`(B1) 或 `grid[i]`(Bn) / `noise[i]` 就是模型的真实入参
+        # 切片，串行与批量逐位对拍靠的就是它们。
+        if getattr(self, '_probe_recorder', None) is not None and getattr(self, '_probe_group_ids', None):
+            _saved_pass = getattr(self, '_probe_pass', 'serial')
+            _saved_pos = getattr(self, '_probe_position', 0)
+            _batched = len(items) > 1
+            try:
+                if _batched:
+                    self._probe_pass = 'batch'
+                for _i in range(len(items)):
+                    if _batched:
+                        # Bn：批内位置由这里定；B1：位置必须由调用方
+                        # （`_infer_serial_group`）给定 —— 在这里无条件重置会把串行
+                        # 第 2 条也记成第 0 条的身份（2026-10-09 CPU 端到端实测踩到）。
+                        self._probe_position = _i
+                    _inputs = {_k: data[_k][_i] for _k in keys}
+                    _inputs['image_grid_thw'] = (
+                        None if grid is None else (grid if len(items) == 1 else grid[_i]))
+                    _shapes = {_k: list(data[_k].shape) for _k in keys}
+                    _shapes['image_grid_thw'] = None if grid is None else list(grid.shape)
+                    _shapes['noise'] = list(noise.shape)
+                    _shapes['actions'] = list(actions.shape)
+                    self._probe_capture(inputs=_inputs, noise=noise[_i], output=actions[_i],
+                                        raw_shapes=_shapes)
+            finally:
+                self._probe_pass, self._probe_position = _saved_pass, _saved_pos
+
+        predictions = []
         for item, action in zip(items, actions):
-            single = dict(item)
-            single['actions'] = action.to(dtype=torch.float32, device='cpu')
-            if dtype == torch.bfloat16 and 'state' in single:
-                single['state'] = single['state'].to(dtype=torch.float32)
-            result.append(ft.unapply(single))
-        return result
+            original = dict(item)
+            original['actions'] = action.to(dtype=torch.float32, device='cpu')
+            if dtype == torch.bfloat16 and 'state' in original:
+                original['state'] = original['state'].to(dtype=torch.float32)
+            predictions.append(ft.unapply(original))
+        return predictions
 
     def _prediction_groups(self, ds, starts, ft, tag):
         """Opt-in batches. First group of each shape is parity/throughput-probed.
@@ -1102,6 +1260,7 @@ class OpenLoopValidator:
         mode = os.environ.get('AL_EVAL_BATCH_MODE', 'serial')
         if mode not in ('serial', 'probe', 'auto'):
             raise ValueError('AL_EVAL_BATCH_MODE must be serial/probe/auto')
+        _probe_warn_legacy_dump(getattr(self, "logger", None))
         if mode == 'auto' and os.environ.get('AL_EVAL_BATCH_APPROVED') != '1':
             raise RuntimeError('auto batch requires AL_EVAL_BATCH_APPROVED=1 after real GPU parity approval')
         if mode == 'serial' or not torch.cuda.is_available():
@@ -1137,6 +1296,7 @@ class OpenLoopValidator:
         batch_size = min(2, limit)
         disabled = False
         verified_shapes = set()
+        _probe_group_dirs: List[str] = []
         pos = 0
         starts = list(starts)
         while pos < len(starts):
@@ -1145,6 +1305,8 @@ class OpenLoopValidator:
             pos += take
             inputs = [v for _, v in group]
             self._dump_prefix = None
+            self._probe_recorder = None      # 每组重新开始：绝不把上一组的身份带到下一组
+            self._probe_group_ids = None
             free_before = torch.cuda.mem_get_info()[0]/1024**3
             if (take < 2 or not identical_tensor_shapes(
                     inputs, ('images','img_masks','lang_tokens','lang_masks','state'))
@@ -1158,6 +1320,22 @@ class OpenLoopValidator:
                    tuple(repr(it.get('image_grid_thw')) for it in inputs))
             gen = self._noise_generator(self.device)
             generator_start = gen.get_state()
+            # 诊断证据（默认关闭）：本组的**完整样本身份** + 录制器。
+            # 每组一个独立子目录（groupNNN），绝不互相覆盖，也绝不用时间戳命名。
+            _probe_dir = os.environ.get('AL_EVAL_BATCH_PROBE_DIR') or None
+            _probe_repeat = _probe_repeat_env()
+            _probe_on = bool(_probe_dir) or _probe_repeat
+            _group_dir = None
+            _group_index = 0
+            if _probe_on:
+                from lingbotvla.utils import eval_batch_probe as _ebp
+                self._probe_recorder = _ebp.ProbeRecorder()
+                self._probe_group_ids = [self._probe_base_identity(_idx) for _idx, _ in group]
+                _group_index = len(_probe_group_dirs)
+                _group_dir = (os.path.join(_probe_dir, f'group{_group_index:03d}')
+                              if _probe_dir else None)
+                if _group_dir:
+                    _probe_group_dirs.append(_group_dir)
             if mode == 'auto' and sig in verified_shapes:
                 # True fast path: single model.sample_actions for the whole group.
                 # A detected peak-VRAM regression terminates the probe; never
@@ -1173,28 +1351,15 @@ class OpenLoopValidator:
                 yield [(idx, it, pr) for (idx,it),pr in zip(group,batched)]
                 continue
             t0 = time.perf_counter()
-            serial = [self._infer_one(it, ft) for it in inputs]
-            # 诊断：serial 连跑第二次（逐位复现性）+ dump 两组 noise/动作（AL_EVAL_BATCH_PROBE_REPEAT_SERIAL=1）
-            _rep = os.environ.get('AL_EVAL_BATCH_PROBE_REPEAT_SERIAL') == '1'
-            if _rep:
-                _gen2 = self._noise_generator(self.device)
-                _st2 = _gen2.get_state()
-                _serial2 = [self._infer_one(it, ft) for it in inputs]
-                _gen2.set_state(_st2)
-                try:
-                    _d2 = os.environ.get('AL_EVAL_BATCH_PROBE_DUMP')
-                    if _d2:
-                        import numpy as _np2
-                        _p2 = {}
-                        for _i2 in range(len(_serial2)):
-                            for _k2 in keys:
-                                _p2[f'serial2_{_i2}_{_k2}'] = _np2.asarray(
-                                    normalized_action_predictions([_serial2[_i2]], [_k2])[0][_k2])
-                                _p2[f'serial1_{_i2}_{_k2}'] = _np2.asarray(
-                                    normalized_action_predictions([serial[_i2]], [_k2])[0][_k2])
-                        _np2.savez_compressed(str(_d2).replace('.npz', '_repeat.npz'), **_p2)
-                except Exception as _e2:  # noqa: BLE001
-                    self.logger.info_rank0(f'[open_loop][eval-batch] repeat-serial dump failed: {_e2!r}')
+            serial = self._infer_serial_group(inputs, ft, path='serial')
+            # 诊断：**同进程 / 同模型状态 / 显式同一份 noise** 的第二次串行。
+            # ⚠️ 只有明确开了 AL_EVAL_BATCH_PROBE_REPEAT_SERIAL 才跑；噪声一致性由
+            #    录制器记录的**实际噪声**逐位断言（不是靠"复位了 generator"来假设）。
+            _serial_repeat = None
+            if _probe_repeat:
+                gen.set_state(generator_start)
+                _serial_repeat = self._infer_serial_group(inputs, ft, path='serial_repeat')
+                gen.set_state(generator_end)
             torch.cuda.synchronize()
             serial_seconds = time.perf_counter() - t0
             generator_end = gen.get_state()
@@ -1231,20 +1396,7 @@ class OpenLoopValidator:
                             normalized_action_predictions([batched[_i]], keys))
                         _per_traj.append({'dataset_index': int(_idx), 'max_abs_diff': _mx,
                                          'mean_abs_diff': _mean})
-                    # 诊断用：把本组 serial/batched 的**逐元素**动作落盘（AL_EVAL_BATCH_PROBE_DUMP）
-                    _dump = os.environ.get('AL_EVAL_BATCH_PROBE_DUMP')
-                    if _dump:
-                        try:
-                            import numpy as _np
-                            _ns, _nb = normalized_action_predictions(serial, keys), normalized_action_predictions(batched, keys)
-                            _payload = {}
-                            for _i in range(len(_ns)):
-                                for _k in keys:
-                                    _payload[f's{_i}_{_k}'] = _np.asarray(_ns[_i][_k])
-                                    _payload[f'b{_i}_{_k}'] = _np.asarray(_nb[_i][_k])
-                            _np.savez_compressed(_dump, **_payload)
-                        except Exception as _dexc:  # noqa: BLE001
-                            self.logger.info_rank0(f'[open_loop][eval-batch] probe dump failed: {_dexc!r}')
+                    # 诊断用：把本组 serial/batched 的**逐元素**动作落盘（旧格式，已停用）
                     append_json_record(_probe_out, {
                         'kind': 'eval_batch_probe', 'mode': mode, 'batch': int(take),
                         'atol': 1e-5, 'rtol': 1e-3, 'parity': bool(parity),
@@ -1267,6 +1419,29 @@ class OpenLoopValidator:
                         })
                     except Exception:  # noqa: BLE001
                         pass
+            # 诊断证据（默认关闭）：三类带身份的产物 + fail-closed 判定。
+            # 与 CPU 替身 `tools/eval_batch_cpu_diag.py` **共用同一实现**（同一份
+            # writer / detector），所以 CPU 上的验收结论对 GPU 路径同样成立。
+            if _probe_on:
+                try:
+                    _verdict = self._write_probe_evidence(
+                        _group_dir or _probe_dir, require_repeat=_probe_repeat,
+                        group_index=(_group_index if _group_dir else 0),
+                        extra={'mode': mode, 'batch': int(take),
+                               'parity': bool(parity),
+                               'parity_atol': 1e-5, 'parity_rtol': 1e-3,
+                               'serial_seconds': float(serial_seconds),
+                               'batch_seconds': float(batch_seconds),
+                               'peak_free_gib': float(peak_free)})
+                    if _verdict['status'] != 'PASS':
+                        self.logger.warning(
+                            f"[open_loop][eval-batch][ERROR] 诊断证据判定 = {_verdict['status']} "
+                            f"problems={_verdict['problems']}（不得当作 PASS 使用）")
+                except Exception as _vexc:  # noqa: BLE001
+                    self._probe_note_error(_group_dir or _probe_dir or '.', 'write_probe_evidence', _vexc)
+                finally:
+                    self._probe_recorder = None
+                    self._probe_group_ids = None
             safe = peak_free >= reserve and parity
             faster = batch_seconds < serial_seconds  # batch must be worth adopting
             self.logger.info_rank0(f'[open_loop][eval-batch] mode={mode} batch={take} '
@@ -1324,6 +1499,9 @@ class OpenLoopValidator:
             self.logger.warning(
                 f"[open_loop] ⚠️ [{tag}] 拿不到 local_idx→episode_index 映射，"
                 "退化为「每个 chunk 当作一条 trajectory」，聚合口径会与官方有偏差")
+        # 诊断证据用：样本身份的两个真实来源（ep_map ⇒ episode/chunk 起点；tag ⇒ 本次集合）
+        self._probe_ep_map = ep_map
+        self._probe_tag = tag
 
         chunks: List[tuple] = []        # (episode_key, gt(N,D), pr(N,D))
         action_keys: List[str] = []

@@ -130,10 +130,15 @@ class EvaluatorAdapter:
         #    episode_ids 文件路径 ⇒ `_dataset()` 按路径缓存 ⇒ 第二次拿到旧的 2 条。
         tag = f"{self.tag_prefix}_{task_id}_{split}_{ids_fingerprint(ids)}"
         t0 = time.time()
+        # 诊断证据（默认关闭）需要任务名进样本身份：任务号只有这里知道 ⇒ 显式传下去，
+        # 用完复原（避免污染后续 validate() 的证据身份）。
+        _prev_task = getattr(self.validator, "_probe_task", None)
+        self.validator._probe_task = str(task_id)
         # 🔴 走 evaluate_ids（内含 safe_eval_context），**不要**直接调 _evaluate_ids
         try:
             raw = self.validator.evaluate_ids(ids, tag)
         finally:
+            self.validator._probe_task = _prev_task
             # 🔴 review v0.2 #5：`OpenLoopValidator` 的数据集缓存**按 tag 缓存、只增不减**，
             #    而 tag 现在含 ids 指纹 ⇒ 正式长跑（50 任务 × scout2/confirm4/active…）
             #    会不断产生新 key、内存持续增长。
