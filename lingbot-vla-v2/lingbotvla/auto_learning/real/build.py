@@ -37,6 +37,17 @@ from .hook import AutoLearnLoopHook
 from .sampler import AutoLearnSampler, LazyAutoLearnSampler
 
 
+def _is_rank0() -> bool:
+    """本进程是否是 rank0（无 dist / 未初始化 ⇒ 视为 rank0）。"""
+    try:
+        import torch.distributed as dist
+        if dist.is_available() and dist.is_initialized():
+            return int(dist.get_rank()) == 0
+    except Exception:  # noqa: BLE001
+        pass
+    return True
+
+
 class SchedulerLoggerAdapter:
     """Scheduler 需要 `log_event()` / `log_metrics()`（Stage A 的 `EventLogger` 有），
     而真实仓库的 `Logger` **没有** ⇒ 这层适配器补齐。
@@ -47,10 +58,17 @@ class SchedulerLoggerAdapter:
     """
 
     def __init__(self, repo_logger: Any, *, writer: Any = None,
-                 event_path: Optional[str] = None):
+                 event_path: Optional[str] = None,
+                 write_events: Optional[bool] = None):
         self._log = repo_logger
         self._writer = writer
         self._event_path = event_path
+        # 🔴 多卡：**只有 rank0 写事件 JSONL**。
+        #    调度器在所有 rank 上都会构建/运行（决策一致），若每个 rank 都 append，
+        #    事件流会重复 N 份并互相交错。`write_events=None` ⇒ 按 dist rank 自动判定。
+        if write_events is None:
+            write_events = _is_rank0()
+        self._write_events = bool(write_events)
         # Scheduler.global_step 是本次 AL run 的相对步数；真实训练器（及其
         # training/* TensorBoard 标签）可以从 step_offset=500 等绝对步数开始。
         # 这个偏移只用于日志，不得改写 Scheduler 的预算/持久化计数。
@@ -75,7 +93,7 @@ class SchedulerLoggerAdapter:
 
     # -- Auto Learning 专用 --------------------------------------------------
     def _append(self, obj: Dict[str, Any]) -> None:
-        if not self._event_path:
+        if not self._event_path or not self._write_events:
             return
         try:
             with open(self._event_path, "a", encoding="utf-8") as f:

@@ -48,12 +48,30 @@ def scout_key(task: str, episode_ids: Sequence[int]) -> str:
     return hashlib.sha256(json.dumps([task, ids], separators=(',', ':')).encode()).hexdigest()
 
 
+def _is_rank0() -> bool:
+    """本进程是否 rank0（无 dist / 未初始化 ⇒ 视为 rank0）。"""
+    try:
+        import torch.distributed as dist
+        if dist.is_available() and dist.is_initialized():
+            return int(dist.get_rank()) == 0
+    except Exception:  # noqa: BLE001
+        pass
+    return True
+
+
+
 class BootstrapScoutCache:
-    def __init__(self, root: str | Path, *, fingerprint: str):
+    def __init__(self, root: str | Path, *, fingerprint: str,
+                 write_enabled: bool | None = None):
         if len(fingerprint) != 64 or any(c not in '0123456789abcdef' for c in fingerprint):
             raise ValueError('invalid provenance fingerprint')
         self.path = Path(root) / fingerprint
         self.fingerprint = fingerprint
+        # 🔴 多卡：**只有 rank0 写缓存**。所有 rank 都跑调度器，若都写同一文件，
+        #    会有并发写（撕裂）与重复 I/O；读不受影响（各 rank 都可 load）。
+        if write_enabled is None:
+            write_enabled = _is_rank0()
+        self.write_enabled = bool(write_enabled)
 
     def load(self, task: str, ids: Sequence[int]) -> dict | None:
         key = scout_key(task, ids)
@@ -86,6 +104,8 @@ class BootstrapScoutCache:
             return None
 
     def store(self, task: str, ids: Sequence[int], metrics: Mapping[str, Any]) -> None:
+        if not self.write_enabled:
+            return                      # 非 rank0：只读不写（多卡下避免并发写同一文件）
         key = scout_key(task, ids)
         if (metrics.get('task') != task or list(metrics.get('episode_ids', [])) != list(map(int, ids))):
             raise ValueError('cannot cache mismatched task or IDs')

@@ -124,6 +124,70 @@ def _probe_warn_legacy_dump(logger) -> None:
         f" + AL_EVAL_BATCH_PROBE_REPEAT_SERIAL=1（同噪声第二次串行）。本次不会产出旧格式文件。")
 
 
+def _global_rank() -> int:
+    """本进程的全局 rank（无 dist / 未初始化 ⇒ 0）。"""
+    try:
+        import torch.distributed as dist
+        if dist.is_available() and dist.is_initialized():
+            return int(dist.get_rank())
+    except Exception:  # noqa: BLE001
+        pass
+    return 0
+
+
+def _data_parallel_mode(args: Any) -> str:
+    """取 `--train.data_parallel_mode`（缺省视为 'ddp'，与 arguments.py 默认一致）。"""
+    train = getattr(args, "train", None)
+    mode = getattr(train, "data_parallel_mode", None)
+    return str(mode) if mode else "ddp"
+
+
+def _ddp_replicated(args: Any) -> bool:
+    """多卡评测只允许 **DDP**（参数复制）。
+
+    FSDP1/2 / fsdp2-vescale 的参数是**分片**的 ⇒ 单个 rank 上的评测结果无效
+    （且 rank0 评测时其他 rank 继续训练会与 all-gather 错配）。
+    """
+    return _data_parallel_mode(args) == "ddp"
+
+
+def _broadcast_object(payload: List[Any], *, src: int = 0) -> None:
+    """`dist.broadcast_object_list` 的薄封装（未初始化 ⇒ 明确报错，不静默）。"""
+    import torch.distributed as dist
+    if not (dist.is_available() and dist.is_initialized()):
+        raise RuntimeError("多卡评测需要已初始化的 torch.distributed（当前未初始化）")
+    dist.broadcast_object_list(payload, src=src)
+
+
+def _multirank_eval_payload(*, run: Callable[[], Dict[str, Any]], ws: int, rank: int,
+                            broadcast: Callable[[List[Any]], None]) -> Dict[str, Any]:
+    """多卡（DDP）评测的执行与同步协议 —— **纯函数，便于单测**。
+
+    * ``ws == 1``：直接在本进程跑（单卡路径，行为与以前逐字一致）；
+    * ``ws > 1``：**所有 rank 一起进入**（保持 DDP 对称，避免有的 rank 先跑进集合通信）；
+      **rank0 计算并广播结果**（广播即同步点），其余 rank 等待并使用广播结果 ⇒
+      各 rank 拿到的评测指标**完全相同** ⇒ 调度器决策不会分叉；
+    * rank0 失败时**广播错误标记**（而不是直接抛）⇒ 其余 rank 不会永久等在广播上。
+
+    返回 rank0 的评测结果（或本进程结果）。
+    """
+    if ws <= 1:
+        return run()
+    payload: List[Any] = [None]
+    if rank == 0:
+        try:
+            payload[0] = {"ok": True, "result": run()}
+        except BaseException as exc:  # noqa: BLE001 —— 必须广播失败原因，否则对端死等
+            payload[0] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+    broadcast(payload)
+    got = payload[0]
+    if not isinstance(got, dict):
+        raise RuntimeError("多卡评测广播失败：payload 为空或类型异常")
+    if not got.get("ok"):
+        raise RuntimeError(f"多卡评测在 rank0 失败：{got.get('error')}")
+    return got["result"]
+
+
 def _world_size() -> int:
     try:
         import torch.distributed as dist
@@ -836,13 +900,17 @@ class OpenLoopValidator:
         #    （离线「只收 GT」模式 model=None，不走 FSDP/推理，不受此限制。）
         if model is not None:
             ws = _world_size()
-            if ws > 1:
+            if ws > 1 and not _ddp_replicated(args):
                 raise RuntimeError(
-                    f"[open_loop] 训练中原地 open-loop validation 目前**只支持单卡**，"
-                    f"当前 world_size={ws}。\n"
-                    f"  rank0 跑 eval 时其他 rank 会立刻进入下一步 ⇒ FSDP2 的 all-gather 会死锁；"
-                    f"且 rank0 上的参数是分片的，评测结果无效。\n"
-                    f"  请二选一：① 用单卡训练；② 把 --train.open_loop_eval_steps 设为 0 关闭本功能。")
+                    f"[open_loop] 多卡评测只支持 **data_parallel_mode='ddp'**（参数复制），"
+                    f"当前 world_size={ws}、data_parallel_mode={_data_parallel_mode(args)!r}。\n"
+                    f"  分片并行（fsdp1/fsdp2/fsdp2-vescale）下 rank 上只有局部参数 ⇒ 评测结果无效；"
+                    f"且 rank0 评测时其他 rank 继续训练会与 all-gather 错配。\n"
+                    f"  请三选一：① 用 ddp；② 用单卡；③ 把 --train.open_loop_eval_steps 设为 0。")
+            if ws > 1:
+                logger.info_rank0(
+                    f"[open_loop] 多卡评测已启用（world_size={ws} + DDP 参数复制）："
+                    "所有 rank 一起进入评测，rank0 计算并广播结果 ⇒ 各 rank 指标一致、决策不分叉")
 
         if getattr(args.data, "image_augment", False):
             logger.warning(
@@ -1343,8 +1411,11 @@ class OpenLoopValidator:
                         self.logger.info_rank0(f'[open_loop][eval-batch] probe batch1 record failed: {_exc!r}')
                 yield [(idx, item, pred)]
             return
-        if _world_size() != 1:
-            raise RuntimeError('eval batching unsupported on multiple FSDP ranks')
+        if _world_size() != 1 and not _ddp_replicated(self.args):
+            raise RuntimeError(
+                'eval batching 需要单卡或 DDP（参数复制）；'
+                f'当前 world_size={_world_size()}、data_parallel_mode='
+                f'{_data_parallel_mode(self.args)!r}（分片并行不支持）')
         reserve = float(os.environ.get('AL_EVAL_BATCH_RESERVE_GIB', '10'))
         if not (8.0 <= reserve <= 64.0):
             raise ValueError('unsafe eval batch reserve')
@@ -1404,6 +1475,9 @@ class OpenLoopValidator:
             gen = self._noise_generator(self.device)
             generator_start = gen.get_state()
             _probe_dir = os.environ.get('AL_EVAL_BATCH_PROBE_DIR') or None
+            if _probe_dir and _world_size() > 1:
+                # 多卡：每个 rank 写自己的子目录（否则会互相覆盖）
+                _probe_dir = os.path.join(_probe_dir, f'rank{_global_rank()}')
             _probe_repeat = _probe_repeat_env()
             _probe_on = bool(_probe_dir) or _probe_repeat
             _group_dir = None
@@ -1876,9 +1950,18 @@ class OpenLoopValidator:
         if self.model is None:
             raise RuntimeError(
                 "evaluate_ids 需要真实模型（当前实例是离线 GT-only 模式，只能 collect_gt_chunks）")
-        if getattr(self.args.train, "global_rank", 0) != 0:
-            raise RuntimeError("open-loop 评测目前只在 rank0 上做（本模块只支持单卡）")
+        ws = _world_size()
+        if ws > 1 and not _ddp_replicated(self.args):
+            raise RuntimeError(
+                f"多卡评测只支持 DDP（参数复制）；当前 data_parallel_mode="
+                f"{_data_parallel_mode(self.args)!r}（分片并行下 rank 上只有局部参数）")
+        # 单卡：直接跑（行为与以前逐字一致）；多卡：所有 rank 一起进入，rank0 计算并广播结果。
+        return _multirank_eval_payload(
+            run=lambda: self._evaluate_run(list(ids), tag),
+            ws=ws, rank=_global_rank(), broadcast=_broadcast_object)
 
+    def _evaluate_run(self, ids: Sequence[int], tag: str) -> Dict[str, Any]:
+        """单次评测的实际执行体（安全上下文 + ``inference_mode`` + 结果）。"""
         with self._eval_context():
             try:
                 with torch.inference_mode():
