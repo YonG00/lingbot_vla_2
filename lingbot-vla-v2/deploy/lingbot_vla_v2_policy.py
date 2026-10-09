@@ -342,6 +342,24 @@ class LingbotVLAv2Server:
         
         print('Initializing model ... ')
 
+        # 🔴 并行预读（**与训练侧同一个函数/同一机制**）：把 safetensors 分片并发读进页缓存，
+        #    之后再顺序 `safe_open` 就命中缓存。实测（训练侧）冷读 41.7 s → 后续分片加载 3.4 s；
+        #    部署侧 legacy 加载实测 12 GB / 10.7 s（页缓存热）或 ~45 s（冷）。
+        #    放在两条加载路径**之前**，fast / legacy 都覆盖；失败只告警、绝不影响加载。
+        _prewarm_started = time.perf_counter()
+        try:
+            from lingbotvla.models.module_utils import _parallel_prewarm_shards
+            _pre = _parallel_prewarm_shards(path_to_pi_model)
+            if _pre.get("enabled"):
+                print(f"[deploy-load] prewarm files={_pre.get('files')} "
+                      f"bytes={_pre.get('bytes')} seconds={_pre.get('seconds'):.2f} "
+                      f"threads={_pre.get('threads')} "
+                      f"wall={time.perf_counter() - _prewarm_started:.2f}s", flush=True)
+            else:
+                print(f"[deploy-load] prewarm skipped: {_pre.get('error')}", flush=True)
+        except Exception as _exc:  # noqa: BLE001
+            print(f"[deploy-load] prewarm unavailable ({type(_exc).__name__}: {_exc})", flush=True)
+
         if fast_load:
             # This optional route avoids CPU FP32 initialization and the
             # merged in-RAM checkpoint. Keep the legacy path as default.
@@ -367,6 +385,16 @@ class LingbotVLAv2Server:
         self.vla.model._compiled_predict_velocity = None
         self.sample_actions_fn = self.vla.model.sample_actions
         if self.use_compile:
+            # 服务端编译两层：内层 `predict_velocity`（上面那个开关）+ 外层这两个。
+            # 与训练侧同一套调优：把 dynamo `cache_size_limit` 提到 64，避免"超限后整段退回 eager"
+            # （表现是"用着用着突然变慢"，很隐蔽）。
+            try:
+                from lingbotvla.utils.compile_tuning import apply_dynamo_tuning
+                apply_dynamo_tuning(logger=None)
+            except Exception as _exc:  # noqa: BLE001
+                print(f"[deploy-load] dynamo tuning unavailable ({type(_exc).__name__})", flush=True)
+            print("[deploy-load] torch.compile 开启：内层 predict_velocity + 外层 qwenvl_with_expert/"
+                  "sample_actions（首编译有成本）", flush=True)
             self.vla.model.qwenvl_with_expert = torch.compile(self.vla.model.qwenvl_with_expert)
             self.sample_actions_fn = torch.compile(self.vla.model.sample_actions)
 

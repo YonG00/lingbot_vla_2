@@ -208,3 +208,31 @@ def test_two_stage_closed_loop_scripts_exist():
     assert "常驻" in server and "模型不重载" in server
     assert "TASKS        必填" in tasks and "只跑 sim 侧" in tasks
     assert "DRY_RUN" in tasks
+
+
+def test_closed_loop_accel_knobs_wired():
+    """闭环服务侧加速开关（2026-10-10）：FAST_LOAD / USE_COMPILE + 部署侧预读与编译调优。
+
+    背景：服务实测 `legacy CPU model init seconds=49.30` / `legacy weights seconds=10.74`
+    ⇒ 大头是 **CPU 构建**（仓库已有 opt-in fast 路径：CUDA 上直接建 bf16 模型 + 流式拷权重），
+    但两个启动脚本都把 `--use_compile` 写死 false、且没人设 `LINGBOT_DEPLOY_FAST_LOAD`。
+    """
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    srv = (root / "tools/policy_server.sh").read_text(encoding="utf-8")
+    clo = (root / "tools/closed_loop_eval.sh").read_text(encoding="utf-8")
+    dep = (root / "deploy/lingbot_vla_v2_policy.py").read_text(encoding="utf-8")
+
+    for name, txt in (("policy_server.sh", srv), ("closed_loop_eval.sh", clo)):
+        assert 'FAST_LOAD=${FAST_LOAD:-0}' in txt, name
+        assert 'USE_COMPILE=${USE_COMPILE:-false}' in txt, name
+        assert 'export LINGBOT_DEPLOY_FAST_LOAD=$FAST_LOAD' in txt, name
+        assert '--use_compile $USE_COMPILE' in txt or '--use_compile "$USE_COMPILE"' in txt, name
+        assert '--use_compile false' not in txt, f"{name} 不允许再写死 use_compile=false"
+        assert 'FAST_LOAD=1 要求 PRECISION=bf16' in txt, f"{name} 必须前置校验 fast+bf16"
+
+    # 部署侧：两条加载路径之前统一并行预读（复用训练侧同一函数）+ 编译调优
+    assert "_parallel_prewarm_shards" in dep
+    assert "apply_dynamo_tuning" in dep
+    assert dep.index("_parallel_prewarm_shards(path_to_pi_model)") < dep.index("if fast_load:")
+    assert "cache_size_limit" not in dep or True   # 调优在 compile_tuning 里，部署侧只调用

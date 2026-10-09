@@ -26,6 +26,13 @@
 #   TASK           仅用于推导默认 CKPT_ROOT
 #   STEP           评哪一步 ckpt（默认 500）
 #   PORT           端口（默认 9330）
+#   FAST_LOAD      1 = 启用部署侧 **fast 权重加载**（`LINGBOT_DEPLOY_FAST_LOAD=1`）：
+#                  直接在 CUDA 上以 bf16 构建模型 + 逐张量流式拷入 ⇒ 省掉 ~49 s 的 CPU 初始化
+#                  与 12 GB 的 CPU 合并 dict。**要求 PRECISION=bf16**（脚本会前置校验）。
+#                  默认 0（legacy 路径）。
+#   USE_COMPILE    true/false（默认 false）：开启服务端 torch.compile —— 注意它会同时编译
+#                  **内层** `predict_velocity`（`_use_compile_predict_velocity`）与**外层**
+#                  `qwenvl_with_expert` / `sample_actions` 两层。首编译有成本，需 A/B。
 #   PRECISION      推理精度：fp32（默认，与历史一致）| bf16
 #                  （bf16 权重要用 bf16 服务；本项目 bf16 训练的 HF 导出默认就是 bf16）
 #   USE_LENGTH     action chunk 长度（默认 50）
@@ -41,9 +48,19 @@ TASK=${TASK:-click_bell}
 CKPT_ROOT=${CKPT_ROOT:-/data/outputs/single/$TASK}
 STEP=${STEP:-500}
 PRECISION=${PRECISION:-fp32}
+FAST_LOAD=${FAST_LOAD:-0}
+USE_COMPILE=${USE_COMPILE:-false}
 [[ "$PRECISION" == "bf16" || "$PRECISION" == "fp32" ]] \
     || { echo "❌ PRECISION 只支持 fp32|bf16，收到 $PRECISION" >&2; exit 1; }
 if [[ "$PRECISION" == "bf16" ]]; then USE_BF16=true; USE_FP32=false; else USE_BF16=false; USE_FP32=true; fi
+[[ "$FAST_LOAD" == "0" || "$FAST_LOAD" == "1" ]] \
+    || { echo "❌ FAST_LOAD 只支持 0|1，收到 $FAST_LOAD" >&2; exit 1; }
+if [[ "$FAST_LOAD" == "1" && "$PRECISION" != "bf16" ]]; then
+    echo "❌ FAST_LOAD=1 要求 PRECISION=bf16（部署侧 fast 路径会在 CUDA 上直接建 bf16 模型）" >&2; exit 1
+fi
+[[ "$USE_COMPILE" == "true" || "$USE_COMPILE" == "false" ]] \
+    || { echo "❌ USE_COMPILE 只支持 true|false，收到 $USE_COMPILE" >&2; exit 1; }
+export LINGBOT_DEPLOY_FAST_LOAD=$FAST_LOAD
 PORT=${PORT:-9330}
 USE_LENGTH=${USE_LENGTH:-50}
 QWEN3VL=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
@@ -100,7 +117,8 @@ do_start() {
   ckpt        : $CKPT
   端口        : $PORT
   chunk       : $USE_LENGTH
-  精度        : $PRECISION（use_bf16=$USE_BF16, use_fp32=$USE_FP32, use_compile=false）
+  精度        : $PRECISION（use_bf16=$USE_BF16, use_fp32=$USE_FP32, use_compile=$USE_COMPILE）
+  fast 加载   : $FAST_LOAD（LINGBOT_DEPLOY_FAST_LOAD；1 = CUDA 上建模型 + 流式拷权重）
   QWEN3VL_PATH: $QWEN3VL
   日志        : $LOG
   PID 文件    : $PIDFILE
@@ -114,7 +132,7 @@ EOF
         --use_length '${USE_LENGTH}' \
         --use_bf16 $USE_BF16 \
         --use_fp32 $USE_FP32 \
-        --use_compile false \
+        --use_compile $USE_COMPILE \
         --port '${PORT}'" > "$LOG" 2>&1 < /dev/null &
 
     local pid=$!
