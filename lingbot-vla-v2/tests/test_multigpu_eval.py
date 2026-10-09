@@ -14,6 +14,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import torch
 
 REPO = Path(__file__).resolve().parents[1]
 SRC = REPO / "lingbotvla/utils/open_loop_validation.py"
@@ -22,12 +23,12 @@ SRC = REPO / "lingbotvla/utils/open_loop_validation.py"
 def _mod():
     """按 AST 编译多卡相关模块级函数（本地无法 import 该模块：transformers 版本差异）。"""
     wanted = ("_world_size", "_global_rank", "_data_parallel_mode", "_ddp_replicated",
-              "_broadcast_object", "_multirank_eval_payload")
+              "_broadcast_object", "_multirank_eval_payload", "_unwrap_eval_model")
     tree = ast.parse(SRC.read_text(encoding="utf-8"))
     fns = [x for x in tree.body if isinstance(x, ast.FunctionDef) and x.name in wanted]
     assert len(fns) == len(wanted), [f.name for f in fns]
     ast.fix_missing_locations(tree)
-    ns = {"Any": object, "List": list, "Dict": dict, "Callable": object}
+    ns = {"Any": object, "List": list, "Dict": dict, "Callable": object, "torch": torch}
     exec(compile(ast.Module(body=fns, type_ignores=[]), str(SRC), "exec"), ns)
     return SimpleNamespace(**{k: ns[k] for k in wanted})
 
@@ -217,3 +218,55 @@ def test_trainer_writer_defined_for_nonzero_ranks():
     # 所有 writer.add_* 必须在 rank0 守卫内（置 None 才安全）
     add_lines = [l for l in src.splitlines() if "writer.add_" in l]
     assert add_lines, "找不到 writer.add_* 调用（源码结构变了？）"
+
+
+# ---------------------------------------------------------------------------
+# 模型包装剥离（2026-10-09 2×4090 DDP 实测：`model.config` AttributeError）
+# ---------------------------------------------------------------------------
+def _unwrap():
+    """AST 编译（本地 import 该模块会拉 torchdata，本机没有）。"""
+    return _mod()._unwrap_eval_model
+
+
+class _FakeInner(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.config = "cfg"
+
+
+def test_unwrap_peels_compile_and_ddp():
+    u = _unwrap()
+    inner = _FakeInner()
+    # torch.compile 的外层（按类名识别，不必真编译）
+    opt = type("OptimizedModule", (torch.nn.Module,), {})( )
+    opt._orig_mod = inner
+    assert u(opt) is inner
+    # DDP 类名 + .module
+    ddp = type("DistributedDataParallel", (torch.nn.Module,), {})()
+    ddp.module = inner
+    assert u(ddp) is inner
+    # 叠加：compile(DDP(inner))
+    both = type("OptimizedModule", (torch.nn.Module,), {})()
+    both._orig_mod = ddp
+    assert u(both) is inner
+    assert u(inner) is inner
+    assert u(inner).config == "cfg"
+
+
+def test_unwrap_does_not_strip_plain_submodule_named_module():
+    """普通模型可能有名为 `module` 的子模块 —— **不能**误剥（这正是不能用 'has .module' 判定的原因）。"""
+    u = _unwrap()
+    outer = torch.nn.Module()
+    outer.module = _FakeInner()          # 普通子模块，不是 DDP 包装
+    assert u(outer) is outer, "非包装类的 .module 不得被剥掉"
+
+
+def test_validator_unwraps_before_assigning_self_model():
+    """顺序红线：必须**先解包、再 `self.model = model`** ——
+    先赋值后解包的话 `self.model` 仍是包装体，`model.config` 照旧 AttributeError。"""
+    src = SRC.read_text(encoding="utf-8")
+    # ⚠️ 锚点必须精确：注释里也出现了 "self.model = model" 字样（上一次就被它骗了）
+    i_unwrap = src.index("_inner = _unwrap_eval_model(model)")
+    i_assign = src.index("self.model = model\n        self._model_config")
+    i_config = src.index("self._model_config = model_config if model_config is not None else model.config")
+    assert i_unwrap < i_assign < i_config, "顺序应为：解包 → self.model= → 取 model.config"

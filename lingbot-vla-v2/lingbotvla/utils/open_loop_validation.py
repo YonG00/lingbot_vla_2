@@ -124,6 +124,35 @@ def _probe_warn_legacy_dump(logger) -> None:
         f" + AL_EVAL_BATCH_PROBE_REPEAT_SERIAL=1（同噪声第二次串行）。本次不会产出旧格式文件。")
 
 
+def _unwrap_eval_model(model: Any) -> Any:
+    """剥掉训练/编译包装，拿到**真正的模型**（评测的属性访问与 forward 都需要）。
+
+    2026-10-09 2×4090 实测：DDP 下 `OpenLoopValidator.__init__` 直接 `model.config` 抛
+    `AttributeError: 'DistributedDataParallel' object has no attribute 'config'`
+    （栈里还经 `torch/_dynamo/eval_frame.py` ⇒ 外层还有 `torch.compile`）。
+
+    * `torch.compile` ⇒ ``_orig_mod``（类名 `OptimizedModule`）
+    * DDP / FSDP1 / DataParallel ⇒ ``.module``
+    * 可能多层叠加（`compile(DDP(model))`）⇒ 循环剥离。
+
+    ⚠️ 按**包装类名**判定，不用"有 `.module` 就剥" —— 普通模型也可能有名为 `module` 的子模块。
+    （FSDP2 是原地 patch、没有 `.module`；其参数是 DTensor ⇒ 已由并行模式守卫拦下，不在这里处理。）
+    """
+    cur = model
+    for _ in range(8):
+        cls = type(cur).__name__
+        if cls == "OptimizedModule":
+            inner = getattr(cur, "_orig_mod", None)
+        elif cls in ("DistributedDataParallel", "FullyShardedDataParallel", "DataParallel"):
+            inner = getattr(cur, "module", None)
+        else:
+            inner = None
+        if not isinstance(inner, torch.nn.Module) or inner is cur:
+            break
+        cur = inner
+    return cur
+
+
 def _global_rank() -> int:
     """本进程的全局 rank（无 dist / 未初始化 ⇒ 0）。"""
     try:
@@ -854,6 +883,16 @@ class OpenLoopValidator:
         # 不需要权重（Stage B0 的 Fixed Baseline 预计算）。推理路径仍需传 model。
         if model is None and model_config is None:
             raise ValueError("OpenLoopValidator 需要 model 或 model_config 至少给一个")
+        # 🔴 多卡/编译包装：DDP / torch.compile 会挡住 `model.config` 等属性访问，
+        #    且评测不该走 DDP 的梯度同步与 compile 产物 ⇒ **先剥离、再赋值**。
+        #    （踩过：先 `self.model = model` 再解包 ⇒ self.model 仍是包装体，属性访问照旧失败。）
+        if model is not None:
+            _inner = _unwrap_eval_model(model)
+            if _inner is not model:
+                logger.info_rank0(
+                    f"[open_loop] 模型包装已剥离：{type(model).__name__} → {type(_inner).__name__}"
+                    "（评测用真模型：属性访问 + eager 前向）")
+                model = _inner
         self.model = model
         self._model_config = model_config if model_config is not None else model.config
         self.args = args
