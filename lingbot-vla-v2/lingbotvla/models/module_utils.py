@@ -15,6 +15,8 @@
 
 import json
 import os
+import time
+from concurrent.futures import ThreadPoolExecutor
 from collections import OrderedDict
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -93,39 +95,105 @@ class StateDictIterator:
                 yield key, state_dict[key]
 
 
+def _resolve_weight_files(weights_path: str, **kwargs) -> List[str]:
+    """按 transformers 的查找顺序返回权重文件列表（单文件或分片）。
+
+    ⚠️ **查找顺序与原实现逐条一致**（safetensors → index → diffusers → index → bin → index），
+    只把"返回文件名列表"抽出来，供 :func:`_parallel_prewarm_shards` 复用。
+    """
+    cache_kwargs = {"_raise_exceptions_for_missing_entries": False, **kwargs}
+    single = cached_file(weights_path, SAFE_WEIGHTS_NAME, **cache_kwargs)
+    if single:
+        return [single]
+    index = cached_file(weights_path, SAFE_WEIGHTS_INDEX_NAME, **cache_kwargs)
+    if index:
+        shard_files, _ = get_checkpoint_shard_files(weights_path, index, **kwargs)
+        return list(shard_files)
+    single = cached_file(weights_path, DIFFUSERS_SAFETENSORS_WEIGHTS_NAME, **cache_kwargs)
+    if single:
+        return [single]
+    index = cached_file(weights_path, DIFFUSERS_SAFE_WEIGHTS_INDEX_NAME, **cache_kwargs)
+    if index:
+        shard_files, _ = get_checkpoint_shard_files(weights_path, index, **kwargs)
+        return list(shard_files)
+    single = cached_file(weights_path, WEIGHTS_NAME, **cache_kwargs)
+    if single:
+        return [single]
+    index = cached_file(weights_path, WEIGHTS_INDEX_NAME, **cache_kwargs)
+    if index:
+        shard_files, _ = get_checkpoint_shard_files(weights_path, index, **kwargs)
+        return list(shard_files)
+    raise ValueError(f"Cannot find checkpoint files in {weights_path}.")
+
+
+#: 并行预读开关（默认开；`AL_SHARD_PREWARM=0` 关闭）。
+SHARD_PREWARM_ENV = "AL_SHARD_PREWARM"
+SHARD_PREWARM_THREADS_ENV = "AL_SHARD_PREWARM_THREADS"
+
+
+def _parallel_prewarm_shards(weights_path: str, *, logger: Optional[Any] = None,
+                             threads: Optional[int] = None, **kwargs) -> Dict[str, Any]:
+    """**并行预读权重分片**，把"冷读盘"变成"页缓存热读"。
+
+    实测（2026-10-09，50-task GMean200 正式跑）：`Loading checkpoint shards 0/6→6/6` 用了
+    **84 s**（16 s/片 × 6，≈290 MB/s）—— 而 transformers 的 `StateDictIterator` 是
+    **顺序逐分片**读的；同一批文件在页缓存热时同类读取只要 **~2 s**。
+    多路并发预读后，随后的顺序读全部命中页缓存。
+
+    * 开关：``AL_SHARD_PREWARM=0`` 关闭；``AL_SHARD_PREWARM_THREADS=N`` 指定线程数（默认 min(6, CPU)）。
+    * **失败一律不影响加载**（只记一条日志）：预读纯粹是加速手段。
+    """
+    info: Dict[str, Any] = {"enabled": False, "files": 0, "bytes": 0, "seconds": None,
+                            "threads": 0, "error": None}
+    raw = os.environ.get(SHARD_PREWARM_ENV, "1")
+    if str(raw).strip().lower() in ("0", "false", "no", "off"):
+        return info
+    try:
+        files = _resolve_weight_files(weights_path, **kwargs)
+        sizes = [os.path.getsize(f) for f in files]
+        n_threads = int(threads if threads is not None
+                        else os.environ.get(SHARD_PREWARM_THREADS_ENV)
+                        or min(6, os.cpu_count() or 4))
+        n_threads = max(1, min(n_threads, len(files)))
+        if sum(sizes) <= 0:
+            return info
+        started = time.perf_counter()
+
+        def _read(path: str) -> None:
+            with open(path, "rb", buffering=0) as fh:      # 只用页缓存，不落用户态大缓冲
+                while fh.read(8 * 1024 * 1024):
+                    pass
+
+        with ThreadPoolExecutor(max_workers=n_threads) as pool:
+            list(pool.map(_read, files))
+        info.update(enabled=True, files=len(files), bytes=int(sum(sizes)),
+                    seconds=time.perf_counter() - started, threads=n_threads)
+        _log_info(logger, f"[prewarm] 并行预读 {info['files']} 片 / "
+                          f"{info['bytes'] / 1024**3:.1f} GiB / {info['seconds']:.1f} s "
+                          f"（{info['threads']} 线程 ⇒ 随后的顺序读命中页缓存）")
+    except Exception as exc:  # noqa: BLE001  —— 预读失败绝不能挡住加载
+        info["error"] = f"{type(exc).__name__}: {exc}"
+        _log_info(logger, f"[prewarm] ⚠️ 并行预读跳过（{info['error']}）")
+    return info
+
+
+def _log_info(logger: Optional[Any], msg: str) -> None:
+    for name in ("info_rank0", "info"):
+        fn = getattr(logger, name, None)
+        if callable(fn):
+            try:
+                fn(msg)
+                return
+            except Exception:  # noqa: BLE001
+                continue
+    print(msg, flush=True)
+
+
 def _load_state_dict(weights_path: str, **kwargs) -> List["StateDictIterator"]:
     """
     Loads (sharded) state dict in transformers' format.
     """
-    cache_kwargs = {"_raise_exceptions_for_missing_entries": False, **kwargs}
-    resolved_weight_file = cached_file(weights_path, SAFE_WEIGHTS_NAME, **cache_kwargs)
-    if resolved_weight_file:
-        return [StateDictIterator(resolved_weight_file)]
-
-    resolved_weight_file = cached_file(weights_path, SAFE_WEIGHTS_INDEX_NAME, **cache_kwargs)
-    if resolved_weight_file:
-        shard_files, _ = get_checkpoint_shard_files(weights_path, resolved_weight_file, **kwargs)
-        return [StateDictIterator(shard_file) for shard_file in shard_files]
-
-    resolved_weight_file = cached_file(weights_path, DIFFUSERS_SAFETENSORS_WEIGHTS_NAME, **cache_kwargs)
-    if resolved_weight_file:
-        return [StateDictIterator(resolved_weight_file)]
-
-    resolved_weight_file = cached_file(weights_path, DIFFUSERS_SAFE_WEIGHTS_INDEX_NAME, **cache_kwargs)
-    if resolved_weight_file:
-        shard_files, _ = get_checkpoint_shard_files(weights_path, resolved_weight_file, **kwargs)
-        return [StateDictIterator(shard_file) for shard_file in shard_files]
-
-    resolved_weight_file = cached_file(weights_path, WEIGHTS_NAME, **cache_kwargs)
-    if resolved_weight_file:
-        return [StateDictIterator(resolved_weight_file)]
-
-    resolved_weight_file = cached_file(weights_path, WEIGHTS_INDEX_NAME, **cache_kwargs)
-    if resolved_weight_file:
-        shard_files, _ = get_checkpoint_shard_files(weights_path, resolved_weight_file, **kwargs)
-        return [StateDictIterator(shard_file) for shard_file in shard_files]
-
-    raise ValueError(f"Cannot find checkpoint files in {weights_path}.")
+    return [StateDictIterator(f) for f in _resolve_weight_files(weights_path, **kwargs)]
 
 
 def _find_submodule(module: "nn.Module", name: str) -> Tuple["nn.Module", str]:
@@ -246,6 +314,9 @@ def load_model_weights(
         logger.info_rank0(">>> Doing Post-Training now.")
     elif load_vlm_only:
         logger.info_rank0(">>> Doing Pre-Training now.")
+
+    # 并行预读分片（把冷读盘变成页缓存热读；`AL_SHARD_PREWARM=0` 可关闭，失败不影响加载）
+    _parallel_prewarm_shards(weights_path, logger=logger)
 
     # Load checkpoint weight iterators
     state_dict_iterators = _load_state_dict(weights_path)
