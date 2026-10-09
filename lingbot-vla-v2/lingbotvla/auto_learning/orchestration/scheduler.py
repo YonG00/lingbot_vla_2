@@ -282,6 +282,10 @@ class Scheduler:
     def _budget_exhausted(self) -> Optional[str]:
         st = self.state
         if self._total_pass_target_reached():
+            # 下限门控（GMean200 实验）：'新增非 Bootstrap PASS' 不足时不得因目标达成而收工。
+            _floor = getattr(self.al, 'min_new_tasks_passed_this_run', None)
+            if _floor is not None and len(self.state.newly_passed) < int(_floor):
+                return None
             return f"target_total_passed_reached({self.al.target_total_passed_tasks})"
         if self.unit_budget is not None and st.units_run >= self.unit_budget:
             return f"unit_budget_reached({self.unit_budget})"
@@ -463,7 +467,11 @@ class Scheduler:
                 }
             counts = self.registry.counts()
             if counts.get("CANDIDATE", 0) == 0 and counts.get("DEFER", 0) == 0:
-                self._finish("all_tasks_resolved")
+                _floor2 = getattr(al, 'min_new_tasks_passed_this_run', None)
+                if _floor2 is not None and len(st.newly_passed) < int(_floor2):
+                    self._finish('min_new_passes_not_reached')
+                else:
+                    self._finish('all_tasks_resolved')
             else:
                 self._finish("no_eligible_candidate")
             return {"action": "finish", "stop_reason": st.stop_reason}

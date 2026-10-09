@@ -61,6 +61,7 @@ SEMANTIC_KEYS = (
     "rescan_candidates_after_transition",
     "max_new_tasks_attempted_this_run",
     "max_new_tasks_passed_this_run",
+    "min_new_tasks_passed_this_run",
     "target_total_passed_tasks",
     "global_scout_val_trajs",
     "active_val_probe_trajs",

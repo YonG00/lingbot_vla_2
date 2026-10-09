@@ -40,6 +40,9 @@ class AutoLearningConfig:
     #:    所以**不要**改名成 `required_*` / `target_*` —— 那会让人误以为它有保证。
     #: 口径：`newly_passed` = 本次 run 里**首次** PASS 的任务（此前 PASS 过的不计入）。
     max_new_tasks_passed_this_run: Optional[int] = None
+    #: **下限**：本次运行至少训练出这么多「新增（非 Bootstrap）PASS」才允许收工。
+    #: 与 `max_new_tasks_passed_this_run`（上限）互补；None ⇒ 旧行为（仅受目标约束）。
+    min_new_tasks_passed_this_run: Optional[int] = None
     #: 当前 Registry 中处于 PASS 状态的不同任务数达到 N 即结束。
     #: 含 Bootstrap / Rescan PASS；REOPEN 后不计；None 保持旧收工语义。
     target_total_passed_tasks: Optional[int] = None

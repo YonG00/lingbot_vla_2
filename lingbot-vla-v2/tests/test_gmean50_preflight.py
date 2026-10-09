@@ -73,3 +73,45 @@ def test_cli_dry_run_validates_yaml_and_missing_paths(tmp_path, capsys):
     assert '"status": "READY"' in capsys.readouterr().out
     cfg.write_text(cfg.read_text().replace("gmean_mse", "nmse"))
     assert main(args) == 2
+
+
+# --------------------------------------------------------------------------- #
+# 停止条件（2026-10-09）：'至少 N 个新增非 Bootstrap PASS' 下限
+# --------------------------------------------------------------------------- #
+def _floor_state(newly, bootstrap):
+    class S:
+        newly_passed = list(newly)
+        bootstrap_passed = list(bootstrap)
+    return S()
+
+
+def test_gmean200_train_config_declares_new_pass_floor_and_caps():
+    import pathlib
+    cfg = pathlib.Path(__file__).resolve().parents[1] / \
+        "configs/auto_learning/experiment_50task_gmean200_train2.yaml"
+    text = cfg.read_text(encoding="utf-8")
+    assert "min_new_tasks_passed_this_run: 2" in text
+    assert "max_new_tasks_attempted_this_run: 6" in text        # 资源上限必须保留
+    assert "target_total_passed_tasks: 4" in text               # 目标未被改动
+    assert "pass_metric: gmean_mse" in text
+
+
+def test_new_pass_floor_semantics_bootstrap_does_not_count():
+    """Bootstrap PASS 不计入新增；只有 newly_passed 增长才满足下限。"""
+    for boot in (0, 2, 4, 6):
+        st = _floor_state([], [f"t{i}" for i in range(boot)])
+        assert len(st.newly_passed) == 0            # Bootstrap 再多也不算新增 ✓
+        for n in (0, 1, 2):
+            st = _floor_state([f"n{i}" for i in range(n)], st.bootstrap_passed)
+            ok = len(st.newly_passed) >= 2
+            assert ok == (n >= 2), (boot, n)
+
+
+def test_scheduler_gates_both_early_finish_paths_on_the_floor():
+    """源码级锁定：目标达成与 all_tasks_resolved 两条早退路径都必须受下限约束。"""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] /
+           "lingbotvla/auto_learning/orchestration/scheduler.py").read_text(encoding="utf-8")
+    assert src.count("min_new_tasks_passed_this_run") >= 2
+    assert "min_new_passes_not_reached" in src
+    assert "if _floor is not None and len(self.state.newly_passed) < int(_floor):" in src

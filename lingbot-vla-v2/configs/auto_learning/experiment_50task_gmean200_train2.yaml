@@ -1,0 +1,120 @@
+# EXPERIMENTAL: GMean 200x open-loop study. Not the formal NMSE configuration.
+# Never launch before tools/gmean50_preflight.py reports READY.
+# Historical Scout reuse is NOT enabled: provenance is not yet sufficient.
+# =============================================================================
+# 实验配置（独立）：50 任务池 → **当前累计 PASS 达到 4 个就收工**
+# 场景：48G 单卡 + BF16（`--train.enable_mixed_precision false`）
+# -----------------------------------------------------------------------------
+# 与 demo/smoke 配置的区别：这里的 cadence 与阈值都是**正式值**，不是 smoke 值。
+#
+# 收工靠新增的 `target_total_passed_tasks`：以 Registry 当前 PASS 状态计数，
+# 包含 Bootstrap 已 PASS 的任务；若当前 PASS 仅剩 2 个，须再取得 2 个才到目标。
+# 旧 `max_new_tasks_passed_this_run` 仍保留兼容，但本配置禁用它。
+# 另外两道保险丝防止在难任务上无限打转：attempted 上限 + 总步数上限。
+# =============================================================================
+enabled: true
+
+# ----- task pool -----
+#: null = 用 manifest 里的**全部**任务（当前 50 个）。build.py 里 `if cfg.task_names:`
+#: 只是一个「取子集」的过滤器，留空即不过滤。
+task_names: null
+
+#: ✅ 当前 PASS 总数达到 4 立即停（并不保证所有任务都能学会）。
+#: BOOTSTRAP、Rescan、训练 PASS 都算；REOPEN 后要从当前 PASS 数减掉。
+#: 不额外使用旧的 "本轮新增 PASS" 限额。
+max_new_tasks_passed_this_run: null
+target_total_passed_tasks: 4
+
+#: 🚫 刻意**不设**：限制"主动尝试多少个新任务"只会妨碍"尽快凑够 4 个"这个目标。
+#: 池子本身有界（50 个任务 × `max_attempts_per_task=2`），不会无限打转。
+max_new_tasks_attempted_this_run: null
+
+#: churn guard：同一任务最多「遗忘 → 回炉」几次（不占 attempt 预算）。
+max_reopens_per_task: 3
+
+# ----- task evaluation -----
+global_scout_val_trajs: 2
+scout_confirm_enabled: true       # 实验模式：2-traj Scout PASS 必须经过 4-traj Confirm
+active_train_probe_trajs: 4
+active_val_probe_trajs: 4
+#: 本 YAML 独立于正式 NMSE 配置，仅用于开环实验。
+#: Reference 逐轨迹 GMean × 200；必须由 preflight 校验 calibration.multiplier=200、
+#: metric=mse、stat=geomean、config_fingerprint 和 50 task 覆盖率。
+#: 注意：200× 是实验开环 PASS 线，不代表闭环成功率。
+pass_metric: gmean_mse
+pass_thresholds_file: /data/eval_results/open_loop/ref50k/pass_thresholds_gmean200_warn.json
+pass_nmse: 0.35  # 兼容占位；GMean 模式下不参与 PASS
+
+# ----- train / eval cadence（正式值）-----
+eval_interval_steps: 50         # 一个 learning unit = 50 个 optimizer step
+min_steps_before_defer: 100     # 必须是 eval_interval_steps 的整数倍
+defer_retry_steps: 50           # 同上
+
+# ----- after PASS -----
+continue_after_pass: false      # 达标即转下一个任务，不继续磨
+post_pass_max_steps: 0
+post_pass_min_lp: 0.03
+
+# ----- learning progress -----
+min_lp50: 0.05
+
+# ----- attempts -----
+max_attempts_per_task: 2
+
+# ----- optional rescue -----
+#: 保持 false：打开后**每次 DEFER 前会先重扫一次 hardness**（多 1–2 分钟/次）。
+defer_resample_retry: false
+defer_retry_steps: 50
+
+# ----- overfit -----
+early_defer_on_overfit: true
+overfit_train_lp_min: 0.05
+overfit_val_lp_max: 0.00
+overfit_gap_growth_threshold: 0.10
+
+# ----- batch -----
+# new_ratio 启用后，实际每 rank 的 batch_size = micro * gas；NEW/Replay
+# 从全局 GBS 按 70/30 确定性分配（4×28 => 全局 78 NEW + 34 Replay）。
+# 以下 10/7/3 为旧静态配置的兼容值，在新模式下由运行时覆盖。
+batch_size: 10
+new_slots: 7
+replay_slots: 3
+new_ratio: 0.7                 # 0.7 NEW / 0.3 Replay，空 PASS 池时全部为 NEW
+
+# ----- hardness -----
+hardness_probe_fraction: 0.10
+hardness_weight_min: 1.0
+hardness_weight_max: 3.0
+hardness_alpha: 2.0
+difficulty_unscored_default: 0.5
+#: 保持 false：打开后**每个 CONTINUE 都重扫一次 hardness**（最贵，每 unit +1–2 分钟）。
+refresh_hardness_on_continue: false
+
+# ----- replay -----
+replay_task_policy: uniform
+replay_sample_policy: pass_snapshot
+
+# ----- review -----
+review_after_task_transitions: 2
+forget_relative_threshold: 0.30
+
+# ----- scheduler -----
+rescan_candidates_after_transition: true
+rescan_every_n_task_switches: 3   # 每 3 次实际任务切换才全池重扫；rollover 定向扫描独立
+#: 保险丝：总步数上限（**这是"钱的安全带"，不是任务限制**）。
+#: 不设 attempt 限制后，万一 50 个任务都学不出来，会一直换任务 ⇒ 必须有兜底。
+#: 4 个 PASS 大约 600–1500 步；给 20000 足够宽松，只在"极端学不出来"时才会触发。
+#: 想彻底不设上限 ⇒ 改成 null（风险：可能跑掉十几小时）。
+max_global_steps: 20000
+max_transitions: null
+
+# ----- misc -----
+seed: 7
+allow_image_augment: false
+allow_missing_baseline: false   # 正式跑必须有 baseline（已用 50 任务 manifest 重算）
+
+# --- 训练版停止条件（2026-10-09）：至少训练出 2 个『新增（非 Bootstrap）PASS』才收工 ---
+# 与上限互补：max_new_tasks_passed_this_run 只限制'最多几个'，无法阻止 Bootstrap 全 PASS 时的零步结束。
+min_new_tasks_passed_this_run: 2
+# 资源上限（必须保留，避免无限训练）
+max_new_tasks_attempted_this_run: 6
