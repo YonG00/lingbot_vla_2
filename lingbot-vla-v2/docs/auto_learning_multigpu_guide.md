@@ -99,6 +99,32 @@ setsid nohup env \
 | 3 卡及以上 | 代码路径同一套（DP=3+），但**未实测**；注意 `GBS % dp_size == 0` |
 | 数据读取 | 评测数据集在每个 rank 都会构建（用于 rank0 计算）⇒ 非 rank0 的构建是浪费，先不做优化 |
 
+
+## 6b. 程序体检（**先跑这个**，CPU + gloo，不需要 GPU）
+
+```bash
+PY=/data/miniconda3/envs/lingbotvla/bin/python
+$PY tools/multigpu_eval_smoke.py              # 2 进程
+$PY tools/multigpu_eval_smoke.py --procs 4    # 3 卡以上同协议
+```
+它真起 N 个进程 + gloo，逐项验证（**带超时，超时即判"疑似死锁"**）：
+
+| # | 检查 | 期望 |
+|---|---|---|
+| 1 | rank0 计算 + 广播，所有 rank 收到**完全相同**的结果（含嵌套 dict / 中文 / None） | 一致 |
+| 2 | 非 0 rank **不得自己计算**（否则指标可能分叉） | 本地计算次数 = 0 |
+| 3 | rank0 失败 ⇒ **所有 rank 一起抛**、且错误信息带原始原因 | 全部抛 RuntimeError |
+| 4 | 失败路径之后**通信组仍可用**（协议没把组搞坏） | 第二次广播正常 |
+| 5 | 事件 JSONL **只有 rank0 写**（N 个 rank 各写 2 条 ⇒ 应只有 2 行，不是 2N） | 行数 = 2 |
+| 6 | scout 缓存**只有 rank0 写** | 文件数 = 1 |
+
+本机实测（2026-10-09，CPU/gloo）：`--procs 2` 与 `--procs 4` **均通过**（用时 1.2 s / 1.8 s）。
+已纳入测试套件：`tests/test_multigpu_smoke_tool.py`（2 项，子进程调用工具并断言 rc=0、无死锁标记）。
+
+退出码：`0` 全过 / `2` 失败（含死锁）/ `3` 本机无 `torch.distributed`（跳过）。
+**为什么必须真跑进程**：pickle 不了的结果、rank0 失败导致对端死等、事件流被每个 rank 各写一份 —— 这三类坑
+用 mock 测不出来（本次就在工具自身抓到一次"把函数对象塞进共享 dict ⇒ PicklingError"）。
+
 ## 7. 相关文件
 
 | 路径 | 作用 |
@@ -107,4 +133,6 @@ setsid nohup env \
 | `lingbotvla/auto_learning/real/build.py` | `SchedulerLoggerAdapter(write_events=…)`、`_is_rank0()` |
 | `lingbotvla/auto_learning/scout_cache.py` | `BootstrapScoutCache(write_enabled=…)` |
 | `lingbotvla/auto_learning/batch_ratio.py` | `ratio_plan()`（GBS→per-rank 分配，原有） |
-| `tests/test_multigpu_eval.py` | 16 项：协议（rank0/非0/失败/空 payload）、模式判定、写入守卫、源码接线 |
+| `tools/multigpu_eval_smoke.py` | **多进程体检**（CPU/gloo，带超时判定死锁） |
+| `tests/test_multigpu_eval.py` | 17 项：协议（rank0/非0/失败/空 payload）、模式判定、写入守卫、源码接线 |
+| `tests/test_multigpu_smoke_tool.py` | 2 项：子进程真跑体检工具（2/4 进程）并断言无死锁 |
