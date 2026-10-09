@@ -216,3 +216,54 @@ def test_prewarm_invalid_threads_env_is_swallowed(tmp_path, monkeypatch):
     monkeypatch.setenv("AL_SHARD_PREWARM_THREADS", "abc")
     info = ns["_parallel_prewarm_shards"](str(tmp_path))
     assert info["enabled"] is False and "ValueError" in (info["error"] or "")
+
+
+# ---------------------------------------------------------------------------
+# D. 体检脚本自身的两个 bug（2026-10-09 训练机实测撞到）
+# ---------------------------------------------------------------------------
+def _smoke():
+    from tools import load_accel_smoke as sm
+    return sm
+
+
+def test_smoke_prefers_package_import(monkeypatch):
+    """🔴 `module_utils` 内有相对导入 ⇒ **必须优先按包导入**，按文件加载只是兜底。
+
+    实测：训练机上按文件加载报 `ImportError: attempted relative import with no known parent package`。
+    """
+    import sys
+    import types
+
+    sm = _smoke()
+    fake = types.ModuleType("lingbotvla.models.module_utils")
+    fake.MARKER = "package"
+    pkg = types.ModuleType("lingbotvla.models")
+    pkg.module_utils = fake
+    monkeypatch.setitem(sys.modules, "lingbotvla.models", pkg)
+    monkeypatch.setitem(sys.modules, "lingbotvla.models.module_utils", fake)
+    assert sm._import_loader().MARKER == "package"
+    src = (REPO / "tools/load_accel_smoke.py").read_text(encoding="utf-8")
+    # 用**代码级**锚点（docstring 里也会提到 spec_from_file_location，不能用裸子串）
+    assert src.index("from lingbotvla.models import module_utils as mu") < src.index(
+        'spec_from_file_location("loader_under_test"')
+
+
+def test_smoke_runs_mode_b_even_when_mode_a_is_partial(monkeypatch, tmp_path):
+    """A 返回 3（部分完成）时**不能提前 return** —— 否则真机实测/副本生成被静默跳过。"""
+    sm = _smoke()
+    calls = {"b": 0}
+    monkeypatch.setattr(sm, "mode_a", lambda: 3)
+    monkeypatch.setattr(sm, "mode_b", lambda *a, **k: (calls.__setitem__("b", calls["b"] + 1), 0)[1])
+    assert sm.main(["--ckpt", str(tmp_path)]) == 3      # 部分完成
+    assert calls["b"] == 1, "A 部分完成时仍必须跑 B"
+
+    calls["b"] = 0
+    monkeypatch.setattr(sm, "mode_a", lambda: 2)        # 真失败 ⇒ 立即停
+    assert sm.main(["--ckpt", str(tmp_path)]) == 2
+    assert calls["b"] == 0
+
+    calls["b"] = 0
+    monkeypatch.setattr(sm, "mode_a", lambda: 0)
+    monkeypatch.setattr(sm, "mode_b", lambda *a, **k: (calls.__setitem__("b", calls["b"] + 1), 0)[1])
+    assert sm.main(["--ckpt", str(tmp_path)]) == 0
+    assert calls["b"] == 1

@@ -41,14 +41,29 @@ from safetensors.torch import save_file  # noqa: E402
 
 
 def _import_loader():
-    """按**文件路径**直接导入 `module_utils`（绕过 `lingbotvla.models.__init__` 的重依赖）。"""
+    """导入仓库加载器。
+
+    🔴 **必须优先按"包"导入**：`module_utils.py` 内部有相对导入（`from .xxx import`），
+    用 `spec_from_file_location` 单独按文件加载会 `ImportError: attempted relative import with
+    no known parent package`（2026-10-09 在训练机上实测撞到）。按文件加载只作为兜底。
+    """
+    errors = []
+    try:
+        from lingbotvla.models import module_utils as mu
+        return mu
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"包导入: {type(exc).__name__}: {str(exc)[:80]}")
     import importlib.util
 
-    path = REPO / "lingbotvla/models/module_utils.py"
-    spec = importlib.util.spec_from_file_location("loader_under_test", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)          # type: ignore[union-attr]
-    return module
+    try:
+        path = REPO / "lingbotvla/models/module_utils.py"
+        spec = importlib.util.spec_from_file_location("loader_under_test", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)          # type: ignore[union-attr]
+        return module
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"按文件导入: {type(exc).__name__}: {str(exc)[:80]}")
+    raise ImportError("；".join(errors))
 
 
 def _make_synthetic(root: Path, *, shards: int = 2) -> Dict[str, torch.Tensor]:
@@ -192,12 +207,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     ap.add_argument("--write-copy", help="真机模式：把 BF16 副本写到该目录（必须不存在或为空）")
     a = ap.parse_args(argv)
     rc = mode_a()
-    if rc != 0:
+    if rc == 2:                      # 2 = 真失败 ⇒ 立即停
         return rc
+    rc_b = 0
     if a.ckpt:
-        return mode_b(Path(a.ckpt), write_copy=Path(a.write_copy) if a.write_copy else None)
-    print("[B] （未提供 --ckpt，跳过真实 ckpt 实测）")
-    return 0
+        rc_b = mode_b(Path(a.ckpt), write_copy=Path(a.write_copy) if a.write_copy else None)
+    else:
+        print("[B] （未提供 --ckpt，跳过真实 ckpt 实测）")
+    if rc_b == 2:
+        return 2
+    return 0 if (rc == 0 and rc_b == 0) else 3   # 3 = 部分完成（A3/A4 未验 或 B 未跑）
 
 
 if __name__ == "__main__":
