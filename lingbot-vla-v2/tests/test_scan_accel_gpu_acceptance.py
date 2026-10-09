@@ -96,3 +96,72 @@ def test_reports_written_by_append_json_record_are_readable(tmp_path):
 def test_preflight_report_mentions_zero_step_risk():
     doc = (Path(__file__).resolve().parents[1] / "tools/gmean50_preflight.py").read_text(encoding="utf-8")
     assert "zero_step_risk" in doc and "零训练步" in doc and "target" in doc
+
+
+# --------------------------------------------------------------------------- #
+# 单进程验收：RNG 统一 + Batch8/Batch1/Auto/复测 四阶段（不训练、无 optimizer.step）
+# --------------------------------------------------------------------------- #
+class _FakeDataset:
+    def __getitem__(self, i):
+        return {"i": i}
+
+
+class _FakeScorer:
+    """记录每批调用方式；loss 只由 sample_id 决定（与批大小无关）⇒ 可验并行无关性。"""
+
+    def __init__(self):
+        self.calls = []
+
+    def score(self, items, sample_ids=None):
+        self.calls.append({"n": len(items), "sample_ids": (list(sample_ids) if sample_ids else None)})
+        return [0.5 + 0.001 * sid for sid in (sample_ids or range(len(items)))]
+
+
+def _scorer(**env):
+    from lingbotvla.auto_learning.real.backend import RealHardnessScorer
+    return RealHardnessScorer(_FakeScorer(), _FakeDataset(), max_batch=8)
+
+
+def test_hardness_report_mode_binds_sample_ids_but_default_does_not(monkeypatch):
+    """要求5：报告模式与 auto 路径同用 per-sample-id 噪声；production 默认行为不变。"""
+    s1 = _FakeScorer()
+    from lingbotvla.auto_learning.real.backend import RealHardnessScorer
+    RealHardnessScorer(s1, _FakeDataset(), max_batch=8).score("t", [1, 2, 3])
+    assert s1.calls == [{"n": 3, "sample_ids": None}], s1.calls
+    monkeypatch.setenv("AL_HARDNESS_REPORT_OUT", "/tmp/_hr_unused.json")
+    s2 = _FakeScorer()
+    RealHardnessScorer(s2, _FakeDataset(), max_batch=8).score("t", [1, 2, 3])
+    assert s2.calls[0]["sample_ids"] == [1, 2, 3], s2.calls
+    monkeypatch.setenv("AL_HARDNESS_UNIFY_RNG", "1")
+    s3 = _FakeScorer()
+    RealHardnessScorer(s3, _FakeDataset(), max_batch=8).score("t", [4, 5])
+    assert s3.calls[0]["sample_ids"] == [4, 5], s3.calls
+
+
+def test_hardness_single_process_phases_run_once_without_recursion(monkeypatch, tmp_path):
+    """要求4/7：同一进程内 Batch8 → Batch1 → 复测；不得递归、不得额外占显存。"""
+    import json
+    from lingbotvla.auto_learning.real.backend import RealHardnessScorer
+    out = tmp_path / "hr.json"
+    monkeypatch.setenv("AL_HARDNESS_REPORT_OUT", str(out))
+    monkeypatch.setenv("AL_HARDNESS_REPLAY_BATCH", "1")
+    monkeypatch.setenv("AL_HARDNESS_REPEAT", "1")
+    monkeypatch.setenv("AL_HARDNESS_FIXED_BATCH", "8")
+    scorer = _FakeScorer()
+    RealHardnessScorer(scorer, _FakeDataset(), max_batch=8).score("t", list(range(1, 10)))
+    recs = json.loads(out.read_text())["records"]
+    by_phase = {}
+    for r in recs:
+        by_phase.setdefault(r["phase"], set()).add(r["batch"])
+    # main/repeat 用 Batch8（末批余数 1 条）；replay 全程 Batch1 —— 绝无递归放大
+    assert by_phase["main"] == {8, 1} and by_phase["repeat"] == {8, 1}, by_phase
+    assert by_phase["replay_batch1"] == {1}, by_phase
+    assert all(r["rng_binding"] == "per_sample_id" for r in recs)
+    assert len(scorer.calls) <= 30, f"调用次数异常（疑似递归）: {len(scorer.calls)}"
+    # 逐样本 loss 与 sample_id 绑定 ⇒ 与批大小无关 ⇒ Batch1/8 应逐位一致
+    per_sid = {}
+    for r in recs:
+        if r["phase"] in ("main", "replay_batch1"):
+            for sid, v in r["losses"].items():
+                per_sid.setdefault(int(sid), set()).add(round(float(v), 12))
+    assert all(len(v) == 1 for v in per_sid.values()), per_sid

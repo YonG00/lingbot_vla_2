@@ -159,6 +159,39 @@ def verdict_hardness(batch_ref: dict, batch_cmp: dict, *, repeat: dict | None = 
 # --------------------------------------------------------------------------- #
 # PLAN ONLY
 # --------------------------------------------------------------------------- #
+#: run-all 的控制项：一次进程内完成 Eval Batch Probe + Hardness 四阶段（不做 optimizer.step）。
+RUN_ALL_STAGE = "ratio-gpu"
+RUN_ALL_ENV = {
+    "AL_EVAL_BATCH_MODE": "probe",                 # probe 输出恒为串行 ⇒ PASS 不受影响
+    "AL_HARDNESS_BATCH_MODE": "fixed",             # 默认 fixed；--include-auto 时才改
+    "AL_HARDNESS_FIXED_BATCH": "8",                # 显式 Batch8 基线
+    "AL_HARDNESS_REPLAY_BATCH": "1",               # 同进程内 Batch1 对照
+    "AL_HARDNESS_REPEAT": "1",                     # 同进程内 Batch8 复测（RNG 可复现）
+}
+
+
+def build_run_all_env(out_dir, *, include_auto: bool = False, base_env=None) -> dict:
+    """构造 **一次** 运行的子进程环境：两个报告都落盘、AUTO 仅测试用且只作用于该子进程。"""
+    env = dict(base_env or os.environ)
+    env.update(RUN_ALL_ENV)
+    env["AL_EVAL_BATCH_PROBE_OUT"] = str(Path(out_dir) / "eval_probe.json")
+    env["AL_HARDNESS_REPORT_OUT"] = str(Path(out_dir) / "hardness_parity.json")
+    if include_auto:
+        # ⚠️ 仅本次子进程内生效；不写任何配置、不影响其它进程（PLAN/summary 会记录该事实）。
+        env["AL_HARDNESS_BATCH_MODE"] = "auto"
+        env["AL_HARDNESS_BATCH_APPROVED"] = "1"
+    else:
+        env.pop("AL_HARDNESS_BATCH_APPROVED", None)
+    return env
+
+
+def run_all_command(out_dir, *, python="python", steps: int = 3, include_auto: bool = False) -> list:
+    """复用**已有** smoke 入口；Bootstrap 全 PASS ⇒ 零训练步（不执行 optimizer.step）。"""
+    return [python, "tools/gpu96_acceptance.py", RUN_ALL_STAGE, "--micro", "24", "--gas", "1",
+            "--target-total-passed-tasks", "2", "--max-named-tasks", "2",
+            "--steps", str(steps), "--execute"]
+
+
 PLAN_TEXT = """\
 扫描加速 GPU 验收（**仅计划**；本命令不碰 GPU、不建目录、不设任何 *_APPROVED）
 
@@ -200,6 +233,16 @@ C. 50-task GMean200 启动预检（无卡，可先做）
 预计 GPU 耗时（单卡 96G，含模型加载）
   A1+A2 约 6–10 min；B1–B3 约 8–15 min；C 无卡。合计约 **15–25 min**（不含排队）
 
+D. 推荐路径：**一次加载、一个进程**完成 Eval Batch + Hardness（run-all）
+  $PY tools/scan_accel_gpu_acceptance.py run-all --out-dir $OUT            # PLAN ONLY
+  $PY tools/scan_accel_gpu_acceptance.py run-all --out-dir $OUT --execute  # 真正执行（一次）
+  该命令内部：① 复用已有 `tools/gpu96_acceptance.py ratio-gpu`（**不新增推理实现**）；
+  ② 用 2 个"易任务"配置使 Bootstrap 全部 PASS ⇒ **零训练步**（不执行 optimizer.step）；
+  ③ 同时打开 `AL_EVAL_BATCH_MODE=probe`、`AL_EVAL_BATCH_PROBE_OUT`、`AL_HARDNESS_REPORT_OUT`、
+     `AL_HARDNESS_REPLAY_BATCH=1`、`AL_HARDNESS_REPEAT=1`；④ 结束后自动跑两个 verify 并写 summary.json。
+  加 `--include-auto` 才会在**该子进程内**临时设 `AL_HARDNESS_BATCH_MODE=auto` 与
+  `AL_HARDNESS_BATCH_APPROVED=1`（仅测试决策/安全行为；**不写配置、不影响其它进程**，summary 会如实记录）。
+
 安全停止条件（任一命中即停止该专项并保留现场）
   1) parity=False 或 safe=False（数值/显存守卫失败）→ 立即停，不得启用 auto
   2) peak_free < 10 GiB → 停
@@ -208,6 +251,48 @@ C. 50-task GMean200 启动预检（无卡，可先做）
   5) Hardness 排序变化或重跑不一致 → 停
   禁止：设置 AL_EVAL_BATCH_APPROVED / AL_HARDNESS_BATCH_APPROVED、启用 auto、声称加速
 """
+
+
+def cmd_run_all(a: argparse.Namespace) -> int:
+    """PLAN ONLY（默认）或**一次**执行两项验收并汇总。"""
+    out = Path(a.out_dir)
+    env = build_run_all_env(out, include_auto=a.include_auto)
+    cmd = run_all_command(out, python=a.python, steps=a.steps, include_auto=a.include_auto)
+    print("RUN-ALL（一次进程内完成 Eval Batch Probe + Hardness 四阶段）")
+    print("  command :", " ".join(cmd))
+    print("  out_dir :", out)
+    print("  env     :", json.dumps({k: env[k] for k in sorted(env) if k.startswith("AL_")},
+                                   ensure_ascii=False))
+    print("  auto    :", "test-only (子进程内 AL_HARDNESS_BATCH_APPROVED=1，不写配置)"
+          if a.include_auto else "off（未设任何 *_APPROVED）")
+    if not a.execute:
+        print("PLAN ONLY：加 --execute 才会真正使用 GPU；不覆盖已存在的输出目录。")
+        return 0
+    if out.exists() and any(out.iterdir()):
+        print(f"REFUSED：输出目录非空，拒绝覆盖：{out}")
+        return 1
+    out.mkdir(parents=True, exist_ok=True)
+    import subprocess
+    log = out / "run_all.log"
+    with open(log, "w", encoding="utf-8") as fh:
+        rc = subprocess.call(cmd, env=env, stdout=fh, stderr=subprocess.STDOUT, cwd=str(Path(__file__).resolve().parents[1]))
+    summary = {"kind": "scan_accel_run_all", "returncode": rc, "out_dir": str(out),
+               "include_auto": bool(a.include_auto), "steps_budget": int(a.steps),
+               "note": "optimizer.step 不应发生（Bootstrap 全 PASS ⇒ 零训练步）；见 summary 证据"}
+    vp = verdict_probe(probe_records(out / "eval_probe.json")) if (out / "eval_probe.json").exists() else \
+        {"status": "BLOCKED", "reason": "eval_probe.json 缺失"}
+    summary["eval_probe"] = vp
+    if (out / "hardness_parity.json").exists():
+        recs = load_records(out / "hardness_parity.json")
+        phases = sorted({r.get("phase") for r in recs if r.get("kind") == "hardness_scan"})
+        summary["hardness_parity"] = {"status": "PASS" if len(phases) >= 2 else "BLOCKED",
+                                      "phases": phases, "note": "四阶段需 main/replay_batch1/repeat"}
+    else:
+        summary["hardness_parity"] = {"status": "BLOCKED", "reason": "hardness_parity.json 缺失"}
+    (out / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True),
+                                      encoding="utf-8")
+    print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True))
+    return 0 if rc == 0 and summary["eval_probe"]["status"] == "PASS" else 2
 
 
 def cmd_plan(_: argparse.Namespace) -> int:
@@ -219,6 +304,12 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="扫描加速 GPU 验收（PLAN ONLY + CPU 判定）")
     sub = p.add_subparsers(dest="cmd")
     sub.add_parser("plan", help="打印 GPU 验收命令/耗时/目录/停止条件（默认）")
+    ra = sub.add_parser("run-all", help="一次加载完成 Eval Batch + Hardness（默认 PLAN ONLY）")
+    ra.add_argument("--out-dir", default="/data/outputs/scan_accel_acceptance")
+    ra.add_argument("--python", default="python")
+    ra.add_argument("--steps", type=int, default=3)
+    ra.add_argument("--include-auto", action="store_true")
+    ra.add_argument("--execute", action="store_true")
     vp = sub.add_parser("verify-probe", help="判定 Eval Batch Probe 报告")
     vp.add_argument("report")
     vp.add_argument("--reserve-gib", type=float, default=HARD_RESERVE_GIB)
@@ -233,6 +324,8 @@ def main(argv=None) -> int:
 
     if a.cmd in (None, "plan"):
         return cmd_plan(a)
+    if a.cmd == "run-all":
+        return cmd_run_all(a)
     if a.cmd == "verify-probe":
         v = verdict_probe(probe_records(a.report), reserve_gib=a.reserve_gib)
     else:

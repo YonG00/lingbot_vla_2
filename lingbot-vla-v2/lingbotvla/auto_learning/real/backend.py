@@ -118,6 +118,8 @@ class RealHardnessScorer:
 
     def score(self, task: str, sample_ids: Sequence[int]) -> Dict[int, float]:
         ids = [int(s) for s in sample_ids]
+        # 阶段名走实例属性 ⇒ 递归子调用也能带上正确标签（局部变量会被重置为 main）。
+        _hr_phase = getattr(self, '_hr_phase_override', None) or 'main'
         if not ids:
             return {}
         out: Dict[int, float] = {}
@@ -161,8 +163,13 @@ class RealHardnessScorer:
                 items = [self.dataset[j] for j in chunk]
             data_seconds += time.perf_counter() - data_started
             score_started = time.perf_counter()
-            vals = (self.scorer.score(items, sample_ids=chunk)
-                    if self._auto_batch is not None else self.scorer.score(items))
+            # 🔴 要求5：fixed 与 auto 必须使用**同一套逐样本噪声语义**。
+            #  - 报告模式（AL_HARDNESS_REPORT_OUT）或 auto 模式：传 sample_ids ⇒ per-sample-id RNG；
+            #  - 允许用 AL_HARDNESS_UNIFY_RNG=1 在 production fixed 路径也启用（默认关，行为不变）。
+            _bind_ids = (self._auto_batch is not None or bool(_hr_out)
+                          or os.environ.get('AL_HARDNESS_UNIFY_RNG') == '1')
+            vals = (self.scorer.score(items, sample_ids=chunk) if _bind_ids
+                    else self.scorer.score(items))
             score_seconds += time.perf_counter() - score_started
             if self._auto_batch is not None and gpu_before is not None:
                 torch.cuda.synchronize()
@@ -188,6 +195,7 @@ class RealHardnessScorer:
                                 _pf = gpu_before
                         append_json_record(_hr_out, {
                             'kind': 'hardness_scan', 'task': str(task),
+                            'phase': _hr_phase, 'rng_binding': ('per_sample_id' if _bind_ids else 'scorer_default'),
                             'batch': int(len(chunk)),
                             'sample_ids': [int(s) for s in chunk],
                             'losses': {int(s): float(out[int(s)]) for s in chunk},
@@ -205,6 +213,26 @@ class RealHardnessScorer:
                             "batches": batches, "samples": len(ids),
                             "final_batch": (self._auto_batch.current if self._auto_batch else self.max_batch),
                             "auto_batch_mode": self._auto_batch is not None}
+        # 单进程验收阶段（要求4/7）：main(Batch8) → replay(Batch1) → repeat(Batch8)。
+        # 递归守卫避免阶段内再次触发；不额外加载模型、不改全局配置。
+        if _hr_out and not getattr(self, '_hr_phases_running', False):
+            _replay_batch = int(os.environ.get('AL_HARDNESS_REPLAY_BATCH', '0') or 0)
+            _do_repeat = os.environ.get('AL_HARDNESS_REPEAT') == '1'
+            _saved_batch = self.max_batch
+            if _replay_batch > 0 or _do_repeat:
+                self._hr_phases_running = True
+                try:
+                    if _replay_batch > 0:
+                        self.max_batch = int(_replay_batch)
+                        _hr_phase = 'replay_batch%d' % int(_replay_batch)
+                        self.score(task, ids)
+                    if _do_repeat:
+                        self.max_batch = int(_saved_batch)
+                        _hr_phase = 'repeat'
+                        self.score(task, ids)
+                finally:
+                    self.max_batch = int(_saved_batch)
+                    self._hr_phases_running = False
         return out
 
 

@@ -1082,11 +1082,27 @@ class OpenLoopValidator:
         if mode == 'auto' and os.environ.get('AL_EVAL_BATCH_APPROVED') != '1':
             raise RuntimeError('auto batch requires AL_EVAL_BATCH_APPROVED=1 after real GPU parity approval')
         if mode == 'serial' or not torch.cuda.is_available():
+            _probe_out_s = os.environ.get('AL_EVAL_BATCH_PROBE_OUT')
             for idx in starts:
                 item = ds[idx]
                 self._dump_prefix = f'{tag}_ep{idx}'
+                _t0 = time.perf_counter()
                 pred = self._infer_one(item, ft)
+                _dt = time.perf_counter() - _t0
                 self._dump_prefix = None
+                if _probe_out_s:
+                    try:
+                        append_json_record(_probe_out_s, {
+                            'kind': 'eval_batch_probe', 'mode': mode, 'batch': 1,
+                            'parity': True, 'safe': True, 'peak_free_gib': None,
+                            'reserve_gib': None, 'serial_seconds': float(_dt),
+                            'batch_seconds': float(_dt), 'speedup': 1.0,
+                            'faster': False, 'per_traj': [
+                                {'dataset_index': int(idx), 'max_abs_diff': 0.0, 'mean_abs_diff': 0.0}],
+                            'action_keys': [], 'note': 'batch1_serial_reference',
+                        })
+                    except Exception as _exc:  # noqa: BLE001
+                        self.logger.info_rank0(f'[open_loop][eval-batch] probe batch1 record failed: {_exc!r}')
                 yield [(idx, item, pred)]
             return
         if _world_size() != 1:
