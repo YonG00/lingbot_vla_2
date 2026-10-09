@@ -2,6 +2,13 @@
 
 > 起因：2026-10-09 50-task GMean200 正式跑，`Prepare model → Start training` 共 **129 s**，
 > 其中 `Loading checkpoint shards 0/6→6/6` 占 **84 s**（16 s/片 ≈ 290 MB/s）。
+>
+> **已实测（2026-10-09 晚，96G 机器）**：
+> * 读盘：**冷读 84.2 s（0.28 GiB/s）** / **热读 4.2 s** / 并行热读 0.7 s；
+> * BF16 副本（24 → 12 GB）生成成功，逐张量全量校验通过；
+> * **真实启动：`Prepare model → Start training` 129 s → 20 s**（`[prewarm] 6 片 / 11.9 GiB / 0.6 s`；
+>   `Loading checkpoint shards` 84 s → **≈3.4 s**）。⚠️ 该 20 s 是**页缓存已热**下的数字（副本刚写完并校验过），
+>   **冷启动待重测**（推算 ≈46 s）。
 
 ## 1. 现状拆解
 
@@ -68,17 +75,34 @@ cat $SRC/*.safetensors > /dev/null &     # 后台预热；与前面的导入/构
 
 ⚠️ 预热**本身**也要读一遍盘（不减少总 I/O），它的价值在"**重复启动**"与"**与其它启动阶段重叠**"。
 
-## 5. 怎么验证（机器上，约 5 分钟）
+## 5. 怎么验证（实测结果见下）
 
 ```bash
 CK=/data/outputs/single/click_bell/checkpoints/global_step_500/hf_ckpt
 time cat $CK/*.safetensors > /dev/null                                   # ① 冷读（顺序）
 time cat $CK/*.safetensors > /dev/null                                   # ② 热读（页缓存）
-time (for f in $CK/*.safetensors; do cat $f > /dev/null & done; wait)     # ③ 并行冷读
+time (for f in $CK/*.safetensors; do cat $f > /dev/null & done; wait)     # ③ 并行
 ```
-判定：**③ 明显快于 ①** ⇒ 并行预读有效；**② << ①** ⇒ 页缓存价值大（重启场景）。
-再跑一次真实启动，看日志里 `[prewarm] …` 与 `Prepare model → Start training` 的总时长，
-与基线 **129 s** 对比。
+
+**2026-10-09 实测（6 片 / 23.75 GiB）**：
+
+| 方式 | 耗时 | 有效带宽 |
+|---|---|---|
+| 冷读（顺序） | **84.2 s** | 0.28 GiB/s（≈290 MB/s）—— 与训练日志的 84 s 完全吻合 |
+| 热读（顺序） | **4.2 s** | ~5.7 GiB/s |
+| 并行读 | **0.7 s** | ⚠️ 见下 |
+
+⚠️ **第三条不是"并行冷读"**：三种读法连着测，前两次已把 23.75 GiB 读进页缓存 ⇒ 第三条实际测的是
+**并行热读**（这正是"顺序 4.2 s → 并行 0.7 s"的 6× 差异来源）。**真正的并行冷读尚未测**。
+要拿真数字：① 给脚本加 `--drop-cache`（`sync; echo 3 > /proc/sys/vm/drop_caches`，容器里可能被拒）
+或逐文件 `posix_fadvise(DONTNEED)`；② **更简单**：重启机器后跑一次真实启动，看
+`[prewarm] 并行预读 6 片 / 11.9 GiB / X s` —— 那就是冷读的真实值。
+
+**端到端等价性（两条独立证据）**：
+1. 冒烟 A3：用**仓库真实加载器**（`_resolve_weight_files` + `StateDictIterator`）把 BF16 副本读回，
+   10 张量**逐张量一致**、浮点全 bf16；
+2. **生产实测**：同一 step500 权重，一次用 F32 原版加载、一次用 BF16 副本加载，bootstrap 阶段
+   逐任务评测差异 **0.01–0.63%**（模型自身噪声量级）⇒ **BF16 副本没有引入系统偏差**。
 
 ## 6. 未做 / 待实测
 
@@ -87,7 +111,8 @@ time (for f in $CK/*.safetensors; do cat $f > /dev/null & done; wait)     # ③ 
 | 并行**逐张量加载**（不只是预读） | 预读已把数据放进页缓存，顺序读命中缓存后不再受盘限制 ⇒ 收益有限，先不做 |
 | BF16 副本的**端到端数值校验** | 工具做了逐张量逐位校验；"跑一次评测比对 MSE"仍需 GPU（可选） |
 | 那 ~45 s 的构建段 | 需 profile（Depth 模型 / AdaNorm / optimizer 各占多少），暂未动 |
-| 真实加速倍数 | **待开机实测**（本次只交付了实现与验证方法） |
+| **并行冷读**的真实数字 | 未测（前两次读已污染页缓存）⇒ 用 `--drop-cache` 或重启后测 |
+| 并行**装权进模型**（多线程 `copy_`） | 未做，**判断不值得**：页缓存命中后这段仅 3.4 s（占 20 s 的 17%），改动风险高于收益 |
 
 ## 7. 相关文件
 

@@ -12,6 +12,13 @@
 
 ⚠️ `TORCHDYNAMO_CACHE_SIZE_LIMIT` 环境变量在 torch 2.8 上**不生效**（实测仍为 8）⇒ 必须代码设置。
 
+## 1b. 当前状态（2026-10-09）
+
+* ②（评测期禁编译）与 ③（`cache_size_limit` 8 → 64）**已合入并接线**（提交 `0d0408e`，本机 953 项测试绿）；
+* **真实收益尚未实测**：需要 `TORCH_LOGS=recompiles,guards` 跑一次跨任务切换（约 10 分钟）确认重编译
+  触发源是"评测翻配置"还是"换形状"，再做 A/B 量 StepTime；
+* 已知待办：内层 `dynamic=False`→`True`（需 A/B）、是否关掉外层整模型编译（需 A/B）。
+
 ## 2. 已落地的改动（默认安全、可回退）
 
 新增 `lingbotvla/utils/compile_tuning.py`：
