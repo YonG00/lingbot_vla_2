@@ -1,0 +1,91 @@
+{
+  "status": "BLOCKED",
+  "kind": "actual_AL_ratio_unit_evidence",
+  "gbs": 24,
+  "expected_per_step": {
+    "new": 17,
+    "replay": 7
+  },
+  "units": [
+    {
+      "step": 0,
+      "optimizer_steps": 0,
+      "samples_seen": 0,
+      "actual_replay": null,
+      "expected_replay_when_pool_nonempty": 0,
+      "actual_new": null,
+      "expected_new_when_pool_nonempty": 0,
+      "replay_tasks": [],
+      "full_batch_valid": false,
+      "replay_ratio_valid": false
+    },
+    {
+      "step": 3,
+      "optimizer_steps": 0,
+      "samples_seen": 0,
+      "actual_replay": 21,
+      "expected_replay_when_pool_nonempty": 0,
+      "actual_new": -21,
+      "expected_new_when_pool_nonempty": 0,
+      "replay_tasks": [],
+      "full_batch_valid": false,
+      "replay_ratio_valid": false
+    },
+    {
+      "step": 6,
+      "optimizer_steps": 0,
+      "samples_seen": 0,
+      "actual_replay": 21,
+      "expected_replay_when_pool_nonempty": 0,
+      "actual_new": -21,
+      "expected_new_when_pool_nonempty": 0,
+      "replay_tasks": [],
+      "full_batch_valid": false,
+      "replay_ratio_valid": false
+    },
+    {
+      "step": 9,
+      "optimizer_steps": 0,
+      "samples_seen": 0,
+      "actual_replay": 21,
+      "expected_replay_when_pool_nonempty": 0,
+      "actual_new": -21,
+      "expected_new_when_pool_nonempty": 0,
+      "replay_tasks": [],
+      "full_batch_valid": false,
+      "replay_ratio_valid": false
+    },
+    {
+      "step": 12,
+      "optimizer_steps": 0,
+      "samples_seen": 0,
+      "actual_replay": 21,
+      "expected_replay_when_pool_nonempty": 0,
+      "actual_new": -21,
+      "expected_new_when_pool_nonempty": 0,
+      "replay_tasks": [],
+      "full_batch_valid": false,
+      "replay_ratio_valid": false
+    }
+  ],
+  "diagnosis": "train_unit_without_replay_pool",
+  "note": "Only observed consumed Replay can PASS; bootstrap and ratio plans alone never PASS.",
+  "returncode": 0,
+  "reason": "exit",
+  "elapsed_seconds": 617.03,
+  "peak_nvidia_smi_mib": 87107.0,
+  "gpu": {
+    "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "memory_total_mib": 97887.0,
+    "initial_used_mib": 0.0
+  },
+  "git_head": "648558f379c7f6845b69d080371a2796af43bd58",
+  "test_target_total_passed_tasks": 4,
+  "test_task_names": [
+    "click_bell",
+    "click_alarmclock",
+    "turn_switch",
+    "put_object_cabinet"
+  ],
+  "configured_max_global_steps": 515
+}

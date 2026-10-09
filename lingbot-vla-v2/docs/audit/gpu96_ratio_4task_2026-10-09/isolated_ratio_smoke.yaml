@@ -1,0 +1,21 @@
+enabled: true
+task_names:
+- click_bell
+- click_alarmclock
+- turn_switch
+- put_object_cabinet
+batch_size: 10
+new_slots: 7
+replay_slots: 3
+eval_interval_steps: 3
+min_steps_before_defer: 12
+defer_retry_steps: 6
+max_attempts_per_task: 1
+pass_metric: nmse
+pass_nmse: 1.66
+pass_thresholds_file: null
+target_total_passed_tasks: 4
+seed: 7
+hardness_probe_fraction: 0.1
+new_ratio: 0.7
+max_global_steps: 515
