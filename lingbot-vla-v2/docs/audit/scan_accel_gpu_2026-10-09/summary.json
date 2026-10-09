@@ -1,0 +1,21 @@
+{
+  "eval_probe": {
+    "reason": "eval_probe.json 缺失",
+    "status": "BLOCKED"
+  },
+  "hardness_parity": {
+    "note": "四阶段需 main/replay_batch1/repeat",
+    "phases": [
+      "main",
+      "repeat",
+      "replay_batch1"
+    ],
+    "status": "PASS"
+  },
+  "include_auto": false,
+  "kind": "scan_accel_run_all",
+  "note": "optimizer.step 不应发生（Bootstrap 全 PASS ⇒ 零训练步）；见 summary 证据",
+  "out_dir": "/data/outputs/scan_accel_acceptance",
+  "returncode": 2,
+  "steps_budget": 3
+}
