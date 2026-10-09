@@ -31,6 +31,10 @@ from lingbotvla.models.vla.lingbot_vla.qwen3vl_in_vla import apply_lingbot_qwen3
 
 from lingbotvla.data.vla_data.utils import FeatureTransform
 from lingbotvla.models import build_processor
+from deploy.fast_weight_load import (
+    fast_load_enabled, model_init_on_device, load_safetensors_streaming,
+    check_cuda_load_budget, require_model_dtype,
+)
 import time
 import random
 
@@ -209,13 +213,9 @@ class LingbotVLAv2Server:
         self.use_compile = use_compile
         apply_lingbot_qwen3_vl_patch()
 
-        self.vla = self.load_vla(path_to_pi_model)
-        if use_bf16:
-            self.vla = self.vla.to(torch.bfloat16).cuda().eval()
-        else:
-            # fp32
-            self.vla.model.float()
-            self.vla = self.vla.cuda().eval()
+        self.use_bf16 = use_bf16
+        self.use_fp32 = use_fp32
+        self.vla = self._load_and_place_vla(path_to_pi_model)
 
         self.global_step = 0
         self.last_action_chunk = None
@@ -223,6 +223,33 @@ class LingbotVLAv2Server:
         self.use_bf16 = use_bf16
         self.use_fp32 = use_fp32
         self.action_key: str= "action"
+
+    def _load_and_place_vla(self, path_to_pi_model):
+        """Original path is unchanged; fast path is explicit opt-in only."""
+        start = time.perf_counter()
+        accelerated = fast_load_enabled()
+        if accelerated:
+            if not self.use_bf16:
+                raise RuntimeError("LINGBOT_DEPLOY_FAST_LOAD=1 currently requires use_bf16=True")
+            if not torch.cuda.is_available():
+                raise RuntimeError("LINGBOT_DEPLOY_FAST_LOAD=1 requires a CUDA GPU")
+            print("[deploy-fast-load] GPU-direct BF16 model init + streaming weights enabled", flush=True)
+        model = self.load_vla(path_to_pi_model, fast_load=accelerated)
+        if accelerated:
+            model = model.eval()
+        elif self.use_bf16:
+            model = model.to(torch.bfloat16).cuda().eval()
+        else:
+            model.model.float()
+            model = model.cuda().eval()
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+            print(
+                f"[deploy-load] GPU ready elapsed={time.perf_counter() - start:.2f}s "
+                f"allocated={torch.cuda.memory_allocated() / 1024**3:.2f}GiB",
+                flush=True,
+            )
+        return model
 
     def load_model_weights(self, path_to_pi_model, strict=True):
         all_safetensors = glob(os.path.join(path_to_pi_model, "*.safetensors"))
@@ -269,7 +296,7 @@ class LingbotVLAv2Server:
         else:
             print("⚠️ Warning: 'vision_config' not found in qwen_config!")
 
-    def load_vla(self, path_to_pi_model) -> LingbotVlaV2Policy:
+    def load_vla(self, path_to_pi_model, *, fast_load=False) -> LingbotVlaV2Policy:
         print(f"loading model from: {path_to_pi_model}")
         
         # load training config
@@ -315,9 +342,23 @@ class LingbotVLAv2Server:
         
         print('Initializing model ... ')
 
-        self.vla = LingBotVlaV2InferencePolicy(config, eval=True)
-
-        self.load_model_weights(path_to_pi_model, strict=True)
+        if fast_load:
+            # This optional route avoids CPU FP32 initialization and the
+            # merged in-RAM checkpoint. Keep the legacy path as default.
+            check_cuda_load_budget(path_to_pi_model)
+            build_started = time.perf_counter()
+            with model_init_on_device("cuda", torch.bfloat16):
+                self.vla = LingBotVlaV2InferencePolicy(config, eval=True)
+            require_model_dtype(self.vla, torch.bfloat16, "cuda")
+            print(f"[deploy-load] fast model init seconds={time.perf_counter() - build_started:.2f}", flush=True)
+            load_safetensors_streaming(self.vla, path_to_pi_model, strict=True)
+        else:
+            build_started = time.perf_counter()
+            self.vla = LingBotVlaV2InferencePolicy(config, eval=True)
+            print(f"[deploy-load] legacy CPU model init seconds={time.perf_counter() - build_started:.2f}", flush=True)
+            weights_started = time.perf_counter()
+            self.load_model_weights(path_to_pi_model, strict=True)
+            print(f"[deploy-load] legacy weights seconds={time.perf_counter() - weights_started:.2f}", flush=True)
         
         self.vla.feature_transform = None
         self.data_config = data_config
@@ -338,13 +379,7 @@ class LingbotVLAv2Server:
 
     def reset(self, robo_name, path_to_pi_model = None) -> None:
         if path_to_pi_model is not None:
-            self.vla = self.load_vla(path_to_pi_model)
-            if self.use_bf16:
-                self.vla = self.vla.to(torch.bfloat16).cuda().eval()
-            else:
-                #fp32
-                self.vla.model.float()
-                self.vla = self.vla.cuda().eval()
+            self.vla = self._load_and_place_vla(path_to_pi_model)
 
         self.global_step = 0
         self.last_action_chunk = None

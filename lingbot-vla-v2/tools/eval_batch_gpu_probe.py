@@ -91,14 +91,22 @@ class _Logger:
 # 第 0 层探针（可选；只回答"分歧是否已在第 0 层之前"）
 # ---------------------------------------------------------------------------
 def find_layer0(model):
-    """定位第 0 层 decoder。找不到 ⇒ 返回 (None, None)（调用方必须 BLOCKED，不静默跳过）。"""
+    """定位**语言模型解码器**第 0 层。找不到 ⇒ (None, None)（调用方必须 BLOCKED，不静默跳过）。
+
+    ⚠️ 2026-10-09 GPU 首跑踩到：只按 `endswith("layers.0")` + 名字最短去挑，会挑到
+    `model.depth_align_head.projector.layers.0`（depth-align 投影层，**不是**要看的地方）。
+    正确做法：优先名字里带 `language_model` 的，并排除 `depth_align` / `projector` / `visual`。
+    """
     candidates = []
     for name, mod in model.named_modules():
-        if name.endswith("layers.0"):
-            candidates.append((name, mod))
+        if not name.endswith("layers.0"):
+            continue
+        if any(bad in name for bad in ("depth_align", "projector", "visual", "vision")):
+            continue
+        candidates.append((name, mod))
     if not candidates:
         return None, None
-    candidates.sort(key=lambda kv: (len(kv[0]), kv[0]))
+    candidates.sort(key=lambda kv: (0 if "language_model" in kv[0] else 1, len(kv[0]), kv[0]))
     return candidates[0]
 
 
@@ -260,7 +268,7 @@ def _leg_planes(a: argparse.Namespace):
 # ---------------------------------------------------------------------------
 def run_leg(validator, items: Sequence[Dict[str, Any]], ft, *, leg_dir: Path,
             leg_name: str, group_ids: List[Dict[str, Any]], fresh: bool,
-            path_label: str = "serial",
+            path_label: str = "serial", noise: Optional[torch.Tensor] = None,
             layer0_store: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """跑一条腿：同噪声（generator 复位）→ 录制 → 落盘三类证据 + 单腿自检。"""
     leg_dir.mkdir(parents=True, exist_ok=True)
@@ -276,10 +284,15 @@ def run_leg(validator, items: Sequence[Dict[str, Any]], ft, *, leg_dir: Path,
     if torch.cuda.is_available():
         torch.cuda.reset_peak_memory_stats()
     t0 = time.perf_counter()
-    if len(items) == 1:
-        validator._infer_core((items[0],), ft, fresh_visual_grid=fresh)
-    else:
-        validator._infer_batch(list(items), ft)
+    # 🔴 必须与生产 `evaluate_ids` 一样包在 `torch.inference_mode()` 里：
+    #    否则模型输出带 requires_grad ⇒ `ft.unapply` 的 normalizer 里
+    #    `((value+1)/2)*(high-low)` 会报 "Can't call numpy() on Tensor that requires grad"
+    #    （2026-10-09 GPU 第 2 次实测踩到；CPU 替身用假 ft.unapply ⇒ 覆盖不到这条真实路径）。
+    with torch.inference_mode():
+        if len(items) == 1:
+            validator._infer_core((items[0],), ft, fresh_visual_grid=fresh, noise=noise)
+        else:
+            validator._infer_batch(list(items), ft, noise=noise)
     if torch.cuda.is_available():
         torch.cuda.synchronize()
     seconds = time.perf_counter() - t0
@@ -388,17 +401,27 @@ def execute(a: argparse.Namespace) -> int:
             print("[BLOCKED] --probe-layer0 指定了，但模型里找不到 `*.layers.0`（fail-closed，不静默跳过）")
             return 2
         print(f"[probe] 已挂第 0 层 hook：{layer0_name}")
+    # 🔴 噪声只抽**一次**，五条腿共用同一份张量 ⇒ 跨腿逐位相同是**构造保证**，
+    #    不再依赖 generator state 复位（GPU 实测：只靠 set_state 并不能保证一致 ✗）。
+    _shape = (1, int(getattr(vla.config, "n_action_steps", 50)),
+              int(getattr(vla.config, "max_action_dim", 55)))
+    _gen = validator._noise_generator(validator.device)
+    noise_all = torch.cat([torch.randn(_shape, generator=_gen, device=validator.device,
+                                       dtype=torch.float32) for _ in indices], dim=0)
+    print(f"[probe] 预抽噪声（五腿共用）：shape={tuple(noise_all.shape)} "
+          f"first={[float(x) for x in noise_all[0].reshape(-1)[:3]]}")
     vla.eval()
     torch.cuda.empty_cache()
 
+    base_keys = [ebp.base_key(ebp.base_identity(g)) for g in group_ids]
     result: Dict[str, Any] = {"out_dir": str(out), "task": a.task, "indices": indices,
-                              "legs": {}, "compare": {}}
+                              "legs": {}, "compare": {}, "base_keys": base_keys}
     for name, leg_dir, desc, n, fresh, path_label in _leg_planes(a):
         leg_items = items[:n]
         leg_ids = group_ids[:n]
         verdict = run_leg(validator, leg_items, ft, leg_dir=leg_dir, leg_name=name,
                           group_ids=leg_ids, fresh=fresh, path_label=path_label,
-                          layer0_store=layer0_store)
+                          noise=noise_all[:len(leg_items)], layer0_store=layer0_store)
         result["legs"][name] = {"status": verdict["status"], "problems": verdict["problems"],
                                 "seconds": verdict["seconds"],
                                 "peak_free_gib": verdict["peak_free_gib"],
@@ -409,6 +432,24 @@ def execute(a: argparse.Namespace) -> int:
             print(f"[BLOCKED] 腿 {name} 自检不通过 ⇒ 立即停止（fail-closed）")
             _write_summary(out, result)
             return 2
+
+    # 先把"同一份噪声"落实成证据：逐腿噪声必须逐位相同（构造保证，这里验证落盘值）
+    leg_noise = {name: ebp.load_leg(str(out / f"leg_{name}")) for name, *_ in _leg_planes(a)}
+    ref = leg_noise["b1_normal"].get(base_keys[0], {}).get("noise") if base_keys else None
+    noise_problems = []
+    for name, leg in leg_noise.items():
+        entry = leg.get(base_keys[0]) if base_keys else None
+        if entry is None or entry.get("noise") is None:
+            noise_problems.append(f"{name}:missing_noise")
+        elif ref is not None and not ebp.bitwise_identical(ref, entry["noise"]):
+            noise_problems.append(f"{name}:noise_not_bitwise")
+    result["noise_identical_across_legs"] = not noise_problems
+    if noise_problems:
+        print(f"[BLOCKED] 跨腿噪声不一致：{noise_problems} ⇒ 对拍无意义，停止")
+        result["status"] = "BLOCKED"
+        result["problems"] = noise_problems
+        _write_summary(out, result)
+        return 2
 
     pairs = [("b1_normal", "b1_cleared"), ("b1_cleared", "b2_cleared"), ("b1_normal", "b1_repeat")]
     for left, right in pairs:

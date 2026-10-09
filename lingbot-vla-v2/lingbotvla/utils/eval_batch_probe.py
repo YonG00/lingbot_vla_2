@@ -145,14 +145,34 @@ def base_key(identity: Mapping[str, Any]) -> str:
 # 数值工具（duck typing：torch.Tensor / numpy / list 都吃）
 # ---------------------------------------------------------------------------
 def to_numpy(value: Any):
-    """把任意数组样对象转成 numpy（torch.Tensor 走 detach().cpu().numpy()）。"""
+    """把任意数组样对象转成 numpy（torch.Tensor 走 detach().cpu().numpy()）。
+
+    ⚠️ **bfloat16 必须上转 float32**：numpy 没有 bf16 dtype，直接 `.numpy()` 会抛
+    ``TypeError: Got unsupported ScalarType BFloat16``（2026-10-09 GPU 首跑实测踩到）。
+    bf16 → fp32 是**无损**的，所以逐位比较语义不变；原始 dtype 另行记录在证据清单里。
+    """
     import numpy as np
 
     if value is None:
         return None
     if hasattr(value, "detach"):
-        value = value.detach().cpu().numpy()
-    return np.asarray(value)
+        value = value.detach().cpu()
+        try:
+            value = value.numpy()
+        except TypeError:
+            import torch as _torch
+
+            value = value.to(_torch.float32).numpy()
+    # 复制一份：CPU 张量的 `.numpy()` 是**共享内存的视图**，证据不能被后续复用改写
+    return np.array(value, copy=True)
+
+
+def source_dtype(value: Any) -> str:
+    """记录**原始** dtype（bf16 会在 to_numpy 里被上转，别把上转后的 dtype 当原始值）。"""
+    dtype = getattr(value, "dtype", None)
+    if dtype is None:
+        return type(value).__name__
+    return str(dtype)
 
 
 def bitwise_identical(a: Any, b: Any) -> bool:
@@ -267,6 +287,9 @@ class ProbeRecorder:
             "noise": to_numpy(noise),
             "output": to_numpy(output),
             "raw_shapes": {k: list(v) for k, v in (raw_shapes or {}).items()},
+            # 原始 dtype（bf16 在 to_numpy 里会被无损上转成 fp32，别丢了这条信息）
+            "source_dtypes": {**{f"input.{k}": source_dtype(v) for k, v in inputs.items()},
+                              "noise": source_dtype(noise), "output": source_dtype(output)},
         }
         return key
 
@@ -313,7 +336,8 @@ def write_evidence(out_dir: str, stem: str, records: Sequence[Mapping[str, Any]]
             arrays = {**record.get("inputs", {}), "noise": record.get("noise"),
                       "output": record.get("output")}
         entry = {"identity": {f: identity[f] for f in IDENTITY_FIELDS}, "key": key,
-                 "arrays": {}, "raw_shapes": dict(record.get("raw_shapes", {}))}
+                 "arrays": {}, "raw_shapes": dict(record.get("raw_shapes", {})),
+                 "source_dtypes": dict(record.get("source_dtypes", {}))}
         for name, value in arrays.items():
             arr = to_numpy(value)
             if arr is None:
@@ -627,7 +651,10 @@ def detect_leg_problems(recorder: ProbeRecorder, expected: Sequence[Mapping[str,
 
     batch_by_position = {int(r["identity"]["batch_position"]): r
                          for r in recorder.by_path("batch")}
-    serial_by_key = {base_key(r["identity"]): r for r in recorder.by_path("serial")}
+    # ⚠️ 逐样本路径**不止** "serial" —— `serial_repeat` 也是逐样本前向。
+    #    2026-10-09 GPU 实测：只认 "serial" ⇒ repeat 腿被误判 missing_record + BLOCKED。
+    serial_by_key = {base_key(r["identity"]): r for r in recorder.records.values()
+                     if r["identity"]["inference_path"] != "batch"}
     for position, base in enumerate(expected_list):
         key = base_key(base)
         record = batch_by_position.get(position) if recorder.by_path("batch") else serial_by_key.get(key)
@@ -756,18 +783,29 @@ def recorder_to_evidence(recorder: ProbeRecorder) -> Dict[str, List[Dict[str, An
                 "identity": record["identity"],
                 "arrays": {"noise": record["noise"], "output": record["output"]},
                 "raw_shapes": record.get("raw_shapes", {}),
+                "source_dtypes": record.get("source_dtypes", {}),
+            })
+            # 实际入参也一并落盘：跨腿对拍要比 images/state 等字段
+            arrays_r = dict(record["inputs"])
+            arrays_r["output"] = record["output"]
+            out["batch_actions"].append({
+                "identity": record["identity"], "arrays": arrays_r,
+                "raw_shapes": record.get("raw_shapes", {}),
+                "source_dtypes": record.get("source_dtypes", {}),
             })
             continue
         out["noise"].append({
             "identity": record["identity"],
             "arrays": {"noise": record["noise"]},
             "raw_shapes": record.get("raw_shapes", {}),
+            "source_dtypes": record.get("source_dtypes", {}),
         })
         arrays = dict(record["inputs"])
         arrays["output"] = record["output"]
         out["batch_actions"].append({
             "identity": record["identity"], "arrays": arrays,
             "raw_shapes": record.get("raw_shapes", {}),
+            "source_dtypes": record.get("source_dtypes", {}),
         })
     for items in out.values():
         items.sort(key=lambda r: (r["identity"]["dataset_index"],
@@ -784,5 +822,6 @@ __all__ = [
     "identity_key", "make_identity", "max_abs_diff", "read_evidence",
     "recorder_to_evidence", "to_numpy", "write_evidence", "write_group_evidence",
     "absmax", "mean_abs_diff", "detect_leg_problems", "load_leg", "compare_evidence",
+    "source_dtype",
     "write_verdict",
 ]

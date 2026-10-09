@@ -11,8 +11,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import types
+
 import numpy as np
 import pytest
+import torch
 
 REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
@@ -245,3 +248,86 @@ def test_execute_refuses_non_empty_out_dir(tmp_path):
     out.mkdir()
     (out / "x").write_text("y", encoding="utf-8")
     assert probe.main(["--out-dir", str(out), "--execute"]) == 2
+
+
+# ---------------------------------------------------------------------------
+# 证据必须在**调用前**快照（真实模型 `sample_actions` 会原地改 noise）
+# ---------------------------------------------------------------------------
+def _production_core():
+    """按 AST 编译生产 `_infer_core`（与交付补丁测试同一手法）。"""
+    import ast
+    src = REPO / "lingbotvla/utils/open_loop_validation.py"
+    tree = ast.parse(src.read_text(encoding="utf-8"))
+    cls = next(x for x in tree.body
+               if isinstance(x, ast.ClassDef) and x.name == "OpenLoopValidator")
+    cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in
+                ("_infer_core", "_probe_capture", "_probe_identity_for", "_noise_generator")]
+    ast.fix_missing_locations(cls)
+    ns = {"torch": torch, "np": np, "os": __import__("os"), "Dict": dict,
+          "Any": object, "List": list, "Sequence": list, "EVAL_SEED": 1234,
+          "_visual_grid_cache_clear": lambda m: None,
+          "_visual_grid_cache_restore": lambda m, s: None}
+    exec(compile(ast.Module(body=[cls], type_ignores=[]), str(src), "exec"), ns)
+    return ns["OpenLoopValidator"]
+
+
+class _InPlaceMutatingPolicy(torch.nn.Module):
+    """忠实复刻真实模型的契约：`x_t = noise; x_t += ...` —— **原地**改调用方的张量。"""
+
+    def __init__(self):
+        super().__init__()
+        self.w = torch.nn.Parameter(torch.zeros(1))
+        self.calls = []
+
+    def sample_actions(self, images, img_masks, lang_tokens, lang_masks, state, *,
+                       noise=None, image_grid_thw=None):
+        self.calls.append(noise.clone())          # 调用时的真值（我们期望证据 == 这个）
+        x_t = noise                               # 别名（和真实实现一致）
+        x_t += 1.0                                # 原地修改
+        return x_t
+
+
+def _core_validator(policy, recorder, group_ids):
+    cls = _production_core()
+    v = object.__new__(cls)
+    v.model = policy
+    v.device = torch.device("cpu")
+    v.dtype = torch.float32
+    v.logger = types.SimpleNamespace(info_rank0=lambda *a, **k: None, warning=lambda *a, **k: None)
+    v._model_config = types.SimpleNamespace(n_action_steps=2, max_action_dim=3, action_fp32=False)
+    v.args = types.SimpleNamespace(train=types.SimpleNamespace(
+        eval_inference_dtype="auto", use_bf16=False))
+    v._noise_gen = None
+    v._precision_logged = True
+    v.dump_dir = None
+    v._dump_prefix = None
+    v._probe_recorder = recorder
+    v._probe_group_ids = group_ids
+    v._probe_pass = "serial"
+    v._probe_position = 0
+    return v
+
+
+def test_evidence_records_input_noise_not_the_mutated_output():
+    """证据里的 noise 必须是**喂进去的那份**，不是被原地改写后的输出。
+
+    2026-10-09 GPU 实测踩到：录到的 noise 与 output 逐位相同 ⇒ 误报"跨腿噪声不一致"。
+    """
+    items = [{"images": torch.zeros(1, 3, 4, 4), "img_masks": torch.ones(1),
+              "lang_tokens": torch.tensor([1]), "lang_masks": torch.ones(1),
+              "state": torch.zeros(1), "image_grid_thw": torch.tensor([[1, 4, 4]]),
+              "actions": torch.zeros(2, 3)}]
+    group_ids = [{"dataset_index": 0, "episode_id": 51, "chunk_start": 0, "task": "click_bell"}]
+    recorder = ebp.ProbeRecorder()
+    policy = _InPlaceMutatingPolicy()
+    v = _core_validator(policy, recorder, group_ids)
+    ft = types.SimpleNamespace(unapply=lambda item: dict(item))
+    with torch.inference_mode():
+        v._infer_core((items[0],), ft, fresh_visual_grid=False)
+
+    record = next(iter(recorder.records.values()))
+    fed_at_call = policy.calls[0][0].numpy()
+    assert ebp.bitwise_identical(record["noise"], fed_at_call), \
+        "证据里的 noise 不是调用时的输入（说明快照点在调用之后）"
+    assert not ebp.bitwise_identical(record["noise"], record["output"]), \
+        "证据里的 noise 与 output 相同 ⇒ 录到的是原地改写后的结果"

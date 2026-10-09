@@ -153,9 +153,10 @@ def test_evidence_files_carry_full_identity(tmp_path):
         assert os.path.getsize(files[stem]["npz"]) > 0
         assert os.path.getsize(files[stem]["json"]) > 0
     doc = json.loads(Path(files["batch_actions"]["json"]).read_text(encoding="utf-8"))
-    # batch_actions = 每条样本的**两条路径**（serial + batch）的实际入参 + 输出
-    assert doc["count"] == len(EXPECTED) * 2
-    assert {r["identity"]["inference_path"] for r in doc["records"]} == {"serial", "batch"}
+    # batch_actions = 每条样本的**各条路径**（serial + batch + serial_repeat）的实际入参 + 输出
+    assert doc["count"] == len(EXPECTED) * 3
+    assert {r["identity"]["inference_path"] for r in doc["records"]} == {
+        "serial", "batch", "serial_repeat"}
     for record in doc["records"]:
         assert set(ebp.IDENTITY_FIELDS) <= set(record["identity"])
         assert record["identity"]["inference_path"] in ebp.INFERENCE_PATHS
@@ -234,3 +235,27 @@ def test_expected_position_identity_must_match_declaration(tmp_path):
     verdict = ebp.detect_problems(recorder, shuffled, None, require_evidence_files=False)
     assert any(code.startswith("sample_id_mismatch") for code in verdict["problems"]), \
         verdict["problems"]
+
+
+def test_bfloat16_tensors_are_upscaled_and_dtype_recorded(tmp_path):
+    """BF16 是真实推理口径；numpy 没有 bf16 ⇒ 必须无损上转 fp32，且**原始 dtype 要留痕**。
+
+    2026-10-09 GPU 首跑就是死在这里（`TypeError: Got unsupported ScalarType BFloat16`），
+    而当时的 CPU 专项全用 fp32 ⇒ 没覆盖到。
+    """
+    torch = pytest.importorskip("torch")
+    base = EXPECTED[0]
+    bf = torch.randn(4, 3, dtype=torch.bfloat16)
+    recorder = ebp.ProbeRecorder()
+    recorder.add(identity=_identity(base, "serial"),
+                 inputs={"images": bf, "state": bf.sum(dim=1)},
+                 noise=bf, output=bf)
+    assert recorder.records[ebp.identity_key(_identity(base, "serial"))]["noise"].dtype == np.float32
+    assert ebp.bitwise_identical(bf, bf.clone())              # bf16 之间逐位可比
+    assert ebp.all_finite(bf)
+    files = ebp.write_group_evidence(recorder, str(tmp_path), [base])
+    doc = json.loads(Path(files["batch_actions"]["json"]).read_text(encoding="utf-8"))
+    dtypes = doc["records"][0]["source_dtypes"]
+    assert "bfloat16" in dtypes["input.images"] and "bfloat16" in dtypes["noise"]
+    verdict = ebp.detect_leg_problems(recorder, [base], str(tmp_path))
+    assert verdict["status"] == "PASS", verdict["problems"]

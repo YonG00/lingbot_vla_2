@@ -995,9 +995,9 @@ class OpenLoopValidator:
             return
         recorder.add(identity=identity, inputs=inputs, noise=noise, output=output,
                      raw_shapes=raw_shapes)
-        from lingbotvla.utils.eval_batch_probe import identity_key
+        from lingbotvla.utils.eval_batch_probe import identity_key, to_numpy
         try:
-            _first = float(np.asarray(noise).reshape(-1)[0])
+            _first = float(to_numpy(noise).reshape(-1)[0])
         except Exception:  # noqa: BLE001
             _first = float("nan")
         self.logger.info_rank0(
@@ -1066,7 +1066,8 @@ class OpenLoopValidator:
         """
         return self._infer_core((item,), ft, fresh_visual_grid=False)[0]
 
-    def _infer_batch(self, items: Sequence[Dict[str, Any]], ft) -> List[Dict[str, np.ndarray]]:
+    def _infer_batch(self, items: Sequence[Dict[str, Any]], ft, *,
+                     noise=None) -> List[Dict[str, np.ndarray]]:
         """真正一次 B>1 forward；基于单条推理的同一核心而非第二套实现。
 
         这里只保留 B>1 的可组批性守卫。视觉网格缓存刷新仍使用旧批量
@@ -1082,10 +1083,12 @@ class OpenLoopValidator:
         if any(it['img_masks'].ndim != 1 or it['lang_tokens'].ndim != 1
                or it['state'].ndim != 1 for it in items):
             raise ValueError('unsupported pre-batched eval observation')
-        return self._infer_core(items, ft, fresh_visual_grid=True)
+        return self._infer_core(items, ft, fresh_visual_grid=True, noise=noise)
 
     def _infer_core(self, items: Sequence[Dict[str, Any]], ft, *,
-                    fresh_visual_grid: bool) -> List[Dict[str, np.ndarray]]:
+                    fresh_visual_grid: bool,
+                    noise=None) -> List[Dict[str, np.ndarray]]:
+        # `noise`（可选）：诊断专用"显式同一份噪声"；None ⇒ 与生产完全一致地按序抽。
         """B1/Bn 唯一的观测准备、Noise、sample_actions 和 unapply 代码路径。
 
         B1 的形状/缓存遵循历史 ``_infer_one``，保证默认 serial 语义不被
@@ -1181,15 +1184,30 @@ class OpenLoopValidator:
         #    所以 Bn 也必须逐个抽再 cat，绝不改 RNG 消费顺序。
         noise_shape = (1, int(getattr(cfg, 'n_action_steps', 50)),
                        int(getattr(cfg, 'max_action_dim', 55)))
-        generator = self._noise_generator(self.device)
-        noise = torch.cat([
-            torch.randn(noise_shape, generator=generator, device=self.device, dtype=dtype)
-            for _ in items
-        ], dim=0)
+        if noise is None:
+            generator = self._noise_generator(self.device)
+            noise = torch.cat([
+                torch.randn(noise_shape, generator=generator, device=self.device, dtype=dtype)
+                for _ in items
+            ], dim=0)
+        else:
+            # 诊断专用：**显式同一份噪声**（跨腿/跨路径对拍用）。只校验形状，不重新抽，
+            # 这样"噪声是否一致"不再依赖 generator state 复位的正确性（2026-10-09 GPU 实测：
+            # 仅靠 set_state 复位并不能保证各腿拿到逐位相同的噪声 ✗）。
+            _want = (len(items), noise_shape[1], noise_shape[2])
+            if tuple(noise.shape) != _want:
+                raise ValueError(f'noise override shape {tuple(noise.shape)} != {_want}')
+            # `.clone()` 双保险：`.to()` 通常已复制，但同 dtype 同设备时它是 no-op；
+            # 而模型会**原地**改写这份噪声 ⇒ 不 clone 就会把调用方的张量毁掉。
+            noise = noise.to(device=self.device, dtype=dtype).clone()
 
         # 模型内部 get_image_features 会按首个 grid 缓存视觉序列信息。
         # 本重构不更改历史 serial 的缓存状态；Bn 继续使用原先隔离策略。
         saved_cache = _visual_grid_cache_clear(self.model) if fresh_visual_grid else None
+        # 🔴 证据必须在**调用前**快照：`sample_actions` 内部 `x_t = noise; x_t += dt*v_t`
+        #    是**原地**修改（返回的就是调用方那个张量）⇒ 调用后再读 noise 得到的是**输出**。
+        #    2026-10-09 GPU 实测踩到：录到的 noise 与 output 逐位相同，导致"跨腿噪声不一致"假警报。
+        noise_fed = noise.detach().clone() if getattr(self, '_probe_recorder', None) is not None else None
         try:
             actions = self.model.sample_actions(
                 data['images'].to(dtype=dtype, device=self.device),
@@ -1232,8 +1250,9 @@ class OpenLoopValidator:
                     _shapes['image_grid_thw'] = None if grid is None else list(grid.shape)
                     _shapes['noise'] = list(noise.shape)
                     _shapes['actions'] = list(actions.shape)
-                    self._probe_capture(inputs=_inputs, noise=noise[_i], output=actions[_i],
-                                        raw_shapes=_shapes)
+                    self._probe_capture(inputs=_inputs,
+                                        noise=(noise_fed if noise_fed is not None else noise)[_i],
+                                        output=actions[_i], raw_shapes=_shapes)
             finally:
                 self._probe_pass, self._probe_position = _saved_pass, _saved_pos
 
