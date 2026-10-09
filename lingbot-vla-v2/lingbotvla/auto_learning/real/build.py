@@ -313,9 +313,52 @@ def finish_auto_learning(
                                    logger=log)
 
     # ---- Backend / Scheduler ----
+    # Optional strict-provenance cache: off by default; never Rescan/Review.
+    scout_cache = None
+    if os.environ.get('AL_SCOUT_CACHE_MODE', 'off') == 'bootstrap':
+        if cfg.pass_metric != 'gmean_mse' or int(getattr(args.train, 'step_offset', -1)) != 500:
+            raise RuntimeError('Scout cache only supports GMean Step500 initial Bootstrap')
+        from ..scout_cache import BootstrapScoutCache, provenance
+        from pathlib import Path
+        ckpt = Path(os.environ['AL_SCOUT_CACHE_CHECKPOINT']).resolve()
+        loaded = getattr(args.model, 'model_path', None)
+        if loaded is None or Path(loaded).resolve() != ckpt:
+            raise RuntimeError('Scout cache checkpoint must exactly equal args.model.model_path')
+        p0 = next(model.parameters(), None)
+        actual_dtype = str(p0.dtype).removeprefix('torch.') if p0 is not None else 'unknown'
+        configured_dtype = os.environ['AL_SCOUT_CACHE_DTYPE'].lower()
+        if configured_dtype != actual_dtype:
+            raise RuntimeError(f'Scout cache dtype mismatch: {configured_dtype} != {actual_dtype}')
+        if bool(getattr(args.train, 'enable_resume', False)):
+            raise RuntimeError('Scout cache forbidden when Resume is enabled')
+        shards = sorted(ckpt.glob('*.safetensors'))
+        src = {
+            'eval': Path(__file__).resolve().parents[2] / 'utils/open_loop_validation.py',
+            'model': Path(__file__).resolve().parents[2] / 'models/vla/lingbot_vla/modeling_lingbot_vla_v2.py',
+            'transform': Path(__file__).resolve().parents[2] / 'data/vla_data/transform.py',
+            'eval_precision': Path(__file__).resolve().parents[2] / 'utils/eval_precision.py',
+            'evaluator': Path(__file__).resolve().parents[1] / 'evaluator.py',
+            'gmean': Path(__file__).resolve().parents[1] / 'decision/gmean.py',
+            'manifest': Path(os.environ['AL_SCOUT_CACHE_MANIFEST']),
+            'norm': Path(os.environ['AL_SCOUT_CACHE_NORM']),
+            'thresholds': Path(cfg.pass_thresholds_file),
+            'baseline': Path(os.environ['AL_SCOUT_CACHE_BASELINE']),
+            'checkpoint_config': ckpt / 'config.json',
+            'checkpoint_tokenizer': ckpt / 'tokenizer.json',
+        }
+        fp = provenance(weight_files=shards, sources=src,
+                        options={'inference_dtype': os.environ['AL_SCOUT_CACHE_DTYPE'],
+                                 'noise_seed': 1234,
+                                 'scout_trajs': cfg.global_scout_val_trajs,
+                                 'stride': 'per_episode',
+                                 'image_augment': bool(getattr(args.data, 'image_augment', False))})
+        scout_cache = BootstrapScoutCache(os.environ['AL_SCOUT_CACHE_ROOT'], fingerprint=fp)
+        log.info_rank0('[auto_learning] strict Bootstrap Scout cache enabled; never used in Rescan')
     backend = build_real_backend(
         catalog=cat, resolver=parts.resolver, adapter=adapter, hardness=hardness,
         dataset=None, baseline_store=parts.baseline_store)
+    if scout_cache is not None:
+        backend.evaluator.scout_cache = scout_cache
     # Scheduler 需要 log_event/log_metrics ⇒ 用适配器（真实 Logger 没有这两个方法）
     al_logger = SchedulerLoggerAdapter(
         log, writer=writer,

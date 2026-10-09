@@ -1012,6 +1012,170 @@ class OpenLoopValidator:
             single["state"] = single["state"].to(dtype=torch.float32)
         return ft.unapply(single)
 
+    def _infer_batch(self, items: Sequence[Dict[str, Any]], ft) -> List[Dict[str, np.ndarray]]:
+        """Real single-forward B>1 action inference, same ordered per-chunk noise.
+
+        Only homogeneous transformed items qualify; no arbitrary padding,
+        episode mixing or reordering is allowed. ``_infer_one`` stays unchanged.
+        """
+        from lingbotvla.auto_learning.scan_accel import identical_tensor_shapes
+        from lingbotvla.utils.eval_precision import resolve_inference_dtype
+        keys = ('images', 'img_masks', 'lang_tokens', 'lang_masks', 'state')
+        if not identical_tensor_shapes(items, keys):
+            raise ValueError('batch eval requires homogeneous transformed item shapes')
+        if any(it['img_masks'].ndim != 1 or it['lang_tokens'].ndim != 1
+               or it['state'].ndim != 1 for it in items):
+            raise ValueError('unsupported pre-batched eval observation')
+        _p = next(self.model.parameters(), None)
+        weight_dtype = _p.dtype if _p is not None and _p.dtype.is_floating_point else None
+        dtype, _ = resolve_inference_dtype(
+            requested=str(getattr(self.args.train, 'eval_inference_dtype', 'auto') or 'auto'),
+            action_fp32=bool(getattr(self._model_config, 'action_fp32', False)),
+            weight_dtype=weight_dtype,
+            fallback_bf16=bool(getattr(self.args.train, 'use_bf16', False)))
+        fields = {k: torch.stack([it[k] for it in items]).to(device=self.device) for k in keys}
+        grid = (torch.stack([it['image_grid_thw'] for it in items])
+                if items[0].get('image_grid_thw') is not None else None)
+        if grid is not None:
+            grid = grid.to(device=self.device, dtype=torch.long)
+        # Two sequential randn((1,...)) calls are NOT necessarily equal to a
+        # single randn((2,...)) on CUDA. Consume the original RNG in order.
+        shape = (1, int(getattr(self._model_config, 'n_action_steps', 50)),
+                 int(getattr(self._model_config, 'max_action_dim', 55)))
+        gen = self._noise_generator(self.device)
+        noise = torch.cat([torch.randn(shape, generator=gen, device=self.device, dtype=dtype)
+                           for _ in items], dim=0)
+        # Visual grids are cached by batch image count. Snapshot/restore around
+        # each call so changing batch sizes cannot poison later serial training.
+        grid_saved = _visual_grid_cache_clear(self.model)
+        try:
+            actions = self.model.sample_actions(
+                fields['images'].to(dtype=dtype), fields['img_masks'],
+                fields['lang_tokens'], fields['lang_masks'],
+                fields['state'].to(dtype=dtype), noise=noise, image_grid_thw=grid)
+        finally:
+            _visual_grid_cache_restore(self.model, grid_saved)
+        if actions.ndim != 3 or actions.shape[0] != len(items):
+            raise RuntimeError('batched sample_actions output has wrong batch shape')
+        result = []
+        for item, action in zip(items, actions):
+            single = dict(item)
+            single['actions'] = action.to(dtype=torch.float32, device='cpu')
+            if dtype == torch.bfloat16 and 'state' in single:
+                single['state'] = single['state'].to(dtype=torch.float32)
+            result.append(ft.unapply(single))
+        return result
+
+    def _prediction_groups(self, ds, starts, ft, tag):
+        """Opt-in batches. First group of each shape is parity/throughput-probed.
+
+        Probe emits ONLY serial outputs. Auto may emit batched outputs only
+        after a real parity+speed+VRAM success for that exact observation shape.
+        This cache is local to one evaluation (weights can change between evals).
+        """
+        from lingbotvla.auto_learning.scan_accel import (
+            identical_tensor_shapes, normalized_action_predictions)
+        from lingbotvla.auto_learning.eval_batch_policy import outputs_close
+        mode = os.environ.get('AL_EVAL_BATCH_MODE', 'serial')
+        if mode not in ('serial', 'probe', 'auto'):
+            raise ValueError('AL_EVAL_BATCH_MODE must be serial/probe/auto')
+        if mode == 'auto' and os.environ.get('AL_EVAL_BATCH_APPROVED') != '1':
+            raise RuntimeError('auto batch requires AL_EVAL_BATCH_APPROVED=1 after real GPU parity approval')
+        if mode == 'serial' or not torch.cuda.is_available():
+            for idx in starts:
+                item = ds[idx]
+                self._dump_prefix = f'{tag}_ep{idx}'
+                pred = self._infer_one(item, ft)
+                self._dump_prefix = None
+                yield [(idx, item, pred)]
+            return
+        if _world_size() != 1:
+            raise RuntimeError('eval batching unsupported on multiple FSDP ranks')
+        limit = int(os.environ.get('AL_EVAL_BATCH_MAX', '8'))
+        reserve = float(os.environ.get('AL_EVAL_BATCH_RESERVE_GIB', '10'))
+        if limit < 1 or limit > 8 or not (8.0 <= reserve <= 64.0):
+            raise ValueError('unsafe eval batch cap/reserve')
+        batch_size = min(2, limit)
+        disabled = False
+        verified_shapes = set()
+        pos = 0
+        starts = list(starts)
+        while pos < len(starts):
+            take = min(batch_size, len(starts) - pos) if not disabled else 1
+            group = [(idx, ds[idx]) for idx in starts[pos:pos+take]]
+            pos += take
+            inputs = [v for _, v in group]
+            self._dump_prefix = None
+            free_before = torch.cuda.mem_get_info()[0]/1024**3
+            if (take < 2 or not identical_tensor_shapes(
+                    inputs, ('images','img_masks','lang_tokens','lang_masks','state'))
+                    or free_before < reserve + 12):
+                yield [(idx, it, self._infer_one(it, ft)) for idx, it in group]
+                continue
+            # Only share a calibration for the same static tensor shapes and
+            # image grid; never use the proof from B2 for B4.
+            sig = (take, tuple((k, tuple(inputs[0][k].shape)) for k in
+                     ('images','img_masks','lang_tokens','lang_masks','state')),
+                   tuple(repr(it.get('image_grid_thw')) for it in inputs))
+            gen = self._noise_generator(self.device)
+            generator_start = gen.get_state()
+            if mode == 'auto' and sig in verified_shapes:
+                # True fast path: single model.sample_actions for the whole group.
+                # A detected peak-VRAM regression terminates the probe; never
+                # continue on an unsafe / potentially poisoned CUDA state.
+                torch.cuda.reset_peak_memory_stats()
+                batched = self._infer_batch(inputs, ft)
+                torch.cuda.synchronize()
+                total = torch.cuda.mem_get_info()[1] / 1024**3
+                peak_free = min(torch.cuda.mem_get_info()[0] / 1024**3,
+                                total - torch.cuda.max_memory_reserved()/1024**3)
+                if peak_free < reserve:
+                    raise RuntimeError('eval batch peak VRAM headroom guard failed')
+                yield [(idx, it, pr) for (idx,it),pr in zip(group,batched)]
+                continue
+            t0 = time.perf_counter()
+            serial = [self._infer_one(it, ft) for it in inputs]
+            torch.cuda.synchronize()
+            serial_seconds = time.perf_counter() - t0
+            generator_end = gen.get_state()
+            gen.set_state(generator_start)
+            try:
+                torch.cuda.reset_peak_memory_stats()
+                t0 = time.perf_counter()
+                batched = self._infer_batch(inputs, ft)
+                torch.cuda.synchronize()
+                batch_seconds = time.perf_counter() - t0
+                total = torch.cuda.mem_get_info()[1] / 1024**3
+                peak_free = min(torch.cuda.mem_get_info()[0] / 1024**3,
+                                total - torch.cuda.max_memory_reserved()/1024**3)
+            finally:
+                gen.set_state(generator_end)
+            # Compare ONLY physical action outputs, not unrelated feature
+            # transform metadata (which may contain large image arrays).
+            try:
+                gt_phys = ft.unapply(dict(inputs[0]))
+                keys = self._pick_action_keys(ft, gt_phys, serial[0])
+                parity = bool(keys) and outputs_close(
+                    normalized_action_predictions(serial,keys),
+                    normalized_action_predictions(batched,keys),atol=1e-5,rtol=1e-3)
+            except (KeyError,TypeError,ValueError,IndexError):
+                parity = False
+            safe = peak_free >= reserve and parity
+            faster = batch_seconds < serial_seconds  # batch must be worth adopting
+            self.logger.info_rank0(f'[open_loop][eval-batch] mode={mode} batch={take} '
+                f'parity={parity} peak_free_gib={peak_free:.2f} '
+                f'serial_seconds={serial_seconds:.3f} batch_seconds={batch_seconds:.3f} '
+                f'profitable={faster} safe={safe}')
+            if not safe or not faster:
+                disabled = True
+            elif mode == 'auto':
+                verified_shapes.add(sig)
+            # First-run parity results still use serial predictions. Subsequent
+            # identical-shape groups may use the real fast path in AUTO mode.
+            yield [(idx, it, pr) for (idx,it),pr in zip(group,serial)]
+            if safe and faster and not disabled and batch_size < limit and peak_free >= reserve + 16:
+                batch_size = min(limit, batch_size * 2)
+
     # -- 动作键 ---------------------------------------------------------------
     def _pick_action_keys(self, ft, gt_phys: Dict[str, Any],
                           pred: Dict[str, Any]) -> List[str]:
@@ -1071,86 +1235,83 @@ class OpenLoopValidator:
             starts = per_episode_starts(ep_map, stride)
         else:
             starts = list(range(0, len(ds), stride))
-        for local_idx in starts:
-            item = ds[local_idx]
-            if not self._shape_dumped:
-                self._shape_dumped = True
-                keys = sorted(item.keys())
-                self.logger.info_rank0(
-                    f"[open_loop][debug] dataset item 共 {len(keys)} 个键: {keys}")
-                for _k in ("images", "img_masks", "lang_tokens", "lang_masks",
-                           "state", "image_grid_thw", "actions"):
-                    if _k in item:
-                        _v = item[_k]
-                        _sh = tuple(_v.shape) if hasattr(_v, "shape") else (type(_v).__name__,)
+        for _group in self._prediction_groups(ds, starts, ft, tag):
+            for local_idx, item, pred in _group:
+                if not self._shape_dumped:
+                    self._shape_dumped = True
+                    keys = sorted(item.keys())
+                    self.logger.info_rank0(
+                        f"[open_loop][debug] dataset item 共 {len(keys)} 个键: {keys}")
+                    for _k in ("images", "img_masks", "lang_tokens", "lang_masks",
+                               "state", "image_grid_thw", "actions"):
+                        if _k in item:
+                            _v = item[_k]
+                            _sh = tuple(_v.shape) if hasattr(_v, "shape") else (type(_v).__name__,)
+                            self.logger.info_rank0(
+                                f"[open_loop][debug]   {_k}: {type(_v).__name__} {_sh}")
+                # GT 必须与预测走**同一条**反归一化路径：dataset item 里的 ``actions`` 是
+                # **归一化后**的 (chunk, max_action_dim)，原始键（``action.*``）已被 apply 吃掉。
+                # 官方 open_loop_eval.py 也是 apply→unapply 才拿到物理量 GT。
+                gt_phys = ft.unapply(dict(item))
+                # 可选：dump **归一化前的原始 state**（用于定位「模型输入 state 不同」的来源）
+                if self.dump_dir:
+                    try:
+                        _sub = (ds._datasets[0].dataset
+                                if getattr(ds, "_datasets", None) else getattr(ds, "dataset", None))
+                        if _sub is not None:
+                            _raw = _sub[local_idx]
+                            np.save(os.path.join(self.dump_dir,
+                                                 f"{tag}_ep{local_idx}_rawstate.npy"),
+                                    np.asarray(_raw["observation.state"], dtype=np.float32))
+                            np.save(os.path.join(self.dump_dir,
+                                                 f"{tag}_ep{local_idx}_rawidx.npy"),
+                                    np.asarray([int(_raw["index"])], dtype=np.int64))
+                    except Exception as _e:  # noqa: BLE001
+                        self.logger.warning(f"[open_loop] raw state dump 失败: {_e}")
+                if not action_keys:
+                    action_keys = self._pick_action_keys(ft, gt_phys, pred)
+                    self.logger.info_rank0(
+                        f"[open_loop][debug] action keys = {action_keys}；"
+                        f"unapply 后的键 = {sorted(gt_phys)}")
+                    for _k in action_keys:
                         self.logger.info_rank0(
-                            f"[open_loop][debug]   {_k}: {type(_v).__name__} {_sh}")
-            # GT 必须与预测走**同一条**反归一化路径：dataset item 里的 ``actions`` 是
-            # **归一化后**的 (chunk, max_action_dim)，原始键（``action.*``）已被 apply 吃掉。
-            # 官方 open_loop_eval.py 也是 apply→unapply 才拿到物理量 GT。
-            gt_phys = ft.unapply(dict(item))
-            self._dump_prefix = f"{tag}_ep{local_idx}"
-            # 可选：dump **归一化前的原始 state**（用于定位「模型输入 state 不同」的来源）
-            if self.dump_dir:
-                try:
-                    _sub = (ds._datasets[0].dataset
-                            if getattr(ds, "_datasets", None) else getattr(ds, "dataset", None))
-                    if _sub is not None:
-                        _raw = _sub[local_idx]
-                        np.save(os.path.join(self.dump_dir,
-                                             f"{tag}_ep{local_idx}_rawstate.npy"),
-                                np.asarray(_raw["observation.state"], dtype=np.float32))
-                        np.save(os.path.join(self.dump_dir,
-                                             f"{tag}_ep{local_idx}_rawidx.npy"),
-                                np.asarray([int(_raw["index"])], dtype=np.int64))
-                except Exception as _e:  # noqa: BLE001
-                    self.logger.warning(f"[open_loop] raw state dump 失败: {_e}")
-            pred = self._infer_one(item, ft)
-            self._dump_prefix = None
-            if not action_keys:
-                action_keys = self._pick_action_keys(ft, gt_phys, pred)
-                self.logger.info_rank0(
-                    f"[open_loop][debug] action keys = {action_keys}；"
-                    f"unapply 后的键 = {sorted(gt_phys)}")
-                for _k in action_keys:
+                            f"[open_loop][debug]   GT {_k}: {tuple(_to_numpy(gt_phys[_k]).shape)}"
+                            f" | pred: {tuple(_to_numpy(pred[_k]).shape)}")
+                if not self._chunk_dumped:
+                    self._chunk_dumped = True
+                    _g = _to_numpy(gt_phys[action_keys[0]])
+                    _a = _to_numpy(item["actions"])
+                    _pad = _to_numpy(item["action_is_pad"]) if "action_is_pad" in item else None
                     self.logger.info_rank0(
-                        f"[open_loop][debug]   GT {_k}: {tuple(_to_numpy(gt_phys[_k]).shape)}"
-                        f" | pred: {tuple(_to_numpy(pred[_k]).shape)}")
-            if not self._chunk_dumped:
-                self._chunk_dumped = True
-                _g = _to_numpy(gt_phys[action_keys[0]])
-                _a = _to_numpy(item["actions"])
-                _pad = _to_numpy(item["action_is_pad"]) if "action_is_pad" in item else None
-                self.logger.info_rank0(
-                    f"[open_loop][debug] chunk: local_idx={local_idx} len(ds)={len(ds)} "
-                    f"stride={stride} gt.shape={_g.shape}")
-                self.logger.info_rank0(
-                    f"[open_loop][debug]   GT物理 action[0,:4]={_g[0, :4]} "
-                    f"[25,:4]={_g[25, :4]} [49,:4]={_g[49, :4]}")
-                self.logger.info_rank0(
-                    f"[open_loop][debug]   GT归一化 actions[0,:4]={_a[0, :4]} "
-                    f"[25,:4]={_a[25, :4]} [49,:4]={_a[49, :4]}")
-                self.logger.info_rank0(
-                    f"[open_loop][debug]   GT逐维方差={np.var(_g, axis=0)}")
-                if _pad is not None:
+                        f"[open_loop][debug] chunk: local_idx={local_idx} len(ds)={len(ds)} "
+                        f"stride={stride} gt.shape={_g.shape}")
                     self.logger.info_rank0(
-                        f"[open_loop][debug]   action_is_pad 前12={_pad[:12].astype(int)} "
-                        f"后12={_pad[-12:].astype(int)}")
-            # 取帧 + 形状校验 + 拼接：抽成模块级 `assemble_chunk`，与 Stage B0 的
-            # Fixed Baseline 共用同一条口径（normalization / valid region / 拼接口径）。
-            _assembled = assemble_chunk(gt_phys, pred, action_keys)
-            if _assembled is None:
-                continue
-            gt, pr = _assembled
-            ep_key = (int(ep_map[local_idx])
-                      if ep_map is not None and local_idx < len(ep_map)
-                      else f"chunk@{local_idx}")
-            if self.dump_dir:
-                os.makedirs(self.dump_dir, exist_ok=True)
-                _p = os.path.join(self.dump_dir, f"{tag}_ep{local_idx}")
-                np.save(_p + "_gt.npy", gt)
-                np.save(_p + "_pred.npy", pr)
-            chunks.append((ep_key, gt, pr))
+                        f"[open_loop][debug]   GT物理 action[0,:4]={_g[0, :4]} "
+                        f"[25,:4]={_g[25, :4]} [49,:4]={_g[49, :4]}")
+                    self.logger.info_rank0(
+                        f"[open_loop][debug]   GT归一化 actions[0,:4]={_a[0, :4]} "
+                        f"[25,:4]={_a[25, :4]} [49,:4]={_a[49, :4]}")
+                    self.logger.info_rank0(
+                        f"[open_loop][debug]   GT逐维方差={np.var(_g, axis=0)}")
+                    if _pad is not None:
+                        self.logger.info_rank0(
+                            f"[open_loop][debug]   action_is_pad 前12={_pad[:12].astype(int)} "
+                            f"后12={_pad[-12:].astype(int)}")
+                # 取帧 + 形状校验 + 拼接：抽成模块级 `assemble_chunk`，与 Stage B0 的
+                # Fixed Baseline 共用同一条口径（normalization / valid region / 拼接口径）。
+                _assembled = assemble_chunk(gt_phys, pred, action_keys)
+                if _assembled is None:
+                    continue
+                gt, pr = _assembled
+                ep_key = (int(ep_map[local_idx])
+                          if ep_map is not None and local_idx < len(ep_map)
+                          else f"chunk@{local_idx}")
+                if self.dump_dir:
+                    os.makedirs(self.dump_dir, exist_ok=True)
+                    _p = os.path.join(self.dump_dir, f"{tag}_ep{local_idx}")
+                    np.save(_p + "_gt.npy", gt)
+                    np.save(_p + "_pred.npy", pr)
+                chunks.append((ep_key, gt, pr))
 
         # ---- 按**完整 trajectory** 聚合（🔴 2026-10-04 审查 B2）----
         # 抽成纯函数 `aggregate_chunks` 是为了让 tools/open_loop_parity_check.py 能单测它。

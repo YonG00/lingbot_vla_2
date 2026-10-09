@@ -17,6 +17,8 @@
 from __future__ import annotations
 
 import time
+import os
+import dataclasses
 from typing import Any, Dict, List, Optional, Sequence
 
 from ..ports import Backend, TrajectoryMetrics
@@ -29,10 +31,27 @@ from .determinism import deterministic_sampling
 class RealEvaluator:
     """把 `EvaluatorAdapter` 包成 `ports.Evaluator`（Scheduler 只认 `evaluate`）。"""
 
-    def __init__(self, adapter: Any, catalog: Any, baseline_store: Any = None):
+    def __init__(self, adapter: Any, catalog: Any, baseline_store: Any = None, *, scout_cache=None):
         self.adapter = adapter
         self.catalog = catalog
         self.baseline_store = baseline_store
+        self.scout_cache = scout_cache
+
+    def evaluate_bootstrap_scout(self, task: str, split: str, episode_ids: Sequence[int]):
+        """Only Bootstrap may use a previous Step500 Scout. Rescan bypasses."""
+        cache = self.scout_cache
+        if cache is not None and split == "scout":
+            raw = cache.load(task, episode_ids)
+            if raw is not None:
+                from ..types import TrajectoryMetrics
+                raw["per_traj_mse"] = {int(k): float(v) for k, v in raw["per_traj_mse"].items()}
+                hit = TrajectoryMetrics(**raw)
+                if hit.metric_valid and hit.gmean_mse is not None:
+                    return hit
+        result = self.evaluate(task, split, episode_ids)
+        if cache is not None and split == "scout" and result.metric_valid and result.gmean_mse is not None:
+            cache.store(task, episode_ids, dataclasses.asdict(result))
+        return result
 
     def evaluate(self, task: str, split: str,
                  episode_ids: Sequence[int]) -> TrajectoryMetrics:
@@ -78,6 +97,23 @@ class RealHardnessScorer:
         self.max_batch = int(max_batch)
         self.logger = logger
         self._aug_warned = False
+        self._auto_batch = None
+        if os.environ.get('AL_HARDNESS_BATCH_MODE', 'fixed') == 'auto':
+            if os.environ.get('AL_HARDNESS_BATCH_APPROVED') != '1':
+                raise RuntimeError('Hardness auto requires GPU per-sample numerical parity approval')
+            import inspect
+            if 'sample_ids' not in inspect.signature(scorer.score).parameters:
+                raise RuntimeError('Hardness auto requires per-sample-ID batch-invariant RNG scorer')
+            try:
+                import torch.distributed as dist
+                if dist.is_available() and dist.is_initialized() and dist.get_world_size() > 1:
+                    raise RuntimeError('Hardness auto not yet supported for multi-rank FSDP2')
+            except ImportError:
+                pass
+            from ..scan_accel import HardnessAutoBatch
+            self._auto_batch = HardnessAutoBatch(
+                current=max_batch, maximum=int(os.environ.get('AL_HARDNESS_BATCH_MAX', '16')),
+                reserve_gib=float(os.environ.get('AL_HARDNESS_RESERVE_GIB', '10')))
 
     def score(self, task: str, sample_ids: Sequence[int]) -> Dict[int, float]:
         ids = [int(s) for s in sample_ids]
@@ -87,10 +123,25 @@ class RealHardnessScorer:
         data_seconds = 0.0
         score_seconds = 0.0
         batches = 0
-        for i in range(0, len(ids), self.max_batch):
+        i = 0
+        while i < len(ids):
             batches += 1
             data_started = time.perf_counter()
-            chunk = ids[i:i + self.max_batch]
+            batch_size = self._auto_batch.current if self._auto_batch is not None else self.max_batch
+            chunk = ids[i:i + batch_size]
+            i += len(chunk)
+            gpu_before = gpu_reserved_before = None
+            if self._auto_batch is not None:
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        gpu_before = torch.cuda.mem_get_info()[0] / (1024 ** 3)
+                        gpu_reserved_before = torch.cuda.memory_reserved() / (1024 ** 3)
+                        # This is explicitly opt-in. Records peak reserved GPU
+                        # memory during THIS scorer batch, not just idle memory.
+                        torch.cuda.reset_peak_memory_stats()
+                except Exception:
+                    gpu_before = None
             # 🔴 review v0.2 #8：取 item **必须**在确定性上下文里 ——
             #    否则 `image_augment=true` 会让同一 sample_id 两次扫描得到不同图，
             #    并消耗全局 RNG（污染训练随机流）。
@@ -108,13 +159,25 @@ class RealHardnessScorer:
                 items = [self.dataset[j] for j in chunk]
             data_seconds += time.perf_counter() - data_started
             score_started = time.perf_counter()
-            vals = self.scorer.score(items)
+            vals = (self.scorer.score(items, sample_ids=chunk)
+                    if self._auto_batch is not None else self.scorer.score(items))
             score_seconds += time.perf_counter() - score_started
+            if self._auto_batch is not None and gpu_before is not None:
+                torch.cuda.synchronize()
+                gpu_after = torch.cuda.mem_get_info()[0] / (1024 ** 3)
+                peak_extra = max(0.0, torch.cuda.max_memory_reserved() / (1024 ** 3)
+                                 - gpu_reserved_before)
+                peak_free = min(gpu_after, gpu_before - peak_extra)
+                self._auto_batch.observe(free_before_gib=gpu_before,
+                                         peak_free_gib=peak_free,
+                                         free_after_gib=gpu_after, processed=len(chunk))
             for sid, v in zip(chunk, vals):
                 out[sid] = float(v)
         self.last_timing = {"data_wall_seconds": round(data_seconds, 5),
                             "score_submit_seconds": round(score_seconds, 5),
-                            "batches": batches, "samples": len(ids)}
+                            "batches": batches, "samples": len(ids),
+                            "final_batch": (self._auto_batch.current if self._auto_batch else self.max_batch),
+                            "auto_batch_mode": self._auto_batch is not None}
         return out
 
 

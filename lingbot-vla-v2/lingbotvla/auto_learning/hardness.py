@@ -112,7 +112,7 @@ class HardnessScorer:
         return torch.full((int(batch),), self.flow_time, device=self.device, dtype=dtype)
 
     # -- 主入口 -------------------------------------------------------------
-    def score(self, items: Sequence[Dict[str, Any]]) -> Any:
+    def score(self, items: Sequence[Dict[str, Any]], *, sample_ids: Optional[Sequence[int]] = None) -> Any:
         """对一批 dataset item 算逐样本难度。
 
         ``items`` 是**已 transform** 的 dataset item（含 `actions` / `joint_mask`）。
@@ -150,7 +150,23 @@ class HardnessScorer:
 
         n_action_steps = int(getattr(cfg, "n_action_steps", actions.shape[1]))
         max_action_dim = int(getattr(cfg, "max_action_dim", actions.shape[2]))
-        noise = self.fixed_noise((actions.shape[0], n_action_steps, max_action_dim), dtype)
+        if sample_ids is not None:
+            # Batch-invariant deterministic noise: no change to a sample's
+            # noise if dynamic Hardness groups it with different neighbors.
+            if len(sample_ids) != actions.shape[0] or len(set(sample_ids)) != len(sample_ids):
+                raise ValueError('sample_ids must uniquely identify every hardness item')
+            dev = 'cuda' if str(self.device).startswith('cuda') else 'cpu'
+            pieces = []
+            for sid in sample_ids:
+                if not isinstance(sid, int) or sid < 0:
+                    raise ValueError('sample IDs must be nonnegative integers')
+                gen = torch.Generator(device=dev)
+                gen.manual_seed((self.seed ^ (sid * 0x9E3779B97F4A7C15)) & ((1 << 63) - 1))
+                pieces.append(torch.randn((1,n_action_steps,max_action_dim),
+                                          generator=gen,device=self.device,dtype=dtype))
+            noise = torch.cat(pieces,dim=0)
+        else:
+            noise = self.fixed_noise((actions.shape[0], n_action_steps, max_action_dim), dtype)
         time = self.fixed_time(actions.shape[0], dtype)
 
         train_flags = [(m, m.training) for m in self.model.modules()]

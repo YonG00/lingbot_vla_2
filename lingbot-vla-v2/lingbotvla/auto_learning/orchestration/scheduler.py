@@ -301,14 +301,18 @@ class Scheduler:
                 rec.set_status(TaskStatus.CANDIDATE, f"finished_mid_attempt: {reason}")
             self.state.current_task = None
 
-    def _timed_eval(self, task: str, split: str, episode_ids):
+    def _timed_eval(self, task: str, split: str, episode_ids, *, bootstrap_cache=False):
         """Observe actual wall clock incl. CPU loading and GPU result materialization.
 
         This does not batch or change inference order/RNG and incurs no extra
         CUDA synchronization; each call already returns materialized metrics.
         """
         started = time.perf_counter()
-        result = self.evaluator.evaluate(task, split, episode_ids)
+        cache_func = getattr(self.evaluator, 'evaluate_bootstrap_scout', None)
+        if bootstrap_cache and self.state.global_step == 0 and cache_func is not None:
+            result = cache_func(task, split, episode_ids)
+        else:
+            result = self.evaluator.evaluate(task, split, episode_ids)
         elapsed = time.perf_counter() - started
         # Real deferred-training backend only: avoid changing Stage A simulated
         # metrics / historical regression snapshots.
@@ -330,7 +334,8 @@ class Scheduler:
         name = self.state.bootstrap_queue.pop(0)
         rec = self.registry.get(name)
 
-        scout = self._timed_eval(name, EvalSplit.SCOUT.value, rec.scout_val_ids)
+        scout = self._timed_eval(name, EvalSplit.SCOUT.value, rec.scout_val_ids,
+                                 bootstrap_cache=True)
         rec.scout_nmse = scout.nmse
         rec.scout_gmean_mse = scout.gmean_mse
         rec.metric_valid = (scout.metric_valid and
