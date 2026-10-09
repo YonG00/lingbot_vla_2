@@ -26,6 +26,8 @@
 #   TASK           仅用于推导默认 CKPT_ROOT
 #   STEP           评哪一步 ckpt（默认 500）
 #   PORT           端口（默认 9330）
+#   PRECISION      推理精度：fp32（默认，与历史一致）| bf16
+#                  （bf16 权重要用 bf16 服务；本项目 bf16 训练的 HF 导出默认就是 bf16）
 #   USE_LENGTH     action chunk 长度（默认 50）
 #   QWEN3VL        Qwen3-VL backbone（默认 /data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct）
 #   REPO / CONDA_SH / INFERENCE_ENV
@@ -38,6 +40,10 @@ REPO=${REPO:-/data/code/lingbot-vla-v2}
 TASK=${TASK:-click_bell}
 CKPT_ROOT=${CKPT_ROOT:-/data/outputs/single/$TASK}
 STEP=${STEP:-500}
+PRECISION=${PRECISION:-fp32}
+[[ "$PRECISION" == "bf16" || "$PRECISION" == "fp32" ]] \
+    || { echo "❌ PRECISION 只支持 fp32|bf16，收到 $PRECISION" >&2; exit 1; }
+if [[ "$PRECISION" == "bf16" ]]; then USE_BF16=true; USE_FP32=false; else USE_BF16=false; USE_FP32=true; fi
 PORT=${PORT:-9330}
 USE_LENGTH=${USE_LENGTH:-50}
 QWEN3VL=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
@@ -94,7 +100,7 @@ do_start() {
   ckpt        : $CKPT
   端口        : $PORT
   chunk       : $USE_LENGTH
-  精度        : fp32（use_bf16=false, use_fp32=true, use_compile=false）
+  精度        : $PRECISION（use_bf16=$USE_BF16, use_fp32=$USE_FP32, use_compile=false）
   QWEN3VL_PATH: $QWEN3VL
   日志        : $LOG
   PID 文件    : $PIDFILE
@@ -106,8 +112,8 @@ EOF
     setsid bash -c "source ${CONDA_SH} && conda activate ${INFERENCE_ENV} && SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 python -m deploy.lingbot_vla_v2_policy \
         --model_path '${CKPT}' \
         --use_length '${USE_LENGTH}' \
-        --use_bf16 false \
-        --use_fp32 true \
+        --use_bf16 $USE_BF16 \
+        --use_fp32 $USE_FP32 \
         --use_compile false \
         --port '${PORT}'" > "$LOG" 2>&1 < /dev/null &
 

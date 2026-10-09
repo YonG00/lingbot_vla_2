@@ -184,3 +184,27 @@ def test_closed_loop_script_has_precision_switch():
     assert 'USE_BF16=true; USE_FP32=false' in script
     assert '--use_fp32 "$USE_FP32" --use_bf16 "$USE_BF16"' in script
     assert '--use_fp32 true --use_bf16 false' not in script, "不允许再写死 fp32"
+
+
+def test_policy_server_has_precision_switch():
+    """常驻推理服务同样不能写死 fp32（两阶段流程的**阶段 1**）。"""
+    from pathlib import Path
+    script = (Path(__file__).resolve().parents[1] / "tools/policy_server.sh").read_text(
+        encoding="utf-8")
+    assert 'PRECISION=${PRECISION:-fp32}' in script
+    assert 'USE_BF16=true; USE_FP32=false' in script
+    assert '--use_bf16 $USE_BF16' in script and '--use_fp32 $USE_FP32' in script
+    assert '--use_bf16 false' not in script, "不允许再写死 fp32"
+
+
+def test_two_stage_closed_loop_scripts_exist():
+    """两阶段闭环：阶段 1 常驻服务 + 阶段 2 只跑 sim（可反复换 task、模型不重载）。
+    这是用户 2026-10-10 指定的用法（"先服务，后面可以换task"）。"""
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1] / "tools"
+    server = (root / "policy_server.sh").read_text(encoding="utf-8")
+    tasks = (root / "eval_tasks.sh").read_text(encoding="utf-8")
+    assert "start" in server and "stop" in server and "status" in server
+    assert "常驻" in server and "模型不重载" in server
+    assert "TASKS        必填" in tasks and "只跑 sim 侧" in tasks
+    assert "DRY_RUN" in tasks
