@@ -1,0 +1,90 @@
+{
+  "kind": "offline_replay_audit",
+  "status": "PASS",
+  "diagnosis": "verified",
+  "errors": [],
+  "unit_count": 5,
+  "optimizer_steps": 15,
+  "gbs": 24,
+  "observed_total_samples_expected": 360,
+  "observed_replay_samples": 105,
+  "expected_replay_samples": 105,
+  "expected_new_samples": 255,
+  "step_relation": {
+    "unit_metric_step_relation": "end",
+    "metric_step_shift": 0
+  },
+  "units": [
+    {
+      "start": 0,
+      "steps": 3,
+      "replay_tasks": [
+        "click_bell",
+        "click_alarmclock"
+      ],
+      "metric_step": 3,
+      "actual_replay": 21,
+      "expected_replay": 21,
+      "expected_samples": 72,
+      "expected_new": 51
+    },
+    {
+      "start": 3,
+      "steps": 3,
+      "replay_tasks": [
+        "click_bell",
+        "click_alarmclock"
+      ],
+      "metric_step": 6,
+      "actual_replay": 21,
+      "expected_replay": 21,
+      "expected_samples": 72,
+      "expected_new": 51
+    },
+    {
+      "start": 6,
+      "steps": 3,
+      "replay_tasks": [
+        "click_bell",
+        "click_alarmclock"
+      ],
+      "metric_step": 9,
+      "actual_replay": 21,
+      "expected_replay": 21,
+      "expected_samples": 72,
+      "expected_new": 51
+    },
+    {
+      "start": 9,
+      "steps": 3,
+      "replay_tasks": [
+        "click_bell",
+        "click_alarmclock"
+      ],
+      "metric_step": 12,
+      "actual_replay": 21,
+      "expected_replay": 21,
+      "expected_samples": 72,
+      "expected_new": 51
+    },
+    {
+      "start": 12,
+      "steps": 3,
+      "replay_tasks": [
+        "click_bell",
+        "click_alarmclock"
+      ],
+      "metric_step": 15,
+      "actual_replay": 21,
+      "expected_replay": 21,
+      "expected_samples": 72,
+      "expected_new": 51
+    }
+  ],
+  "note": "Independent per-unit Replay metrics and cumulative sample counters REQUIRED for PASS; original verdict unchanged.",
+  "sources_sha256": {
+    "/data/outputs/gpu96_acceptance/ratio_real_micro24_gas1_target4_steps15/auto_learning_events.jsonl": "9ef3a5b5544b263fe6530102dae4b3c678aa6a97dd62f3a8793e22724ddd65fb"
+  },
+  "historical_result_unchanged": true,
+  "source_count": 1
+}
