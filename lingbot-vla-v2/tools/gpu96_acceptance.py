@@ -760,6 +760,8 @@ def build_parser() -> argparse.ArgumentParser:
     ratio_real.add_argument('--compile',choices=['off'],default='off')
     ratio_real.add_argument('--model-path',default=DEFAULT_MODEL)
     ratio_real.add_argument('--train-config',default=DEFAULT_CONFIG)
+    ratio_real.add_argument('--eval-inference-dtype', default=None,
+        help='诊断用：auto/bf16/fp32；透传 --train.eval_inference_dtype')
     ratio_real.add_argument('--al-config',default=str(ROOT/'configs/auto_learning/smoke_2task.yaml'))
     ratio_real.add_argument('--split-dir',default=DEFAULT_SPLIT)
     ratio_real.add_argument('--phases',default='/data/train/phases')

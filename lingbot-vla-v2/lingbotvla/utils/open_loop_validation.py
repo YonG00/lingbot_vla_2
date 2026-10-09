@@ -988,6 +988,17 @@ class OpenLoopValidator:
             dtype=dtype,
         )
 
+        _nd = os.environ.get('AL_EVAL_BATCH_NOISE_DUMP')
+        if _nd:
+            try:
+                import numpy as _npn
+                _tag = 'batch' if isinstance(noise, torch.Tensor) and noise.shape[0] > 1 else 'serial'
+                _npn.savez_compressed(f'{_nd}.{_tag}.{int(time.time()*1000)}.npz',
+                                      noise=_npn.asarray(noise.detach().float().cpu()))
+                self.logger.info_rank0(f'[diag] noise dumped tag={_tag} shape={tuple(noise.shape)} '
+                                      f'dtype={noise.dtype} first={float(noise.reshape(-1)[0]):.8f}')
+            except Exception as _ne:  # noqa: BLE001
+                self.logger.info_rank0(f'[diag] noise dump failed: {_ne!r}')
         actions = self.model.sample_actions(
             images.to(dtype=dtype, device=self.device),
             img_masks.to(device=self.device),
@@ -1049,6 +1060,17 @@ class OpenLoopValidator:
         # each call so changing batch sizes cannot poison later serial training.
         grid_saved = _visual_grid_cache_clear(self.model)
         try:
+            _nd = os.environ.get('AL_EVAL_BATCH_NOISE_DUMP')
+            if _nd:
+                try:
+                    import numpy as _npn
+                    _tag = 'batch' if isinstance(noise, torch.Tensor) and noise.shape[0] > 1 else 'serial'
+                    _npn.savez_compressed(f'{_nd}.{_tag}.{int(time.time()*1000)}.npz',
+                                          noise=_npn.asarray(noise.detach().float().cpu()))
+                    self.logger.info_rank0(f'[diag] noise dumped tag={_tag} shape={tuple(noise.shape)} '
+                                          f'dtype={noise.dtype} first={float(noise.reshape(-1)[0]):.8f}')
+                except Exception as _ne:  # noqa: BLE001
+                    self.logger.info_rank0(f'[diag] noise dump failed: {_ne!r}')
             actions = self.model.sample_actions(
                 fields['images'].to(dtype=dtype), fields['img_masks'],
                 fields['lang_tokens'], fields['lang_masks'],
@@ -1152,6 +1174,27 @@ class OpenLoopValidator:
                 continue
             t0 = time.perf_counter()
             serial = [self._infer_one(it, ft) for it in inputs]
+            # 诊断：serial 连跑第二次（逐位复现性）+ dump 两组 noise/动作（AL_EVAL_BATCH_PROBE_REPEAT_SERIAL=1）
+            _rep = os.environ.get('AL_EVAL_BATCH_PROBE_REPEAT_SERIAL') == '1'
+            if _rep:
+                _gen2 = self._noise_generator(self.device)
+                _st2 = _gen2.get_state()
+                _serial2 = [self._infer_one(it, ft) for it in inputs]
+                _gen2.set_state(_st2)
+                try:
+                    _d2 = os.environ.get('AL_EVAL_BATCH_PROBE_DUMP')
+                    if _d2:
+                        import numpy as _np2
+                        _p2 = {}
+                        for _i2 in range(len(_serial2)):
+                            for _k2 in keys:
+                                _p2[f'serial2_{_i2}_{_k2}'] = _np2.asarray(
+                                    normalized_action_predictions([_serial2[_i2]], [_k2])[0][_k2])
+                                _p2[f'serial1_{_i2}_{_k2}'] = _np2.asarray(
+                                    normalized_action_predictions([serial[_i2]], [_k2])[0][_k2])
+                        _np2.savez_compressed(str(_d2).replace('.npz', '_repeat.npz'), **_p2)
+                except Exception as _e2:  # noqa: BLE001
+                    self.logger.info_rank0(f'[open_loop][eval-batch] repeat-serial dump failed: {_e2!r}')
             torch.cuda.synchronize()
             serial_seconds = time.perf_counter() - t0
             generator_end = gen.get_state()
@@ -1188,6 +1231,20 @@ class OpenLoopValidator:
                             normalized_action_predictions([batched[_i]], keys))
                         _per_traj.append({'dataset_index': int(_idx), 'max_abs_diff': _mx,
                                          'mean_abs_diff': _mean})
+                    # 诊断用：把本组 serial/batched 的**逐元素**动作落盘（AL_EVAL_BATCH_PROBE_DUMP）
+                    _dump = os.environ.get('AL_EVAL_BATCH_PROBE_DUMP')
+                    if _dump:
+                        try:
+                            import numpy as _np
+                            _ns, _nb = normalized_action_predictions(serial, keys), normalized_action_predictions(batched, keys)
+                            _payload = {}
+                            for _i in range(len(_ns)):
+                                for _k in keys:
+                                    _payload[f's{_i}_{_k}'] = _np.asarray(_ns[_i][_k])
+                                    _payload[f'b{_i}_{_k}'] = _np.asarray(_nb[_i][_k])
+                            _np.savez_compressed(_dump, **_payload)
+                        except Exception as _dexc:  # noqa: BLE001
+                            self.logger.info_rank0(f'[open_loop][eval-batch] probe dump failed: {_dexc!r}')
                     append_json_record(_probe_out, {
                         'kind': 'eval_batch_probe', 'mode': mode, 'batch': int(take),
                         'atol': 1e-5, 'rtol': 1e-3, 'parity': bool(parity),
