@@ -1,0 +1,33 @@
+# 96G BF16 验收专用：**四任务真实 Replay 消费**探针（ratio-gpu --al-config）
+#
+# 目的：让 ratio-gpu 真正进入 Train Unit 并消费真实 Replay —— 仅当 PASS 池非空、
+#       且仍有任务未 PASS 时才会发生（2 任务全 PASS 会 all_tasks_resolved 零步收工 ⇒ BLOCKED）。
+#
+# 任务选择依据（同一阈值 pass_nmse=1.66 的历史实测 NMSE）：
+#   click_bell         0.034 ⇒ 会 PASS（贡献 PASS 池）
+#   click_alarmclock   0.102 ⇒ 会 PASS（贡献 PASS 池）
+#   turn_switch        1.763 ⇒ 天然不通过（4 次测量 1.762~1.763，稳定）⇒ 迫使进入 Train Unit
+#   put_object_cabinet 2.167 ⇒ 天然不通过（余量更大，双保险）
+#
+# ⚠️ 只用于验收，不是正式配置：正式训练仍用 formal_50task_4pass.yaml（pass_metric: nmse）。
+# ⚠️ cadence 是 smoke 值：eval_interval_steps=3 / min_steps_before_defer=12。
+enabled: true
+task_names: [click_bell, click_alarmclock, turn_switch, put_object_cabinet]
+batch_size: 10
+new_slots: 7
+replay_slots: 3
+eval_interval_steps: 3
+min_steps_before_defer: 12
+defer_retry_steps: 6
+max_attempts_per_task: 1
+
+# ----- 判定口径（显式 NMSE；绝不使用实验性 MSE/GMean 阈值表）-----
+pass_metric: nmse
+pass_nmse: 1.66
+pass_thresholds_file: null
+
+target_total_passed_tasks: 4
+seed: 7
+
+# ----- hardness（ratio-gpu 在隔离副本里收敛到 min(本值, 0.1)）-----
+hardness_probe_fraction: 0.33

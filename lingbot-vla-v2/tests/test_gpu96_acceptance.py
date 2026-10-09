@@ -204,3 +204,74 @@ def test_ratio_target_diagnosis_is_fail_closed():
     r=accept.ratio_unit_evidence([unit],gbs=24,new_ratio=.7)
     assert r['status']=='BLOCKED'
     assert r['diagnosis']=='train_unit_without_replay_pool'
+
+
+# --------------------------------------------------------------------------- #
+# 四任务真实 Replay 验收：显式任务数上限（minimal patch + 可复现性保证）
+# --------------------------------------------------------------------------- #
+FOUR = ['click_bell', 'click_alarmclock', 'turn_switch', 'put_object_cabinet']
+
+
+def _four_task_raw():
+    return {'auto_learning': {'pass_metric': 'nmse', 'pass_nmse': 1.66,
+                              'pass_thresholds_file': None,
+                              'task_names': list(FOUR), 'target_total_passed_tasks': 4,
+                              'hardness_probe_fraction': 0.33, 'eval_interval_steps': 3}}
+
+
+def test_ratio_probe_task_cap_is_explicit_and_fail_closed():
+    """默认上限仍是 3 ⇒ 4 任务必须显式放开，避免无意中用大配置跑 GPU。"""
+    with pytest.raises(ValueError, match=r'1\.\.3 explicitly named tasks'):
+        accept.build_ratio_smoke_config(_four_task_raw(), target=4, max_global_steps=515)
+    got = accept.build_ratio_smoke_config(_four_task_raw(), target=4, max_global_steps=515,
+                                          max_named_tasks=4)
+    assert got['task_names'] == FOUR
+
+
+def test_ratio_probe_raised_cap_preserves_tasks_metric_and_threshold():
+    """--al-config 的四任务 / NMSE 指标 / 阈值不得被工具内部生成配置覆盖。"""
+    raw = _four_task_raw()
+    got = accept.build_ratio_smoke_config(raw, target=4, max_global_steps=515, max_named_tasks=4)
+    assert got['task_names'] == FOUR, '四任务必须原样保留且顺序不变'
+    assert got['pass_metric'] == 'nmse'
+    assert got['pass_nmse'] == 1.66
+    assert got['pass_thresholds_file'] is None, '不得引入实验性 MSE/GMean 阈值表'
+    assert got['target_total_passed_tasks'] == 4
+    assert got['max_global_steps'] == 515
+    # 只允许这 3 个字段被工具改写
+    changed = {k for k in set(raw['auto_learning']) | set(got) if raw['auto_learning'].get(k) != got.get(k)}
+    assert changed == {'hardness_probe_fraction', 'max_global_steps', 'new_ratio'}, changed
+    # 源配置不得被就地修改
+    assert raw['auto_learning']['target_total_passed_tasks'] == 4
+    assert 'new_ratio' not in raw['auto_learning']
+
+
+@pytest.mark.parametrize('raw,target,kwargs', [
+    ({'task_names': list(FOUR), 'pass_metric': 'mse', 'pass_thresholds_file': '/tmp/x.json'}, 4,
+     {'max_named_tasks': 4}),                      # 实验 MSE 口径 ⇒ 拒绝
+    ({'task_names': list(FOUR)}, 5, {'max_named_tasks': 4}),   # target 超过任务数 ⇒ 拒绝
+    ({'task_names': list(FOUR)}, 0, {'max_named_tasks': 4}),   # 非正 target ⇒ 拒绝
+    ({'task_names': list(FOUR)}, 4, {'max_named_tasks': 0}),   # 非正上限 ⇒ 拒绝
+])
+def test_ratio_probe_rejects_bad_metric_target_or_cap(raw, target, kwargs):
+    with pytest.raises(ValueError):
+        accept.build_ratio_smoke_config({'auto_learning': raw}, target=target,
+                                       max_global_steps=515, **kwargs)
+
+
+def test_ratio_four_task_dry_plan_never_queries_gpu(monkeypatch, tmp_path, capsys):
+    """四任务 PLAN ONLY：不得触碰 GPU、不得落盘，且目录名/目标/步数可见。"""
+    monkeypatch.setattr(accept, 'require_gpu',
+                        lambda: (_ for _ in ()).throw(AssertionError('GPU touched')))
+    rc = accept.main(['ratio-gpu', '--micro', '24', '--gas', '1',
+                      '--al-config', str(Path(__file__).resolve().parents[1] /
+                                         'configs/auto_learning/gpu96_ratio_4task_acceptance.yaml'),
+                      '--target-total-passed-tasks', '4', '--max-named-tasks', '4',
+                      '--steps', '15', '--out-root', str(tmp_path)])
+    assert rc == 0
+    assert not list(tmp_path.iterdir()), 'PLAN ONLY 不得创建任何目录'
+    out = capsys.readouterr().out
+    assert 'PLAN ONLY' in out
+    assert 'TARGET: 4' in out and 'MAX OPTIMIZER STEPS: 15' in out
+    assert 'target4_steps15' in out
+    assert '24 GBS' in out

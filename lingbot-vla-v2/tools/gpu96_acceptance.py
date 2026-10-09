@@ -434,12 +434,14 @@ def ratio_unit_evidence(event_rows: list[dict], *, gbs: int, new_ratio: float) -
             'note':'Only observed consumed Replay can PASS; bootstrap and ratio plans alone never PASS.'}
 
 
-def build_ratio_smoke_config(raw: dict, *, target: int, max_global_steps: int) -> dict:
+def build_ratio_smoke_config(raw: dict, *, target: int, max_global_steps: int,
+                             max_named_tasks: int = 3) -> dict:
     """Build an isolated AL smoke config; never mutate the formal/source YAML."""
     original = raw.get('auto_learning', raw)
     names = original.get('task_names') or ()
-    if original.get('pass_metric', 'nmse') != 'nmse' or not 1 <= len(names) <= 3:
-        raise ValueError('tiny AL ratio probe requires <=3 explicitly named tasks and NMSE metric')
+    if original.get('pass_metric', 'nmse') != 'nmse' or not 1 <= len(names) <= max_named_tasks:
+        raise ValueError(f'tiny AL ratio probe requires 1..{max_named_tasks} explicitly named '
+                         'tasks and the NMSE metric (raise --max-named-tasks deliberately)')
     if isinstance(target, bool) or not isinstance(target, int) or not 1 <= target <= len(names):
         raise ValueError(f'target must be 1..{len(names)} named tasks; got {target!r}')
     if not isinstance(max_global_steps, int) or max_global_steps <= 0:
@@ -462,8 +464,8 @@ def run_ratio_gpu(a: argparse.Namespace) -> int:
     cmd.extend(['--train.auto_learning',str(cfg_path),
                 '--train.auto_learning_manifest',str(Path(a.split_dir)/'manifest.json'),
                 '--train.auto_learning_baseline',str(Path(a.split_dir)/'task_baseline.json')])
-    if a.steps < 1 or a.target_total_passed_tasks < 1:
-        raise ValueError('steps and target_total_passed_tasks must be positive')
+    if a.steps < 1 or a.target_total_passed_tasks < 1 or a.max_named_tasks < 1:
+        raise ValueError('steps, target_total_passed_tasks and max_named_tasks must be positive')
     print('REAL RATIO AL SMOKE:', a.micro*a.gas, 'GBS; isolated NMSE tasks, no DCP/HF')
     print('TARGET:', a.target_total_passed_tasks, 'MAX OPTIMIZER STEPS:', a.steps,
           'WARNING: target does not guarantee Bootstrap PASS or consumed Replay')
@@ -480,7 +482,8 @@ def run_ratio_gpu(a: argparse.Namespace) -> int:
     import yaml
     raw = yaml.safe_load(Path(a.al_config).read_text(encoding='utf-8')) or {}
     b = build_ratio_smoke_config(raw, target=a.target_total_passed_tasks,
-                                 max_global_steps=a.step_offset+a.steps)
+                                   max_global_steps=a.step_offset+a.steps,
+                                   max_named_tasks=a.max_named_tasks)
     fresh_dir(a.output)
     cfg_path.write_text(yaml.safe_dump(b,allow_unicode=True,sort_keys=False),encoding='utf-8')
     env = os.environ.copy()
@@ -638,6 +641,8 @@ def build_parser() -> argparse.ArgumentParser:
     ratio_real.add_argument('--steps',type=int,default=9)
     ratio_real.add_argument('--target-total-passed-tasks',type=int,default=2,
                             help='isolated test goal; default 2, must not exceed named task count')
+    ratio_real.add_argument('--max-named-tasks',type=int,default=3,
+                            help='safety cap on named AL tasks; raise deliberately (e.g. 4)')
     ratio_real.add_argument('--step-offset',type=int,default=500)
     ratio_real.add_argument('--compile',choices=['off'],default='off')
     ratio_real.add_argument('--model-path',default=DEFAULT_MODEL)
