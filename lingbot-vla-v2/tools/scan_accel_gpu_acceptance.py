@@ -68,6 +68,10 @@ def verdict_probe(records: list, *, atol: float = PROBE_ATOL, rtol: float = PROB
     if not records:
         return {"status": "BLOCKED", "reason": "no_eval_batch_probe_records",
                 "note": "未取得任何 probe 记录（需 AL_EVAL_BATCH_MODE=probe + AL_EVAL_BATCH_PROBE_OUT）"}
+    errors = [r for r in records if r.get("kind") == "eval_batch_probe_error"]
+    records = [r for r in records if r.get("kind") == "eval_batch_probe"]
+    if errors:
+        blocked.append("probe_report_write_failed:" + str(errors[0].get("error"))[:80])
     modes = sorted({str(r.get("mode")) for r in records})
     if modes != ["probe"]:
         problems.append(f"unexpected_mode:{modes}")

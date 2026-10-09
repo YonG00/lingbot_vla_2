@@ -213,3 +213,23 @@ def test_selftest_refuses_multirank_and_stays_opt_in():
     assert "AL_HARDNESS_SELFTEST_IDS" in src and "AL_HARDNESS_REPORT_OUT" in src
     assert "get_world_size() > 1" in src and "FSDP2" in src
     assert "hardness.score(" in src and "RuntimeError" in src
+
+
+def test_probe_block_imports_report_helpers():
+    """回归：probe 报告写入路径依赖 action_diffs/append_json_record，缺 import 会抛 NameError（实测踩过）。"""
+    src = (Path(__file__).resolve().parents[1] /
+           "lingbotvla/utils/open_loop_validation.py").read_text(encoding="utf-8")
+    i = src.index("normalized_action_predictions)")
+    seg = src[max(0, i - 300):i + 30]
+    assert "action_diffs" in seg and "append_json_record" in seg, seg
+
+
+def test_probe_report_error_record_forces_blocked_not_pass():
+    """要求2：证据缺失（报告写入失败）必须显式 BLOCKED，不得静默当 PASS。"""
+    ok = {"kind": "eval_batch_probe", "mode": "probe", "batch": 2, "parity": True,
+          "safe": True, "peak_free_gib": 80.0, "speedup": 1.9, "per_traj": []}
+    bad = {"kind": "eval_batch_probe_error", "mode": "probe", "batch": 2,
+           "error": "NameError: name 'append_json_record' is not defined"}
+    v = acc.verdict_probe([ok, ok | {"batch": 4}, bad])
+    assert v["status"] == "BLOCKED", v
+    assert any("probe_report_write_failed" in b for b in v["blocked"]), v

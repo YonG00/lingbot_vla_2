@@ -1074,7 +1074,8 @@ class OpenLoopValidator:
         This cache is local to one evaluation (weights can change between evals).
         """
         from lingbotvla.auto_learning.scan_accel import (
-            identical_tensor_shapes, normalized_action_predictions)
+            action_diffs, append_json_record, identical_tensor_shapes,
+            normalized_action_predictions)
         from lingbotvla.auto_learning.eval_batch_policy import outputs_close
         mode = os.environ.get('AL_EVAL_BATCH_MODE', 'serial')
         if mode not in ('serial', 'probe', 'auto'):
@@ -1201,6 +1202,14 @@ class OpenLoopValidator:
                     })
                 except Exception as _exc:  # noqa: BLE001
                     self.logger.info_rank0(f'[open_loop][eval-batch] probe report failed: {_exc!r}')
+                    try:  # 证据缺失必须可判：写一条显式 error 记录（判定侧据此 BLOCKED，不掩盖）
+                        append_json_record(_probe_out, {
+                            'kind': 'eval_batch_probe_error', 'mode': mode, 'batch': int(take),
+                            'error': f'{type(_exc).__name__}: {_exc}',
+                            'note': 'probe 报告写入失败 ⇒ Batch 覆盖/数值证据不完整，判定必须 BLOCKED',
+                        })
+                    except Exception:  # noqa: BLE001
+                        pass
             safe = peak_free >= reserve and parity
             faster = batch_seconds < serial_seconds  # batch must be worth adopting
             self.logger.info_rank0(f'[open_loop][eval-batch] mode={mode} batch={take} '
