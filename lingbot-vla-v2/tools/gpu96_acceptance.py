@@ -62,8 +62,12 @@ def require_gpu() -> dict:
         raise RuntimeError(f'expected exactly one visible GPU (CUDA_VISIBLE_DEVICES), got {cards}')
     name, size = [x.strip() for x in cards[0].split(',', 1)]
     mib = float(size)
+    # 诊断放行（默认关闭，保持 96G fail-closed）：仅用于小卡上的**数值诊断**，不放行正式验收。
+    if mib < 90000 and os.environ.get('AL_ALLOW_SMALL_CARD') != '1':
+        raise RuntimeError(f'expected >= 90000 MiB 96G-class card; got {name}: {mib} MiB '
+                           f'(set AL_ALLOW_SMALL_CARD=1 only for diagnostics)')
     if mib < 90000:
-        raise RuntimeError(f'expected >= 90000 MiB 96G-class card; got {name}: {mib} MiB')
+        print(f'[gpu96] WARNING: 小卡诊断模式（{name} {mib} MiB）；仅数值诊断，非正式验收', flush=True)
     used = gpu_used_mib()
     if used is not None and used > 5120:
         raise RuntimeError(f'GPU is not idle (used={used:.0f} MiB). Refusing contaminated benchmark.')

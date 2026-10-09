@@ -233,3 +233,29 @@ def test_probe_report_error_record_forces_blocked_not_pass():
     v = acc.verdict_probe([ok, ok | {"batch": 4}, bad])
     assert v["status"] == "BLOCKED", v
     assert any("probe_report_write_failed" in b for b in v["blocked"]), v
+
+
+def test_parity_comparison_actually_compares_normalized_predictions():
+    """根因回归（2026-10-09 GPU 诊断）：normalized_action_predictions 返回 list[dict]，
+    两侧打平函数都必须支持 dict —— 否则 outputs_close 恒 False（parity 假失败）、
+    action_diffs 恒 None（哨兵 -1e0），批处理被永久禁用。"""
+    import numpy as np
+    from lingbotvla.auto_learning.scan_accel import action_diffs, normalized_action_predictions
+    from lingbotvla.auto_learning.eval_batch_policy import outputs_close
+
+    keys = ("actions", "action_tokens")
+    a = {"actions": np.zeros((2, 3), dtype=np.float32),
+         "action_tokens": np.ones((2,), dtype=np.float32)}
+    b = {k: v.copy() for k, v in a.items()}
+    na, nb = normalized_action_predictions([a], keys), normalized_action_predictions([b], keys)
+    assert isinstance(na[0], dict)                     # 契约：list[dict]
+    assert outputs_close(na, nb, atol=1e-5, rtol=1e-3) is True   # 相同 ⇒ True（以前恒 False）
+    assert action_diffs(na, nb) == (0.0, 0.0)                    # 差值必须真是 0，不是 None
+
+    c = {k: v.copy() for k, v in a.items()}
+    c["actions"][0, 0] += 1e-2                                   # 单元素扰动 1e-2
+    nc = normalized_action_predictions([c], keys)
+    assert outputs_close(na, nc, atol=1e-5, rtol=1e-3) is False  # 真的超容差 ⇒ False
+    mx, mean = action_diffs(na, nc)
+    assert mx is not None and abs(mx - 1e-2) < 1e-6, (mx, mean)  # 差值可见且量级正确
+    assert mean is not None and 0 < mean < mx

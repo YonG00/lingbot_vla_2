@@ -36,6 +36,13 @@ def _flatten_numbers(obj: Any) -> list[float]:
     # Tensor values are detached only for comparison, without altering inference.
     if hasattr(obj, 'detach') and hasattr(obj,'cpu'):
         obj=obj.detach().cpu().tolist()
+    if isinstance(obj,dict):
+        # 与 scan_accel._flatten 同契约：normalized_action_predictions 产出 list[dict]，
+        # 不处理 dict 会让 outputs_close 落进 except 分支恒返回 False（parity 假失败）。
+        out=[]
+        for k in sorted(obj):
+            out.extend(_flatten_numbers(obj[k]))
+        return out
     if isinstance(obj,bool):
         raise ValueError('boolean prediction cannot be numerically compared')
     if isinstance(obj,(float,int)):

@@ -99,6 +99,21 @@ def _flatten(obj):
     import numpy as _np
     if obj is None:
         return []
+    if isinstance(obj, dict):
+        # normalized_action_predictions 返回 [ {action_key: array} ] ⇒ 必须按 key 排序打平，
+        # 否则 np.asarray(list_of_dicts) 得到 object 数组、float() 抛错 ⇒ 差值恒为 None
+        # （2026-10-09 GPU 诊断实测：max|Δ| 显示为哨兵 -1e0）。
+        out = []
+        for _k in sorted(obj):
+            out.extend(_flatten(obj[_k]))
+        return out
+    if isinstance(obj, (list, tuple)):
+        # 关键：normalized_action_predictions 返回 **list[dict]** ⇒ 必须逐元素递归，
+        # 否则 np.asarray(list_of_dicts) 得到 object 数组、float() 抛错 ⇒ 差值恒 None。
+        out = []
+        for _v in obj:
+            out.extend(_flatten(_v))
+        return out
     if hasattr(obj, "detach"):
         obj = obj.detach().cpu().numpy()
     arr = _np.asarray(obj).reshape(-1)
