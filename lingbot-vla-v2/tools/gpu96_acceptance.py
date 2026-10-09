@@ -513,6 +513,83 @@ def run_ratio_gpu(a: argparse.Namespace) -> int:
     return 0 if evidence['status']=='PASS' else 2
 
 
+#: 同一阈值 pass_nmse=1.66 下**历史实测不会 PASS**的任务（多次测量稳定）：
+#: turn_switch 1.762~1.763（4 次）、put_object_cabinet 2.167。
+#: 隔离配置必须含至少一个此类任务，否则全部任务会在 Bootstrap 通过 ⇒ `all_tasks_resolved`
+#: 零训练步收工 ⇒ **里程碑判定点根本不会被触达** ⇒ 不会导出（必须避免）。
+HF_NON_PASSING_TASKS = ('turn_switch', 'put_object_cabinet')
+
+
+def build_hf_smoke_config(base: dict, *, step_offset: int, steps: int) -> dict:
+    """构造 HF 验收专用隔离 AL 配置（纯函数，便于 CPU 测试）。
+
+    * 判定口径显式 **NMSE**（pass_metric='nmse'、pass_nmse=1.66），**不引入实验性阈值表**；
+    * 任务集必含历史不通过任务，且 target = 任务总数 ⇒ 调度器必须尝试它 ⇒ **≥1 个 Train Unit**；
+    * 不含 new_ratio 分支时要求 batch_size == GBS10（由调用方先行校验）。
+    """
+    if type(step_offset) is not int or type(steps) is not int or steps < 1:
+        raise ValueError('step_offset/steps must be ints with steps >= 1')
+    cfg = dict(base)
+    tasks = list(dict.fromkeys([*cfg.get('task_names', []), *HF_NON_PASSING_TASKS]))
+    if not tasks:
+        tasks = ['click_bell', 'click_alarmclock', *HF_NON_PASSING_TASKS]
+    cfg['task_names'] = tasks
+    cfg['pass_metric'] = 'nmse'
+    cfg['pass_nmse'] = 1.66
+    cfg['pass_thresholds_file'] = None
+    cfg['target_total_passed_tasks'] = len(tasks)
+    cfg['max_global_steps'] = step_offset + steps
+    cfg['eval_interval_steps'] = 3
+    cfg['min_steps_before_defer'] = 6
+    cfg['defer_retry_steps'] = 3
+    cfg['hardness_probe_fraction'] = 0.10
+    cfg['review_after_task_transitions'] = 100
+    return cfg
+
+
+def hf_step_evidence(out_dir) -> dict:
+    """判断"里程碑判定点是否被触达"（fail-closed：读不到即 0）。"""
+    import json as _json
+    import re as _re
+    from pathlib import Path as _Path
+    units_run, steps_seen = 0, 0
+    ev = _Path(out_dir) / 'auto_learning_events.jsonl'
+    if ev.exists():
+        for line in ev.read_text(encoding='utf-8', errors='ignore').splitlines():
+            try:
+                row = _json.loads(line)
+            except Exception:
+                continue
+            if row.get('kind') == 'metric' and row.get('name') == 'system/units_run':
+                try:
+                    units_run = max(units_run, int(round(float(row.get('value')))))
+                except Exception:
+                    pass
+    log = _Path(out_dir) / 'train_hf.log'
+    if log.exists():
+        for m in _re.finditer(r'Step:\s*(\d+)/', log.read_text(encoding='utf-8', errors='ignore')):
+            steps_seen = max(steps_seen, int(m.group(1)))
+    return {'units_run': units_run, 'steps_seen': steps_seen}
+
+
+def hf_verdict(*, returncode: int, reason: str, n_milestones: int, n_shards: int,
+               size_gib: float, leaked_dcp: int, units_run: int, steps_seen: int):
+    """HF 验收判定（纯谓词）：任一硬条件不满足即 FAIL 并给出原因。"""
+    if returncode != 0 or reason != 'exit':
+        return False, 'entry_nonzero_exit'
+    if units_run < 1 and steps_seen < 1:
+        return False, 'no_optimizer_step_so_milestone_decision_point_never_reached'
+    if n_milestones != 1:
+        return False, f'expected_exactly_one_hf_milestone_got_{n_milestones}'
+    if n_shards < 1:
+        return False, 'no_weight_shard_published'
+    if not (5 < size_gib < 19):
+        return False, f'bf16_size_out_of_band:{size_gib:.3f}GiB'
+    if leaked_dcp:
+        return False, f'dcp_leak:{leaked_dcp}'
+    return True, 'verified'
+
+
 def run_hf(a: argparse.Namespace) -> int:
     """One actual BF16 HF export through the EXISTING production acceptance entry."""
     a.output = a.out_root / f'hf_bf16_micro{a.micro}_gas{a.gas}'
@@ -554,17 +631,8 @@ def run_hf(a: argparse.Namespace) -> int:
         raise ValueError('HF isolated acceptance requires NMSE (not experimental GMean table)')
     if cfg.get('new_ratio') is None and int(cfg.get('batch_size', -1)) != 10:
         raise ValueError('HF AL config batch_size must equal the GBS10 smoke')
-    cfg=dict(cfg)
-    cfg['task_names']=['click_bell','click_alarmclock','adjust_bottle','press_stapler']
-    cfg['pass_metric']='nmse'
-    cfg['pass_thresholds_file']=None
-    cfg['target_total_passed_tasks']=None
-    cfg['max_global_steps']=a.step_offset+a.steps
-    cfg['eval_interval_steps']=3
-    cfg['min_steps_before_defer']=6
-    cfg['defer_retry_steps']=3
-    cfg['hardness_probe_fraction']=0.10
-    cfg['review_after_task_transitions']=100
+    # 隔离配置：显式 NMSE + **含历史不通过任务** ⇒ 保证 ≥1 个 Train Unit ⇒ 里程碑判定点可达。
+    cfg = build_hf_smoke_config(cfg, step_offset=a.step_offset, steps=a.steps)
     fresh_dir(a.output)
     cfg_path.write_text(yaml.safe_dump(cfg,allow_unicode=True,sort_keys=False),encoding='utf-8')
     env = os.environ.copy()
@@ -581,12 +649,16 @@ def run_hf(a: argparse.Namespace) -> int:
     leaked_dcp = list(a.output.glob('checkpoints/global_step_*'))
     size_gib = sum(p.stat().st_size for p in shards)/2**30
     # Standalone acceptance executable now returns rc != 0 on tensor mismatch.
-    passed = (r['returncode'] == 0 and r['reason'] == 'exit' and len(paths) == 1
-              and bool(shards) and 5 < size_gib < 19 and not leaked_dcp)
-    result = {'kind':'bf16_hf_direct', 'status':'PASS' if passed else 'FAIL',
+    step_ev = hf_step_evidence(a.output)
+    passed, why = hf_verdict(returncode=r['returncode'], reason=r['reason'],
+                             n_milestones=len(paths), n_shards=len(shards),
+                             size_gib=size_gib, leaked_dcp=len(leaked_dcp),
+                             units_run=step_ev['units_run'], steps_seen=step_ev['steps_seen'])
+    result = {'kind':'bf16_hf_direct', 'status':'PASS' if passed else 'FAIL', 'verdict_reason':why,
               'gpu':gpu, 'git_head':current_git_head(), 'command':cmd, 'hf_paths':[str(p) for p in paths],
               'weight_shards':len(shards), 'weight_size_gib':round(size_gib,3),
-              'dcp_leaks':[str(x) for x in leaked_dcp], **r}
+              'dcp_leaks':[str(x) for x in leaked_dcp], 'units_run':step_ev['units_run'],
+              'max_global_step_seen':step_ev['steps_seen'], **r}
     write_json(a.output/'result.json',result)
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0 if passed else 1

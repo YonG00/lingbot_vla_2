@@ -275,3 +275,58 @@ def test_ratio_four_task_dry_plan_never_queries_gpu(monkeypatch, tmp_path, capsy
     assert 'TARGET: 4' in out and 'MAX OPTIMIZER STEPS: 15' in out
     assert 'target4_steps15' in out
     assert '24 GBS' in out
+
+
+# --------------------------------------------------------------------------- #
+# HF 验收（阶段5）：必须保证里程碑判定点可达 + 判定 fail-closed
+# --------------------------------------------------------------------------- #
+def test_hf_smoke_config_forces_at_least_one_train_unit_and_keeps_nmse():
+    base = {'task_names': ['click_bell', 'click_alarmclock'], 'batch_size': 10}
+    cfg = accept.build_hf_smoke_config(base, step_offset=500, steps=3)
+    # 必含历史不通过任务（否则 Bootstrap 全 PASS ⇒ 零训练步 ⇒ 判定点不可达）
+    assert set(accept.HF_NON_PASSING_TASKS) <= set(cfg['task_names']), cfg['task_names']
+    # target = 任务总数 ⇒ 调度器必须尝试未通过任务 ⇒ 至少 1 个 Train Unit
+    assert cfg['target_total_passed_tasks'] == len(cfg['task_names'])
+    # 口径显式 NMSE 且绝不引入实验性阈值表
+    assert cfg['pass_metric'] == 'nmse' and cfg['pass_nmse'] == 1.66
+    assert cfg['pass_thresholds_file'] is None
+    assert cfg['max_global_steps'] == 503
+    # 源配置不被就地修改
+    assert base['task_names'] == ['click_bell', 'click_alarmclock']
+    with pytest.raises(ValueError):
+        accept.build_hf_smoke_config(base, step_offset=500, steps=0)
+
+
+@pytest.mark.parametrize('kwargs,needle', [
+    (dict(returncode=1, reason='exit', n_milestones=1, n_shards=6, size_gib=11.9, leaked_dcp=0,
+          units_run=1, steps_seen=3), 'entry_nonzero_exit'),
+    (dict(returncode=0, reason='exit', n_milestones=0, n_shards=0, size_gib=0.0, leaked_dcp=0,
+          units_run=0, steps_seen=0), 'milestone_decision_point_never_reached'),
+    (dict(returncode=0, reason='exit', n_milestones=2, n_shards=6, size_gib=11.9, leaked_dcp=0,
+          units_run=1, steps_seen=3), 'exactly_one_hf_milestone'),
+    (dict(returncode=0, reason='exit', n_milestones=1, n_shards=0, size_gib=11.9, leaked_dcp=0,
+          units_run=1, steps_seen=3), 'no_weight_shard'),
+    (dict(returncode=0, reason='exit', n_milestones=1, n_shards=6, size_gib=24.0, leaked_dcp=0,
+          units_run=1, steps_seen=3), 'size_out_of_band'),
+    (dict(returncode=0, reason='exit', n_milestones=1, n_shards=6, size_gib=11.9, leaked_dcp=1,
+          units_run=1, steps_seen=3), 'dcp_leak'),
+])
+def test_hf_verdict_fail_closed_matrix(kwargs, needle):
+    ok, why = accept.hf_verdict(**kwargs)
+    assert ok is False and needle in why, (ok, why)
+
+
+def test_hf_verdict_passes_only_when_everything_holds():
+    ok, why = accept.hf_verdict(returncode=0, reason='exit', n_milestones=1, n_shards=6,
+                                size_gib=11.9, leaked_dcp=0, units_run=1, steps_seen=3)
+    assert ok is True and why == 'verified'
+
+
+def test_hf_step_evidence_is_fail_closed(tmp_path):
+    assert accept.hf_step_evidence(tmp_path) == {'units_run': 0, 'steps_seen': 0}
+    (tmp_path / 'auto_learning_events.jsonl').write_text(
+        '{"kind":"metric","name":"system/units_run","value":2}\n'
+        '{"kind":"metric","name":"system/units_run","value":1}\n', encoding='utf-8')
+    (tmp_path / 'train_hf.log').write_text('Step: 501/503 ...\nStep: 503/503 ...\n', encoding='utf-8')
+    ev = accept.hf_step_evidence(tmp_path)
+    assert ev == {'units_run': 2, 'steps_seen': 503}, ev
