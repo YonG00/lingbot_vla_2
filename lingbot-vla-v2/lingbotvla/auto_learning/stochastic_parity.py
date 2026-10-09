@@ -277,6 +277,105 @@ def decide_metric(*, b1_gmeans: Sequence[Optional[float]], b2_gmeans: Sequence[O
 
 
 # ---------------------------------------------------------------------------
+# 随机性门：把"验收通过"变成**可被运行时校验**的证据（stochastic gate）
+# ---------------------------------------------------------------------------
+#: 运行时读取验收证据的环境变量（值是 `eval_batch_stochastic_acceptance.py` 产出的 gate.json）。
+GATE_ENV = "AL_EVAL_BATCH_STOCHASTIC_APPROVED"
+
+
+def gate_payload(*, checkpoint: Optional[str], task: Optional[str], batch_size: int,
+                 dtype: Optional[str], shapes: Sequence[Any], grids: Sequence[Any]) -> Dict[str, Any]:
+    """门要绑定的"运行条件"（任一不符 ⇒ 证据不适用 ⇒ 门失效）。
+
+    ``shapes`` / ``grids`` 会被规范化成字符串，保证 JSON 往返后签名稳定。
+    """
+    def _canon_shape(x: Any) -> str:
+        import json as _json
+        if isinstance(x, Mapping):
+            return _json.dumps({str(k): [int(v) for v in val] for k, val in sorted(dict(x).items())},
+                               sort_keys=True)
+        return str(x)
+
+    return {"checkpoint": None if checkpoint is None else str(checkpoint),
+            "task": None if task is None else str(task),
+            "batch_size": int(batch_size),
+            "dtype": None if dtype is None else str(dtype),
+            # 去掉空白 ⇒ 张量 repr / list repr 都能得到同一个串（避免签名假不一致）
+            "shapes": [_canon_shape(x) for x in shapes],
+            "grids": [str(x).replace(" ", "") for x in grids]}
+
+
+def gate_signature(payload: Mapping[str, Any]) -> str:
+    import hashlib
+    import json as _json
+    blob = _json.dumps(dict(payload), sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def write_gate(path: str, *, payload: Mapping[str, Any], verdict: Mapping[str, Any]) -> Dict[str, Any]:
+    """由验收工具写出 `gate.json`：把**运行条件签名**与**验收结论**绑在一起。"""
+    import json as _json
+    doc = {"kind": "eval_batch_stochastic_gate", "schema_version": 1,
+           "payload": dict(payload), "signature": gate_signature(payload),
+           "verdict_status": str(verdict.get("status")),
+           "verdict_reasons": list(verdict.get("reasons", [])),
+           "worth_proposing_auto": bool(verdict.get("worth_proposing_auto", False))}
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        _json.dump(doc, fh, ensure_ascii=False, sort_keys=True, indent=1)
+    import os as _os
+    _os.replace(tmp, path)
+    return doc
+
+
+def load_gate(path: Optional[str], *, payload: Mapping[str, Any]) -> Dict[str, Any]:
+    """**fail-closed** 读取并校验门证据。任何不确定 ⇒ ``ok=False`` + 原因码。
+
+    通过条件（全部满足）：文件存在且是合法 JSON；``signature`` 与**当前运行条件**一致；
+    ``verdict_status == "PASS"``。
+    """
+    import json as _json
+    if not path:
+        return {"ok": False, "reasons": ["gate_not_configured"], "doc": None}
+    try:
+        doc = _json.loads(open(path, encoding="utf-8").read())
+    except FileNotFoundError:
+        return {"ok": False, "reasons": [f"gate_file_missing:{path}"], "doc": None}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "reasons": [f"gate_file_unreadable:{type(exc).__name__}"], "doc": None}
+    if not isinstance(doc, dict) or doc.get("kind") != "eval_batch_stochastic_gate":
+        return {"ok": False, "reasons": ["gate_bad_kind"], "doc": doc}
+    expected = gate_signature(payload)
+    if doc.get("signature") != expected:
+        return {"ok": False, "reasons": ["gate_signature_mismatch"], "doc": doc}
+    if str(doc.get("verdict_status")) != "PASS":
+        return {"ok": False, "reasons": [f"gate_verdict_not_pass:{doc.get('verdict_status')}"],
+                "doc": doc}
+    return {"ok": True, "reasons": [], "doc": doc}
+
+
+def restrict_starts_to_episodes(starts: Sequence[int], ep_map: Any,
+                                max_episodes: Optional[int]) -> List[int]:
+    """把 chunk 起点收窄到**前 N 个回合**（指标层提速用；None = 全量）。
+
+    ⚠️ 必须整回合保留：per-trajectory MSE 是按回合聚合的，切碎会改变口径。
+    """
+    if max_episodes is None or ep_map is None:
+        return list(starts)
+    if int(max_episodes) < 1:
+        raise ValueError("max_episodes must be >= 1 or None")
+    seen: List[Any] = []
+    for idx in starts:
+        ep = ep_map[idx]
+        if ep not in seen:
+            if len(seen) >= int(max_episodes):
+                continue
+            seen.append(ep)
+    keep = set(seen)
+    return [int(i) for i in starts if ep_map[i] in keep]
+
+
+# ---------------------------------------------------------------------------
 # 总判定
 # ---------------------------------------------------------------------------
 def overall_verdict(*, numeric: Mapping[str, Any], metric: Optional[Mapping[str, Any]],

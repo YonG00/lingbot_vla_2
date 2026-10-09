@@ -178,7 +178,7 @@ def _numeric_level(validator, items, ft, *, reps: int, noise_base: torch.Tensor,
 
 
 def _metric_level(validator, ds, ft, ep_map, *, reps: int, noise_all: torch.Tensor,
-                  threshold: float, log) -> Dict[str, Any]:
+                  threshold: float, log, max_episodes: Optional[int] = None) -> Dict[str, Any]:
     """同样的验证轨迹，两种模式各跑 reps 次 ⇒ 逐轨迹 MSE → GMean → 与阈值比。"""
     from lingbotvla.auto_learning.decision.gmean import geometric_mse
     from lingbotvla.utils.open_loop_validation import (
@@ -187,6 +187,11 @@ def _metric_level(validator, ds, ft, ep_map, *, reps: int, noise_all: torch.Tens
     stride = max(1, int(getattr(validator._model_config, "chunk_size", 50) or 50))
     starts = (per_episode_starts(ep_map, stride) if ep_map is not None
               else list(range(0, len(ds), stride)))
+    if max_episodes is not None:
+        _before = len(starts)
+        starts = sp.restrict_starts_to_episodes(starts, ep_map, max_episodes)
+        log(f"  指标层收窄：前 {max_episodes} 个回合（chunk 起点 {_before} → {len(starts)}，"
+            f"整回合保留以维持 per-trajectory 口径）")
     log(f"  指标层：{len(starts)} 个 chunk 起点（stride={stride}；"
         f"{'生产 per_episode_starts' if ep_map is not None else '退化 flat'}）")
 
@@ -276,7 +281,8 @@ def execute(a: argparse.Namespace) -> int:
         noise_all = torch.cat([torch.randn(shape, generator=gen, device=validator.device,
                                            dtype=torch.float32) for _ in range(n_starts)], dim=0)
         metric = _metric_level(validator, ds, ft, ep_map, reps=int(a.reps),
-                               noise_all=noise_all, threshold=threshold, log=log)
+                               noise_all=noise_all, threshold=threshold, log=log,
+                               max_episodes=a.metric_episodes)
         log(f"指标层：{metric['status']}  reasons={metric['reasons']}")
 
     verdict = sp.overall_verdict(numeric=numeric, metric=metric, throughput=throughput)
@@ -284,6 +290,25 @@ def execute(a: argparse.Namespace) -> int:
            "reps": int(a.reps), "threshold": threshold, "numeric": numeric,
            "metric": metric, "throughput": throughput, "verdict": verdict,
            "dataset_indices": indices}
+    # 门证据：把"验收条件"与"结论"绑定成一个可被运行时校验的文件
+    _shapes, _grids = [], []
+    try:
+        for _it in items:
+            # 与运行时 `sig` 的构造保持一致（只取**第一个**样本的形状/grid）
+            _shapes.append({k: list(_it[k].shape) for k in
+                            ("images", "img_masks", "lang_tokens", "lang_masks", "state")})
+            _grids.append(_it.get("image_grid_thw"))
+        _dtype = str(getattr(next(vla.parameters()), "dtype", ""))
+    except Exception:  # noqa: BLE001
+        _dtype = None
+    gate_payload = sp.gate_payload(checkpoint=a.ckpt, task=a.task,
+                                   batch_size=len(indices), dtype=_dtype,
+                                   shapes=[_shapes[0]] if _shapes else [],
+                                   grids=[_grids[0]] if _grids else [])
+    gate_doc = sp.write_gate(str(out / "gate.json"), payload=gate_payload, verdict=verdict)
+    doc["gate"] = {"signature": gate_doc["signature"], "payload": gate_payload,
+                   "verdict_status": gate_doc["verdict_status"],
+                   "file": str(out / "gate.json")}
     (out / "summary.json").write_text(json.dumps(doc, ensure_ascii=False, sort_keys=True,
                                                  indent=1, default=str), encoding="utf-8")
     print("=" * 78)
@@ -303,6 +328,9 @@ def execute(a: argparse.Namespace) -> int:
     print("-" * 78)
     print(f"总结论 = {verdict['status']}   reasons={verdict['reasons']}")
     print(f"是否值得提议启用 auto = {verdict['worth_proposing_auto']}")
+    print(f"门证据（供 auto 使用）= {out / 'gate.json'}  signature={gate_doc['signature'][:16]}…")
+    print(f"  → 训练时：{sp.GATE_ENV}={out / 'gate.json'}  +  AL_EVAL_BATCH_MODE=auto"
+          f"  +  AL_EVAL_BATCH_APPROVED=1")
     print("=" * 78)
     return 0 if verdict["status"] == "PASS" else 2
 
@@ -317,6 +345,9 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--thresholds", default=DEFAULT_THRESHOLDS)
     ap.add_argument("--dataset-indices", type=int, nargs="+", default=[0, 50])
     ap.add_argument("--reps", type=int, default=5)
+    ap.add_argument("--metric-episodes", type=int, default=None,
+                    help="指标层只跑前 N 个回合（整回合保留；None=全部）。验收提速用，"
+                         "建议用 2（= scout 的真实轨迹数）")
     ap.add_argument("--use-length", type=int, default=50)
     ap.add_argument("--use-bf16", action="store_true", default=True)
     ap.add_argument("--no-metric-level", dest="metric_level", action="store_false", default=True,

@@ -30,7 +30,8 @@ def _validator_class():
     cls.body=methods
     # 模块级诊断小工具（默认路径无副作用）也按源码编译，避免"替身与生产不一致"
     mod_funcs=[x for x in tree.body if isinstance(x,ast.FunctionDef)
-               and x.name in ('_probe_warn_legacy_dump','_probe_repeat_env')]
+               and x.name in ('_probe_warn_legacy_dump','_probe_repeat_env',
+                              '_stochastic_gate_ok')]
     ns={'torch':torch,'np':np,'Dict':dict,'Any':object,'Sequence':list,'List':list,
         'EVAL_SEED':1234,'os':os,'time':time,'_world_size':lambda:1,'_visual_grid_cache_clear':lambda model:None,
         '_visual_grid_cache_restore':lambda model,saved:None}

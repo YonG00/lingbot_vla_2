@@ -124,6 +124,33 @@ def _probe_warn_legacy_dump(logger) -> None:
         f" + AL_EVAL_BATCH_PROBE_REPEAT_SERIAL=1（同噪声第二次串行）。本次不会产出旧格式文件。")
 
 
+def _stochastic_gate_ok(self, *, take: int, sig, mode: str) -> Dict[str, Any]:
+    """随机性门（**只在 auto 模式 + 用户显式给了验收证据**时才算数；fail-closed）。
+
+    与严格 parity 的关系：parity 仍是主判据、**未被放宽**；本门只是"在模型自身非确定
+    （fused MoE 原子加）这一已证实前提下"的另一条**有证据**的通过路径，
+    且证据必须与当前运行条件（ckpt / 任务 / 批大小 / dtype / 形状 / grid）签名一致。
+    """
+    from lingbotvla.auto_learning import stochastic_parity as sp
+    path = os.environ.get(sp.GATE_ENV)
+    if mode != "auto":
+        return {"ok": False, "reasons": ["not_auto_mode"], "configured": bool(path)}
+    if not path:
+        return {"ok": False, "reasons": ["gate_not_configured"], "configured": False}
+    try:
+        payload = sp.gate_payload(
+            checkpoint=str(getattr(getattr(self.args, "model", None), "model_path", "") or ""),
+            task=getattr(self, "_probe_task", None),
+            batch_size=int(take),
+            dtype=str(getattr(next(self.model.parameters()), "dtype", "")),
+            shapes=[{k: list(v) for k, v in sig[1]}],
+            grids=[sig[2][0]] if sig[2] else [])
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "reasons": [f"gate_payload_failed:{type(exc).__name__}"],
+                "configured": True}
+    return dict(sp.load_gate(path, payload=payload), configured=True)
+
+
 def _world_size() -> int:
     try:
         import torch.distributed as dist
@@ -1461,12 +1488,16 @@ class OpenLoopValidator:
                 finally:
                     self._probe_recorder = None
                     self._probe_group_ids = None
-            safe = peak_free >= reserve and parity
+            # 严格 parity 仍是主判据（**未放宽**）；auto 模式下额外允许"随机性门"通过 ——
+            # 前提是用户显式提供验收证据且运行条件签名一致（缺文件/签名不符/非 PASS ⇒ 不通过）。
+            _gate = _stochastic_gate_ok(self, take=take, sig=sig, mode=mode)
+            safe = peak_free >= reserve and (parity or _gate["ok"])
             faster = batch_seconds < serial_seconds  # batch must be worth adopting
             self.logger.info_rank0(f'[open_loop][eval-batch] mode={mode} batch={take} '
                 f'parity={parity} peak_free_gib={peak_free:.2f} '
                 f'serial_seconds={serial_seconds:.3f} batch_seconds={batch_seconds:.3f} '
-                f'profitable={faster} safe={safe}')
+                f'profitable={faster} safe={safe} gate={"on" if _gate["ok"] else "off"}'
+                + (f' gate_reasons={_gate["reasons"]}' if _gate["reasons"] else ''))
             # 验收专用：speedup 不达标不阻止继续做 Batch4 数值验收；parity/显存/失败保护照旧。
             _force_cov = os.environ.get('AL_EVAL_BATCH_FORCE_COVERAGE') == '1'
             if not safe or (not faster and not _force_cov):

@@ -274,3 +274,75 @@ def test_tool_runs_a_discarded_warmup_before_measured_reps():
     src = (REPO / "tools/eval_batch_stochastic_acceptance.py").read_text(encoding="utf-8")
     assert "热身" in src and "不计入统计" in src
     assert "warmup_seconds" in src
+
+
+# ---------------------------------------------------------------------------
+# 随机性门（gate）：签名绑定 + fail-closed
+# ---------------------------------------------------------------------------
+def _payload(**over):
+    base = dict(checkpoint="/x/hf_ckpt", task="click_bell", batch_size=2,
+                dtype="torch.bfloat16",
+                shapes=[{"images": [1, 3, 256, 1536], "state": [1, 55]}],
+                grids=["tensor([[1,16,16]])"])
+    base.update(over)
+    return sp.gate_payload(**base)
+
+
+def test_gate_roundtrip_pass(tmp_path):
+    gate = tmp_path / "gate.json"
+    payload = _payload()
+    sp.write_gate(str(gate), payload=payload, verdict={"status": "PASS", "reasons": []})
+    res = sp.load_gate(str(gate), payload=payload)
+    assert res["ok"] is True and res["reasons"] == []
+
+
+def test_gate_is_fail_closed_on_every_mismatch(tmp_path):
+    gate = tmp_path / "gate.json"
+    payload = _payload()
+    sp.write_gate(str(gate), payload=payload, verdict={"status": "PASS", "reasons": []})
+
+    assert sp.load_gate(None, payload=payload)["reasons"] == ["gate_not_configured"]
+    assert sp.load_gate(str(tmp_path / "nope.json"), payload=payload)["reasons"][0].startswith(
+        "gate_file_missing")
+    # 任一运行条件不同 ⇒ 签名不符 ⇒ 不通过
+    for over in ({"checkpoint": "/y/hf_ckpt"}, {"task": "shake_bottle"}, {"batch_size": 4},
+                 {"dtype": "torch.float32"},
+                 {"shapes": [{"images": [1, 3, 224, 224], "state": [1, 55]}]},
+                 {"grids": ["tensor([[1,16,20]])"]}):
+        assert sp.load_gate(str(gate), payload=_payload(**over))["reasons"] == [
+            "gate_signature_mismatch"], over
+
+    bad = tmp_path / "bad.json"
+    bad.write_text("not json", encoding="utf-8")
+    assert sp.load_gate(str(bad), payload=payload)["reasons"][0].startswith("gate_file_unreadable")
+    bad.write_text('{"kind":"something_else"}', encoding="utf-8")
+    assert sp.load_gate(str(bad), payload=payload)["reasons"] == ["gate_bad_kind"]
+
+
+def test_gate_requires_verdict_pass(tmp_path):
+    """验收判 BLOCKED 时，即使签名一致也**不得**开门。"""
+    gate = tmp_path / "gate.json"
+    payload = _payload()
+    sp.write_gate(str(gate), payload=payload,
+                  verdict={"status": "BLOCKED", "reasons": ["systematic_bias"]})
+    res = sp.load_gate(str(gate), payload=payload)
+    assert res["ok"] is False
+    assert res["reasons"] == ["gate_verdict_not_pass:BLOCKED"]
+
+
+def test_gate_signature_is_stable_across_json_roundtrip(tmp_path):
+    """签名必须与 JSON 往返无关（否则门会假失效）。"""
+    payload = _payload()
+    import json
+    reloaded = json.loads(json.dumps(payload))
+    assert sp.gate_signature(reloaded) == sp.gate_signature(payload)
+
+
+def test_restrict_starts_keeps_whole_episodes():
+    ep_map = [51, 51, 51, 53, 53, 60, 60]
+    starts = [0, 2, 3, 5]
+    assert sp.restrict_starts_to_episodes(starts, ep_map, None) == starts
+    assert sp.restrict_starts_to_episodes(starts, ep_map, 1) == [0, 2]      # 只留 ep51
+    assert sp.restrict_starts_to_episodes(starts, ep_map, 2) == [0, 2, 3]   # ep51+ep53
+    with pytest.raises(ValueError):
+        sp.restrict_starts_to_episodes(starts, ep_map, 0)
