@@ -224,7 +224,8 @@ def test_closed_loop_accel_knobs_wired():
     dep = (root / "deploy/lingbot_vla_v2_policy.py").read_text(encoding="utf-8")
 
     for name, txt in (("policy_server.sh", srv), ("closed_loop_eval.sh", clo)):
-        assert 'FAST_LOAD=${FAST_LOAD:-0}' in txt, name
+        # 默认与精度绑定：bf16 ⇒ 1（自动 fast）、fp32 ⇒ 0；显式覆写仍可用
+        assert 'FAST_LOAD=${FAST_LOAD:-$([ "$PRECISION" = "bf16" ] && echo 1 || echo 0)}' in txt, name
         assert 'USE_COMPILE=${USE_COMPILE:-false}' in txt, name
         assert 'export LINGBOT_DEPLOY_FAST_LOAD=$FAST_LOAD' in txt, name
         assert '--use_compile $USE_COMPILE' in txt or '--use_compile "$USE_COMPILE"' in txt, name

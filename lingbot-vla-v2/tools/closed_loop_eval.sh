@@ -21,7 +21,8 @@
 #   STEP       评哪一步的 ckpt（默认 500）
 #   TAG        输出子目录名（默认 step${STEP}_${CONFIG#demo_}）；
 #              单任务落 ${TAG}/${TASK}/，多任务落 ${TAG}/${各任务}/（布局一致）
-#   FAST_LOAD  1 = 部署侧 fast 权重加载（要求 PRECISION=bf16）；默认 0
+#   FAST_LOAD  1 = 部署侧 fast 权重加载（要求 PRECISION=bf16）；
+#              默认与精度绑定：bf16 ⇒ 1（自动 fast）、fp32 ⇒ 0；显式 0 可回退 legacy
 #   USE_COMPILE true/false（默认 false）：服务端 torch.compile（内层 predict_velocity + 外层模型）
 #   PRECISION  推理精度：fp32（默认，与历史一致）| bf16。低于 fp32 时必须与权重精度一致
 #              （bf16 权重要用 bf16 服务；本项目 bf16 训练的 HF 导出默认就是 bf16）
@@ -46,7 +47,7 @@ CKPT_ROOT=${CKPT_ROOT:-/data/outputs/single/$TASK}
 STEP=${STEP:-500}
 PORT=${PORT:-9330}
 PRECISION=${PRECISION:-fp32}
-FAST_LOAD=${FAST_LOAD:-0}
+FAST_LOAD=${FAST_LOAD:-$([ "$PRECISION" = "bf16" ] && echo 1 || echo 0)}
 USE_COMPILE=${USE_COMPILE:-false}
 QWEN3VL=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
 ROBOTWIN_DIR=${ROBOTWIN_DIR:-/data/code/RoboTwin-lingbot}

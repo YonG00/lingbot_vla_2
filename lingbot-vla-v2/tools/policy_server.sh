@@ -29,7 +29,8 @@
 #   FAST_LOAD      1 = 启用部署侧 **fast 权重加载**（`LINGBOT_DEPLOY_FAST_LOAD=1`）：
 #                  直接在 CUDA 上以 bf16 构建模型 + 逐张量流式拷入 ⇒ 省掉 ~49 s 的 CPU 初始化
 #                  与 12 GB 的 CPU 合并 dict。**要求 PRECISION=bf16**（脚本会前置校验）。
-#                  默认 0（legacy 路径）。
+#                  **默认与精度绑定**：PRECISION=bf16 ⇒ 1（自动走 fast）；fp32 ⇒ 0（fast 要求 bf16）。
+#                  显式 FAST_LOAD=0 可强制回退 legacy。
 #   USE_COMPILE    true/false（默认 false）：开启服务端 torch.compile —— 注意它会同时编译
 #                  **内层** `predict_velocity`（`_use_compile_predict_velocity`）与**外层**
 #                  `qwenvl_with_expert` / `sample_actions` 两层。首编译有成本，需 A/B。
@@ -48,7 +49,7 @@ TASK=${TASK:-click_bell}
 CKPT_ROOT=${CKPT_ROOT:-/data/outputs/single/$TASK}
 STEP=${STEP:-500}
 PRECISION=${PRECISION:-fp32}
-FAST_LOAD=${FAST_LOAD:-0}
+FAST_LOAD=${FAST_LOAD:-$([ "$PRECISION" = "bf16" ] && echo 1 || echo 0)}
 USE_COMPILE=${USE_COMPILE:-false}
 [[ "$PRECISION" == "bf16" || "$PRECISION" == "fp32" ]] \
     || { echo "❌ PRECISION 只支持 fp32|bf16，收到 $PRECISION" >&2; exit 1; }
