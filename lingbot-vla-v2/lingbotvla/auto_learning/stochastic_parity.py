@@ -325,6 +325,90 @@ def decide_metric(*, b1_gmeans: Sequence[Optional[float]], b2_gmeans: Sequence[O
 
 
 # ---------------------------------------------------------------------------
+# 运行时批处理验收（in-situ）：用"模型自身噪声底"当场判定，**不依赖外挂证据文件**
+# ---------------------------------------------------------------------------
+#: 允许的倍数：批处理偏差不得超过「模型自身 run-to-run 噪声」的该倍数。
+NOISE_K_DEFAULT = 1.5
+
+#: 噪声底小于它就视为"模型确定"（此时退回严格 parity，保持保守）。
+NOISE_FLOOR_EPS = 1e-6
+
+#: 环境变量：开关 / 倍数 / 复检间隔（组数）。
+NOISE_PROBE_ENV = "AL_EVAL_BATCH_NOISE_PROBE"
+NOISE_K_ENV = "AL_EVAL_BATCH_NOISE_K"
+REPROBE_EVERY_ENV = "AL_EVAL_BATCH_REPROBE_EVERY"
+
+
+def batch_acceptance(*, parity: bool, cross_max: Optional[float], noise_max: Optional[float],
+                     peak_free: float, reserve: float, profitable: bool,
+                     noise_k: float = NOISE_K_DEFAULT, noise_probe: bool = True,
+                     gate_ok: bool = False, force_coverage: bool = False) -> Dict[str, Any]:
+    """运行时判定：**这一组**能不能改用批处理结果。
+
+    判据（任一成立即 safe）：
+      * ``parity``：严格逐位一致性（原检测器，**未被移除**，只是不再唯一）；
+      * ``gate_ok``：可选的签名证据（兼容旧行为，**不再是必需项**）；
+      * **噪声底判据**（默认启用）：``cross_max <= noise_k × noise_max``，
+        其中 ``noise_max`` = 同输入/同噪声**两次串行**的差异（模型自身噪声），
+        ``cross_max`` = 串行 vs 批处理的差异。噪声底为 0（模型确定）时**退回严格 parity**。
+
+    另外两个硬条件与数值无关：显存余量 ``peak_free >= reserve``、批处理必须更快
+    （``profitable``，或 ``force_coverage`` 强制覆盖验收）。
+    """
+    reasons: List[str] = []
+    headroom = float(peak_free) >= float(reserve)
+    if not headroom:
+        reasons.append(f"vram:{peak_free:.2f}<{reserve:.2f}")
+    if not profitable and not force_coverage:
+        reasons.append("not_faster")
+    if noise_probe and cross_max is not None and noise_max is not None and noise_max > NOISE_FLOOR_EPS:
+        noise_ok = bool(cross_max <= noise_k * noise_max)
+        noise_detail = {"cross_max": float(cross_max), "noise_max": float(noise_max),
+                        "limit": float(noise_k * noise_max), "noise_k": float(noise_k)}
+        if not noise_ok:
+            reasons.append(f"noise_exceeded:{cross_max:.3e}>{noise_k}x{noise_max:.3e}")
+    elif noise_probe and (noise_max is not None and noise_max <= NOISE_FLOOR_EPS):
+        noise_ok = bool(parity)                      # 模型确定 ⇒ 用严格 parity
+        noise_detail = {"noise_max": float(noise_max), "note": "noise_floor_zero_require_parity"}
+        if not noise_ok:
+            reasons.append("noise_floor_zero_and_parity_false")
+    else:
+        noise_ok = False
+        noise_detail = {"note": "noise_probe_unavailable_or_disabled"}
+    safe = headroom and (bool(parity) or bool(gate_ok) or noise_ok)
+    if not safe and not reasons:
+        reasons.append("parity_false_and_gate_off")
+    if not profitable and not force_coverage:
+        safe = False
+    return {"safe": bool(safe), "parity": bool(parity), "gate_ok": bool(gate_ok),
+            "noise_ok": bool(noise_ok), "noise": noise_detail, "reasons": reasons,
+            "profitable": bool(profitable), "headroom": bool(headroom)}
+
+
+def env_noise_settings() -> Dict[str, Any]:
+    """从环境变量读出噪声底判据设置（默认：**启用**，K=1.5，复检间隔 25 组）。"""
+    import os as _os
+
+    def _flag(name: str, default: str = "1") -> bool:
+        raw = _os.environ.get(name, default)
+        return str(raw).strip().lower() not in ("0", "false", "no", "off", "")
+
+    def _num(name: str, default: float) -> float:
+        raw = _os.environ.get(name)
+        if raw is None or str(raw).strip() == "":
+            return float(default)
+        return float(str(raw).strip())
+
+    k = _num(NOISE_K_ENV, NOISE_K_DEFAULT)
+    if not (k > 0):
+        raise ValueError(f"{NOISE_K_ENV} 必须 > 0，收到 {k}")
+    every = int(_num(REPROBE_EVERY_ENV, 25))
+    if every < 0:
+        raise ValueError(f"{REPROBE_EVERY_ENV} 必须 >= 0（0=不按组复检），收到 {every}")
+    return {"noise_probe": _flag(NOISE_PROBE_ENV), "noise_k": k, "reprobe_every": every}
+
+
+# ---------------------------------------------------------------------------
 # 随机性门：把"验收通过"变成**可被运行时校验**的证据（stochastic gate）
 # ---------------------------------------------------------------------------
 #: 运行时读取验收证据的环境变量（值是 `eval_batch_stochastic_acceptance.py` 产出的 gate.json）。

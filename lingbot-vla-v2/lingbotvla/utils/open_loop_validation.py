@@ -124,37 +124,6 @@ def _probe_warn_legacy_dump(logger) -> None:
         f" + AL_EVAL_BATCH_PROBE_REPEAT_SERIAL=1（同噪声第二次串行）。本次不会产出旧格式文件。")
 
 
-def _stochastic_gate_ok(self, *, take: int, sig, mode: str) -> Dict[str, Any]:
-    """随机性门（**只在 auto 模式 + 用户显式给了验收证据**时才算数；fail-closed）。
-
-    与严格 parity 的关系：parity 仍是主判据、**未被放宽**；本门只是"在模型自身非确定
-    （fused MoE 原子加）这一已证实前提下"的另一条**有证据**的通过路径，
-    且证据必须与当前运行条件（ckpt / 任务 / 批大小 / dtype / 形状 / grid）签名一致。
-    """
-    from lingbotvla.auto_learning import stochastic_parity as sp
-    path = os.environ.get(sp.GATE_ENV)
-    if mode != "auto":
-        return {"ok": False, "reasons": ["not_auto_mode"], "configured": bool(path)}
-    if not path:
-        return {"ok": False, "reasons": ["gate_not_configured"], "configured": False}
-    try:
-        # 只取**数值相关**的形状：images/img_masks/state。
-        # lang_tokens/lang_masks 长度随任务指令变化 ⇒ 不参与签名（见 gate_payload 文档）；
-        # task 名同理，只作为 recorded_task 记录。
-        _shape_keys = ("images", "img_masks", "state")
-        payload = sp.gate_payload(
-            checkpoint=str(getattr(getattr(self.args, "model", None), "model_path", "") or ""),
-            task=getattr(self, "_probe_task", None),
-            batch_size=int(take),
-            dtype=str(getattr(next(self.model.parameters()), "dtype", "")),
-            shapes=[{k: list(v) for k, v in sig[1] if k in _shape_keys}],
-            grids=[sig[2][0]] if sig[2] else [])
-    except Exception as exc:  # noqa: BLE001
-        return {"ok": False, "reasons": [f"gate_payload_failed:{type(exc).__name__}"],
-                "configured": True}
-    return dict(sp.load_gate(path, payload=payload), configured=True)
-
-
 def _world_size() -> int:
     try:
         import torch.distributed as dist
@@ -262,6 +231,27 @@ def _episode_index_map(ds) -> Optional[np.ndarray]:
     if len(arr) != len(ds):
         return None
     return arr
+
+
+def _eval_batch_size(validator) -> int:
+    """评测批大小：**默认跟随训练的前向批大小**（``train.micro_batch_size``）。
+
+    2026-10-09 定案：评测不再用 ``min(2, ...)`` 硬顶，也不要求"探测通过"才放行 ——
+    直接按训练批大小成组批处理（与训练用的是同一个 batch 规模）。
+    ``AL_EVAL_BATCH_MAX`` 若显式设置则作为**覆盖值**（保留旧名字）。
+    拿不到训练配置时回退 8。
+    """
+    override = os.environ.get('AL_EVAL_BATCH_MAX')
+    if override not in (None, ''):
+        value = int(override)
+        if value < 1 or value > 256:
+            raise ValueError('unsafe eval batch override (AL_EVAL_BATCH_MAX 需在 1..256)')
+        return value
+    train = getattr(getattr(validator, 'args', None), 'train', None)
+    micro = getattr(train, 'micro_batch_size', None)
+    if isinstance(micro, int) and micro >= 1:
+        return int(micro)
+    return 8
 
 
 def per_episode_starts(ep_map: np.ndarray, stride: int) -> List[int]:
@@ -1306,11 +1296,18 @@ class OpenLoopValidator:
         return predictions
 
     def _prediction_groups(self, ds, starts, ft, tag):
-        """Opt-in batches. First group of each shape is parity/throughput-probed.
+        """评测批处理的三条路（2026-10-09 定案）。
 
-        Probe emits ONLY serial outputs. Auto may emit batched outputs only
-        after a real parity+speed+VRAM success for that exact observation shape.
-        This cache is local to one evaluation (weights can change between evals).
+        * ``serial``（默认）：逐条 ``_infer_one``，无任何探测/对照；
+        * ``auto``：**直接按训练的前向批大小成组批处理**，不做数值判定。
+          旧设计的"首组必须 parity/吞吐探测通过才放行"已**废除** —— 其判据
+          （``atol=1e-5/rtol=1e-3``）对任何两次运行都不可达（模型自身非确定实测 3.1e-2），
+          只会让生产全程退回串行、还每组白付一次批量前向（比串行慢约 52%）。
+          现在只保留**机械守卫**：成组不足 2 条 / 形状不一致 / 显存余量不足 ⇒ 该组单条。
+          代价（如实）：评测数值与串行有"模型自身噪声"量级的差异（实测 GMean 差 ~1e-5，
+          相对 0.07%；阈值余量 61%）⇒ 贴线的任务理论上可能翻转判定。
+        * ``probe``（诊断）：串行 + 批量各跑一遍并对照（parity/耗时/显存写证据），
+          **结果仍只给串行**；用于人工对拍，不参与生产判定。
         """
         from lingbotvla.auto_learning.scan_accel import (
             action_diffs, append_json_record, identical_tensor_shapes,
@@ -1348,18 +1345,30 @@ class OpenLoopValidator:
             return
         if _world_size() != 1:
             raise RuntimeError('eval batching unsupported on multiple FSDP ranks')
-        limit = int(os.environ.get('AL_EVAL_BATCH_MAX', '8'))
         reserve = float(os.environ.get('AL_EVAL_BATCH_RESERVE_GIB', '10'))
-        if limit < 1 or limit > 8 or not (8.0 <= reserve <= 64.0):
-            raise ValueError('unsafe eval batch cap/reserve')
-        batch_size = min(2, limit)
-        disabled = False
-        verified_shapes = set()
+        if not (8.0 <= reserve <= 64.0):
+            raise ValueError('unsafe eval batch reserve')
+        # ---- 批大小 = **训练的前向批大小**（2026-10-09 用户定案）----
+        # 旧设计：`min(2, AL_EVAL_BATCH_MAX)` 硬顶 2，且必须先"探测（串行+批量对照）"通过才放行；
+        # 而判据是 atol=1e-5/rtol=1e-3，对**任何**两次运行都不可达（模型自身非确定实测 3.1e-2）
+        # ⇒ 生产里每组探测必然失败 ⇒ 全程串行，还每组白付一次批量前向（比串行慢约 52%）。
+        # 现改为：**不做数值判定**，直接按训练批大小成组批处理；只保留机械安全阀
+        #（形状一致 / 显存余量 / 成组不足 2 条即单条）。
+        batch_size = _eval_batch_size(self)
+        _batch_groups = 0          # 真正走批处理的组数
+        _unit_groups = 0           # 因成组条件不足而单条的组数
+        _batch_source = ('AL_EVAL_BATCH_MAX(env)' if os.environ.get('AL_EVAL_BATCH_MAX')
+                         else 'train.micro_batch_size' if isinstance(
+                             getattr(getattr(getattr(self, 'args', None), 'train', None),
+                                     'micro_batch_size', None), int) else 'fallback:8')
+        self.logger.info_rank0(
+            f'[open_loop][eval-batch] 评测批大小 = {batch_size}（来源 {_batch_source}；'
+            f'AL_EVAL_BATCH_MAX 可覆盖，reserve={reserve}GiB）')
         _probe_group_dirs: List[str] = []
         pos = 0
         starts = list(starts)
         while pos < len(starts):
-            take = min(batch_size, len(starts) - pos) if not disabled else 1
+            take = min(batch_size, len(starts) - pos)
             group = [(idx, ds[idx]) for idx in starts[pos:pos+take]]
             pos += take
             inputs = [v for _, v in group]
@@ -1370,17 +1379,30 @@ class OpenLoopValidator:
             if (take < 2 or not identical_tensor_shapes(
                     inputs, ('images','img_masks','lang_tokens','lang_masks','state'))
                     or free_before < reserve + 12):
+                _unit_groups += 1
                 yield [(idx, it, self._infer_one(it, ft)) for idx, it in group]
                 continue
-            # Only share a calibration for the same static tensor shapes and
-            # image grid; never use the proof from B2 for B4.
-            sig = (take, tuple((k, tuple(inputs[0][k].shape)) for k in
-                     ('images','img_masks','lang_tokens','lang_masks','state')),
-                   tuple(repr(it.get('image_grid_thw')) for it in inputs))
+            # ---- auto：**直接批处理**（无门 / 无探测 / 不跑串行对照）----
+            # 数值会与串行有模型自身噪声量级的差异（实测 GMean 差 ~1e-5，相对 0.07%），
+            # 这是 fused MoE 原子加导致的既有性质，不是本改动引入的。
+            if mode == 'auto':
+                torch.cuda.reset_peak_memory_stats()
+                batched = self._infer_batch(inputs, ft)
+                torch.cuda.synchronize()
+                total = torch.cuda.mem_get_info()[1] / 1024**3
+                peak_free = min(torch.cuda.mem_get_info()[0] / 1024**3,
+                                total - torch.cuda.max_memory_reserved()/1024**3)
+                if peak_free < reserve:
+                    raise RuntimeError(
+                        f'eval batch peak VRAM headroom guard failed (peak_free={peak_free:.2f} GiB '
+                        f'< reserve={reserve} GiB) ⇒ 请下调 AL_EVAL_BATCH_MAX 或调大 reserve')
+                _batch_groups += 1
+                yield [(idx, it, pr) for (idx,it),pr in zip(group,batched)]
+                continue
+
+            # ---- probe：诊断对照（需要 generator 起点，保证串行/批量喂同一份噪声）----
             gen = self._noise_generator(self.device)
             generator_start = gen.get_state()
-            # 诊断证据（默认关闭）：本组的**完整样本身份** + 录制器。
-            # 每组一个独立子目录（groupNNN），绝不互相覆盖，也绝不用时间戳命名。
             _probe_dir = os.environ.get('AL_EVAL_BATCH_PROBE_DIR') or None
             _probe_repeat = _probe_repeat_env()
             _probe_on = bool(_probe_dir) or _probe_repeat
@@ -1395,33 +1417,23 @@ class OpenLoopValidator:
                               if _probe_dir else None)
                 if _group_dir:
                     _probe_group_dirs.append(_group_dir)
-            if mode == 'auto' and sig in verified_shapes:
-                # True fast path: single model.sample_actions for the whole group.
-                # A detected peak-VRAM regression terminates the probe; never
-                # continue on an unsafe / potentially poisoned CUDA state.
-                torch.cuda.reset_peak_memory_stats()
-                batched = self._infer_batch(inputs, ft)
-                torch.cuda.synchronize()
-                total = torch.cuda.mem_get_info()[1] / 1024**3
-                peak_free = min(torch.cuda.mem_get_info()[0] / 1024**3,
-                                total - torch.cuda.max_memory_reserved()/1024**3)
-                if peak_free < reserve:
-                    raise RuntimeError('eval batch peak VRAM headroom guard failed')
-                yield [(idx, it, pr) for (idx,it),pr in zip(group,batched)]
-                continue
             t0 = time.perf_counter()
             serial = self._infer_serial_group(inputs, ft, path='serial')
             # 诊断：**同进程 / 同模型状态 / 显式同一份 noise** 的第二次串行。
             # ⚠️ 只有明确开了 AL_EVAL_BATCH_PROBE_REPEAT_SERIAL 才跑；噪声一致性由
             #    录制器记录的**实际噪声**逐位断言（不是靠"复位了 generator"来假设）。
+            # 串行跑完时的 generator 状态（原来的 `_probe_repeat` 分支引用了**尚未赋值**的
+            # `generator_end` ⇒ 首次进入即 UnboundLocalError；旧路径没被跑过所以一直没暴露。
+            # 这里先取状态、跑完复跑再复位到同一状态，行为与原意一致且不再依赖赋值顺序。）
+            generator_end = gen.get_state()
             _serial_repeat = None
             if _probe_repeat:
+                # 同输入 / 同噪声的**第二次串行**（仅诊断：AL_EVAL_BATCH_PROBE_REPEAT_SERIAL=1）
                 gen.set_state(generator_start)
                 _serial_repeat = self._infer_serial_group(inputs, ft, path='serial_repeat')
                 gen.set_state(generator_end)
             torch.cuda.synchronize()
             serial_seconds = time.perf_counter() - t0
-            generator_end = gen.get_state()
             gen.set_state(generator_start)
             try:
                 torch.cuda.reset_peak_memory_stats()
@@ -1501,27 +1513,18 @@ class OpenLoopValidator:
                 finally:
                     self._probe_recorder = None
                     self._probe_group_ids = None
-            # 严格 parity 仍是主判据（**未放宽**）；auto 模式下额外允许"随机性门"通过 ——
-            # 前提是用户显式提供验收证据且运行条件签名一致（缺文件/签名不符/非 PASS ⇒ 不通过）。
-            _gate = _stochastic_gate_ok(self, take=take, sig=sig, mode=mode)
-            safe = peak_free >= reserve and (parity or _gate["ok"])
-            faster = batch_seconds < serial_seconds  # batch must be worth adopting
-            self.logger.info_rank0(f'[open_loop][eval-batch] mode={mode} batch={take} '
+            # ---- probe 模式：仅诊断（结果仍只给串行；不影响任何判定）----
+            self.logger.info_rank0(
+                f'[open_loop][eval-batch][probe] mode=probe batch={take} '
                 f'parity={parity} peak_free_gib={peak_free:.2f} '
                 f'serial_seconds={serial_seconds:.3f} batch_seconds={batch_seconds:.3f} '
-                f'profitable={faster} safe={safe} gate={"on" if _gate["ok"] else "off"}'
-                + (f' gate_reasons={_gate["reasons"]}' if _gate["reasons"] else ''))
-            # 验收专用：speedup 不达标不阻止继续做 Batch4 数值验收；parity/显存/失败保护照旧。
-            _force_cov = os.environ.get('AL_EVAL_BATCH_FORCE_COVERAGE') == '1'
-            if not safe or (not faster and not _force_cov):
-                disabled = True
-            elif mode == 'auto':
-                verified_shapes.add(sig)
-            # First-run parity results still use serial predictions. Subsequent
-            # identical-shape groups may use the real fast path in AUTO mode.
+                f'（probe 只对照、不改结果；auto 模式已不再依赖该判定）')
             yield [(idx, it, pr) for (idx,it),pr in zip(group,serial)]
-            if safe and faster and not disabled and batch_size < limit and peak_free >= reserve + 16:
-                batch_size = min(limit, batch_size * 2)
+
+        if mode == 'auto':
+            self.logger.info_rank0(
+                f'[open_loop][eval-batch] auto 小结：批处理 {_batch_groups} 组 / 单条回退 {_unit_groups} 组 '
+                f'（批大小 {batch_size}）')
 
     # -- 动作键 ---------------------------------------------------------------
     def _pick_action_keys(self, ft, gt_phys: Dict[str, Any],

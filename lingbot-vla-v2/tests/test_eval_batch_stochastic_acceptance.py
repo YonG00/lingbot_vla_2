@@ -456,3 +456,76 @@ def test_gate_is_task_and_instruction_length_agnostic():
     # 但真的换了尺寸 ⇒ 必须不符
     p3 = _payload(shapes=[{"images": [1, 3, 224, 224], "state": [1, 55]}])
     assert sp.gate_signature(p1) != sp.gate_signature(p3)
+
+
+# ---------------------------------------------------------------------------
+# 运行时批处理验收（in-situ 噪声底判据，替代"外挂门"）
+# ---------------------------------------------------------------------------
+def _acc(**over):
+    base = dict(parity=False, cross_max=2.0e-2, noise_max=3.0e-2, peak_free=60.0,
+                reserve=10.0, profitable=True)
+    base.update(over)
+    return sp.batch_acceptance(**base)
+
+
+def test_batch_acceptance_uses_noise_floor():
+    """核心：批处理偏差 ≤ K × 模型自身噪声 ⇒ 接受（这正是"严格 parity 恒不可达"下的正解）。"""
+    ok = _acc(cross_max=2.0e-2, noise_max=3.0e-2)          # 2.0e-2 <= 1.5*3.0e-2
+    assert ok["safe"] is True and ok["noise_ok"] is True and ok["parity"] is False
+    assert ok["reasons"] == []
+    assert ok["noise"]["noise_k"] == sp.NOISE_K_DEFAULT == 1.5
+
+
+def test_batch_acceptance_rejects_excess_and_hard_conditions():
+    bad = _acc(cross_max=9.0e-2, noise_max=3.0e-2)          # 超 1.5×
+    assert bad["safe"] is False and any(r.startswith("noise_exceeded") for r in bad["reasons"])
+    assert _acc(peak_free=5.0)["safe"] is False             # 显存余量不足
+    assert "not_faster" in _acc(profitable=False)["reasons"]
+    assert _acc(profitable=False, force_coverage=True)["safe"] is True   # 验收期可强制覆盖
+    assert _acc(cross_max=None, noise_max=None, parity=False)["safe"] is False
+    assert "parity_false_and_gate_off" in _acc(parity=False, cross_max=None,
+                                               noise_max=None)["reasons"]
+
+
+def test_batch_acceptance_deterministic_model_falls_back_to_parity():
+    """噪声底为 0（模型确定）⇒ **退回严格 parity**（保守），而不是放行。"""
+    assert _acc(parity=True, cross_max=1e-9, noise_max=0.0)["safe"] is True
+    blocked = _acc(parity=False, cross_max=1e-9, noise_max=0.0)
+    assert blocked["safe"] is False
+    assert "noise_floor_zero_and_parity_false" in blocked["reasons"]
+
+
+def test_batch_acceptance_optional_gate_still_honored():
+    """旧签名证据**可选**（不再是必需项），给了就仍然认。"""
+    assert _acc(parity=False, cross_max=9e-2, noise_max=3e-2, gate_ok=True)["safe"] is True
+
+
+def test_env_noise_settings_defaults_and_overrides(monkeypatch):
+    for k in (sp.NOISE_PROBE_ENV, sp.NOISE_K_ENV, sp.REPROBE_EVERY_ENV):
+        monkeypatch.delenv(k, raising=False)
+    d = sp.env_noise_settings()
+    assert d == {"noise_probe": True, "noise_k": 1.5, "reprobe_every": 25}
+    monkeypatch.setenv(sp.NOISE_PROBE_ENV, "0")
+    monkeypatch.setenv(sp.NOISE_K_ENV, "2.5")
+    monkeypatch.setenv(sp.REPROBE_EVERY_ENV, "0")
+    d = sp.env_noise_settings()
+    assert d == {"noise_probe": False, "noise_k": 2.5, "reprobe_every": 0}
+    monkeypatch.setenv(sp.NOISE_K_ENV, "-1")
+    with pytest.raises(ValueError):
+        sp.env_noise_settings()
+
+
+def test_runtime_no_longer_gates_on_numeric_judgment():
+    """**2026-10-09 定案**：门与探测退出生产判定链；评测批大小 = 训练的前向批大小。
+
+    纯判据（`batch_acceptance` / `gate_*`）**保留**，但只服务于**离线验收工具**，
+    不再出现在运行时判定里。
+    """
+    src = (REPO / "lingbotvla/utils/open_loop_validation.py").read_text(encoding="utf-8")
+    assert "_eval_batch_size(self)" in src                   # 批大小来自训练
+    assert "if mode == 'auto':" in src                       # 直接批处理分支
+    for gone in ("_stochastic_gate_ok", "verified_shapes", "batch_acceptance(",
+                 "env_noise_settings", "gate_signature", "_batch_ok_global"):
+        assert gone not in src, f"运行时不应再有 {gone}"
+    tool = (REPO / "tools/eval_batch_stochastic_acceptance.py").read_text(encoding="utf-8")
+    assert "stochastic_parity" in tool, "离线验收工具仍使用纯判据"

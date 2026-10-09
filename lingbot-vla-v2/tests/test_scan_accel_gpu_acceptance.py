@@ -199,12 +199,19 @@ def test_run_all_env_forces_batch_coverage_and_selftest_without_auto():
     assert env["AL_HARDNESS_BATCH_MODE"] == "fixed"
 
 
-def test_probe_force_coverage_keeps_guards(monkeypatch):
-    """要求1：speedup 不达标不得阻止 Batch4 数值验收，但 parity/显存/失败保护不能被绕过。"""
+def test_auto_has_no_numeric_gate_but_keeps_mechanical_guards(monkeypatch):
+    """**2026-10-09 定案**：auto 不再做数值判定（门/探测退出判定链），评测批大小跟随训练；
+    只保留**机械守卫**（形状一致 / 显存余量 / 成组不足 2 条即单条），probe 仍保留对照。"""
     text = (Path(__file__).resolve().parents[1] /
             "lingbotvla/utils/open_loop_validation.py").read_text(encoding="utf-8")
-    assert "AL_EVAL_BATCH_FORCE_COVERAGE" in text
-    assert "if not safe or (not faster and not _force_cov):" in text, "守卫表达式必须保留 safe 优先"
+    assert "_eval_batch_size" in text, "批大小必须来自训练配置"
+    assert "if mode == 'auto':" in text, "auto 必须有不经判定的直接批处理分支"
+    assert "eval batch peak VRAM headroom guard failed" in text, "显存守卫必须保留"
+    assert "take < 2 or not identical_tensor_shapes" in text, "成组机械守卫必须保留"
+    assert "outputs_close" in text and "AL_EVAL_BATCH_PROBE_DIR" in text, "probe 诊断对照必须保留"
+    for gone in ("_stochastic_gate_ok", "verified_shapes", "AL_EVAL_BATCH_FORCE_COVERAGE",
+                 "batch_acceptance("):
+        assert gone not in text, f"判定链里不应再有 {gone}"
 
 
 def test_selftest_refuses_multirank_and_stays_opt_in():

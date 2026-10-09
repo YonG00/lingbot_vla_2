@@ -31,7 +31,7 @@ def _validator_class():
     # 模块级诊断小工具（默认路径无副作用）也按源码编译，避免"替身与生产不一致"
     mod_funcs=[x for x in tree.body if isinstance(x,ast.FunctionDef)
                and x.name in ('_probe_warn_legacy_dump','_probe_repeat_env',
-                              '_stochastic_gate_ok')]
+                              '_eval_batch_size')]
     ns={'torch':torch,'np':np,'Dict':dict,'Any':object,'Sequence':list,'List':list,
         'EVAL_SEED':1234,'os':os,'time':time,'_world_size':lambda:1,'_visual_grid_cache_clear':lambda model:None,
         '_visual_grid_cache_restore':lambda model,saved:None}
@@ -213,28 +213,61 @@ def test_auto_without_approval_is_blocked_before_inference(monkeypatch):
         list(v._prediction_groups([_item(1),_item(2)],[0,1],_Transform(),'t'))
 
 
-def test_auto_parity_mismatch_disables_batched_outputs(monkeypatch):
-    monkeypatch.setenv('AL_EVAL_BATCH_MODE','auto')
-    monkeypatch.setenv('AL_EVAL_BATCH_APPROVED','1')
-    monkeypatch.setenv('AL_EVAL_BATCH_MAX','2')
+def _cuda_stub(monkeypatch):
     monkeypatch.setattr(torch.cuda,'is_available',lambda:True)
     monkeypatch.setattr(torch.cuda,'mem_get_info',lambda:(80 * 1024**3,96*1024**3))
     monkeypatch.setattr(torch.cuda,'max_memory_reserved',lambda:14*1024**3)
     monkeypatch.setattr(torch.cuda,'reset_peak_memory_stats',lambda:None)
     monkeypatch.setattr(torch.cuda,'synchronize',lambda:None)
+
+
+def test_auto_uses_batched_outputs_directly(monkeypatch):
+    """**2026-10-09 定案**：auto 模式**不再做数值判定**（门与探测已退出判定链）——
+    每组直接采用批量结果，且该组**不再调用逐条串行**。"""
+    monkeypatch.setenv('AL_EVAL_BATCH_MODE','auto')
+    monkeypatch.setenv('AL_EVAL_BATCH_APPROVED','1')
+    monkeypatch.setenv('AL_EVAL_BATCH_MAX','2')
+    _cuda_stub(monkeypatch)
     v=_validator();v.logger=SimpleNamespace(info_rank0=lambda *_:None)
-    original=v._infer_batch
-    def wrong(items,ft):
-        p=original(items,ft)
-        for it in p:it['actions']=it['actions']+1
-        return p
-    v._infer_batch=wrong
+    seen={'batched':[], 'serial':0}
+    original_batch=v._infer_batch
+    original_one=v._infer_one
+    def spy_batch(items,ft):
+        out=original_batch(items,ft); seen['batched'].append([dict(d) for d in out]); return out
+    def spy_one(item,ft):
+        seen['serial']+=1; return original_one(item,ft)
+    v._infer_batch=spy_batch; v._infer_one=spy_one
     inputs=[_item(float(i)) for i in range(4)]
-    ref=[v._infer_one(it,_Transform())['actions'].clone() for it in inputs]
     v._noise_gen=None
-    got=[pr['actions'] for group in v._prediction_groups(inputs,list(range(4)),_Transform(),'t')
+    got=[pr for group in v._prediction_groups(inputs,list(range(4)),_Transform(),'t')
          for _,_,pr in group]
-    assert all(torch.equal(a,b) for a,b in zip(got,ref))
+    assert seen['batched'], 'auto 模式必须真的走批量'
+    assert seen['serial']==0, f'auto 组不应再跑逐条串行（实测 {seen["serial"]} 次）'
+    flat=[d for batch in seen['batched'] for d in batch]
+    assert len(got)==4==len(flat)
+    assert all(torch.equal(a['actions'],b['actions']) for a,b in zip(got,flat)), \
+        'yield 的结果必须就是批量结果本身'
+
+
+def test_auto_group_fallback_is_per_group_not_global(monkeypatch):
+    """成组条件不足（形状不一致 / 只剩 1 条）⇒ **该组**单条，不整体退回串行。"""
+    monkeypatch.setenv('AL_EVAL_BATCH_MODE','auto')
+    monkeypatch.setenv('AL_EVAL_BATCH_APPROVED','1')
+    monkeypatch.setenv('AL_EVAL_BATCH_MAX','2')
+    _cuda_stub(monkeypatch)
+    v=_validator();v.logger=SimpleNamespace(info_rank0=lambda *_:None)
+    calls={'batch':0,'serial':0}
+    ob=v._infer_batch; oo=v._infer_one
+    v._infer_batch=lambda items,ft:(calls.__setitem__('batch',calls['batch']+1), ob(items,ft))[1]
+    v._infer_one=lambda item,ft:(calls.__setitem__('serial',calls['serial']+1), oo(item,ft))[1]
+    # 3 条 + 批大小 2 ⇒ 前两条成组批处理；**剩下 1 条**该组单条（且不是整体退回串行）
+    inputs=[_item(float(i)) for i in range(3)]
+    v._noise_gen=None
+    got=[pr['actions'] for group in v._prediction_groups(inputs,list(range(3)),_Transform(),'t')
+         for _,_,pr in group]
+    assert len(got)==3
+    assert calls['batch']==1, '前两条应成组批处理'
+    assert calls['serial']==1, '剩余 1 条应单条（per-group 回退，不是整体退回串行）'
 
 
 def test_hardness_auto_missing_approval_blocked(monkeypatch):
@@ -281,3 +314,43 @@ def test_preflight_default_is_read_only_and_missing_sources_blocked(tmp_path):
     a.manifest=a.norm=a.thresholds=a.baseline=None
     assert m.verify(a)['status']=='BLOCKED'
     assert not list(tmp_path.iterdir())
+
+
+def _eval_batch_size_fn():
+    """按源码编译 `_eval_batch_size`（模块级纯函数，只需 os）。"""
+    src = Path(__file__).parents[1] / 'lingbotvla/utils/open_loop_validation.py'
+    tree = ast.parse(src.read_text(encoding='utf-8'))
+    fn = next(x for x in tree.body
+              if isinstance(x, ast.FunctionDef) and x.name == '_eval_batch_size')
+    ns = {'os': os}
+    ast.fix_missing_locations(tree)
+    exec(compile(ast.Module(body=[fn], type_ignores=[]), str(src), 'exec'), ns)
+    return ns['_eval_batch_size']
+
+
+class _Args:
+    def __init__(self, micro):
+        self.train = SimpleNamespace(micro_batch_size=micro)
+
+
+def test_eval_batch_size_follows_training_micro(monkeypatch):
+    """**核心契约**：评测批大小默认 = 训练的前向批大小（本次生产 = 24）。"""
+    fn = _eval_batch_size_fn()
+    monkeypatch.delenv('AL_EVAL_BATCH_MAX', raising=False)
+    assert fn(SimpleNamespace(args=_Args(24))) == 24
+    assert fn(SimpleNamespace(args=_Args(1))) == 1
+    assert fn(SimpleNamespace(args=SimpleNamespace(train=SimpleNamespace()))) == 8   # 无训练配置即回退
+    assert fn(SimpleNamespace()) == 8
+
+
+def test_eval_batch_size_env_override_and_validation(monkeypatch):
+    """`AL_EVAL_BATCH_MAX` 由"硬上限"改为**覆盖值**（保留旧名字），且做范围校验。"""
+    fn = _eval_batch_size_fn()
+    monkeypatch.setenv('AL_EVAL_BATCH_MAX', '4')
+    assert fn(SimpleNamespace(args=_Args(24))) == 4
+    monkeypatch.setenv('AL_EVAL_BATCH_MAX', '0')
+    with pytest.raises(ValueError):
+        fn(SimpleNamespace(args=_Args(24)))
+    monkeypatch.setenv('AL_EVAL_BATCH_MAX', '999')
+    with pytest.raises(ValueError):
+        fn(SimpleNamespace(args=_Args(24)))
