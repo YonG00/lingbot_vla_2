@@ -224,14 +224,17 @@ class RealHardnessScorer:
                 try:
                     if _replay_batch > 0:
                         self.max_batch = int(_replay_batch)
+                        self._hr_phase_override = 'replay_batch%d' % int(_replay_batch)
                         _hr_phase = 'replay_batch%d' % int(_replay_batch)
                         self.score(task, ids)
                     if _do_repeat:
                         self.max_batch = int(_saved_batch)
+                        self._hr_phase_override = 'repeat'
                         _hr_phase = 'repeat'
                         self.score(task, ids)
                 finally:
                     self.max_batch = int(_saved_batch)
+                    self._hr_phase_override = None
                     self._hr_phases_running = False
         return out
 
