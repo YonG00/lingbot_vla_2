@@ -422,15 +422,39 @@ def ratio_unit_evidence(event_rows: list[dict], *, gbs: int, new_ratio: float) -
         unit['replay_ratio_valid'] = (bool(unit['replay_tasks']) and replay == expected)
         units.append(unit)
     verdict = 'PASS' if any(x['full_batch_valid'] and x['replay_ratio_valid'] for x in units) else 'BLOCKED'
+    if not units:
+        diagnosis = 'no_consumed_train_unit'
+    elif not any(x['replay_tasks'] for x in units):
+        diagnosis = 'train_unit_without_replay_pool'
+    else:
+        diagnosis = 'replay_present_but_consumption_unverified'
     return {'status':verdict,'kind':'actual_AL_ratio_unit_evidence', 'gbs':gbs,
             'expected_per_step':{'new':plan.local_new,'replay':plan.local_replay},
-            'units':units,
-            'note':'No replay task or no consumed TrainUnit => BLOCKED, never pretend simulated ratio is real GPU proof.'}
+            'units':units, 'diagnosis': 'verified' if verdict == 'PASS' else diagnosis,
+            'note':'Only observed consumed Replay can PASS; bootstrap and ratio plans alone never PASS.'}
+
+
+def build_ratio_smoke_config(raw: dict, *, target: int, max_global_steps: int) -> dict:
+    """Build an isolated AL smoke config; never mutate the formal/source YAML."""
+    original = raw.get('auto_learning', raw)
+    names = original.get('task_names') or ()
+    if original.get('pass_metric', 'nmse') != 'nmse' or not 1 <= len(names) <= 3:
+        raise ValueError('tiny AL ratio probe requires <=3 explicitly named tasks and NMSE metric')
+    if isinstance(target, bool) or not isinstance(target, int) or not 1 <= target <= len(names):
+        raise ValueError(f'target must be 1..{len(names)} named tasks; got {target!r}')
+    if not isinstance(max_global_steps, int) or max_global_steps <= 0:
+        raise ValueError('max_global_steps must be positive')
+    b = dict(original)
+    b['new_ratio'] = 0.7
+    b['hardness_probe_fraction'] = min(float(b.get('hardness_probe_fraction', .1)), .1)
+    b['target_total_passed_tasks'] = target
+    b['max_global_steps'] = max_global_steps
+    return b
 
 
 def run_ratio_gpu(a: argparse.Namespace) -> int:
     """Real tiny-task AL training with no checkpoint; inspect consumed unit accounting."""
-    a.output = a.out_root / f'ratio_real_micro{a.micro}_gas{a.gas}'
+    a.output = a.out_root / f'ratio_real_micro{a.micro}_gas{a.gas}_target{a.target_total_passed_tasks}_steps{a.steps}'
     a.master_port = a.master_port or free_port()
     cmd = trainer_command(a)
     cmd[cmd.index('--train.max_steps')+1] = str(a.step_offset+a.steps)
@@ -438,7 +462,11 @@ def run_ratio_gpu(a: argparse.Namespace) -> int:
     cmd.extend(['--train.auto_learning',str(cfg_path),
                 '--train.auto_learning_manifest',str(Path(a.split_dir)/'manifest.json'),
                 '--train.auto_learning_baseline',str(Path(a.split_dir)/'task_baseline.json')])
-    print('REAL RATIO AL SMOKE:', a.micro*a.gas, 'GBS; 2 tasks only, no DCP/HF')
+    if a.steps < 1 or a.target_total_passed_tasks < 1:
+        raise ValueError('steps and target_total_passed_tasks must be positive')
+    print('REAL RATIO AL SMOKE:', a.micro*a.gas, 'GBS; isolated NMSE tasks, no DCP/HF')
+    print('TARGET:', a.target_total_passed_tasks, 'MAX OPTIMIZER STEPS:', a.steps,
+          'WARNING: target does not guarantee Bootstrap PASS or consumed Replay')
     print('COMMAND:', ' '.join(cmd))
     if not a.execute:
         print('PLAN ONLY; no GPU, files, or outputs touched.')
@@ -451,14 +479,8 @@ def run_ratio_gpu(a: argparse.Namespace) -> int:
                   str(Path(a.phases)/'datasets.txt'))
     import yaml
     raw = yaml.safe_load(Path(a.al_config).read_text(encoding='utf-8')) or {}
-    b = raw.get('auto_learning',raw)
-    if b.get('pass_metric','nmse') != 'nmse' or not 1 <= len(b.get('task_names') or ()) <= 3:
-        raise ValueError('tiny AL ratio probe requires <=3 explicitly named tasks and NMSE metric')
-    b = dict(b)
-    b['new_ratio'] = 0.7
-    b['hardness_probe_fraction'] = min(float(b.get('hardness_probe_fraction',.1)), .1)
-    b['target_total_passed_tasks'] = None
-    b['max_global_steps'] = a.step_offset+a.steps
+    b = build_ratio_smoke_config(raw, target=a.target_total_passed_tasks,
+                                 max_global_steps=a.step_offset+a.steps)
     fresh_dir(a.output)
     cfg_path.write_text(yaml.safe_dump(b,allow_unicode=True,sort_keys=False),encoding='utf-8')
     env = os.environ.copy()
@@ -476,6 +498,9 @@ def run_ratio_gpu(a: argparse.Namespace) -> int:
     evidence.update(r)
     evidence['gpu']=gpu
     evidence['git_head']=current_git_head()
+    evidence['test_target_total_passed_tasks']=a.target_total_passed_tasks
+    evidence['test_task_names']=b['task_names']
+    evidence['configured_max_global_steps']=b['max_global_steps']
     if r['returncode'] != 0 or r['reason'] != 'exit':
         evidence['status']='FAIL'
     elif list(a.output.glob('checkpoints/global_step_*')) or list(a.output.glob('hf_milestones/*')):
@@ -611,6 +636,8 @@ def build_parser() -> argparse.ArgumentParser:
     ratio_real.add_argument('--warmup',type=int,default=1)
     ratio_real.add_argument('--measure',type=int,default=1)
     ratio_real.add_argument('--steps',type=int,default=9)
+    ratio_real.add_argument('--target-total-passed-tasks',type=int,default=2,
+                            help='isolated test goal; default 2, must not exceed named task count')
     ratio_real.add_argument('--step-offset',type=int,default=500)
     ratio_real.add_argument('--compile',choices=['off'],default='off')
     ratio_real.add_argument('--model-path',default=DEFAULT_MODEL)

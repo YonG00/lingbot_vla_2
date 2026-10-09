@@ -166,3 +166,41 @@ def test_hf_acceptance_mismatch_fails_exit_code(tmp_path):
     assert mod._verify_export(str(tmp_path))==0
     save_file({'weight':torch.tensor([1.,3.])},str(target/'model.safetensors'))
     assert mod._verify_export(str(tmp_path))==1
+
+
+def test_ratio_target_fix_builds_isolated_config_without_mutating_source():
+    raw={'auto_learning': {'pass_metric':'nmse','task_names':['click_bell','click_alarmclock'],
+                           'target_total_passed_tasks':None, 'hardness_probe_fraction':.3}}
+    got=accept.build_ratio_smoke_config(raw,target=2,max_global_steps=509)
+    assert got['target_total_passed_tasks']==2
+    assert got['max_global_steps']==509
+    assert got['new_ratio']==.7
+    assert got['hardness_probe_fraction']==.1
+    assert raw['auto_learning']['target_total_passed_tasks'] is None
+    assert 'new_ratio' not in raw['auto_learning']
+
+
+@pytest.mark.parametrize('target', [0,-1,3])
+def test_ratio_target_fix_rejects_invalid_targets(target):
+    with pytest.raises(ValueError,match='target'):
+        accept.build_ratio_smoke_config({'task_names':['a','b']},target=target,max_global_steps=509)
+
+
+def test_ratio_target_dry_plan_never_queries_gpu(monkeypatch,tmp_path,capsys):
+    monkeypatch.setattr(accept,'require_gpu',lambda: (_ for _ in ()).throw(AssertionError('GPU touched')))
+    assert accept.main(['ratio-gpu','--micro','24','--gas','1',
+                        '--target-total-passed-tasks','2','--steps','9',
+                        '--out-root',str(tmp_path)])==0
+    assert not list(tmp_path.iterdir())
+    out=capsys.readouterr().out
+    assert 'PLAN ONLY' in out and 'TARGET: 2' in out
+    assert 'target2_steps9' in out
+
+
+def test_ratio_target_diagnosis_is_fail_closed():
+    assert accept.ratio_unit_evidence([],gbs=24,new_ratio=.7)['diagnosis']=='no_consumed_train_unit'
+    unit={'kind':'event','action':'train_unit','step':503,'batches_built':1,
+          'samples_seen':24,'old_tasks':[]}
+    r=accept.ratio_unit_evidence([unit],gbs=24,new_ratio=.7)
+    assert r['status']=='BLOCKED'
+    assert r['diagnosis']=='train_unit_without_replay_pool'
