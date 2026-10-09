@@ -270,3 +270,25 @@ def test_validator_unwraps_before_assigning_self_model():
     i_assign = src.index("self.model = model\n        self._model_config")
     i_config = src.index("self._model_config = model_config if model_config is not None else model.config")
     assert i_unwrap < i_assign < i_config, "顺序应为：解包 → self.model= → 取 model.config"
+
+
+# ---------------------------------------------------------------------------
+# 48G 多卡上"批处理全程不生效"的根因（2026-10-09 2×4090 实测）
+# ---------------------------------------------------------------------------
+def test_vram_headroom_is_configurable_and_defaults_small():
+    """组批前的显存余量门槛必须是 `reserve + headroom`，且 headroom 可调、默认 4——
+    原来硬编码 +12 ⇒ 48G 多卡（已占 26.5GB、空闲 21.4GiB）会把**每组**都判成显存不足。"""
+    src = SRC.read_text(encoding="utf-8")
+    assert "AL_EVAL_BATCH_HEADROOM_GIB" in src
+    assert "free_before < reserve + headroom" in src
+    assert "free_before < reserve + 12" not in src, "硬编码 +12 必须移除"
+    assert "unsafe eval batch headroom" in src, "headroom 也要做范围校验"
+
+
+def test_oom_falls_back_to_single_group():
+    """批内 OOM ⇒ 该组退回单条（不打断长跑）；连续 2 次 ⇒ 批大小减半（下限 2）。"""
+    src = SRC.read_text(encoding="utf-8")
+    assert "except torch.cuda.OutOfMemoryError as _oom:" in src
+    assert "empty_cache()" in src and "_oom_groups += 1" in src
+    assert "_oom_groups >= 2 and batch_size > 2" in src, "连续 OOM 必须自适应降批大小"
+    assert "其中 OOM 回退" in src, "小结里必须能看到 OOM 回退组数"

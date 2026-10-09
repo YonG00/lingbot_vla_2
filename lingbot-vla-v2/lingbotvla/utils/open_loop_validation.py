@@ -1458,6 +1458,13 @@ class OpenLoopValidator:
         reserve = float(os.environ.get('AL_EVAL_BATCH_RESERVE_GIB', '10'))
         if not (8.0 <= reserve <= 64.0):
             raise ValueError('unsafe eval batch reserve')
+        #: 组批前要求「空闲 ≥ reserve + headroom」。原为硬编码 +12 ⇒ 在 **48G 多卡**上
+        #: （DDP 已占 ~26.5 GB，空闲≈21.4 GiB < 22 GiB）会把**每一组**都判成显存不足 ⇒
+        #: 批处理全程不生效（2026-10-09 2×4090 实测：`批处理 0 组 / 单条回退 N 组`）。
+        #: 现在改为可调、默认 4 GiB，并配合批内 OOM 的**该组单条回退**（见下）双保险。
+        headroom = float(os.environ.get('AL_EVAL_BATCH_HEADROOM_GIB', '4'))
+        if not (0.0 <= headroom <= 64.0):
+            raise ValueError('unsafe eval batch headroom')
         # ---- 批大小 = **训练的前向批大小**（2026-10-09 用户定案）----
         # 旧设计：`min(2, AL_EVAL_BATCH_MAX)` 硬顶 2，且必须先"探测（串行+批量对照）"通过才放行；
         # 而判据是 atol=1e-5/rtol=1e-3，对**任何**两次运行都不可达（模型自身非确定实测 3.1e-2）
@@ -1467,13 +1474,14 @@ class OpenLoopValidator:
         batch_size = _eval_batch_size(self)
         _batch_groups = 0          # 真正走批处理的组数
         _unit_groups = 0           # 因成组条件不足而单条的组数
+        _oom_groups = 0            # 因**批内 OOM** 而退回单条的组数
         _batch_source = ('AL_EVAL_BATCH_MAX(env)' if os.environ.get('AL_EVAL_BATCH_MAX')
                          else 'train.micro_batch_size' if isinstance(
                              getattr(getattr(getattr(self, 'args', None), 'train', None),
                                      'micro_batch_size', None), int) else 'fallback:8')
         self.logger.info_rank0(
             f'[open_loop][eval-batch] 评测批大小 = {batch_size}（来源 {_batch_source}；'
-            f'AL_EVAL_BATCH_MAX 可覆盖，reserve={reserve}GiB）')
+            f'AL_EVAL_BATCH_MAX 可覆盖，reserve={reserve}GiB headroom={headroom}GiB）')
         _probe_group_dirs: List[str] = []
         pos = 0
         starts = list(starts)
@@ -1488,7 +1496,7 @@ class OpenLoopValidator:
             free_before = torch.cuda.mem_get_info()[0]/1024**3
             if (take < 2 or not identical_tensor_shapes(
                     inputs, ('images','img_masks','lang_tokens','lang_masks','state'))
-                    or free_before < reserve + 12):
+                    or free_before < reserve + headroom):
                 _unit_groups += 1
                 yield [(idx, it, self._infer_one(it, ft)) for idx, it in group]
                 continue
@@ -1496,9 +1504,25 @@ class OpenLoopValidator:
             # 数值会与串行有模型自身噪声量级的差异（实测 GMean 差 ~1e-5，相对 0.07%），
             # 这是 fused MoE 原子加导致的既有性质，不是本改动引入的。
             if mode == 'auto':
-                torch.cuda.reset_peak_memory_stats()
-                batched = self._infer_batch(inputs, ft)
-                torch.cuda.synchronize()
+                try:
+                    torch.cuda.reset_peak_memory_stats()
+                    batched = self._infer_batch(inputs, ft)
+                    torch.cuda.synchronize()
+                except torch.cuda.OutOfMemoryError as _oom:
+                    # 批太大 ⇒ **该组退回单条**（跑到一半的正式训练不该被一次 OOM 打断）。
+                    # 连续 2 次 ⇒ 自动把批大小减半（下限 2），避免每组都先 OOM 再回退白花时间。
+                    torch.cuda.empty_cache()
+                    _oom_groups += 1
+                    if _oom_groups >= 2 and batch_size > 2:
+                        _prev, batch_size = batch_size, max(2, batch_size // 2)
+                        self.logger.warning(
+                            f'[open_loop][eval-batch] ⚠️ 批处理连续 OOM ⇒ 批大小 {_prev} → {batch_size}')
+                    self.logger.warning(
+                        f'[open_loop][eval-batch] ⚠️ 批处理 OOM（take={take}）⇒ 该组退回单条：'
+                        f'{type(_oom).__name__}: {_oom}')
+                    _unit_groups += 1
+                    yield [(idx, it, self._infer_one(it, ft)) for idx, it in group]
+                    continue
                 total = torch.cuda.mem_get_info()[1] / 1024**3
                 peak_free = min(torch.cuda.mem_get_info()[0] / 1024**3,
                                 total - torch.cuda.max_memory_reserved()/1024**3)
@@ -1636,8 +1660,9 @@ class OpenLoopValidator:
 
         if mode == 'auto':
             self.logger.info_rank0(
-                f'[open_loop][eval-batch] auto 小结：批处理 {_batch_groups} 组 / 单条回退 {_unit_groups} 组 '
-                f'（批大小 {batch_size}）')
+                f'[open_loop][eval-batch] auto 小结：批处理 {_batch_groups} 组 / 单条回退 {_unit_groups} 组'
+                + (f'（其中 OOM 回退 {_oom_groups} 组）' if _oom_groups else '')
+                + f'（批大小 {batch_size}）')
 
     # -- 动作键 ---------------------------------------------------------------
     def _pick_action_keys(self, ft, gt_phys: Dict[str, Any],
