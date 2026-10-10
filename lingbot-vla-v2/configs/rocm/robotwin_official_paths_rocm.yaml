@@ -92,7 +92,14 @@ train:
   data_parallel_mode: fsdp2
   enable_full_shard: false
   module_fsdp_enable: true
-  use_compile: true
+  # 🔴 2026-10-10：改回 false，与官方 recipe（lingbotvla_cli.yaml: use_compile: false）
+  #    及本仓推理脚本（start_robotwin_*.sh 默认 False）一致。
+  #    开编译在本 ROCm 环境已连续踩三个坑：① flex 反向 kernel `PassManager::run failed`；
+  #    ② 多 rank 共享编译缓存 ⇒ 死锁（已用 per-rank 目录修掉）；
+  #    ③ 图断裂（@torch.compiler.disable 在 FSDP 图内）⇒ 7 rank 集合通信错序 ⇒ RCCL 死锁，
+  #       表现为首步永久卡死（GPU 0%、CPU 空转、日志静默）。
+  #    如需实验性开启：把下面改回 true，并先按 `docs` 里的前置条件替换/移除图断裂点。
+  use_compile: false
   use_wandb: false
   rmpad: false
   rmpad_with_pos_ids: false
