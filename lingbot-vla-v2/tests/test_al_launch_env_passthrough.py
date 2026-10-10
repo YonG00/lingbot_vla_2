@@ -70,3 +70,38 @@ def test_bad_env_flag_is_rejected():
     blob = proc.stdout + proc.stderr
     assert proc.returncode != 0, f'非法 --env 应被拒绝:\n{blob[-800:]}'
     assert 'env' in blob.lower()
+
+
+# --------------------------------------------------------------------------- #
+# 启动器空间检查：hardness-cache **不得**被 20G 下限拦死（2026-10-10 自锁事故）
+# --------------------------------------------------------------------------- #
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_hardness_cache_is_not_blocked_by_min_free_gb(tmp_path):
+    """真机教训：把体积只有几十 KB 的 hardness 缓存塞进「20G 下限」检查后，
+    `/workspace` 只剩 19.7G ⇒ **任何启用缓存的启动都被自己拦死**（dry-run 退出码 2）。
+
+    这里用 dry-run 断言：即使把下限抬到远高于该目录可用空间，hardness-cache 也不报错。
+    """
+    hc = tmp_path / 'hardness_cache'
+    hc.mkdir()
+    proc = _dry_run(['--hardness-cache', str(hc), '--min-free-gb', '100000'])
+    blob = proc.stdout + proc.stderr
+    # 其它三个目录会因 100000G 下限而报错 ⇒ 只看"有没有点名 hardness-cache"
+    assert 'hardness-cache' not in blob, (
+        f'hardness-cache 仍被空间检查拦下（不应参与 20G 下限）：\n{blob[-1200:]}')
+
+
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_hardness_cache_missing_dir_is_allowed(tmp_path):
+    """缓存目录不存在**允许**（`store()` 会 `mkdir(parents=True)` 自建）——不应因此拦启动。"""
+    proc = _dry_run(['--hardness-cache', str(tmp_path / 'nope' / 'hc'), '--min-free-gb', '0'])
+    blob = proc.stdout + proc.stderr
+    assert 'hardness-cache 不可写' not in blob and '上层路径不是目录' not in blob, blob[-1200:]
+
+
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_hardness_cache_default_is_persistent_volume():
+    """默认必须是持久卷路径（用户 2026-10-10 定：持久化）。"""
+    proc = _dry_run(['--min-free-gb', '0'])
+    blob = proc.stdout + proc.stderr
+    assert '/workspace/al/hardness_cache' in blob, blob[-1200:]

@@ -1801,12 +1801,33 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         else:
             raise LaunchError(message)
     warn_tmp: List[str] = []
+    # 🔴 hardness-cache **不参与 20G 下限检查**（2026-10-10 自锁事故）：
+    #    它的体积是"每任务几十 KB"，却因为被塞进这套空间检查，在 /workspace 只剩 19.7G
+    #    时把**任何启用缓存的启动**都拦死在退出码 2。改为只探测"父目录存在且可写"。
+    if getattr(args, 'hardness_cache', ''):
+        _hc = Path(args.hardness_cache)
+        # 缓存目录**允许不存在**（`store()` 内部 `mkdir(parents=True)` 会自建）
+        # ⇒ 只需确认"最近存在的祖先"可写即可，不要求父目录已存在。
+        _anc = _hc
+        while not _anc.exists() and _anc.parent != _anc:
+            _anc = _anc.parent
+        # 绝不拿 `/` 当探测目标（macOS 根是只读的，会给出误导性报错）
+        if _anc == Path('/') and not _anc.is_dir():
+            warn_tmp.append(f'hardness-cache 的上层路径不存在：{_hc}')
+        elif _anc == Path('/'):
+            pass                      # 路径落到根：跳过探测（真机上不会发生）
+        elif not _anc.is_dir():
+            warn_tmp.append(f'hardness-cache 的上层路径不是目录：{_anc}')
+        else:
+            try:
+                _probe_dir = _anc / f'.al_hc_write_test_{os.getpid()}'
+                _probe_dir.mkdir(exist_ok=True)
+                _probe_dir.rmdir()
+            except OSError as exc:
+                warn_tmp.append(f'hardness-cache 不可写：{_anc}（{exc}）')
     _disk_targets = [('TMPDIR', tmpdir), ('TRITON_CACHE_DIR', Path(args.triton_cache)),
                      ('TORCHINDUCTOR_CACHE_DIR', Path(args.torchinductor_cache)),
                      ('worker-out-root', Path(args.worker_out_root))]
-    if getattr(args, 'hardness_cache', ''):
-        # hardness 缓存体积很小（每任务几十 KB），但同规矩检查，避免写满
-        _disk_targets.append(('hardness-cache', Path(args.hardness_cache)))
     for label, path in _disk_targets:
         free_gb, probe = check_disk(path, args.min_free_gb)
         if free_gb is None:
