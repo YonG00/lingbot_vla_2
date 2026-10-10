@@ -1058,7 +1058,10 @@ def build_parser() -> argparse.ArgumentParser:
                              '换模型 ⇒ 缓存自动失效重扫')
 
     core.add_argument('--fingerprint', default=None,
-                      help='显式指定 64 位指纹（跳过计算；必须是完整小写 hex）')
+                      help='(已弃用) 显式指定 64 位指纹；**不再用于缓存寻址**，仅作记录/复现')
+    core.add_argument('--compute-fingerprint', action='store_true',
+                      help='计算并打印 provenance 指纹。默认**关闭**：缓存已改为「显式文件 + 模型名」，'
+                           '指纹不再参与寻址，而计算它要读 11.9 GiB 权重分片（实测每轮多花 1–3 分钟 I/O）')
 
     paths = ap.add_argument_group('路径')
     paths.add_argument('--repo', default=None, help='仓库根（默认取本脚本的上一级目录）')
@@ -1912,9 +1915,20 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
               f'TORCHINDUCTOR_CACHE_DIR={args.torchinductor_cache}')
 
     # ---------------- 步骤 7：指纹 ----------------
+    # 🔴 2026-10-10：缓存改为「显式文件 + 模型名」后，**指纹不再参与缓存寻址**。
+    #    因此默认**不计算**——计算它要读全部权重分片（11.9 GiB，实测每轮多花 1–3 分钟 I/O）。
+    #    需要记录/复现时用 `--compute-fingerprint` 显式打开（或 `--fingerprint <hex>` 直接给值）。
     fingerprint = args.fingerprint
-    fp_info: Dict[str, Any] = {'source': 'explicit' if fingerprint else 'computed'}
-    if fingerprint is None:
+    _want_fp = (bool(getattr(args, 'compute_fingerprint', False))
+                or bool(getattr(args, '_print_fingerprint', False))   # 子进程专用：只算并打印
+                or fingerprint is not None)
+    fp_info: Dict[str, Any] = {'source': 'explicit' if fingerprint else ('computed' if _want_fp else 'skipped')}
+    if fingerprint is not None:
+        pass
+    elif not _want_fp:
+        log('[fingerprint] 跳过计算（缓存已改为显式文件 + 模型名；'
+            '如需记录请加 --compute-fingerprint）')
+    if fingerprint is None and _want_fp:
         can_compute = checkpoint.is_dir() and manifest.is_file() and baseline.is_file() \
             and norm.is_file() and thresholds is not None and thresholds.is_file()
         if not can_compute:

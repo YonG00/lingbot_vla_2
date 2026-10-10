@@ -105,3 +105,46 @@ def test_hardness_cache_default_is_persistent_volume():
     proc = _dry_run(['--min-free-gb', '0'])
     blob = proc.stdout + proc.stderr
     assert '/workspace/al/hardness_cache' in blob, blob[-1200:]
+
+
+# --------------------------------------------------------------------------- #
+# 指纹计算默认必须**关闭**（2026-10-10：缓存改为显式文件 + 模型名后，指纹不再参与寻址）
+# --------------------------------------------------------------------------- #
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_fingerprint_computation_is_skipped_by_default():
+    """默认不得去哈希 11.9 GiB 权重分片：dry-run 应打印「跳过计算」且不出现「正在哈希」。"""
+    proc = _dry_run(['--min-free-gb', '0'])
+    blob = proc.stdout + proc.stderr
+    assert '正在哈希' not in blob, (
+        '默认仍在哈希权重分片（11.9 GiB，每轮多花 1–3 分钟 I/O）——'
+        '指纹已不参与缓存寻址，应改为 --compute-fingerprint 显式开启')
+    assert 'fingerprint] 跳过计算' in blob or '跳过计算' in blob, blob[-1200:]
+
+
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_explicit_compute_fingerprint_flag_is_accepted():
+    """显式开关必须被接受（不报 argparse 错）——dry-run 下因路径不齐会跳过，但不得崩。"""
+    proc = _dry_run(['--compute-fingerprint', '--min-free-gb', '0'])
+    blob = proc.stdout + proc.stderr
+    assert 'unrecognized arguments' not in blob, blob[-800:]
+    assert '--compute-fingerprint' not in blob or 'error' not in blob.lower()
+
+
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_deprecated_fingerprint_env_is_not_exported():
+    """已废弃的 AL_SCOUT_CACHE_FINGERPRINT 不得再出现在子进程 env 里。"""
+    proc = _dry_run(['--min-free-gb', '0'])
+    blob = proc.stdout + proc.stderr
+    assert 'AL_SCOUT_CACHE_FINGERPRINT=' not in blob, '仍在透传已废弃的指纹 env'
+    # 新 env 必须都在
+    for key in ('AL_SCOUT_CACHE_FILE=', 'AL_HARDNESS_CACHE_FILE=', 'AL_MODEL_NAME='):
+        assert key in blob, f'{key} 未透传'
+
+
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_scout_and_hardness_cache_files_are_distinct_paths():
+    """两个缓存文件必须分属不同目录（避免互相覆盖）。"""
+    proc = _dry_run(['--min-free-gb', '0'])
+    blob = proc.stdout + proc.stderr
+    assert '/workspace/al/scout_cache/scout.json' in blob
+    assert '/workspace/al/hardness_cache/hardness.json' in blob
