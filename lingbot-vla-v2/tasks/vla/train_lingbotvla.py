@@ -683,7 +683,15 @@ def main():
 
     fsdp_kwargs = {}
     if args.train.freeze_vit:
-        model.visual.requires_grad_(False)
+        # 🔴 原来写 model.visual：LingbotVlaV2Policy 的视觉塔在 model.qwenvl.visual
+        #    ⇒ AttributeError: 'LingbotVlaV2Policy' object has no attribute 'visual'（2026-10-10 实测）
+        _vit = getattr(getattr(model, "qwenvl", None), "visual", None)
+        if _vit is None:
+            _vit = getattr(model, "visual", None)
+        if _vit is None:
+            raise AttributeError("[freeze_vit] 找不到视觉塔（期望 model.qwenvl.visual）")
+        _vit.requires_grad_(False)
+        _vit.eval()
         if args.train.data_parallel_mode == "fsdp1":
             fsdp_kwargs["use_orig_params"] = True
 

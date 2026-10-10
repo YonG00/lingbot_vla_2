@@ -10,7 +10,13 @@ export HF_HUB_DISABLE_TELEMETRY=1
 export DISABLE_TELEMETRY=1 
 
 if [ -z "$CUDA_VISIBLE_DEVICES" ]; then
-  NPROC_PER_NODE=$(nvidia-smi -L | wc -l)
+  # 🔴 不能用 `nvidia-smi -L | wc -l` 兜底：AMD/ROCm 上没有 nvidia-smi，
+  #    报错信息会被 wc -l 数成 1 ⇒ 只起 1 个进程、FSDP 网格崩（2026-10-10 实测踩过）。
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    NPROC_PER_NODE=$(nvidia-smi -L | wc -l)
+  else
+    NPROC_PER_NODE=$("${PY:-python3}" -c "import torch;print(torch.cuda.device_count())" 2>/dev/null || echo 1)
+  fi
 else
   NPROC_PER_NODE=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\n' | wc -l)
 fi
