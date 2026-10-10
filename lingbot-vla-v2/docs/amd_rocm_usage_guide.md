@@ -429,3 +429,65 @@ bash watch_amd_gpu.sh -w 5     # 每 5 秒刷新
 bash watch_amd_gpu.sh -w 5 -l  # 同时显示训练 step / peak / loss
 ```
 （走 `ssh_srv.sh cpu1` + `rocm-smi`；本机无需登录服务器 ✓）
+
+
+---
+
+## 13. 「仅冻 ViT」（freeze_vit）的正确用法与两个坑（2026-10-10 实测）
+
+### 13.1 正确开关：`train.freeze_vit`（官方自己的键）
+```yaml
+train:
+  freeze_vit: true              # ★ 仅冻 ViT（视觉塔）
+  freeze_vision_encoder: false  # pi0 遗留的“死键”：trainer 里只有声明、从不使用
+```
+* **不要**把 `freeze_vision_encoder` 放进 **`model:`** 段 ✗ —— CLI 的 `model` 组没有这个字段，会在启动期直接报
+  ```
+  ValueError: Some specified arguments are not used by the ArgumentParser: ['--model.freeze_vision_encoder', 'true']
+  ```
+  （argparse 严格校验“所有参数都必须被用掉”，放错段位必挂 ✓）
+
+### 13.2 代码坑：`train_lingbotvla.py` 的 freeze_vit 分支（已修）
+```python
+# 原代码（会崩）
+if args.train.freeze_vit:
+    model.visual.requires_grad_(False)      # ✗ LingbotVlaV2Policy 没有 .visual
+```
+两处都不对：
+1. 视觉塔实际在 **`model.qwenvl.visual`**（`modeling_lingbot_vla_v2.py` 里 `self.qwenvl = Qwen3VLForConditionalGeneration...`）；
+2. 该调用发生在 **`build_parallelize_model()` 之前** ⇒ 此刻**连 `model.qwenvl` 都还取不到** ✗（实测 `getattr` 两条路都失败）。
+**修复（本仓库已含）**：改为**按参数名冻结**，不依赖模块层级：
+```python
+if args.train.freeze_vit:
+    _vit_names = [n for n, _ in model.named_parameters() if ".visual." in n or n.startswith("visual.")]
+    for _n, _p in model.named_parameters():
+        if _n in set(_vit_names):
+            _p.requires_grad_(False)
+    logger.info_rank0(f"[freeze_vit] 已冻结视觉塔参数 {len(_vit_names)} 个张量 / {_n_frozen/1e6:.1f} M 参数")
+    for _m in model.modules():                    # 视觉模块放 eval（BN/dropout 语义）
+        if type(_m).__name__.endswith(("VisionModel", "VisionTransformerPretrainedModel")):
+            _m.eval()
+```
+**验证点**：日志里出现 `[freeze_vit] 已冻结视觉塔参数 N 个张量 / M M 参数` ✓
+（⚠️ AutoDL 时代的配置**从未打开过 `train.freeze_vit`**，所以这个隐藏 bug 一直没暴露；
+AutoDL 上"仅冻 ViT"是由**另一条路径**实现的 —— 那条路径与 `freeze_vision_encoder` 相关，两边的语义要分清）
+
+### 13.3 AMD 上实测的训练配方与数字（micro 扫描）
+| micro | GAS | 卡数 | **GBS** | s/step | 样本/s | 每卡峰值 | 结论 |
+|---|---|---|---|---|---|---|---|
+| 12 | 1 | 8 | 96 | **9.4–9.8** | **≈10.0** | **36.9 GiB / 48 GiB** | ✅ 稳定（已跑完 20 步）|
+| 16 | 1 | 8 | 128 | — | — | — | 待测 |
+| 24 | 1 | 8 | 192 | — | — | — | 测试中（预计接近/超过 48 GiB）|
+
+**固定 GBS 96 的换算**（`GBS = micro × GAS × 卡数`）：micro 16 ⇒ **6 卡**；micro 24 ⇒ **4 卡**（余卡可留给评测）。
+
+### 13.4 分支与同步
+* 工作分支：**`feature/rocm-adapt`**（基线 `feature/auto-learning-v1`），已推送 GitHub：
+  `https://github.com/YonG00/lingbot_vla_2/tree/feature/rocm-adapt`
+* 服务器侧同步（约定：`fetch` + `reset --hard`，先确认当前分支）：
+  ```bash
+  cd /workspace/lingbot_vla_2 && git branch --show-current && \
+    git fetch -q origin && git reset --hard origin/feature/rocm-adapt
+  ```
+* 本仓库相关工具：`tools/rocm/{fix_aiter_gluon_triton.sh, make_official_scaffold.sh}`、
+  `tools/rescue_before_destroy.sh`、根目录 `watch_amd_gpu.sh`
