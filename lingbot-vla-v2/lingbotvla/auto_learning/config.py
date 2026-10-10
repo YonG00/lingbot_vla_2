@@ -131,6 +131,11 @@ class AutoLearningConfig:
 
     # ----- hardness -----
     hardness_probe_fraction: float = 0.10
+    #: 🔴 2026-10-10：单条轨迹的**帧数上限**。超过则用 `np.linspace(0, n-1, k)` 均匀抽样压到
+    #: ≤ 该值（保序、含首尾）。动机：实测不同任务的扫描量差异极大——`place_dual_shoes` 抽到
+    #: 259 个样本，而 `shake_bottle_horizontally` 抽到 **1315** 个（每样本 ~5 s ⇒ 单任务 ETA ~115 分钟）。
+    #: 设为 `0` 或负数 ⇒ 关闭压缩（保持旧行为）。
+    hardness_max_frames_per_traj: int = 300
     hardness_weight_min: float = 1.0
     hardness_weight_max: float = 3.0
     hardness_alpha: float = 2.0
@@ -222,6 +227,10 @@ class AutoLearningConfig:
             raise ValueError("target_total_passed_tasks must be a positive integer or None")
         if not 0.0 < self.hardness_probe_fraction <= 1.0:
             raise ValueError("hardness_probe_fraction must be in (0, 1]")
+        # 0 / 负数 ⇒ 关闭压缩；其余必须 ≥ 2（1 帧的轨迹没有意义）
+        if self.hardness_max_frames_per_traj is not None \
+                and 0 < self.hardness_max_frames_per_traj < 2:
+            raise ValueError("hardness_max_frames_per_traj must be 0 (disabled) or >= 2")
         if self.replay_task_policy not in ("uniform",):
             raise ValueError(f"unsupported replay_task_policy: {self.replay_task_policy}")
         if self.replay_sample_policy not in ("pass_snapshot", "uniform"):

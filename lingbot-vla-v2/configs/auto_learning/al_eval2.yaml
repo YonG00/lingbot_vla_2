@@ -98,6 +98,9 @@ new_ratio: 0.7                 # 0.7 NEW / 0.3 Replay，空 PASS 池时全部为
 #: 计权重（本配置 0.5），所以调小它会让采样权重分布更"平"。
 #: 2026-10-10 用户定：0.10 → 0.05（扫描帧数减半）。它**不在 scout 缓存指纹内**，不会让既有缓存失效。
 hardness_probe_fraction: 0.05
+# 单条轨迹帧数上限：超过则 np.linspace(0, n-1, cap) 均匀压缩（含首尾、保序）。
+# 0 或负数 ⇒ 关闭压缩。实测动机：不同任务扫描量 259 vs 1315 样本。
+hardness_max_frames_per_traj: 300
 hardness_weight_min: 1.0
 hardness_weight_max: 3.0
 hardness_alpha: 2.0

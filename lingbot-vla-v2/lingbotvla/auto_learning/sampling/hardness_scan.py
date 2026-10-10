@@ -14,12 +14,29 @@ from __future__ import annotations
 import math
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence
 
 from ..config import AutoLearningConfig
 from ..decision.metrics import difficulty_to_weight, normalize_weights, percentile_rank
 from ..ports import HardnessScorer, TaskEntry
 from ..state.registry import TaskRecord
+
+
+def uniform_cap_frames(samples: Sequence[int], cap: int) -> List[int]:
+    """按 `np.linspace(0, n-1, k)` **均匀抽样**把一条轨迹的帧压到 ≤ `cap`。
+
+    用户 2026-10-10 定：`if n > cap: idx = np.linspace(0, n - 1, cap).astype(int)`。
+    ⇒ 保序、含首尾、等间隔；`cap` 为 0/负数或 `n <= cap` 时**原样返回**（不复制）。
+
+    ⚠️ 抽样**改变难度分数**（扫的帧变了）——这是需求本身的取舍，不是 bug。
+    """
+    k = int(cap)
+    if k <= 0 or len(samples) <= k:
+        return list(samples)
+    import numpy as np  # 局部导入：本模块其余部分是纯逻辑，不必强依赖 numpy
+
+    idx = np.linspace(0, len(samples) - 1, k).astype(int)
+    return [int(samples[i]) for i in idx]
 
 
 @dataclass
@@ -121,12 +138,23 @@ class HardnessScanner:
         chosen = self.probe_traj_ids(record)
 
         scanned_ids: List[int] = []
+        # 🔴 帧数上限（2026-10-10 用户定）：轨迹帧数 > `hardness_max_frames_per_traj` 时，
+        #    用 `np.linspace(0, n-1, cap)` 均匀抽样压到 ≤ cap（保序、含首尾）。
+        #    动机：任务间扫描量差异极大（259 vs 1315 个样本 ⇒ 最慢单任务 ETA ~115 分钟）。
+        _cap = int(getattr(cfg, 'hardness_max_frames_per_traj', 0) or 0)
+        _frames_before = 0
+        _capped_trajs = 0
         for t in chosen:
-            scanned_ids.extend(entry.samples_by_traj.get(t, []))
+            _frames = list(entry.samples_by_traj.get(t, []))
+            _frames_before += len(_frames)
+            if _cap > 0 and len(_frames) > _cap:
+                _capped_trajs += 1
+            scanned_ids.extend(uniform_cap_frames(_frames, _cap))
         if not scanned_ids:
             raise RuntimeError(
                 f"任务 {record.task_name} 的扫描子集为空（检查 TaskEntry.samples_by_traj）"
             )
+        _frames_after = len(scanned_ids)
 
         # 🔴 外层可见性（2026-10-10 加）：`scan()` 是 `Scheduler._select()` 里最贵的一步，
         #    而它自身（抽样比例、帧数、总时长）此前**完全没有日志**，只有内层 scorer 会打点。
@@ -145,7 +173,9 @@ class HardnessScanner:
         _say(f'[hardness] 扫描开始：task={record.task_name} '
              f'轨迹 {len(chosen)}/{len(record.train_traj_ids)} 条'
              f'（fraction={cfg.hardness_probe_fraction}）'
-             f' ⇒ 待打分样本 {len(scanned_ids)}/该任务 {len(record.sample_ids)} 帧')
+             f' ⇒ 待打分样本 {len(scanned_ids)}/该任务 {len(record.sample_ids)} 帧'
+             + (f'（帧数上限 {_cap}：{_capped_trajs} 条轨迹被均匀压缩，'
+                f'{_frames_before} → {_frames_after} 帧）' if _cap > 0 and _capped_trajs else ''))
 
         scored = self.scorer.score(record.task_name, scanned_ids)
         losses = {int(s): float(v) for s, v in scored.items()}
