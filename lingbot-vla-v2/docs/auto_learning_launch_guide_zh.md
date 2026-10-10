@@ -10,13 +10,72 @@
 **缓存齐了就直接开训（秒级）；缺哪几个就只并行扫哪几个；显式要求才全量重扫；覆盖不完整时
 不启动训练，并以非零退出码点名缺失任务。**
 
-它把今天手工做的三件事固化成一条命令：
+它把手工做的三件事固化成一条命令：
 
-1. 算当前代码/权重/数据的**指纹**（= scout 缓存目录名）；
-2. 按指纹检查缓存覆盖，**只并行补齐缺失的任务**；
-3. 覆盖确实完整（以指纹目录里的条目数为准）之后，才后台启动正式训练。
+1. 读**显式指定的缓存文件**（scout 缓存；`--scout-cache-file`），按其中的记录检查覆盖；
+2. **只并行补齐缺失的任务**，把结果写回同一份文件；
+3. 覆盖确实完整（以该文件内的记录数为准）之后，才后台启动正式训练。
+
+> 🔴 **2026-10-10 起缓存不用指纹寻址**：以前是"算指纹 → 用指纹命名缓存目录"，改代码就会
+> 换目录 ⇒ 缓存全失效（实测一次改动导致 7 个任务重扫、单次扫描 208 秒）。现在改成
+> **显式文件 + 模型名**：文件路径由 `--scout-cache-file` / `--hardness-cache-file` 指定，
+> 缓存有效性只由 **`--model-name`** 决定（换模型才失效，改代码不失效）。
+> 指纹仍可算，但**默认不计算**（`--compute-fingerprint` 才开）——计算它要读 11.9 GiB 权重分片。
 
 ---
+
+## 0.1 跑通训练的最小启动清单（2026-10-10 实测）
+
+这套组合**已实测连续跑过 34+ 步**（`al_v34`，loss 正常下降，零 OOM/零崩溃）：
+
+```bash
+# 0) 先确认没有残留训练进程（否则 launcher 会以退出码 2 拒绝启动，这是自锁保护）
+ps -eo args | grep "[t]rain_lingbotvla.py /workspace"     # 必须为空
+
+# 1) 起训练（7 卡；GPU[4] 是坏卡必须排除）
+/opt/robotwin-env/bin/python -u experiment/robotwin/al_launch.py \
+  --run-name al_v35 --steps 5000 --micro 5 --gas 1 \
+  --hardness-cache-file /workspace/al/hardness_cache/hardness.json \
+  --scout-cache-file    /workspace/al/scout_cache/scout.json \
+  --model-name          robbyant_lingbot-vla-v2-6b-bf16 \
+  --triton-cache        /models/robotwin-persistent/al_cache/triton \
+  --torchinductor-cache /models/robotwin-persistent/al_cache/torchinductor \
+  --env CUDA_VISIBLE_DEVICES=0,1,2,3,5,6,7 \
+  --env HIP_VISIBLE_DEVICES=0,1,2,3,5,6,7
+```
+
+**四条前置条件（缺一不可）**：
+
+| # | 条件 | 为什么 |
+|---|---|---|
+| 1 | `configs/rocm/robotwin_official_paths_rocm.yaml` 里 **`train.use_compile: false`** | 开编译在本机三连坑：flex 反向 kernel 崩溃、多 rank 共享缓存死锁、**图断裂导致 7 rank 集合通信错序 ⇒ 首步永久卡死**（GPU 0%、CPU 空转、日志静默）。官方 recipe 本来也是 `false` |
+| 2 | `--model-name` 与缓存文件里的 `model` 字段**一致** | 不一致 ⇒ 缓存全部判为未命中（会真扫一遍） |
+| 3 | 排除坏卡：`CUDA_VISIBLE_DEVICES=0,1,2,3,5,6,7` | GPU[4] 不可用；用 7 张卡 |
+| 4 | 运行前无残留训练进程 | launcher 自锁（退出码 2），避免两个 run 抢卡 |
+
+**实测基线（可用来判断"是否正常"）**：
+
+| 指标 | 实测值 | 说明 |
+|---|---|---|
+| 首步耗时 | **~150 s** | 含模型加载 + 首次前向/反向 + FSDP 初始化，**正常** |
+| 稳态 s/it | **11.0–11.9 s** | micro 5 / gas 1 / GBS 35 |
+| 5000 步外推 | **约 15 小时** | 按 11 s/it |
+| 峰值显存 | **48,956 MiB / 每卡 49,121 MiB**（99.7%） | 余量很薄但稳定；**降 micro 省不下显存**（大头是参数+优化器状态+对齐模型等与 batch 无关的占用） |
+| scout 缓存 | 50/50 命中，启动仅 ~1.5 分钟 | — |
+| hardness 缓存 | 命中时 **4.2–4.7 s**（首扫 208.5 s，**约 44×**） | 日志出现 `本次新增 0` 即证明未重算 |
+| 指纹计算 | 默认跳过（省 12 GiB 权重哈希 / 每轮 1–3 分钟） | 加 `--compute-fingerprint` 才计算 |
+
+**哪些日志行说明"一切正常"**：
+
+```text
+[hardness_cache] 启用：file=…/hardness.json  model=robbyant_lingbot-vla-v2-6b-bf16   ← 缓存已挂载
+[hardness] 扫描完成：task=… 259/259 用时 4.2s | loss 均值 …                          ← 命中（秒级）
+=====Using SDPA Attn=====                        ← VLM 主干走 SDPA（7 处；动作专家另有 21 处 Eager，正常）
+Step: 1/5000 … Loss 0.4367                       ← 首步成功（此前的卡点就在这一步）
+```
+
+---
+
 
 ## 1. 快速开始（三条命令）
 
@@ -27,7 +86,7 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
 /opt/robotwin-env/bin/python experiment/robotwin/al_launch.py
 
 # ② 忽略现有缓存：全量并行扫描 50 个任务，扫完再启动训练
-#    （旧指纹目录会被改名备份成 <指纹>.bak-<时间戳>，不删除）
+#    （旧缓存文件会被改名备份成 scout.json.bak-<时间戳>，不删除）
 /opt/robotwin-env/bin/python experiment/robotwin/al_launch.py --no-cache
 
 # ③ 预演：只打印步骤计划与将用到的环境变量，不启动任何进程（无 GPU 也能跑）
@@ -47,13 +106,13 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
 
 ```text
 [plan] 运行模式：incremental
-[cache] 该目录下 4 个条目文件；覆盖 4/6 个任务
+[cache] 该缓存文件内 4 条记录；覆盖 4/6 个任务
 [plan] 待扫 2 个任务 ⇒ 2 片：片0=1, 片1=1
 [plan] 分片并集校验：通过（无重复、无遗漏，合计 2 = 全集 2）
 [ready] T+30s：进程存活 2/2；已就绪 2/2（就绪数与各分片任务数相符）
-[progress] T+3m20s | 片0(gpu0) 1/1 | 片1(gpu1) 1/1 | 合计 50/50（指纹目录内）
+[progress] T+3m20s | 片0(gpu0) 1/1 | 片1(gpu1) 1/1 | 合计 50/50（缓存文件内）
 范围覆盖      : 2/2
-全集覆盖      : 50/50（该目录内 50 个条目文件）
+全集覆盖      : 50/50（该缓存文件内 50 条记录）
 缺失清单      : 无
 结论：覆盖完整（50/50）⇒ 启动训练。
 ```
@@ -61,7 +120,7 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
 覆盖不完整时（**绝不打印假的 50/50**）：
 
 ```text
-全集覆盖      : 44/50（该目录内 44 个条目文件）
+全集覆盖      : 44/50（该缓存文件内 44 条记录）
 缺失任务（6 个）：move_can_pot, place_a2b_left, ...
 缺失任务所属分片：move_can_pot→片3, place_a2b_left→片5, ...
 结论：覆盖不完整 ⇒ 不启动训练，请按上面的缺失清单补齐后重跑（本工具不会伪造覆盖数）。
@@ -76,23 +135,27 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
 
 | 参数 | 默认值 | 含义 | 什么时候需要改 |
 |---|---|---|---|
-| `--no-cache` | 关 | 忽略现有缓存，**全量并行扫描**后再训练 | 改了被指纹纳入的代码/数据，且想强制重扫时 |
+| `--no-cache` | 关 | 忽略现有缓存，**全量并行扫描**后再训练（旧缓存文件改名备份为 `.bak-<时间戳>`，不删除） | 想强制重扫时（例如怀疑缓存内容不对） |
 | `--dry-run` | 关 | 只打印步骤计划与环境变量，不启动任何进程 | 上机器前先核对路径/配置；排障 |
 | `--json` | 关 | stdout 只输出 JSON（人话日志走日志文件与 stderr） | 被别的脚本调用、要机器可读结果时 |
-| `--selfcheck` | 关 | 与仓库 `scout_cache.py` 逐项对拍指纹实现 | 每次升级本脚本/改动指纹相关代码后自检 |
+| `--selfcheck` | 关 | 与仓库 `scout_cache.py` 逐项对拍缓存实现 | 每次升级本脚本/改动缓存相关代码后自检 |
 | `--gpus` | `0,1,2,3,5,6,7` | 可用卡（逗号分隔）；会同时显式导出 `CUDA_VISIBLE_DEVICES` 与 `HIP_VISIBLE_DEVICES` | 换机器、换可用卡时。**4 号卡已挂死**，除非确认换机，否则别把它加回来 |
 | `--eval-config` | `configs/auto_learning/al_eval2.yaml` | AL 配置（相对仓库根） | 默认文件不存在，或想换配方（如 `al_50task_gmean100_rocm.yaml`）时 |
 | `--steps` | `200` | 训练 `MAX_STEPS` | 换训练预算时（正式长跑一般给很大的值） |
-| `--micro` / `--gas` | `12` / `1` | 传给启动脚本的 `MICRO` / `GAS`；脚本自算 `GBS = MICRO*GAS*N_GPU` | 显存不够或要改全局批大小时。**AL 要求 `micro*gas == AL 配置的 batch_size`**，否则启动即报错 |
-| `--cache-root` | `/workspace/al/scout_cache` | scout 缓存根目录（子目录名就是指纹） | 缓存换盘/换位置时 |
-| `--fingerprint` | 空 | 显式 64 位指纹，**跳过指纹计算** | 已经知道要复用哪份缓存；或机器上算指纹太慢时 |
+| `--micro` / `--gas` | 拉起训练时的实测值 **`5` / `1`**（GBS 35） | 传给启动脚本的 `MICRO` / `GAS`；脚本自算 `GBS = MICRO*GAS*N_GPU` | 显存不够或要改全局批大小时。**AL 要求 `micro*gas == AL 配置的 batch_size`**，否则启动即报错。⚠️ 本机把 micro 从 12 一路降到 5 的实测经验：**降 micro 几乎省不下显存**（峰值 49.1→48.9 GiB），省下的主要是每步时间（14.1→11.0 s/it） |
+| `--scout-cache-file` | `/workspace/al/scout_cache/scout.json` | **scout 缓存文件**（单文件，含 `model` 字段） | 缓存换盘/换位置时 |
+| `--hardness-cache-file` | `/workspace/al/hardness_cache/hardness.json` | **hardness（样本难度）缓存文件** | 同上 |
+| `--model-name` | 取权重目录名 | **缓存有效性判据**：与缓存文件里的 `model` 逐字比较，不一致即全部未命中 | 换模型时；或想手工指定一个稳定标识时 |
+| `--cache-root` | 空（兼容保留） | 旧参数：等价于 `<目录>/scout.json` | 只有沿用旧命令时才需要 |
+| `--fingerprint` | 空 | (已弃用) 显式 64 位指纹；**不再用于缓存寻址**，仅作记录 | 需要复现某次运行的记录时 |
+| `--compute-fingerprint` | 关 | 计算并打印 provenance 指纹 | 默认关闭：计算要读 11.9 GiB 权重分片（每轮多花 1–3 分钟），而它已不参与寻址 |
 
 ### 2.2 路径类
 
 | 参数 | 默认值 | 什么时候需要改 |
 |---|---|---|
 | `--repo` | 本脚本的上一级目录 | 一般不用改（脚本自定位仓库根） |
-| `--python` | `/opt/robotwin-env/bin/python` | 训练环境解释器换位置时。**建议直接用这个解释器启动本脚本**，否则本脚本会自动改用该解释器做一次子进程指纹计算 |
+| `--python` | `/opt/robotwin-env/bin/python` | 训练环境解释器换位置时。**建议直接用这个解释器启动本脚本** |
 | `--launch-script` | `experiment/robotwin/al_50task_bf16.sh` | 换训练入口脚本时 |
 | `--train-config` | `configs/rocm/robotwin_official_paths_rocm.yaml` | 换机器路径配置（`CONFIG` 变量）时 |
 | `--checkpoint` | `/workspace/models/robbyant_lingbot-vla-v2-6b-bf16` | 换初始权重时。它同时是 `MODEL_PATH` 与 `AL_SCOUT_CACHE_CHECKPOINT` |
@@ -119,8 +182,8 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
 | `--triton-cache` | `/workspace/runtime/triton` | 编译缓存换盘时（多 worker 共用，第一个编译、其余命中） |
 | `--torchinductor-cache` | `/workspace/runtime/torchinductor` | 同上 |
 | `--dtype` | `bfloat16` | 权重精度变了才改（必须与 checkpoint 参数 dtype 一致，否则运行时 `Scout cache dtype mismatch`） |
-| `--scout-trajs` | 取 AL 配置的 `global_scout_val_trajs`（一般 2） | 只想改 scout 回合数时（**会改变指纹**） |
-| `--image-augment` | 关（= `false`） | 一般别开：启动脚本固定 `--data.image_augment false`，开了就会与缓存指纹不一致 |
+| `--scout-trajs` | 取 AL 配置的 `global_scout_val_trajs`（一般 2） | 只想改 scout 回合数时（回合集合变了 ⇒ 旧的 scout 记录**不会命中**，会重扫） |
+| `--image-augment` | 关（= `false`） | 一般别开：启动脚本固定 `--data.image_augment false`；Auto Learning 要求 `false`（开了会 fail-fast） |
 | `--tb-port` / `--no-tb` | `6006` / 关 | TensorBoard 端口冲突时改端口，或直接 `--no-tb` 关掉 |
 | `--workers` | `min(可用卡数, 待扫任务数)` | 想少占几张卡时（例如留一张卡给别人） |
 | `--worker-max-steps` | `1` | 一般别改（扫完 bootstrap 就退出，1 步够） |
@@ -147,32 +210,39 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
 
 ## 3. 它是怎么工作的
 
-### 3.1 缓存目录名就是指纹
+### 3.1 缓存是一份**显式指定的文件**（2026-10-10 起）
 
 ```text
-/workspace/al/scout_cache/
-├── 3c8b15e2…（64 位）/      ← 一个指纹 = 一份「权重 + 评测链源码 + 数据/配置 + 评测选项」的联合快照
-│   ├── <scout_key>.json      ← 一个条目 = 一个任务在固定 scout 回合上的评测结果
-│   └── …
-└── cd5f5c0f…（64 位）/
+/workspace/al/scout_cache/scout.json          ← 由 --scout-cache-file 指定（旧 --cache-root 仍兼容）
+{
+  "version": 2,
+  "model": "robbyant_lingbot-vla-v2-6b-bf16", ← **缓存有效性只由它决定**
+  "records": {
+    "<scout_key>": {"task": …, "episode_ids": […], "metrics": {…}}
+  }
+}
 ```
 
-* 条目文件名 `scout_key(task, episode_ids) = sha256(json([task, ids]))`；条目内容含
-  `{version, fingerprint, task, episode_ids, metrics}`。
-* 只有 rank0 写缓存（多卡并发写会撕裂）；读不受影响。
-* **不存在的指纹目录会被创建**（等效「空缓存 + 全量重扫并写进去」）。
+* 记录键 `scout_key(task, episode_ids) = sha256(json([task, ids]))`；值含
+  `task / episode_ids / metrics`。
+* **模型名不符 ⇒ 整份缓存判为未命中**（`last_miss_reason='model_mismatch'`，日志会点名），
+  会真扫一遍并重建；**改代码不会**让缓存失效（这是本次改造的核心目的）。
+* 多进程安全：只有 rank0 写；写入用「先重读再合并 + 原子替换」，不会覆盖别人的记录。
+* 文件不存在 ⇒ 等效「空缓存 + 全量重扫并写进去」。
+* 单个文件上限 64 MiB、单条记录 1 MB；坏 JSON / schema 不符 ⇒ 视为未命中并重建（不抛异常）。
 
-### 3.2 指纹由什么决定
+### 3.2 缓存有效性由什么决定
 
-| 类别 | 具体内容 |
+| 决定项 | 具体内容 |
 |---|---|
-| 权重 | checkpoint 目录下所有 `*.safetensors` 的**内容** SHA256（不是文件名/mtime） |
-| 评测链源码 | 12 个必查文件：`open_loop_validation.py`、`modeling_lingbot_vla_v2.py`、`transform.py`、`dataset.py`、`multi_vla_dataset.py`、`base_dataset.py`、`utils.py`、`eval_precision.py`、`evaluator.py`、`gmean.py`、`scan_accel.py`、`eval_batch_policy.py`；另有 2 个可选文件（`ee_pose_transform.py`、`video_utils.py`）存在时一并纳入。`.py` 用 **AST 语义 hash**：改注释/空行/docstring 不失效，改逻辑必失效 |
-| 数据/配置 | `manifest.json`、norm stats、阈值表、`task_baseline.json`、checkpoint 的 `config.json` / `tokenizer.json` |
-| 评测选项 | `inference_dtype`、`noise_seed=1234`、`scout_trajs`、`stride=per_episode`、`image_augment=false` |
+| **模型身份** | `--model-name`（缺省取权重目录名）。与文件里的 `model` 字段**逐字比较**，不一致即全部未命中 |
+| schema 版本 | 文件里的 `version` 必须等于 `scout_cache.VERSION`（launcher 里有一份**副本常量**，两端必须同步，测试会拦住漂移） |
+| 单条记录自洽性 | `metrics.mse == mean(per_traj_mse)`、`nmse == mse/baseline_mse`、`metric_valid`、回合集合与键一致 |
 
-**刻意不纳入指纹**：AL 配置文件本身（这样 7 份分片配置与正式 run 的主配置共享同一个指纹）、
-以及启动脚本里的 `MAX_STEPS` / `N_GPU` 之类的运行参数。
+**已废弃/不再参与寻址**：旧的"指纹目录"方式（`AL_SCOUT_CACHE_FINGERPRINT`、按 `*.safetensors`
+内容 + 12 个评测链源码 AST 哈希命名目录）。指纹仍可计算（`--compute-fingerprint`），
+但**默认跳过**且只作记录用途 —— 它要读 11.9 GiB 权重分片，实测每轮多花 1–3 分钟。
+
 
 ### 3.3 并行扫描为什么比进程内 bootstrap 快
 
@@ -185,7 +255,7 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
   任务全集按 tasks[i::N] 切成 N 片（N = 可用卡数）
   每片起一个独立单卡进程：CUDA_VISIBLE_DEVICES=<单卡> / HIP_VISIBLE_DEVICES=<单卡> / N_GPU=1
                             MAX_STEPS=1 / AL_CFG=<该片的 task_names 分片配置>
-                            AL_SCOUT_CACHE_FINGERPRINT=<当前指纹>（各 worker 与正式 run 必然指向同一个目录）
+                            AL_SCOUT_CACHE_FILE=<scout.json>（各 worker 与正式 run 必然写同一份文件）
   50 个任务 ≈ 5 分钟；进程之间没有集合通信，天然失败隔离
 ```
 
@@ -195,6 +265,10 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
   整轮拖死；再跑一次只会补那几个缺失任务。
 * **编译缓存共用**：`TORCHINDUCTOR_CACHE_DIR` / `TRITON_CACHE_DIR` 指向同一个目录，
   第一个 worker 编译，其余命中缓存。
+  ⚠️ **但训练本体不能共用**：7 个 rank 共享同一个编译缓存目录时，实测 231 个 Inductor
+  编译 worker 会烧 ~8 个 CPU 核却**零产物**、首步永久冻结（GPU 0%、日志静默）。
+  ⇒ 训练侧已由 `tasks/vla/train_lingbotvla.py` 的 `_al_per_rank_compile_cache()` 自动加
+  `…/rank<N>` 子目录；`AL_SHARED_COMPILE_CACHE=1` 可还原旧行为（仅排障用）。
 
 ### 3.4 一次运行里的 15 步（与日志一一对应）
 
@@ -206,24 +280,24 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
 | 4 任务全集 | `N 个任务（来源 manifest）；每任务 scout 2 条 val 回合` |
 | 5 并发占用检查 | 发现别的 `train_lingbotvla.py` / `al_launch.py` 就拒绝（除非 `--allow-busy`） |
 | 6 运行环境 | `TMPDIR=…`；TMPDIR 是 `/tmp` 直接拒绝 |
-| 7 指纹 | `[fingerprint] <64 位>`；`--fingerprint` 时跳过计算 |
+| 7 缓存挂载 | `[cache] 文件 <scout.json>；该缓存文件内 N 条记录；覆盖 M/50 个任务`；`[fingerprint] 跳过计算`（默认） |
 | 8 覆盖检查 | `[cache] … 覆盖 47/50 个任务` ⇒ 决定 `reuse` / `incremental` / `full-scan` |
 | 9 分片规划 | `[plan] 待扫 3 个任务 ⇒ 3 片：片0=1, 片1=1, 片2=1` + **并集校验通过** |
 | 10 环境变量 | 把 worker 模板与训练要用到的**全部**环境变量逐行打印 |
 | 11 启动 worker | `[scan] 片0 GPU0：1 任务；pid=…；日志 …`（每片一行） |
 | 12 就绪检查 | `[ready] T+30s：进程存活 7/7；已就绪 7/7` |
-| 13 逐分片进度 | `[progress] T+3m20s | 片0(gpu0) 7/7 | … | 合计 47/50（指纹目录内）` |
+| 13 逐分片进度 | `[progress] T+3m20s | 片0(gpu0) 7/7 | … | 合计 47/50（缓存文件内）` |
 | 14 收尾统计 | `范围覆盖` / `全集覆盖` / `缺失清单` |
 | 15 启动训练 | `日志 / PID / 进程数 / 输出 / 配置` |
 
 ### 3.5 「覆盖」的判定口径
 
-一个任务算「已覆盖」，当且仅当指纹目录里存在它的条目文件，且该条目会被
-`BootstrapScoutCache.load()` **真的当成命中**返回：schema 版本、指纹、任务名、回合集合、
+一个任务算「已覆盖」，当且仅当缓存文件里存在它的记录，且该记录会被
+`BootstrapScoutCache.load()` **真的当成命中**返回：schema 版本、**模型名**、任务名、回合集合、
 逐轨迹 MSE 与 `nmse == mse/baseline` 的自洽关系、`metric_valid=true`、`gmean_mse` 有限，
 全部核对通过。
 
-因此「覆盖 50/50」是可以放心直接开训的；反之，坏条目、旧指纹条目、回合集合不同的条目
+因此「覆盖 50/50」是可以放心直接开训的；反之，坏记录、模型名不符的记录、回合集合不同的记录
 都会算作**缺失**，由 worker 真评测补上。
 
 ---
@@ -243,31 +317,41 @@ worker 则导出单张卡的编号。要换卡请改 `--gpus`，不要靠脚本�
 莫名其妙失败。本工具默认 `--tmpdir /models/robotwin-persistent/tmp/al_launch`，
 **发现 TMPDIR 落在 `/tmp`（含 `/var/tmp`）会直接拒绝启动**（`--dry-run` 时只给警告，方便你在别的机器上预演）。
 
-### 4.3 缓存目录名就是指纹；改代码会让缓存失效
+### 4.3 缓存什么时候会失效？（改代码**不会**）
 
-```bash
-ls -d /workspace/al/scout_cache/*/          # 每个目录名就是一个完整指纹
-```
+**只有两个原因会让 scout 缓存失效**：
 
-改了 §3.2 里任何一个文件（例如 `open_loop_validation.py` 加了一行逻辑），指纹就变了，
-旧目录**不会再被读到**：默认模式会自己发现「新指纹目录 0/50」并并行重扫（约 5 分钟），
-不需要你手工删任何东西。改注释/空行/docstring 不会让缓存失效。
+| 原因 | 表现 | 处置 |
+|---|---|---|
+| **换了模型**（`--model-name` 与文件里的 `model` 不一致） | 日志点名 `model_mismatch`，覆盖显示 `0/50` ⇒ 真扫一遍并重建 | 确认模型名写对；若确实换了模型，让它重扫（或把结果写进新文件） |
+| 文件坏 / schema 不符 / 版本不符 | 视为未命中并重建（**不抛异常**） | 无需处理，重扫后自动恢复 |
+
+**改代码 / 改注释 / 改 AL 配置都不会让缓存失效**（这是 2026-10-10 改造的核心目的：
+此前按指纹寻址，改一个文件就导致 7 个任务重扫、单次扫描 208 秒）。
+
+> ⚠️ 一条真机踩过的坑：launcher 里**复制**了 `scout_cache.py` 的两个常量
+> （`VERSION`、`MAX_JSON_BYTES`）。若只改源文件不改副本，会出现"缓存文件明明有效、
+> launcher 却报 0/50、以退出码 3 拒绝启动"（实测 `version=2 != 1`）。
+> 已有测试 `test_cache_constants_match_scout_cache` 守住，改常量时两边一起改。
 
 ### 4.4 如何「只看不动」地检查缓存覆盖情况
 
 ```bash
 cd /workspace/lingbot_vla_2/lingbot-vla-v2
 
-# ① 看有哪些指纹目录（目录名就是完整指纹，前 8 位够认人）
-ls -d /workspace/al/scout_cache/*/
+# ① 直接看缓存文件里有多少条记录、属于哪个模型
+python3 -c "
+import json; d=json.load(open('/workspace/al/scout_cache/scout.json'))
+print('model =', d.get('model'), '| version =', d.get('version'), '| records =', len(d.get('records') or {}))"
 
-# ② 只读检查某个指纹的覆盖情况：--dry-run + --fingerprint，不启动任何进程、不写任何文件
+# ② 只读检查覆盖：--dry-run 不启动任何进程、不写任何文件（无 GPU 也能跑）
 /opt/robotwin-env/bin/python experiment/robotwin/al_launch.py --dry-run \
-  --fingerprint <64 位指纹>
+  --scout-cache-file /workspace/al/scout_cache/scout.json \
+  --model-name robbyant_lingbot-vla-v2-6b-bf16
 # 输出：
-#   [cache] 该目录下 47 个条目文件；覆盖 47/50 个任务
-#   [plan] 运行模式：incremental
-#   [plan] 待扫 3 个任务 ⇒ 3 片：片0=1, 片1=1, 片2=1
+#   [cache] 该缓存文件内 50 条记录；覆盖 50/50 个任务
+#   [plan] 运行模式：reuse
+#   [plan] 覆盖完整 ⇒ 直接启动训练，不扫描
 ```
 
 `--dry-run` 不建目录、不写文件、不起进程，在没有 GPU 的机器上也能跑。
@@ -361,7 +445,7 @@ tr '\0' '\n' < /proc/<pid>/cmdline | head -3
 |---|---|
 | `0` | 成功（dry-run 完成，或训练已后台启动） |
 | `2` | 前置检查失败（参数/路径/AL 配置/机器被占用） |
-| `3` | **扫描未完成**：目标指纹目录里仍有缺失任务（已打印缺失任务名） |
+| `3` | **扫描未完成**：目标缓存文件里仍有缺失任务（已打印缺失任务名） |
 | `4` | worker 未就绪或提前退出（进程数 / 「已就绪：N 任务」不符） |
 | `5` | 扫描超时且覆盖不完整（已精确终止仍在跑的 worker） |
 | `6` | 内部错误（未预期异常） |
@@ -529,4 +613,4 @@ checkpoint 做的端到端 `provenance` 比对。**任何一项不一致都会�
 4. **本脚本用训练环境解释器算指纹**。若你用别的 Python 启动它，而两者
    `ast.dump` 行为不同（大版本差异），脚本会**自动改用 `--python` 指到的解释器**做一次
    子进程指纹计算，并在日志里注明来源（`[fingerprint] 来源=subprocess(…)`）。
-5. **`--no-cache` 不删数据**：旧指纹目录只是改名成 `<指纹>.bak-<时间戳>`，确认无误后可自行删除。
+5. **`--no-cache` 不删数据**：旧缓存文件只是改名成 `scout.json.bak-<时间戳>`，确认无误后可自行删除。

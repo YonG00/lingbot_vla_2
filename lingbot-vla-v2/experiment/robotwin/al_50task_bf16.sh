@@ -31,14 +31,44 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+# ---- 路径自适应（2026-10-10）---------------------------------------------------
+# 本脚本原为 AutoDL 机型写死（`/data/models`、`/data/train`、miniconda python），换到当前
+# ROCm 机型（`/workspace`、`/models/robotwin-persistent`、`/opt/robotwin-env`）会直接
+# `No such file or directory`（实测退出码 127）。
+# ⇒ 若 AutoDL 路径不存在，就自动改用本机实测的真实路径。
+# 由 `al_launch.py` 拉起时这些变量都已由环境传入（`${VAR:-…}` 直接取环境值），本段不会生效。
+_adapt_py()   { for c in "$@"; do [ -x "$c" ] && { echo "$c"; return; }; done; echo "$1"; }
+_adapt_dir()  { for c in "$@"; do [ -e "$c" ] && { echo "$c"; return; }; done; echo "$1"; }
+if [ ! -e /data/miniconda3/envs/lingbotvla/bin/python ]; then
+    : "${PY:=$(_adapt_py /opt/robotwin-env/bin/python /data/miniconda3/envs/lingbotvla/bin/python)}"
+    : "${SPLIT_DIR:=$(_adapt_dir /workspace/al/task_splits_50 /data/train/task_splits_50)}"
+    : "${PHASES:=$(_adapt_dir /workspace/al/phases_al /data/train/phases)}"
+    : "${MODEL_PATH:=$(_adapt_dir /workspace/models/robbyant_lingbot-vla-v2-6b-bf16 \
+                                    /data/models/lingbot-vla-v2-6b-base/lingbot-vla-v2-6b)}"
+    : "${CONFIG:=$(_adapt_dir "$REPO/configs/rocm/robotwin_official_paths_rocm.yaml" \
+                               /data/train/configs/robotwin_official_paths.yaml)}"
+    : "${QWEN3VL:=/workspace/models/Qwen3-VL-4B-Instruct-config-tokenizer}"
+    : "${TRAIN_OUT:=/models/robotwin-persistent/al_runs/train_al_manual}"
+    : "${AL_CFG:=$REPO/configs/auto_learning/al_eval2.yaml}"
+    export PY SPLIT_DIR PHASES MODEL_PATH CONFIG QWEN3VL TRAIN_OUT AL_CFG
+fi
+
 # ---- 参数 -------------------------------------------------------------------
 SPLIT_DIR=${SPLIT_DIR:-/data/train/task_splits_50}
 PHASES=${PHASES:-/data/train/phases}
 TRAIN_OUT=${TRAIN_OUT:-/data/outputs/al_50task_bf16}
 AL_CFG=${AL_CFG:-$REPO/configs/auto_learning/formal_50task_4pass.yaml}
 
-MICRO=${MICRO:-1}
-GAS=${GAS:-10}
+# 批大小默认值 = **2026-10-10 真机实测跑通 50 步的配置**（7 卡 / 每卡 48 GiB / BF16 / 关编译）：
+#   micro 5 × gas 1 × 7 卡 = GBS 35   稳态 ~11 s/it（5000 步约 15 小时），峰值显存 ~48.9/49.1 GiB
+# 显存经验（本机型 GPU[4] 是坏卡，实际只用 7 张）：
+#   micro 8  ⇒ 首步后 OOM（峰值 49,092 MiB / 上限 49,121 MiB）
+#   micro 6  ⇒ 峰值 47,938 MiB，能跑但只剩 ~1.2 GiB 余量
+#   micro 5  ⇒ 峰值 48,956 MiB，余量最薄但**实测连续 30+ 步无 OOM**（降 micro 主要省时间，省不下显存，
+#              因为显存大头是参数 + 优化器状态 + 对齐模型等**与 batch 无关**的固定占用）
+# 单卡（N_GPU=1）时 GBS 只有 5，若要保持有效批大小请显式给 GAS，例如 `GAS=7 MICRO=5`（GBS 35）。
+MICRO=${MICRO:-5}
+GAS=${GAS:-1}
 N_GPU=${N_GPU:-1}
 GBS=$(( MICRO * GAS * N_GPU ))
 
