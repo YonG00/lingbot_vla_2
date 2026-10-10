@@ -4,3 +4,7 @@ __pycache__/
 *.bak
 .ipynb_checkpoints/
 .DS_Store
+
+# TB 事件文件（本机运行时产物，不入库）
+runs/
+*.tfevents.*
