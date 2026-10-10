@@ -90,6 +90,8 @@ DEFAULT_EVAL_CONFIG = 'configs/auto_learning/al_eval2.yaml'
 DEFAULT_PYTHON = '/opt/robotwin-env/bin/python'
 
 DEFAULT_CACHE_ROOT = '/workspace/al/scout_cache'
+#: hardness 逐样本缓存根（持久卷：体积小、跨实例重建仍可复用）
+DEFAULT_HARDNESS_CACHE_ROOT = '/workspace/al/hardness_cache'
 DEFAULT_CHECKPOINT = '/workspace/models/robbyant_lingbot-vla-v2-6b-bf16'
 DEFAULT_SPLIT_DIR = '/workspace/al/task_splits_50'
 DEFAULT_PHASES = '/workspace/al/phases_al'
@@ -1008,6 +1010,9 @@ def build_parser() -> argparse.ArgumentParser:
                       help='梯度累积，默认 1（脚本自算 GBS = MICRO*GAS*N_GPU）')
     core.add_argument('--cache-root', default=DEFAULT_CACHE_ROOT,
                       help=f'scout 缓存根目录，默认 {DEFAULT_CACHE_ROOT}')
+    core.add_argument('--hardness-cache', default=DEFAULT_HARDNESS_CACHE_ROOT,
+                        help='hardness 逐样本 loss 的磁盘缓存根（跨 run 复用；'
+                             "留空字符串 '' 可关闭）。默认 " + DEFAULT_HARDNESS_CACHE_ROOT)
     core.add_argument('--fingerprint', default=None,
                       help='显式指定 64 位指纹（跳过计算；必须是完整小写 hex）')
 
@@ -1145,6 +1150,7 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
         'TRITON_CACHE_DIR': str(args.triton_cache),
         'TORCHINDUCTOR_CACHE_DIR': str(args.torchinductor_cache),
         'AL_SCOUT_CACHE_MODE': 'bootstrap',
+        'AL_HARDNESS_CACHE': str(getattr(args, 'hardness_cache', '') or ''),
         'AL_SCOUT_CACHE_ROOT': str(args.cache_root),
         'AL_SCOUT_CACHE_CHECKPOINT': str(checkpoint),
         'AL_SCOUT_CACHE_MANIFEST': str(manifest),
@@ -1795,9 +1801,13 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         else:
             raise LaunchError(message)
     warn_tmp: List[str] = []
-    for label, path in (('TMPDIR', tmpdir), ('TRITON_CACHE_DIR', Path(args.triton_cache)),
-                        ('TORCHINDUCTOR_CACHE_DIR', Path(args.torchinductor_cache)),
-                        ('worker-out-root', Path(args.worker_out_root))):
+    _disk_targets = [('TMPDIR', tmpdir), ('TRITON_CACHE_DIR', Path(args.triton_cache)),
+                     ('TORCHINDUCTOR_CACHE_DIR', Path(args.torchinductor_cache)),
+                     ('worker-out-root', Path(args.worker_out_root))]
+    if getattr(args, 'hardness_cache', ''):
+        # hardness 缓存体积很小（每任务几十 KB），但同规矩检查，避免写满
+        _disk_targets.append(('hardness-cache', Path(args.hardness_cache)))
+    for label, path in _disk_targets:
         free_gb, probe = check_disk(path, args.min_free_gb)
         if free_gb is None:
             warn_tmp.append(f'{label} {path}：{probe}')

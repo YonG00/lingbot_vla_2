@@ -91,12 +91,16 @@ class RealHardnessScorer:
     ``dataset`` 必须是**训练数据集**（与 `sample_id` 同一索引空间）。
     """
 
-    def __init__(self, scorer: Any, dataset: Any, *, max_batch: int = 8, logger: Any = None):
+    def __init__(self, scorer: Any, dataset: Any, *, max_batch: int = 8, logger: Any = None,
+                 cache: Any = None, cache_write: bool = True):
         self.scorer = scorer
         self.dataset = dataset
         # 验收用：fixed 模式下可用 AL_HARDNESS_FIXED_BATCH 覆盖每批样本数（默认仍 8）。
         self.max_batch = int(os.environ.get('AL_HARDNESS_FIXED_BATCH', max_batch))
         self.logger = logger
+        #: 逐样本 loss 的**磁盘缓存**（跨 run 复用；None ⇒ 行为与改造前完全一致）
+        self.cache = cache
+        self._cache_write = bool(cache_write)
         self._aug_warned = False
         self._auto_batch = None
         if os.environ.get('AL_HARDNESS_BATCH_MODE', 'fixed') == 'auto':
@@ -122,6 +126,8 @@ class RealHardnessScorer:
         _hr_phase = getattr(self, '_hr_phase_override', None) or 'main'
         if not ids_all:
             return {}
+        #: 本次**请求**的样本全集（分片/缓存都会改变 `ids`，但日志与统计要对着全集说）
+        ids_requested = list(ids_all)
 
         # ---------------- 多卡按 rank 分片（2026-10-10）----------------
         # 🔴 现状问题：hardness 扫描在**每个 rank 上各算一遍完全相同的全量样本** ⇒
@@ -146,7 +152,34 @@ class RealHardnessScorer:
                 _shard_on = False
         ids = ids_all[_rank::_world] if _shard_on else list(ids_all)
 
-        out: Dict[int, float] = {}
+        # ---------------- 磁盘缓存命中（2026-10-10）----------------
+        # 🔴 分数只依赖「权重 + 逐样本噪声口径 + 数据帧 + 打分代码」（见 hardness_cache 文档），
+        #    而且逐样本 loss 是**批无关**的 ⇒ 已缓存样本可直接复用，只扫缺失的那部分。
+        #    缓存是"全 rank 相同输入、确定性输出"，所以各 rank 各自读、各自合并，
+        #    合并结果天然一致（与 all_gather 汇总后的结果相同），不需要额外通信。
+        #    注意：命中的样本**仍参与本 rank 的 ids 切片**，所以分片与缓存正交。
+        _cached: Dict[int, float] = {}
+        if self.cache is not None:
+            try:
+                _cached, _miss = self.cache.load(task, ids)
+            except Exception as _exc:  # noqa: BLE001 —— 缓存失败绝不打断扫描
+                _cached, _miss = {}, list(ids)
+                if self.logger is not None:
+                    try:
+                        self.logger.warning(f'[hardness_cache] load 失败（{_exc!r}）⇒ 全部重扫')
+                    except Exception:  # noqa: BLE001
+                        pass
+            if _cached:
+                _msg = (f'[hardness] 缓存命中 {len(_cached)}/{len(ids)} 个样本'
+                        f'（本 rank；仍需扫 {len(_miss)} 个）')
+                try:
+                    if self.logger is not None:
+                        (self.logger.info if _shard_on else self.logger.info_rank0)(_msg)
+                except Exception:  # noqa: BLE001
+                    pass
+            ids = _miss
+
+        out: Dict[int, float] = {int(k): float(v) for k, v in _cached.items()}
         data_seconds = 0.0
         score_seconds = 0.0
         batches = 0
@@ -158,7 +191,7 @@ class RealHardnessScorer:
         #    分片时各 rank 内容不同 ⇒ **每 rank 都打进度**（带 rank 标记）；未分片时只有
         #    rank0 有意义，仍走 info_rank0 以免 7 份重复淹日志。
         _log_n = len(ids)
-        _log_all = len(ids_all)
+        _log_all = len(ids_requested)
         _log_every = float(os.environ.get('AL_HARDNESS_LOG_SEC', '15') or 15)
         _log_t0 = time.perf_counter()
         _log_last = 0.0
@@ -184,6 +217,12 @@ class RealHardnessScorer:
                 + f' batch={_log_bs}{"(auto)" if self._auto_batch is not None else ""}'
                 f' ⇒ 约 {(_log_n + _log_bs - 1) // max(1, _log_bs)} 批'
                 f'（每 {_log_every:.0f}s 报一次进度；AL_HARDNESS_LOG_SEC 可调）')
+        # 🔴 `_hr_out` 必须在循环**之前**取值：把样本全命中缓存时循环体一次都不执行，
+        #    而循环后的"验收阶段"要用它 ⇒ 否则 `UnboundLocalError`（缓存命中即崩）。
+        _hr_out = os.environ.get('AL_HARDNESS_REPORT_OUT')
+        # 🔴 全部命中缓存时 `ids` 为空：**不能**提前 return，否则会丢掉已缓存的样本与收尾日志。
+        # 循环前 `out` 里已有的键 = 缓存命中项 ⇒ 后续新增的即为"本次新扫到"，只写这些。
+        _cached_before = set(out.keys())
         while i < len(ids):
             batches += 1
             data_started = time.perf_counter()
@@ -191,7 +230,6 @@ class RealHardnessScorer:
             chunk = ids[i:i + batch_size]
             i += len(chunk)
             gpu_before = gpu_reserved_before = None
-            _hr_out = os.environ.get('AL_HARDNESS_REPORT_OUT')
             if self._auto_batch is not None or _hr_out:
                 try:
                     import torch
@@ -297,12 +335,25 @@ class RealHardnessScorer:
                             f'[hardness] 分片汇总出现重复样本 sid={_sid}'
                             f'（rank={_rank}/{_world}）⇒ 分片逻辑有 bug，拒绝静默继续')
                     merged[_sid] = float(_val)
-            _missing = [s for s in ids_all if s not in merged]
+            _missing = [s for s in ids_requested if s not in merged]
             if _missing:
                 raise RuntimeError(
                     f'[hardness] 分片汇总缺 {len(_missing)} 个样本'
                     f'（例：{_missing[:8]}）⇒ 有 rank 少算或多算，拒绝静默继续')
             out = merged
+
+        # ---- 写回缓存：只写**本次新扫到**的样本（命中项无需重复写盘）----
+        if self.cache is not None and self._cache_write:
+            _fresh = {k: v for k, v in out.items() if k not in _cached_before}
+            if _fresh:
+                try:
+                    self.cache.store(task, _fresh)
+                except Exception as _exc:  # noqa: BLE001 —— 写缓存失败绝不影响训练
+                    try:
+                        if self.logger is not None:
+                            self.logger.warning(f'[hardness_cache] store 失败（{_exc!r}）⇒ 忽略')
+                    except Exception:  # noqa: BLE001
+                        pass
 
         _hr_log(f'[hardness] {_tag}打分完成：task={task} phase={_hr_phase} '
                 f'本 rank {len(ids)} 个样本、汇总后 {len(out)} 个'
@@ -384,11 +435,17 @@ def build_real_backend(
     )
 
 
-def build_real_hardness(model: Any, dataset: Any, *, logger: Any = None, **kw) -> RealHardnessScorer:
-    """便捷构造：真实 `HardnessScorer` + 训练数据集。"""
+def build_real_hardness(model: Any, dataset: Any, *, logger: Any = None,
+                        cache: Any = None, cache_write: bool = True, **kw) -> RealHardnessScorer:
+    """便捷构造：真实 `HardnessScorer` + 训练数据集。
+
+    ``cache``：逐样本 loss 的磁盘缓存（见 `auto_learning/hardness_cache.py`）；
+    **不要**塞进 ``**kw``（那是给 `HardnessScorer` 构造函数的）。
+    """
     from ..hardness import HardnessScorer
 
-    return RealHardnessScorer(HardnessScorer(model, **kw), dataset, logger=logger)
+    return RealHardnessScorer(HardnessScorer(model, **kw), dataset, logger=logger,
+                              cache=cache, cache_write=cache_write)
 
 
 __all__ = ["RealEvaluator", "RealHardnessScorer", "RealTrainerStub",

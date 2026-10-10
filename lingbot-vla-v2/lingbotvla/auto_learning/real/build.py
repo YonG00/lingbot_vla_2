@@ -390,8 +390,37 @@ def finish_auto_learning(
                 "当前是 GMean ratio 候选池模式，筛选/判定都不需要 NMSE，继续启动。")
 
     # ---- Hardness（用**训练数据集**取样本；index 空间与 sample_id 一致）----
+    # 🔴 逐样本 loss 的磁盘缓存（2026-10-10）：跨 run 复用，避免同一任务反复重扫
+    #   （实测 al_v15/v19/v21/v22/v23 各扫了一遍 place_dual_shoes，白烧 25–40 分钟 GPU）。
+    #   指纹 = 权重内容 + 评测链源码语义 hash + 噪声/损失口径 + 数据集身份；
+    #   **刻意不含** probe_fraction/batch —— 不同 probe 扫的是不同子集，按样本做并集互补。
+    hardness_cache = None
+    _hc_root = os.environ.get('AL_HARDNESS_CACHE')
+    if _hc_root:
+        try:
+            from ..hardness import DEFAULT_FLOW_TIME, DEFAULT_SEED
+            from ..hardness_cache import HardnessSampleCache, compute_hardness_fingerprint
+            _ckpt = (os.environ.get('AL_SCOUT_CACHE_CHECKPOINT')
+                     or getattr(getattr(args, 'model', None), 'model_path', ''))
+            _fp, _fp_info = compute_hardness_fingerprint(
+                checkpoint_dir=Path(_ckpt),
+                repo_root=resolve_repo_root(__file__),
+                noise_seed=int(DEFAULT_SEED),
+                flow_time=float(DEFAULT_FLOW_TIME),
+                loss_type='L1_fm',
+                extra={'dataset': str(os.environ.get('AL_SCOUT_CACHE_MANIFEST', 'unknown'))},
+            )
+            hardness_cache = HardnessSampleCache(
+                _hc_root, _fp, enabled=True, write_enabled=_is_rank0(), logger=log)
+            log.info_rank0(
+                f'[hardness_cache] 启用：root={_hc_root} fp={_fp[:16]}…'
+                f'（{_fp_info["sources_included"]} 个源码 + {len(_fp_info["weight_shards"])} 个权重分片；'
+                f'noise_seed={_fp_info["options"]["noise_seed"]}）')
+        except Exception as _exc:  # noqa: BLE001 —— 缓存不可用就退回"每轮重扫"，绝不拦启动
+            log.warning(f'[hardness_cache] 初始化失败（{_exc!r}）⇒ 本轮不启用缓存，按原行为重扫')
+            hardness_cache = None
     hardness = build_real_hardness(model, _dataset_for_hardness(model, args, processor),
-                                   logger=log)
+                                   logger=log, cache=hardness_cache)
 
     # ---- Backend / Scheduler ----
     # Optional strict-provenance cache: off by default; never Rescan/Review.
