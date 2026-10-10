@@ -375,3 +375,57 @@ BASE_MODEL=/workspace/models/robbyant_lingbot-vla-v2-6b-bf16 bash /workspace/roc
 | 视频后端 | torchcodec 可用 | **必须 pyav**（`LEROBOT_VIDEO_BACKEND=pyav`；数据加载默认值已改） |
 | 闭环速度 | ~60–70 s/回合 | **~7–8 分钟/回合**（同任务、同设置，实测 5–8× 慢） |
 | 结论口径 | — | 结果应标注 **ROCm + MPLib + expert_check=true**，不要直接与 CUDA/CuRobo 结果比较 |
+
+
+---
+
+## 10. ⚠️ 必做：修复 aiter gluon 的 triton 版本硬失败（否则训练完全起不来）
+
+**症状**：训练启动后报
+```
+ValueError: Unrecognized configuration class <LingbotVLAV2Config> for this kind of AutoModel: AutoModel
+```
+且日志里出现 `Loading model from Huggingface modeling`（正常应为 `customized modeling`）。
+
+**根因链**（2026-10-10 定位）：
+```
+/opt/aiter/aiter/ops/triton/gluon/__init__.py 在 import 时校验 triton>=3.6.0，而环境是 3.5.1 ⇒ raise RuntimeError
+  ⇒ flash_attn（ROCm 版）硬依赖 aiter（该 import 不在 try/except 内）无法导入
+    ⇒ lingbotvla 模型模块导入失败 ⇒ 配置注册表 arch 数 = 0（正常 2）
+      ⇒ get_loader() 退回 HuggingfaceLoader ⇒ AutoModel.from_config(自定义 Config) 崩
+```
+**一键修复**（幂等、可逆，改前自动备份；`/opt/aiter` 在容器可写层，**实例重建后需重跑**）：
+```bash
+bash tools/rocm/fix_aiter_gluon_triton.sh
+# 期望输出：
+#   aiter OK ✓   flash_attn OK ✓   ★ 我们的模型模块 OK ✓   注册表架构数: 2
+```
+**自检**：`python -c "from lingbotvla.models.registry import get_registry; print(len(list(get_registry().supported_models)))"` ⇒ 应为 2。
+
+## 11. 用官方执行器跑「我们的代码 + bf16 权重」（软链骨架）
+
+官方 `train_full_sft.sh` 把一切路径从 `ROBOTWIN_ROOT` 派生 ⇒ 把该根指向**全软链骨架**，即可在**不改官方脚本**的前提下
+换成我们的仓库与 bf16 权重：
+```bash
+bash tools/rocm/make_official_scaffold.sh              # 只建骨架 + 11 项自检
+GPU_COUNT=8 MICRO=12 GBS=96 MAX_STEPS=20 SAVE_STEPS=1000 TEACHER_MODE=full OPTIMIZER=adamw \
+  bash tools/rocm/make_official_scaffold.sh --run
+```
+* ⭐ **`source/lingbot-vla-v2` 必须是目录级软链**：`python -m tasks.vla...` 的 `sys.path[0]=cwd` ⇒ **cwd 压过 PYTHONPATH** ✗
+* `models/robbyant_lingbot-vla-v2-6b` 用 bf16 副本时，要补 `assets/depth/dino_video` 三个软链（否则加载器判为 HF 格式 ✗）
+* 日志走 `LOG_FILE`；官方脚本**启动期 `exit 2` 只走 stderr** ⇒ 别把 stderr 丢进 `/dev/null` ✗
+
+**实测（micro 12 × GAS 1 × 8 卡 = GBS 96，`TORCHDYNAMO_DISABLE=1`）**：
+`customized modeling` ✓ ｜ **9.4–9.8 s/step** ｜ **36.9 GiB/卡**（48 GiB 的 77%，**不 OOM** ✓）｜ loss 0.22 ✓
+
+**仅冻 ViT 的已知问题**：`freeze_vision_encoder: true` 会触发
+`AttributeError: 'LingbotVlaV2Policy' object has no attribute 'visual'` ✗（官方默认 `false` 可正常训练 ✓；待修）
+
+## 12. 本机监控 AMD 显卡
+
+```bash
+bash watch_amd_gpu.sh          # 一次快照：每卡显存/温度/GPU 占用/进程
+bash watch_amd_gpu.sh -w 5     # 每 5 秒刷新
+bash watch_amd_gpu.sh -w 5 -l  # 同时显示训练 step / peak / loss
+```
+（走 `ssh_srv.sh cpu1` + `rocm-smi`；本机无需登录服务器 ✓）
