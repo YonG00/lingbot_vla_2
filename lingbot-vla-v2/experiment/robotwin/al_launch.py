@@ -1478,13 +1478,18 @@ def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script
     stage = 'scan' if round_idx == 0 else f'retry{round_idx}'
     #: 主轮沿用文档里的 al_shard<i>.json；补扫轮加轮次前缀，互不覆盖
     cfg_prefix = 'al_shard' if round_idx == 0 else f'al_retry{round_idx}_shard'
+    # 🔴 `cache_file` / `_scout_model` 必须在本函数内**定义**（早前只在 run() 里定义，
+    #    而本函数用到它们 ⇒ 真机 `NameError` / pyflakes `undefined name`）。
+    cache_file = Path(args.scout_cache_file)
+    _scout_model = (str(getattr(args, 'model_name', '') or '')
+                    or Path(str(args.checkpoint)).expanduser().name or 'unknown')
     # ---------------- 步骤 11：--no-cache 备份旧目录 / 生成分片配置 ----------------
     if args.no_cache and cache_file.is_file():
         backup = cache_file.parent / (cache_file.name + '.bak-' + _stamp())
         if backup.exists():
             backup = cache_file.parent / (cache_file.name + f'.bak-{_stamp()}-{os.getpid()}')
         cache_file.rename(backup)
-        log(f'[cache] --no-cache：旧指纹目录已改名备份（不删除）⇒ {backup}')
+        log(f'[cache] --no-cache：旧缓存文件已改名备份（不删除）⇒ {backup}')
     for label, path in (('TMPDIR', tmpdir), ('TRITON_CACHE_DIR', Path(args.triton_cache)),
                         ('TORCHINDUCTOR_CACHE_DIR', Path(args.torchinductor_cache)),
                         ('worker-out-root', worker_out_root), ('run 目录', run_root),
@@ -1731,7 +1736,6 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     if not _scout_file_arg:
         _scout_file_arg = DEFAULT_SCOUT_CACHE_FILE
     args.scout_cache_file = _scout_file_arg
-    cache_root = Path(_scout_file_arg).expanduser().parent
 
     missing_paths: List[str] = []
     for label, path, required in (
@@ -2000,7 +2004,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     #    指纹仍会计算并打印（供人工核对/复现），但**不再参与缓存寻址**。
     cache_file = Path(args.scout_cache_file)      # 已在上面解析（含旧 --cache-root 兼容）
     _scout_model = (str(getattr(args, 'model_name', '') or '')
-                    or Path(str(checkpoint)).expanduser().name or 'unknown')
+                    or checkpoint.expanduser().name or 'unknown')
     report['cache_file'] = str(cache_file)
     report['cache_model'] = _scout_model
     report['tasks'] = {'total': len(tasks), 'source': args.task_source,
@@ -2176,7 +2180,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         if backup.exists():
             backup = cache_file.parent / (cache_file.name + f'.bak-{_stamp()}-{os.getpid()}')
         cache_file.rename(backup)
-        log(f'[cache] --no-cache：旧指纹目录已改名备份（不删除）⇒ {backup}')
+        log(f'[cache] --no-cache：旧缓存文件已改名备份（不删除）⇒ {backup}')
     for label, path in (('TMPDIR', tmpdir), ('TRITON_CACHE_DIR', Path(args.triton_cache)),
                         ('TORCHINDUCTOR_CACHE_DIR', Path(args.torchinductor_cache)),
                         ('worker-out-root', worker_out_root), ('run 目录', run_root),
