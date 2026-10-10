@@ -1,4 +1,4 @@
-retry_budget_steps: 99
+retry_budget_steps: 100         # 阈值推进同步（rescue 后不会被立刻二次 DEFER）
 pool_ratio_skip: 1.0e+9   # 不因"太难"排除任务（多难都要学）；仅 ratio<0.2 的"已过"不进池
 pool_ratio_pass: 0.2
 pool_filter_by_gmean_ratio: true
@@ -52,9 +52,9 @@ pass_thresholds_file: /workspace/eval_results/open_loop/ref50k/pass_thresholds_g
 pass_nmse: 0.35  # 兼容占位；GMean 模式下不参与 PASS
 
 # ----- train / eval cadence（正式值）-----
-eval_interval_steps: 3
-min_steps_before_defer: 99
-defer_retry_steps: 99
+eval_interval_steps: 50          # ★ 用户 2026-10-10 定：50 步一次评测（原 3 步）
+min_steps_before_defer: 100     # = 2×50 ✓ 首轮约 100 步
+defer_retry_steps: 100          # ★ 缓期同额 ≈100 步（换难度分布后重试）
 
 # ----- after PASS -----
 continue_after_pass: false      # 达标即转下一个任务，不继续磨
@@ -65,12 +65,12 @@ post_pass_min_lp: 0.03
 min_lp50: 0.05
 
 # ----- attempts -----
-max_attempts_per_task: 2
+max_attempts_per_task: 2        # 首轮 + 1 次重试 ⇒ 再不行 EXHAUSTED
 
 # ----- optional rescue -----
 #: 保持 false：打开后**每次 DEFER 前会先重扫一次 hardness**（多 1–2 分钟/次）。
 defer_resample_retry: false
-defer_retry_steps: 99
+defer_retry_steps: 100          # ★ 缓期同额 ≈100 步（换难度分布后重试）
 
 # ----- overfit -----
 early_defer_on_overfit: true
