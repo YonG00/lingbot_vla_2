@@ -2018,7 +2018,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         cov_before = check_coverage(cache_file, _scout_model, scout_ids)
         report['coverage_before'] = cov_before.as_dict()
         log(f'[cache] 文件 {cache_file}')
-        log(f'[cache] 该目录下 {cov_before.json_files()} 个条目文件；'
+        log(f'[cache] 该缓存文件内 {cov_before.record_count()} 条记录；'
             f'覆盖 {cov_before.summary()} 个任务')
         if args.no_cache:
             mode = 'full-scan'
@@ -2226,7 +2226,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         + ('（--no-cache 全量）' if args.no_cache else '（缓存缺失部分）')
         if scan_target else '本次扫描范围  : 无（复用缓存，未启动 worker）')
     log(f'范围覆盖      : {target_cov.summary() if scan_target else "不适用（本次未扫描）"}')
-    log(f'全集覆盖      : {final_cov.summary()}（该目录内 {final_cov.json_files()} 个条目文件）')
+    log(f'全集覆盖      : {final_cov.summary()}（该缓存文件内 {final_cov.record_count()} 条记录）')
     if final_cov.missing:
         log(f'缺失任务（{len(final_cov.missing)} 个）：' + ', '.join(final_cov.missing))
         for task, reason in list(final_cov.reasons.items())[:10]:

@@ -176,3 +176,43 @@ def test_scan_round_signature_uses_cache_file():
     i = src.index('def _scan_round(')
     head = src[i:i + 400]
     assert 'cache_file: Path' in head, head[:300]
+
+
+# --------------------------------------------------------------------------- #
+# 结构性静态检查：调用不存在的方法 / 变量（2026-10-10 连续两次真机 NameError/AttributeError）
+# --------------------------------------------------------------------------- #
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_coverage_method_calls_exist():
+    """`Coverage` 上被调用的方法必须真实存在。
+
+    真机教训（同类第二次）：`json_files()` 改名为 `record_count()` 后漏改调用点 ⇒
+    真机 `AttributeError: 'Coverage' object has no attribute 'json_files'`（退出码 6），
+    而这些分支本地 dry-run 走不到。这里用 AST 收集 `Coverage` 的成员名与源码里
+    `cov*.method()` 的调用，逐一核对。
+    """
+    import ast
+    import re
+    src = LAUNCHER.read_text(encoding='utf-8')
+    tree = ast.parse(src)
+    members = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and node.name == 'Coverage':
+            for item in node.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    members.add(item.name)
+                elif isinstance(item, ast.Assign):        # 类级属性
+                    for t in item.targets:
+                        if isinstance(t, ast.Name):
+                            members.add(t.id)
+                elif isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
+                    members.add(item.target.id)
+    assert members, '没解析到 Coverage 成员'
+
+    called = set(re.findall(r'\b(?:cov_now|cov_before|final_cov|target_cov)\.([A-Za-z_]\w*)\(', src))
+    known_family = {'summary', 'as_dict', 'record_count', 'json_files', 'add',
+                    'covered', 'missing', 'reasons'}
+    suspicious = {c for c in called if c in members or c in known_family}
+    unknown = sorted(c for c in suspicious if c not in members)
+    assert not unknown, f'Coverage 上被调用但不存在的方法：{unknown}（现有：{sorted(members)}）'
+
+
