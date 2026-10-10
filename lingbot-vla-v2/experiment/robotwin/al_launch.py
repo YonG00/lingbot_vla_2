@@ -90,6 +90,8 @@ DEFAULT_EVAL_CONFIG = 'configs/auto_learning/al_eval2.yaml'
 DEFAULT_PYTHON = '/opt/robotwin-env/bin/python'
 
 DEFAULT_CACHE_ROOT = '/workspace/al/scout_cache'
+#: scout 缓存**文件**（2026-10-10 起：由入参显式指定，路径不参与指纹推导）
+DEFAULT_SCOUT_CACHE_FILE = '/workspace/al/scout_cache/scout.json'
 #: hardness 逐样本缓存根（持久卷：体积小、跨实例重建仍可复用）
 DEFAULT_HARDNESS_CACHE_ROOT = '/workspace/al/hardness_cache'
 #: hardness 缓存**文件**（2026-10-10 起：由入参显式指定，路径不参与指纹推导）
@@ -387,27 +389,37 @@ def compute_fingerprint(*, repo_root: Path, checkpoint: Path, manifest: Path, no
 # --------------------------------------------------------------------------- #
 # 缓存覆盖检查（复刻 BootstrapScoutCache.load 的校验 ⇒ 「真会命中」才算覆盖）
 # --------------------------------------------------------------------------- #
-def entry_is_hit(path: Path, *, fingerprint: str, task: str, ids: Sequence[int]
-                 ) -> Tuple[bool, str]:
-    """该 JSON 会不会被 `BootstrapScoutCache.load()` 当成命中返回。"""
+def entry_is_hit(path: Path, *, model: str, task: str, ids: Sequence[int],
+                 raw: dict | None = None) -> Tuple[bool, str]:
+    """缓存文件里**这条记录**会不会被 `BootstrapScoutCache.load()` 当成命中返回。
+
+    2026-10-10：缓存改为「**单文件 + 模型名**」（旧格式是"每记录一个 JSON + 指纹目录"）。
+    `raw` 可由调用方预先读入（整份文件只读一次）。
+    """
     want = list(map(int, ids))
-    if not path.is_file():
-        return False, '文件不存在'
-    try:
-        if path.stat().st_size > MAX_JSON_BYTES:
-            return False, '超过 MAX_JSON_BYTES'
-        raw = json.loads(path.read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        return False, 'JSON 解析失败'
+    if raw is None:
+        if not path.is_file():
+            return False, '文件不存在'
+        try:
+            if path.stat().st_size > MAX_JSON_BYTES:
+                return False, '超过 MAX_JSON_BYTES'
+            raw = json.loads(path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            return False, 'JSON 解析失败'
+    if not isinstance(raw, dict):
+        return False, '文件顶层不是对象'
     if raw.get('version') != VERSION:
         return False, f"version={raw.get('version')!r} != {VERSION}"
-    if raw.get('fingerprint') != fingerprint:
-        return False, 'fingerprint 不匹配'
-    if raw.get('task') != task:
-        return False, f"task={raw.get('task')!r} 不匹配"
-    if raw.get('episode_ids') != want:
-        return False, f"episode_ids={raw.get('episode_ids')!r} 不匹配"
-    m = raw.get('metrics')
+    if str(raw.get('model') or '') != model:
+        return False, f"model={raw.get('model')!r} 与当前 {model!r} 不同"
+    rec = (raw.get('records') or {}).get(scout_key(task, want))
+    if not isinstance(rec, dict):
+        return False, '该任务记录不存在'
+    if rec.get('task') != task:
+        return False, f"task={rec.get('task')!r} 不匹配"
+    if rec.get('episode_ids') != want:
+        return False, f"episode_ids={rec.get('episode_ids')!r} 不匹配"
+    m = rec.get('metrics')
     if not isinstance(m, dict):
         return False, 'metrics 不是字典'
     if m.get('task') != task or m.get('episode_ids') != want:
@@ -440,19 +452,35 @@ def entry_is_hit(path: Path, *, fingerprint: str, task: str, ids: Sequence[int]
 
 
 class Coverage:
-    """某个指纹目录对一组任务的覆盖情况。"""
+    """**单文件** scout 缓存对一组任务的覆盖情况（2026-10-10 改）。"""
 
-    def __init__(self, cache_dir: Path, fingerprint: str) -> None:
-        self.cache_dir = Path(cache_dir)
-        self.fingerprint = fingerprint
+    def __init__(self, cache_file: Path, model: str) -> None:
+        self.cache_file = Path(cache_file)
+        self.model = str(model)
         self.rows: Dict[str, Tuple[bool, str]] = {}
+        # 整份文件只读一次（单文件语义；坏文件/不存在 ⇒ 全部未覆盖）
+        self._raw: dict | None = None
+        self._file_error: str | None = None
+        if not self.cache_file.is_file():
+            self._file_error = '缓存文件不存在'
+        else:
+            try:
+                if self.cache_file.stat().st_size > MAX_JSON_BYTES:
+                    self._file_error = '缓存文件超过 MAX_JSON_BYTES'
+                else:
+                    loaded = json.loads(self.cache_file.read_text(encoding='utf-8'))
+                    self._raw = loaded if isinstance(loaded, dict) else None
+                    if self._raw is None:
+                        self._file_error = '缓存文件顶层不是对象'
+            except (OSError, ValueError):
+                self._file_error = '缓存文件 JSON 解析失败'
 
     def add(self, task: str, ids: Sequence[int]) -> None:
         if not ids:
             self.rows[task] = (False, '任务没有可用的 val ids（无法确定 scout 回合）')
             return
-        path = self.cache_dir / f'{scout_key(task, list(ids))}.json'
-        self.rows[task] = entry_is_hit(path, fingerprint=self.fingerprint, task=task, ids=ids)
+        self.rows[task] = entry_is_hit(self.cache_file, model=self.model, task=task, ids=ids,
+                                       raw=self._raw)
 
     @property
     def covered(self) -> List[str]:
@@ -466,29 +494,32 @@ class Coverage:
     def reasons(self) -> Dict[str, str]:
         return {t: r for t, (ok, r) in self.rows.items() if not ok}
 
-    def json_files(self) -> int:
-        try:
-            return sum(1 for p in self.cache_dir.glob('*.json') if p.is_file())
-        except OSError:
+    def record_count(self) -> int:
+        """缓存文件里的记录条数（0 表示缺失/坏/无记录）。"""
+        if self._raw is None:
             return 0
+        recs = self._raw.get('records')
+        return len(recs) if isinstance(recs, dict) else 0
 
     def as_dict(self) -> Dict[str, Any]:
         return {
-            'cache_dir': str(self.cache_dir),
+            'cache_file': str(self.cache_file),
+            'model': self.model,
             'covered': len(self.covered),
             'total': len(self.rows),
             'missing': list(self.missing),
             'missing_reasons': self.reasons,
-            'entries_in_dir': self.json_files(),
+            'file_error': self._file_error,
+            'records_in_file': self.record_count(),
         }
 
     def summary(self) -> str:
         return f'{len(self.covered)}/{len(self.rows)}'
 
 
-def check_coverage(cache_dir: Path, fingerprint: str,
+def check_coverage(cache_file: Path, model: str,
                    task_ids: Dict[str, List[int]]) -> Coverage:
-    cov = Coverage(cache_dir, fingerprint)
+    cov = Coverage(cache_file, model)
     for task, ids in task_ids.items():
         cov.add(task, ids)
     return cov
@@ -1010,8 +1041,12 @@ def build_parser() -> argparse.ArgumentParser:
     core.add_argument('--micro', type=int, default=12, help='micro batch，默认 12')
     core.add_argument('--gas', type=int, default=1,
                       help='梯度累积，默认 1（脚本自算 GBS = MICRO*GAS*N_GPU）')
-    core.add_argument('--cache-root', default=DEFAULT_CACHE_ROOT,
-                      help=f'scout 缓存根目录，默认 {DEFAULT_CACHE_ROOT}')
+    core.add_argument('--scout-cache-file', default=DEFAULT_SCOUT_CACHE_FILE,
+                      help='scout 开环指标缓存**文件**（显式指定，跨 run 复用；'
+                           "留空 '' 可关闭）。默认 " + DEFAULT_SCOUT_CACHE_FILE)
+    core.add_argument('--cache-root', default=None,
+                      help='(已弃用) 旧入参：scout 缓存**目录**；等价于 '
+                           '--scout-cache-file <目录>/scout.json')
     core.add_argument('--hardness-cache-file', default=DEFAULT_HARDNESS_CACHE_FILE,
                         help='hardness 逐样本 loss 的**缓存文件**（显式指定，跨 run 复用；'
                              "留空字符串 '' 可关闭）。默认 " + DEFAULT_HARDNESS_CACHE_FILE)
@@ -1150,6 +1185,10 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
     # 模型标识：显式 --model-name，否则取权重目录名（换模型 ⇒ 缓存自动失效）
     _model_name = (str(getattr(args, 'model_name', '') or '')
                    or Path(str(checkpoint)).expanduser().name or 'unknown')
+    # scout 缓存文件：显式入参优先；兼容旧 `--cache-root <目录>`
+    _scout_file = str(getattr(args, 'scout_cache_file', '') or '')
+    if not _scout_file and getattr(args, 'cache_root', None):
+        _scout_file = str(Path(args.cache_root) / 'scout.json')
     return {
         'PY': str(python),
         'PATH': f'{python.parent}:{os.environ.get("PATH", "/usr/bin:/bin")}',
@@ -1170,7 +1209,7 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
         'AL_SCOUT_CACHE_MODE': 'bootstrap',
         'AL_HARDNESS_CACHE_FILE': str(_hc_file),  # 显式文件（见上方解析）
         'AL_MODEL_NAME': str(_model_name),
-        'AL_SCOUT_CACHE_ROOT': str(args.cache_root),
+        'AL_SCOUT_CACHE_FILE': str(_scout_file),
         'AL_SCOUT_CACHE_CHECKPOINT': str(checkpoint),
         'AL_SCOUT_CACHE_MANIFEST': str(manifest),
         'AL_SCOUT_CACHE_BASELINE': str(baseline),
@@ -1198,7 +1237,6 @@ def worker_env(common: Dict[str, str], *, gpu: str, train_out: Path, max_steps: 
         'TRAIN_OUT': str(train_out),
         'MASTER_PORT': str(int(master_port)),
         'TB': '0',                     # worker 不起 TensorBoard（端口会互撞）
-        'AL_SCOUT_CACHE_FINGERPRINT': fingerprint,
     })
     if smoke_no_checkpoint:
         env['SMOKE_NO_CHECKPOINT'] = '1'
@@ -1220,7 +1258,6 @@ def train_env(common: Dict[str, str], *, gpus: str, n_gpu: int, train_out: Path,
         'MASTER_PORT': str(int(master_port)),
         'TB': '1' if tb else '0',
         'TB_PORT': str(int(tb_port)),
-        'AL_SCOUT_CACHE_FINGERPRINT': fingerprint,
     })
     return env
 
@@ -1586,7 +1623,7 @@ def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script
     last_line = ''
     timed_out = False
     while workers_rows:
-        cov_now = check_coverage(cache_dir, str(fingerprint), scout_ids)
+        cov_now = check_coverage(cache_file, _scout_model, scout_ids)
         parts: List[str] = []
         for row in workers_rows:
             done = sum(1 for t in row['tasks'] if t in cov_now.covered)
@@ -1614,7 +1651,7 @@ def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script
     # 收尾：覆盖已完整但 worker 还在跑（可能在做 1 个训练步）⇒ 给宽限
     grace_deadline = time.time() + max(0.0, float(args.exit_grace))
     while time.time() < grace_deadline:
-        cov_now = check_coverage(cache_dir, str(fingerprint), scout_ids)
+        cov_now = check_coverage(cache_file, _scout_model, scout_ids)
         if len(cov_now.missing) == 0 and not any(proc_alive(int(r['pid'])) for r in workers_rows):
             break
         if not any(proc_alive(int(r['pid'])) for r in workers_rows):
@@ -1684,7 +1721,14 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     norm = Path(args.norm).expanduser() if args.norm else repo / DEFAULT_NORM_REL
     checkpoint = Path(args.checkpoint).expanduser()
     phases = Path(args.phases).expanduser()
-    cache_root = Path(args.cache_root).expanduser()
+    # scout 缓存：**显式文件**优先（`--scout-cache-file`）；旧 `--cache-root <目录>` 兼容。
+    _scout_file_arg = str(getattr(args, 'scout_cache_file', '') or '')
+    if not _scout_file_arg and getattr(args, 'cache_root', None):
+        _scout_file_arg = str(Path(args.cache_root) / 'scout.json')
+    if not _scout_file_arg:
+        _scout_file_arg = DEFAULT_SCOUT_CACHE_FILE
+    args.scout_cache_file = _scout_file_arg
+    cache_root = Path(_scout_file_arg).expanduser().parent
 
     missing_paths: List[str] = []
     for label, path, required in (
@@ -1938,8 +1982,13 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     else:
         plan.step('指纹', '跳过（dry-run 且路径不全）')
 
-    cache_dir = cache_root / fingerprint if fingerprint else cache_root / '<指纹>'
-    report['cache_dir'] = str(cache_dir)
+    # 🔴 2026-10-10：scout 缓存改为「**显式文件 + 模型名**」，不再由指纹派生路径。
+    #    指纹仍会计算并打印（供人工核对/复现），但**不再参与缓存寻址**。
+    cache_file = Path(args.scout_cache_file)      # 已在上面解析（含旧 --cache-root 兼容）
+    _scout_model = (str(getattr(args, 'model_name', '') or '')
+                    or Path(str(checkpoint)).expanduser().name or 'unknown')
+    report['cache_file'] = str(cache_file)
+    report['cache_model'] = _scout_model
     report['tasks'] = {'total': len(tasks), 'source': args.task_source,
                        'names': list(tasks) if len(tasks) <= 60 else list(tasks)[:60]}
 
@@ -1952,7 +2001,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         scan_target = []
         plan.step('缓存覆盖检查', '跳过（没有指纹，dry-run 模式）')
     else:
-        cov_before = check_coverage(cache_dir, fingerprint, scout_ids)
+        cov_before = check_coverage(cache_file, _scout_model, scout_ids)
         report['coverage_before'] = cov_before.as_dict()
         log(f'[cache] 目录 {cache_dir}')
         log(f'[cache] 该目录下 {cov_before.json_files()} 个条目文件；'
@@ -2126,7 +2175,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         if round_idx == 0:
             round_target = list(scan_target)
         else:
-            cov_now = check_coverage(cache_dir, str(fingerprint), scout_ids)
+            cov_now = check_coverage(cache_file, _scout_model, scout_ids)
             round_target = [t for t in scan_target if t not in cov_now.covered]
             if not round_target:
                 log('[retry] 目标范围已完整，无需补扫')
@@ -2147,7 +2196,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     workers_rows = all_workers_rows
 
     # ---------------- 步骤 15：收尾统计（只看目标指纹目录）----------------
-    final_cov = check_coverage(cache_dir, str(fingerprint), scout_ids)
+    final_cov = check_coverage(cache_file, _scout_model, scout_ids)
     target_cov = Coverage(cache_dir, str(fingerprint))
     for task in scan_target:
         if task in final_cov.rows:

@@ -31,8 +31,11 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Sequence, Tuple
 
-VERSION = 1
-MAX_JSON_BYTES = 1_000_000
+VERSION = 2
+#: 单文件缓存整体上限（旧实现是「每条记录一个文件 ⇒ 1 MB」；现在是整份文件 ⇒ 64 MB）
+MAX_JSON_BYTES = 64 * 1024 * 1024
+#: 单条记录上限（沿用旧值，防止某条 metrics 异常膨胀）
+MAX_RECORD_BYTES = 1_000_000
 
 # 语义 hash 的逃生舱：文件里出现这一行 ⇒ 该 .py 退回内容 hash
 NO_SEMANTIC_HASH_MARKER = "scout-fingerprint: no-semantic-hash"
@@ -269,67 +272,138 @@ def _is_rank0() -> bool:
 
 
 class BootstrapScoutCache:
-    def __init__(self, root: str | Path, *, fingerprint: str,
+    """scout（开环指标）缓存：**单个 JSON 文件** + **模型名校验**（2026-10-10 重写）。
+
+    旧实现把缓存写成 `<root>/<指纹64位hex>/<scout_key>.json`，指纹 = 权重分片 hash + 14 个
+    评测链源码语义 hash + 选项。实证代价：改一行训练侧源码就让整份缓存不可见（hash 变了），
+    与 hardness 侧同病 —— 已按用户要求统一改为「显式文件 + 模型名」。
+
+    文件结构::
+
+        {"version": 2, "model": "<模型名>", "records": {"<task+ids 的 sha256>": {record}}}
+
+    可用性判定：
+      * `version` 必须相等；
+      * **`model` 必须与当前模型一致**（不一致 ⇒ 未命中，且 `last_miss_reason='model_mismatch'`）；
+      * 记录内 `task` / `episode_ids` / `metrics` 结构自洽（沿用旧校验）。
+    """
+
+    def __init__(self, file: str | Path, *, model: str,
                  write_enabled: bool | None = None):
-        if len(fingerprint) != 64 or any(c not in '0123456789abcdef' for c in fingerprint):
-            raise ValueError('invalid provenance fingerprint')
-        self.path = Path(root) / fingerprint
-        self.fingerprint = fingerprint
-        # 🔴 多卡：**只有 rank0 写缓存**。所有 rank 都跑调度器，若都写同一文件，
-        #    会有并发写（撕裂）与重复 I/O；读不受影响（各 rank 都可 load）。
+        if not str(model).strip():
+            raise ValueError('model 不能为空（缓存以模型名判定是否可用）')
+        self.path = Path(file).expanduser()
+        self.model = str(model)
+        # 🔴 多卡：**只有 rank0 写缓存**（所有 rank 都跑调度器；都写会有并发写/撕裂）。
         if write_enabled is None:
             write_enabled = _is_rank0()
         self.write_enabled = bool(write_enabled)
+        self.last_miss_reason: str | None = None
 
-    def load(self, task: str, ids: Sequence[int]) -> dict | None:
-        key = scout_key(task, ids)
-        p = self.path / f'{key}.json'
-        if not p.is_file() or p.stat().st_size > MAX_JSON_BYTES:
+    # -- 内部 ---------------------------------------------------------------
+    def _blank(self) -> dict:
+        return {'version': VERSION, 'model': self.model, 'records': {}}
+
+    def _read_file(self) -> dict | None:
+        """读文件并做 version/model 校验；不可用 ⇒ None（记录原因）。"""
+        if not self.path.is_file():
+            self.last_miss_reason = 'missing'
             return None
         try:
-            raw = json.loads(p.read_text(encoding='utf-8'))
-            if (raw.get('version') != VERSION or raw.get('fingerprint') != self.fingerprint
-                    or raw.get('task') != task or raw.get('episode_ids') != list(map(int, ids))):
+            if self.path.stat().st_size > MAX_JSON_BYTES:
+                self.last_miss_reason = 'too_large'
                 return None
-            m = raw['metrics']
-            if not isinstance(m, dict) or m.get('task') != task or m.get('episode_ids') != list(map(int, ids)):
-                return None
-            per = m.get('per_traj_mse', {})
-            if not isinstance(per, dict) or set(per) != set(map(str, ids)):
-                return None
+            raw = json.loads(self.path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            self.last_miss_reason = 'unreadable'
+            return None
+        if not isinstance(raw, dict) or raw.get('version') != VERSION \
+                or not isinstance(raw.get('records'), dict):
+            self.last_miss_reason = 'schema'
+            return None
+        if str(raw.get('model') or '') != self.model:
+            self.last_miss_reason = 'model_mismatch'
+            return None
+        self.last_miss_reason = None
+        return raw
+
+    @staticmethod
+    def _valid_metrics(m: Any, task: str, ids: Sequence[int]) -> bool:
+        """沿用旧 `load()` 的自洽性校验（metric_valid、nmse=mse/base、mse=均值…）。"""
+        if not isinstance(m, dict) or m.get('task') != task \
+                or m.get('episode_ids') != list(map(int, ids)):
+            return False
+        per = m.get('per_traj_mse', {})
+        if not isinstance(per, dict) or set(per) != set(map(str, ids)):
+            return False
+        try:
             vals = [float(v) for v in per.values()]
             if any(not math.isfinite(v) or v < 0 for v in vals):
-                return None
-            nmse, mse, base = (float(m[k]) for k in ('nmse','mse','baseline_mse'))
-            if (m.get('n_trajs') != len(ids) or m.get('metric_valid') is not True
-                    or not all(math.isfinite(v) for v in (nmse,mse,base))
-                    or min(nmse,mse) < 0 or base <= 0
-                    or not math.isclose(nmse, mse/base, rel_tol=1e-5, abs_tol=1e-8)
-                    or not math.isclose(mse, sum(vals)/len(vals), rel_tol=1e-4, abs_tol=1e-7)):
-                return None
-            return m
-        except (OSError, TypeError, ValueError, KeyError, json.JSONDecodeError):
+                return False
+            nmse, mse, base = (float(m[k]) for k in ('nmse', 'mse', 'baseline_mse'))
+        except (TypeError, ValueError, KeyError):
+            return False
+        return bool(
+            m.get('n_trajs') == len(ids) and m.get('metric_valid') is True
+            and all(math.isfinite(v) for v in (nmse, mse, base))
+            and min(nmse, mse) >= 0 and base > 0
+            and math.isclose(nmse, mse / base, rel_tol=1e-5, abs_tol=1e-8)
+            and math.isclose(mse, sum(vals) / len(vals), rel_tol=1e-4, abs_tol=1e-7))
+
+    # -- 公开接口 -----------------------------------------------------------
+    def load(self, task: str, ids: Sequence[int]) -> dict | None:
+        """命中返回 metrics 字典，否则 None（`last_miss_reason` 给出原因）。"""
+        key = scout_key(task, ids)
+        if not self.path.is_file():
+            self.last_miss_reason = 'missing'
             return None
+        raw = self._read_file()
+        if raw is None:
+            return None
+        rec = raw['records'].get(key)
+        if not isinstance(rec, dict):
+            self.last_miss_reason = 'record_missing'
+            return None
+        if rec.get('task') != task or rec.get('episode_ids') != list(map(int, ids)):
+            self.last_miss_reason = 'record_mismatch'
+            return None
+        m = rec.get('metrics')
+        if not self._valid_metrics(m, task, ids):
+            self.last_miss_reason = 'metrics_invalid'
+            return None
+        return m
 
     def store(self, task: str, ids: Sequence[int], metrics: Mapping[str, Any]) -> None:
+        """写入一条记录（**先重读文件再合并**，避免覆盖别处写入的其他记录）。"""
         if not self.write_enabled:
-            return                      # 非 rank0：只读不写（多卡下避免并发写同一文件）
-        key = scout_key(task, ids)
-        if (metrics.get('task') != task or list(metrics.get('episode_ids', [])) != list(map(int, ids))):
+            return                      # 非 rank0：只读不写
+        if (metrics.get('task') != task
+                or list(metrics.get('episode_ids', [])) != list(map(int, ids))):
             raise ValueError('cannot cache mismatched task or IDs')
-        payload = {'version': VERSION, 'fingerprint': self.fingerprint, 'task': task,
-                   'episode_ids': list(map(int, ids)), 'metrics': dict(metrics)}
-        blob = json.dumps(payload, sort_keys=True, allow_nan=False, separators=(',', ':'))
-        if len(blob.encode()) > MAX_JSON_BYTES:
+        key = scout_key(task, ids)
+        rec = {'task': task, 'episode_ids': list(map(int, ids)), 'metrics': dict(metrics)}
+        rec_blob = json.dumps(rec, sort_keys=True, allow_nan=False, separators=(',', ':'))
+        if len(rec_blob.encode()) > MAX_RECORD_BYTES:
             raise ValueError('scout cache record too large')
-        self.path.mkdir(parents=True, exist_ok=True)
-        target = self.path / f'{key}.json'
-        tmp = self.path / f'.{key}.{os.getpid()}.tmp'
+
+        raw = self._read_file() if self.path.is_file() else None
+        if raw is None or raw.get('version') != VERSION or str(raw.get('model') or '') != self.model:
+            raw = self._blank()         # 旧 schema / 换模型 ⇒ 以当前模型重建
+        raw['records'][key] = rec
+        blob = json.dumps(raw, sort_keys=True, allow_nan=False, separators=(',', ':'))
+        if len(blob.encode()) > MAX_JSON_BYTES:
+            raise ValueError('scout cache file too large')
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_name(f'.{self.path.name}.{os.getpid()}.tmp')
         try:
             with open(tmp, 'x', encoding='utf-8') as f:
                 f.write(blob)
                 f.flush()
                 os.fsync(f.fileno())
-            os.replace(tmp, target)
+            os.replace(tmp, self.path)
         finally:
             tmp.unlink(missing_ok=True)
+
+    def record_count(self) -> int:
+        raw = self._read_file() if self.path.is_file() else None
+        return 0 if raw is None else len(raw.get('records') or {})

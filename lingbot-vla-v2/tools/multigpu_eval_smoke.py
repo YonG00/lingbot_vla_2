@@ -187,7 +187,7 @@ def _worker(rank: int, world_size: int, port: int, tmp: str, fail_first: bool,
         # ---- ⑤ scout 缓存：只有 rank0 写 ----
         from lingbotvla.auto_learning.scout_cache import BootstrapScoutCache
 
-        cache = BootstrapScoutCache(tmpdir / "scout", fingerprint="a" * 64)
+        cache = BootstrapScoutCache(tmpdir / "scout.json", model="smoke")
         cache.store("click_bell", [1, 2],
                     {"task": "click_bell", "episode_ids": [1, 2], "mse": 0.5})
     except Exception as exc:  # noqa: BLE001

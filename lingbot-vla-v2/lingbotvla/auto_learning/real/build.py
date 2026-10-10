@@ -34,6 +34,7 @@ from ..orchestration.scheduler import Scheduler
 from ..resolver import SampleResolver
 from ..sampling.sampler import BatchSampler
 from .backend import RealEvaluator, build_real_backend, build_real_hardness
+from ..hardness_cache import resolve_model_name
 from .hook import AutoLearnLoopHook
 from .sampler import AutoLearnSampler, LazyAutoLearnSampler
 
@@ -485,27 +486,22 @@ def finish_auto_learning(
             f'（{len([k for k in src if k not in src_extra])} 个评测链代码文件 + '
             f'{len(src_extra)} 个数据/配置文件）+ {len(shards)} 个权重分片；'
             '`.py` 用 AST 语义 hash（注释/空行/docstring 不再失效）')
-        fp = provenance(weight_files=shards, sources=src,
-                        options={'inference_dtype': os.environ['AL_SCOUT_CACHE_DTYPE'],
-                                 'noise_seed': 1234,
-                                 'scout_trajs': cfg.global_scout_val_trajs,
-                                 'stride': 'per_episode',
-                                 'image_augment': bool(getattr(args.data, 'image_augment', False))})
-        # [2026-10-10 用户要求] 两个显式开关，操作者说了算（默认仍走自动指纹 ✓）：
-        #   AL_SCOUT_CACHE_FINGERPRINT=<fp>  ⇒ 直接用指定指纹目录（跳过自动指纹；= "指定缓存重载"）
-        #   AL_SCOUT_CACHE_FORCE_RESCAN=1    ⇒ 忽略已有条目、强制重扫（写到一个带时间戳的新目录）
-        _fp_override = os.environ.get('AL_SCOUT_CACHE_FINGERPRINT', '').strip()
-        if _fp_override:
-            log.warning('[scout_cache] 使用显式指纹 %s（跳过自动指纹计算；有效性由操作者负责）',
-                        _fp_override)
-            fp = _fp_override
-        if os.environ.get('AL_SCOUT_CACHE_FORCE_RESCAN', '') == '1':
-            import time as _time
-            _forced = f'{fp}-force-{int(_time.time())}'
-            log.warning('[scout_cache] FORCE_RESCAN=1 ⇒ 忽略已有缓存，强制重扫（写入 %s）', _forced)
-            fp = _forced
-        scout_cache = BootstrapScoutCache(os.environ['AL_SCOUT_CACHE_ROOT'], fingerprint=fp)
-        log.info_rank0(f'[auto_learning] strict Bootstrap Scout cache enabled; fp={fp[:12]}…; '
+        # 🔴 2026-10-10 用户要求：**放弃指纹**，缓存改为「**显式文件 + 模型名**」。
+        #   文件路径由 `--scout-cache-file`（env `AL_SCOUT_CACHE_FILE`）给定，不参与哈希推导
+        #   ⇒ 改代码不再让缓存失效；可用性由缓存内记录的 `model` 判定（换模型 ⇒ 自动未命中）。
+        if os.environ.get('AL_SCOUT_CACHE_ROOT') and not os.environ.get('AL_SCOUT_CACHE_FILE'):
+            # 兼容旧 env：目录 ⇒ 落成固定文件名
+            os.environ['AL_SCOUT_CACHE_FILE'] = str(
+                Path(os.environ['AL_SCOUT_CACHE_ROOT']) / 'scout.json')
+        for _dead in ('AL_SCOUT_CACHE_FINGERPRINT', 'AL_SCOUT_CACHE_FORCE_RESCAN'):
+            if os.environ.get(_dead):
+                log.warning('[scout_cache] %s 已废弃（改用显式文件；如需强制重扫请删缓存文件）', _dead)
+        _scout_model = resolve_model_name(os.environ.get('AL_MODEL_NAME'),
+                                          checkpoint_dir=os.environ.get('AL_SCOUT_CACHE_CHECKPOINT')
+                                          or None)
+        scout_cache = BootstrapScoutCache(os.environ['AL_SCOUT_CACHE_FILE'], model=_scout_model)
+        log.info_rank0(f'[auto_learning] Bootstrap Scout cache enabled; '
+                       f'file={os.environ["AL_SCOUT_CACHE_FILE"]} model={_scout_model}; '
                        'never used in Rescan')
     backend = build_real_backend(
         catalog=cat, resolver=parts.resolver, adapter=adapter, hardness=hardness,

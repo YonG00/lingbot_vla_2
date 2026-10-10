@@ -542,18 +542,21 @@ def test_scout_cache_write_guard(tmp_path):
     import json
     from lingbotvla.auto_learning.scout_cache import BootstrapScoutCache
 
-    fp = "a" * 64
-    metrics = {"task": "click_bell", "episode_ids": [1, 2], "mse": 0.5}
-    ro = BootstrapScoutCache(tmp_path, fingerprint=fp, write_enabled=False)
-    ro.store("click_bell", [1, 2], metrics)
-    assert not ro.path.exists() or not list(ro.path.glob("*.json")), "非 rank0 不得写缓存"
+    from lingbotvla.auto_learning.scout_cache import scout_key
 
-    rw = BootstrapScoutCache(tmp_path, fingerprint=fp, write_enabled=True)
+    metrics = {"task": "click_bell", "episode_ids": [1, 2], "mse": 0.5}
+    ro = BootstrapScoutCache(tmp_path / 'scout.json', model='m', write_enabled=False)
+    ro.store("click_bell", [1, 2], metrics)
+    assert not ro.path.exists(), "非 rank0 不得写缓存"
+
+    rw = BootstrapScoutCache(tmp_path / 'scout.json', model='m', write_enabled=True)
     rw.store("click_bell", [1, 2], metrics)
-    files = list(rw.path.glob("*.json"))
-    assert len(files) == 1
-    doc = json.loads(files[0].read_text(encoding="utf-8"))
-    assert doc["task"] == "click_bell" and doc["fingerprint"] == fp
+    assert rw.path.is_file(), "rank0 应写出**单个**缓存文件"
+    doc = json.loads(rw.path.read_text(encoding="utf-8"))
+    # 2026-10-10：格式改为「单文件 + 模型名 + records[scout_key]」
+    assert doc["model"] == "m"
+    rec = doc["records"][scout_key("click_bell", [1, 2])]
+    assert rec["task"] == "click_bell" and rec["metrics"]["mse"] == 0.5
 
 
 # ---------------------------------------------------------------------------

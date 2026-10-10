@@ -11,7 +11,7 @@ import pytest
 import torch
 
 from lingbotvla.auto_learning.scan_accel import HardnessAutoBatch, identical_tensor_shapes
-from lingbotvla.auto_learning.scout_cache import BootstrapScoutCache, provenance
+from lingbotvla.auto_learning.scout_cache import BootstrapScoutCache, provenance, scout_key
 from lingbotvla.auto_learning.types import TrajectoryMetrics
 from lingbotvla.auto_learning.real.backend import RealEvaluator, RealHardnessScorer
 # Avoid importing the full training DataLoader stack (torchdata) in CPU-only CI.
@@ -68,17 +68,19 @@ def test_cache_provenance_content_not_mtime(tmp_path):
 
 
 def test_cache_writes_reads_strict_trajectory_ids(tmp_path):
-    cache=BootstrapScoutCache(tmp_path,fingerprint='f'*64)
+    cache=BootstrapScoutCache(tmp_path / 'f.json', model='m')
     x=dataclasses.asdict(_metrics())
     cache.store('click_bell',[51,52],x)
     assert cache.load('click_bell',[51,52])['mse']==.1
     assert cache.load('click_bell',[51,52,56]) is None
     assert cache.load('click_alarmclock',[51,52]) is None
-    assert BootstrapScoutCache(tmp_path,fingerprint='e'*64).load('click_bell',[51,52]) is None
-    f=next(cache.path.glob('*.json'))
-    payload=json.loads(f.read_text());payload['metrics']['per_traj_mse']['52']='NaN'
-    f.write_text(json.dumps(payload))
-    assert cache.load('click_bell',[51,52]) is None
+    assert BootstrapScoutCache(tmp_path / 'e.json', model='m').load('click_bell',[51,52]) is None
+    # 2026-10-10：缓存改为**单文件**；把该任务的记录里某个 per_traj_mse 改成 NaN ⇒ 必须判为未命中
+    payload = json.loads(cache.path.read_text(encoding='utf-8'))
+    rec = payload['records'][scout_key('click_bell', [51, 52])]
+    rec['metrics']['per_traj_mse']['52'] = 'NaN'
+    cache.path.write_text(json.dumps(payload), encoding='utf-8')
+    assert cache.load('click_bell', [51, 52]) is None
 
 
 def test_cache_bad_shard_names(tmp_path):
@@ -90,7 +92,7 @@ def test_cache_bad_shard_names(tmp_path):
 
 
 def test_cache_rejects_invalid_records(tmp_path):
-    cache=BootstrapScoutCache(tmp_path,fingerprint='1'*64)
+    cache=BootstrapScoutCache(tmp_path / 'one.json', model='m')
     with pytest.raises(ValueError):
         cache.store('t',[1,2],dataclasses.asdict(_metrics()))
     with pytest.raises(ValueError):
@@ -106,7 +108,7 @@ def test_bootstrap_uses_cache_only_when_explicit(tmp_path):
                 def to_trajectory_metrics(self): return _metrics()
             return R()
     adapter=Adapter()
-    cache=BootstrapScoutCache(tmp_path,fingerprint='f'*64)
+    cache=BootstrapScoutCache(tmp_path / 'f.json', model='m')
     ev=RealEvaluator(adapter, object(), scout_cache=cache)
     assert ev.evaluate_bootstrap_scout('click_bell','scout',[51,52]).gmean_mse==pytest.approx(.1)
     assert ev.evaluate_bootstrap_scout('click_bell','scout',[51,52]).gmean_mse==pytest.approx(.1)
