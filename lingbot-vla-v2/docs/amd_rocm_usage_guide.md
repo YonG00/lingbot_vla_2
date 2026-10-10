@@ -204,7 +204,48 @@ python -m torch.distributed.run --standalone --nproc-per-node=$GPU_COUNT \
 * **不要直接调 `torchrun`**，用 `python -m torch.distributed.run`。
 * `GBS = micro × GPU_COUNT × grad_accum`（启动器会强校验整除）。
 * 显存参考（8×48 GB，micro 12 / GBS 96 的估算）：权重 bf16 12 GB÷8≈1.5 GB/卡、梯度≈1.5、AdamW 状态≈6、激活 10–25 ⇒ **~20–35 GB/卡**，有余量。
-* 存档写到 `/workspace/runtime/outputs`（持久）；**DCP 单份 ~24 GB**，注意 98 GB 上限。
+* **DCP 单份 ~24 GB**、HF 导出 ~12 GB ⇒ 见 §5.3 的存档策略（**overlay 优先**）。
+
+### 5.3 存档策略：overlay 优先 + 销毁前挽救（2026-10-10 定）
+
+持久卷 `/workspace` 只有 ~98 GB，而 **DCP 每份 ~24 GB** ⇒ 多存档放不下。
+**因此训练存档优先写 overlay**（`/`，宿主 2.6 TB 共享空间），**但 overlay 不持久** ⇒
+**销毁实例前必须把要留的模型搬走**。
+
+| 产物 | 建议位置 | 理由 |
+|---|---|---|
+| DCP（`checkpoints/global_step_N/`） | **overlay**：`/models/robotwin-persistent/outputs/<run>` | 仅用于 resume；单份 24 GB，多份会撑爆持久卷 |
+| **HF 导出**（`hf_ckpt/`，~12 GB） | **先生成在 overlay → 及时搬到 `/workspace/keep/`** | 这才是要长期保留的产物 |
+| 数据/权重 | `lerobot`、`bf16` → `/workspace`；`demo_clean`、F32 base → overlay | 见 §1.2 |
+
+训练输出改成 overlay（三个入口都要显式指定）：
+```bash
+# 官方 train_full_sft.sh
+OUTPUT_DIR=/models/robotwin-persistent/outputs/<run> bash .../train_full_sft.sh
+# 本仓库包装
+OUTPUT_DIR=/models/robotwin-persistent/outputs/<run> bash /workspace/rocm_train.sh
+# 本仓库 AL 启动器（默认是 AutoDL 的 /data/outputs ✗ 必须覆盖）
+TRAIN_OUT=/models/robotwin-persistent/outputs/<run> SAVE_EVERY=1000 PRUNE=1 PRUNE_KEEP=1 \
+  MICRO=12 GAS=1 N_GPU=8 bash experiment/robotwin/al_50task_bf16.sh
+```
+
+**⛔ 销毁实例前的挽救清单（务必执行）**
+```bash
+# ① 看 overlay 上有什么、多大
+du -sh /models/robotwin-persistent/outputs/*/checkpoints/* 2>/dev/null | sort -rh | head
+ls -la /models/robotwin-persistent/outputs/*/checkpoints/*/hf_ckpt 2>/dev/null
+
+# ② 把"好的"搬到持久卷（HF 导出优先；DCP 只在需要 resume 时留）
+mkdir -p /workspace/keep
+cp -a <run>/checkpoints/global_step_N/hf_ckpt /workspace/keep/
+
+# ③ 或直接拉回外部（本机 / AutoDL）
+#   rsync -a -e 'ssh -p <port>' root@<host>:/workspace/keep/ ./keep/
+
+# ④ 复核 /workspace/keep 完整后再销毁实例
+bash /workspace/rescue_before_destroy.sh     # 本仓库提供的检查+搬运脚本
+```
+**体积速查**：DCP ~24 GB/份 ｜ HF 导出 ~12 GB/份 ｜ lerobot(50 任务) ~5–15 GB ｜ bf16 权重 12 GB。
 
 ---
 
