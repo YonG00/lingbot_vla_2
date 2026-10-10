@@ -206,7 +206,16 @@ if [ "$DRY_RUN" = "1" ]; then
     cat <<EOF
 cd $REPO
 export QWEN3VL_PATH=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
-export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+# 🔴 不能写死单卡：多卡时按 N_GPU 推导可见卡（否则 train.sh 数出 1 卡 ⇒ torchrun 只起 1 进程；
+#    AMD 上还踩过 nvidia-smi 缺失被 wc -l 数成 1 的坑）
+if [ -z "${CUDA_VISIBLE_DEVICES:-}" ]; then
+  if [ "${N_GPU:-1}" -gt 1 ] 2>/dev/null; then
+    export CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((N_GPU - 1)))
+    export HIP_VISIBLE_DEVICES="${HIP_VISIBLE_DEVICES:-$CUDA_VISIBLE_DEVICES}"
+  else
+    export CUDA_VISIBLE_DEVICES=0
+  fi
+fi
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 bash train.sh tasks/vla/train_lingbotvla.py "$CONFIG" \\
@@ -287,7 +296,16 @@ trap cleanup EXIT
 # ---- 训练 -------------------------------------------------------------------
 cd "$REPO"
 export PATH="$(dirname "$PY"):$PATH"
-export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
+# 🔴 不能写死单卡：多卡时按 N_GPU 推导可见卡（否则 train.sh 数出 1 卡 ⇒ torchrun 只起 1 进程；
+#    AMD 上还踩过 nvidia-smi 缺失被 wc -l 数成 1 的坑）
+if [ -z "${CUDA_VISIBLE_DEVICES:-}" ]; then
+  if [ "${N_GPU:-1}" -gt 1 ] 2>/dev/null; then
+    export CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((N_GPU - 1)))
+    export HIP_VISIBLE_DEVICES="${HIP_VISIBLE_DEVICES:-$CUDA_VISIBLE_DEVICES}"
+  else
+    export CUDA_VISIBLE_DEVICES=0
+  fi
+fi
 export QWEN3VL_PATH=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
 export PYTORCH_CUDA_ALLOC_CONF=${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}
 #: 额外参数透传（空格分隔）。用于不改脚本就切换并行模式等，例如：
@@ -327,6 +345,9 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     --train.dcp_save_mode    "$DCP_MODE" \
     --train.dcp_final_size_gb "$DCP_FINAL_GB" \
     --train.dcp_keep_last "$([ "$SMOKE_NO_CHECKPOINT" = "1" ] && echo 0 || echo "$DCP_KEEP_LAST")" \
+    --train.data_parallel_mode           "${DP_MODE:-fsdp2}" \
+    --train.data_parallel_replicate_size 1 \
+    --train.data_parallel_shard_size     "$N_GPU" \
     --train.auto_learning          "$AL_CFG" \
     --train.auto_learning_manifest "$MANIFEST" \
     $EXTRA_ARGS \
