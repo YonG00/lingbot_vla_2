@@ -138,7 +138,13 @@ train:
     video:
       ckpt_path: /models/robotwin-persistent/models/robbyant_lingbot-vla-v2-6b/dino_video/teacher_step_10000.pth
       config_path: /models/robotwin-persistent/models/robbyant_lingbot-vla-v2-6b/dino_video/config.yaml
-      attention_mode: flex_block_causal
+      # 🔴 2026-10-10 真机（ROCm/gfx1100）实测：`flex_block_causal` 的 backward kernel
+      #   `triton_tem_fused_slice_backward_transpose_view_zeros_2` 在 Triton AMD 后端
+      #   `make_ttgir` 处确定性崩溃（`PassManager::run failed`；7/7 rank，主编译与异步预热两条路径都崩；
+      #   缓存 2652 个 kernel 只有它缺 ttgir）⇒ 开 `torch.compile` 必然挂。
+      #   改用仓库自带的原生 SDPA 实现（`sdpa_attention_packed.py`，显式 frame-causal mask + mask 缓存），
+      #   不经过 flex 的 Triton 反向 kernel。⚠️ 数值与 flex 不逐位相同；SDPA 会物化 mask（显存更敏感）。
+      attention_mode: sdpa_block_causal
       input_size: 256
       block_suffix_to_future_video: false
       share_future_depth_query: true
