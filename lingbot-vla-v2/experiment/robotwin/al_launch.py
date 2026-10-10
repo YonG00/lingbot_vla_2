@@ -39,6 +39,7 @@
 4    worker 未就绪或提前退出（进程数 / 「已就绪：N 任务」不符）
 5    扫描超时
 6    内部错误（未预期异常）
+7    训练启动后立刻退出（1 秒内；日志尾部已打印）
 ===  ==================================================
 
 用法
@@ -145,6 +146,7 @@ EXIT_SCAN_INCOMPLETE = 3
 EXIT_WORKER_NOT_READY = 4
 EXIT_SCAN_TIMEOUT = 5
 EXIT_INTERNAL = 6
+EXIT_TRAIN_DIED = 7
 
 
 class LaunchError(RuntimeError):
@@ -683,14 +685,50 @@ def _proc_dir(pid: int) -> Path:
     return Path('/proc') / str(pid)
 
 
+#: 自己用 Popen 起出来的子进程（没有 setsid 的机器上走这条路径）⇒ 直接看 poll()
+_CHILDREN: Dict[int, Any] = {}
+
+
 def proc_alive(pid: int) -> bool:
-    if sys.platform != 'linux':
-        try:
-            os.kill(int(pid), 0)
-            return True
-        except (OSError, ValueError):
+    """进程是否还活着。
+
+    * 自己用 `Popen` 起的（机器上没有 setsid 时）⇒ 看 `poll()`，顺带回收僵尸；
+    * Linux ⇒ 看 `/proc/<pid>`，并把僵尸态（Z/X）当成「已死」；
+    * 其它平台 ⇒ 先 `waitpid(WNOHANG)`，再退回 `kill(pid, 0)`。
+
+    僵尸被当成「活着」会让进度轮询一直等到 --scan-timeout（本地彩排实测踩过）。
+    """
+    pid = int(pid)
+    child = _CHILDREN.get(pid)
+    if child is not None:
+        return child.poll() is None
+    if sys.platform == 'linux':
+        if not _proc_dir(pid).exists():
             return False
-    return _proc_dir(pid).exists()
+        return proc_state(pid) not in ('Z', 'X', None)
+    try:
+        done, _ = os.waitpid(pid, os.WNOHANG)
+        if done == pid:
+            return False
+    except (ChildProcessError, OSError, ValueError):
+        pass
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def proc_state(pid: int) -> Optional[str]:
+    """`/proc/<pid>/stat` 里的状态字符（R/S/D/Z/X）；读不到 ⇒ None。"""
+    try:
+        stat = (_proc_dir(pid) / 'stat').read_text(encoding='utf-8')
+    except OSError:
+        return None
+    try:
+        return stat[stat.rindex(')') + 1:].split()[0]
+    except (ValueError, IndexError):
+        return None
 
 
 def proc_cmdline(pid: int) -> List[str]:
@@ -747,11 +785,15 @@ def terminate_own(pid: int, *, expect_tokens: Sequence[str], role: str,
     """
     if not proc_alive(pid):
         return False
-    ok, why = _identity_matches(pid, expect_tokens)
+    if pid in _CHILDREN:
+        # 这台机器没有 setsid ⇒ 是我们自己 Popen 出来的子进程，身份天然确定
+        ok, why = True, '本进程直接启动的子进程（Popen(start_new_session=True)）'
+    else:
+        ok, why = _identity_matches(pid, expect_tokens)
     if not ok:
         log.write(f'[cleanup] 拒绝发信号：pid={pid}（{role}）身份核对未通过 —— {why}')
         return False
-    pgid = proc_pgid(pid)
+    pgid = pid if pid in _CHILDREN else proc_pgid(pid)
     if pgid != pid:
         log.write(f'[cleanup] pid={pid}（{role}）不是会话首进程（pgid={pgid}）'
                   '⇒ 只对单进程发 SIGTERM，不碰进程组')
@@ -855,6 +897,7 @@ def spawn_background(*, script: Path, env: Dict[str, str], log_path: Path, cwd: 
                                 stderr=subprocess.STDOUT, start_new_session=True)
     finally:
         handle.close()
+    _CHILDREN[int(proc.pid)] = proc
     return int(proc.pid)
 
 
@@ -1295,6 +1338,215 @@ def _selfcheck(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> in
     return EXIT_OK if ok else EXIT_PREFLIGHT
 
 
+def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script: Path,
+                python: Path, common: Dict[str, str], al_body: Dict[str, Any],
+                al_cfg: Path, fingerprint: str, cache_dir: Path, scout_ids: Dict[str, List[int]],
+                run_root: Path, round_shards: List[List[str]], round_gpus: List[str],
+                round_idx: int, tmpdir: Path, worker_out_root: Path) -> List[Dict[str, Any]]:
+    """跑一轮并行扫描：生成分片配置 → 启动 worker → 就绪检查 → 逐分片进度 → 精确清场。
+
+    返回本轮的 worker 记录（pid / 日志 / 任务 / 覆盖数）。`round_idx=0` 是主轮，
+    `>0` 是 `--retry-rounds` 的补扫轮（目录与分片配置名带轮次后缀，互不覆盖）。
+    """
+    stage = 'scan' if round_idx == 0 else f'retry{round_idx}'
+    #: 主轮沿用文档里的 al_shard<i>.json；补扫轮加轮次前缀，互不覆盖
+    cfg_prefix = 'al_shard' if round_idx == 0 else f'al_retry{round_idx}_shard'
+    # ---------------- 步骤 11：--no-cache 备份旧目录 / 生成分片配置 ----------------
+    if fingerprint and args.no_cache and cache_dir.exists() and any(cache_dir.glob('*.json')):
+        backup = cache_dir.with_name(cache_dir.name + '.bak-' + _stamp())
+        if backup.exists():
+            backup = cache_dir.with_name(cache_dir.name + f'.bak-{_stamp()}-{os.getpid()}')
+        cache_dir.rename(backup)
+        log(f'[cache] --no-cache：旧指纹目录已改名备份（不删除）⇒ {backup}')
+    for label, path in (('TMPDIR', tmpdir), ('TRITON_CACHE_DIR', Path(args.triton_cache)),
+                        ('TORCHINDUCTOR_CACHE_DIR', Path(args.torchinductor_cache)),
+                        ('worker-out-root', worker_out_root), ('run 目录', run_root),
+                        ('缓存目录', cache_dir)):
+        path.mkdir(parents=True, exist_ok=True)
+
+    shard_configs: List[Path] = []
+    shard_dir = run_root / 'shards'
+    shard_dir.mkdir(parents=True, exist_ok=True)
+    for i, shard in enumerate(round_shards):
+        if args.shard_config_dir:
+            path = Path(args.shard_config_dir).expanduser() / f'al_shard{i}.yaml'
+            if not path.is_file():
+                raise LaunchError(f'--shard-config-dir 里缺 {path}')
+        else:
+            path = shard_dir / f'{cfg_prefix}{i}.json'
+            write_shard_config(path, index=i, total=len(round_shards), body=al_body,
+                               tasks=shard, source_config=al_cfg)
+        shard_configs.append(path)
+    if shard_configs:
+        log(f'[plan] 分片 AL 配置（{stage}）：{", ".join(p.name for p in shard_configs)}'
+            f'（task_names 分片，其余标量原样复制自 {al_cfg}）')
+
+    # ---------------- 步骤 12：启动 worker ----------------
+    workers_rows: List[Dict[str, Any]] = []
+    log('=' * 78)
+    log(f'启动 {len(round_shards)} 个扫描 worker（各 1 卡 + MAX_STEPS={args.worker_max_steps}'
+        f'{" + SMOKE_NO_CHECKPOINT=1" if not args.worker_checkpoint else ""}）')
+    log('=' * 78)
+    for i, shard in enumerate(round_shards):
+        gpu = round_gpus[i]
+        cfg = shard_configs[i]
+        wdir = run_root / f'{stage}_shard{i}'
+        wdir.mkdir(parents=True, exist_ok=True)
+        wlog = wdir / f'worker_shard{i}_gpu{gpu}.log'
+        env = worker_env(common, gpu=gpu, train_out=wdir, max_steps=args.worker_max_steps,
+                         fingerprint=str(fingerprint), master_port=free_port(62510 + i * 10),
+                         smoke_no_checkpoint=not args.worker_checkpoint)
+        env['AL_CFG'] = str(cfg)
+        pid = spawn_background(script=launch_script, env=env, log_path=wlog, cwd=repo,
+                               shell_env=shell_env_for_launch(python), log=log)
+        time.sleep(0.4)
+        alive = proc_alive(pid)
+        argv = proc_cmdline(pid)
+        log(f'[scan] 片{i} GPU{gpu}：{len(shard)} 任务；pid={pid}；日志 {wlog}')
+        log(f'[scan]   cmdline: {" ".join(argv)[:160]}')
+        workers_rows.append({'index': i, 'gpu': gpu, 'tasks': list(shard), 'pid': pid,
+                             'log': str(wlog), 'out': str(wdir), 'config': str(cfg),
+                             'alive': alive})
+        if not alive:
+            raise LaunchError(f'片{i}（pid={pid}）启动后立刻退出 ⇒ 拒绝继续；'
+                              f'日志尾部：\n{read_tail(wlog, 4000)}',
+                              EXIT_WORKER_NOT_READY)
+
+    # ---------------- 步骤 13：就绪检查 ----------------
+    started = time.time()
+    first_check_done = False
+    ready_seen: Dict[int, int] = {}
+    if workers_rows:
+        log(f'[ready] 等待就绪：首轮检查在 T+{args.ready_wait:.0f}s，'
+            f'上限 T+{args.ready_timeout:.0f}s')
+    while workers_rows:
+        now = time.time()
+        alive_count = 0
+        ready_count = 0
+        problems: List[str] = []
+        for row in workers_rows:
+            pid = int(row['pid'])
+            alive = proc_alive(pid)
+            row['alive'] = alive
+            text = read_tail(Path(row['log']))
+            match = RE_READY.search(text)
+            expected = len(row['tasks'])
+            row['expected'] = expected
+            if match:
+                got = int(match.group(1))
+                row['ready_tasks'] = got
+                if got != expected:
+                    problems.append(f'片{row["index"]}：日志「已就绪：{got} 任务」'
+                                    f'与分片任务数 {expected} 不符（分片配置没生效？）')
+                else:
+                    ready_seen[int(row['index'])] = got
+            if alive:
+                alive_count += 1
+            elif not match:
+                fatal = detect_fatal(text) or '（日志里没有「已就绪」，也没有明显异常）'
+                problems.append(f'片{row["index"]}（pid={pid}）已退出且未就绪：{fatal}')
+            fatal_now = detect_fatal(text)
+            if fatal_now and not match:
+                problems.append(f'片{row["index"]}：日志出现致命错误「{fatal_now}」')
+        ready_count = len(ready_seen)
+        elapsed = now - started
+        all_ready = ready_count == len(workers_rows)
+        # ---- T+ready_wait（默认 30s）首轮审计：进程数 + 「已就绪：N 任务」是否与分片相符 ----
+        if not first_check_done and elapsed >= args.ready_wait:
+            first_check_done = True
+            log(f'[ready] T+{elapsed:.0f}s：进程存活 {alive_count}/{len(workers_rows)}；'
+                f'已就绪 {ready_count}/{len(workers_rows)}'
+                + (f'（未就绪 {len(workers_rows) - ready_count} 个仍在加载模型/评测）'
+                   if ready_count < len(workers_rows) else '（就绪数与各分片任务数相符）'))
+        if problems:
+            for row in workers_rows:
+                if proc_alive(int(row['pid'])):
+                    terminate_own(int(row['pid']), expect_tokens=('al_50task_bf16.sh',
+                                                                  'train_lingbotvla.py'),
+                                  role=f'scan shard {row["index"]}', log=log)
+            detail = '\n  - '.join(problems)
+            for row in workers_rows:
+                log(f'[ready] 片{row["index"]} 日志尾部：\n'
+                    + '\n'.join('    ' + ln for ln in read_tail(Path(row['log']), 3000)
+                                .splitlines()[-25:]))
+            raise LaunchError(f'worker 存活/就绪检查未通过：\n  - {detail}', EXIT_WORKER_NOT_READY)
+        if all_ready and first_check_done:
+            # 报告过「已就绪：N 任务」之后 worker 自然退出是正常的（它把本片任务扫完了）；
+            # 真正的「扫没扫全」由后面的缓存条目统计判定，绝不用就绪行代替覆盖数。
+            log(f'[ready] T+{elapsed:.0f}s：全部就绪且已过首轮审计（当前存活 '
+                f'{alive_count}/{len(workers_rows)}）—— '
+                + '；'.join(f'片{r["index"]}（GPU{r["gpu"]}）{len(r["tasks"])} 任务'
+                            for r in workers_rows))
+            break
+        if alive_count == 0:
+            break
+        if elapsed > args.ready_timeout:
+            for row in workers_rows:
+                if proc_alive(int(row['pid'])):
+                    terminate_own(int(row['pid']), expect_tokens=('al_50task_bf16.sh',
+                                                                  'train_lingbotvla.py'),
+                                  role=f'scan shard {row["index"]}', log=log)
+            raise LaunchError(f'等待就绪超过 {args.ready_timeout:.0f}s（已就绪 {ready_count}'
+                              f'/{len(workers_rows)}）⇒ 终止本次启动', EXIT_WORKER_NOT_READY)
+        time.sleep(2.0)
+
+    # ---------------- 步骤 14：逐分片进度（以缓存条目数为准）----------------
+    if workers_rows:
+        log('=' * 78)
+        log('扫描进行中（进度以缓存条目数为准；事件文件可能有残留数据，不用于判定）')
+        log('=' * 78)
+    deadline = time.time() + args.scan_timeout
+    last_line = ''
+    timed_out = False
+    while workers_rows:
+        cov_now = check_coverage(cache_dir, str(fingerprint), scout_ids)
+        parts: List[str] = []
+        for row in workers_rows:
+            done = sum(1 for t in row['tasks'] if t in cov_now.covered)
+            row['scan_done'] = done
+            parts.append(f'片{row["index"]}(gpu{row["gpu"]}) {done}/{len(row["tasks"])}')
+        line = (f'[progress] T+{_human(time.time() - started)} | ' + ' | '.join(parts)
+                + f' | 合计 {len(cov_now.covered)}/{len(scout_ids)}（指纹目录内）')
+        if line != last_line:
+            log(line)
+            last_line = line
+        if not any(proc_alive(int(row['pid'])) for row in workers_rows):
+            log('[progress] 所有 worker 已退出')
+            break
+        if time.time() > deadline:
+            timed_out = True
+            log(f'[progress] 超过 --scan-timeout={args.scan_timeout:.0f}s ⇒ 精确终止仍在跑的 worker')
+            for row in workers_rows:
+                if proc_alive(int(row['pid'])):
+                    terminate_own(int(row['pid']), expect_tokens=('al_50task_bf16.sh',
+                                                                  'train_lingbotvla.py'),
+                                  role=f'scan shard {row["index"]}', log=log)
+            break
+        time.sleep(max(2.0, float(args.poll_interval)))
+
+    # 收尾：覆盖已完整但 worker 还在跑（可能在做 1 个训练步）⇒ 给宽限
+    grace_deadline = time.time() + max(0.0, float(args.exit_grace))
+    while time.time() < grace_deadline:
+        cov_now = check_coverage(cache_dir, str(fingerprint), scout_ids)
+        if len(cov_now.missing) == 0 and not any(proc_alive(int(r['pid'])) for r in workers_rows):
+            break
+        if not any(proc_alive(int(r['pid'])) for r in workers_rows):
+            break
+        time.sleep(2.0)
+    for row in workers_rows:
+        if proc_alive(int(row['pid'])):
+            cov_txt = f'{row.get("scan_done", "?")}/{len(row["tasks"])}'
+            log(f'[cleanup] 片{row["index"]} 在宽限 {args.exit_grace:.0f}s 内没有自然退出'
+                f'（该片缓存 {cov_txt}）⇒ 精确终止它自己')
+            terminate_own(int(row['pid']), expect_tokens=('al_50task_bf16.sh',
+                                                          'train_lingbotvla.py'),
+                          role=f'scan shard {row["index"]}', log=log)
+    for row in workers_rows:
+        row['exited'] = not proc_alive(int(row['pid']))
+        row['timed_out'] = bool(timed_out)
+    return workers_rows
+
+
 def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     repo = Path(args.repo or Path(__file__).resolve().parents[2]).resolve()
     dry = bool(args.dry_run)
@@ -1635,8 +1887,12 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         plan.step('分片规划',
                   f'{workers} 片 / {len(scan_target)} 任务；并集校验通过；'
                   f'各片大小 {[len(s) for s in shards]}；卡 {",".join(shard_gpus)}')
+    elif mode == 'reuse':
+        plan.step('分片规划', '无需扫描（缓存已完整）')
     else:
-        plan.step('分片规划', '无需扫描（复用缓存）')
+        plan.step('分片规划',
+                  '未知（dry-run 未算出指纹）⇒ 真正运行时按缺失清单分片，'
+                  'worker 数 = min(可用卡数, 待扫任务数)')
 
     # ---------------- 步骤 10：环境变量清单 ----------------
     run_name = args.run_name or f'{Path(args.eval_config).stem}_{_stamp()}'
@@ -1682,6 +1938,29 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     log('')
     plan.step('环境变量', f'worker {len(example_worker_env)} 个变量；'
                          f'训练 {len(train_env_vars)} 个变量（上面已完整打印）')
+    if scan_target:
+        plan.step('启动扫描 worker',
+                  f'{len(shards)} 片 × 1 卡 = {len(shards)} 个进程（setsid nohup，日志写在 '
+                  f'{run_root}/scan_shard<i>/worker_shard<i>_gpu<g>.log；'
+                  f'MAX_STEPS={args.worker_max_steps}'
+                  + ('；SMOKE_NO_CHECKPOINT=1' if not args.worker_checkpoint else '') + '）')
+        plan.step('就绪检查',
+                  f'T+{args.ready_wait:.0f}s 首轮核对：进程数必须等于片数，且每片日志出现'
+                  f'「已就绪：<该片任务数> 任务」；不符立即非零退出（上限 '
+                  f'T+{args.ready_timeout:.0f}s）')
+        plan.step('逐分片进度',
+                  f'每 {args.poll_interval:.0f}s 按分片打印缓存条目覆盖数（条目数为准，不用事件文件）')
+        plan.step('收尾统计（只看目标指纹目录）',
+                  '缺失清单非空 ⇒ 退出码 3 + 打印缺失任务名，绝不启动训练、绝不伪造覆盖数')
+    elif mode == 'reuse':
+        plan.step('扫描与就绪检查', '跳过（缓存已完整，不启动 worker）')
+    else:
+        plan.step('扫描与就绪检查',
+                  '未知（dry-run 未算出指纹）⇒ 真正运行时按上面的分片计划启动 worker、'
+                  f'T+{args.ready_wait:.0f}s 核对进程数与「已就绪：N 任务」')
+    plan.step('启动训练',
+              f'setsid nohup 后台起，打印日志路径与进程数；MAX_STEPS={args.steps}；'
+              f'N_GPU={len(gpus)}；输出 {train_out}')
 
     report['plan'] = plan.steps
     report['warnings'] = plan.warnings
@@ -1713,7 +1992,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         report['ok'] = True
         return EXIT_OK
 
-    # ---------------- 步骤 11：--no-cache 备份旧目录 / 生成分片配置 ----------------
+    # ---------------- 步骤 11-14：分片扫描（--retry-rounds 时补扫剩余缺失）----------------
     if fingerprint and args.no_cache and cache_dir.exists() and any(cache_dir.glob('*.json')):
         backup = cache_dir.with_name(cache_dir.name + '.bak-' + _stamp())
         if backup.exists():
@@ -1726,178 +2005,31 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
                         ('缓存目录', cache_dir)):
         path.mkdir(parents=True, exist_ok=True)
 
-    shard_configs: List[Path] = []
-    shard_dir = run_root / 'shards'
-    shard_dir.mkdir(parents=True, exist_ok=True)
-    for i, shard in enumerate(shards):
-        if args.shard_config_dir:
-            path = Path(args.shard_config_dir).expanduser() / f'al_shard{i}.yaml'
-            if not path.is_file():
-                raise LaunchError(f'--shard-config-dir 里缺 {path}')
+    all_workers_rows: List[Dict[str, Any]] = []
+    rounds = max(0, int(args.retry_rounds)) + 1
+    for round_idx in range(rounds):
+        if round_idx == 0:
+            round_target = list(scan_target)
         else:
-            path = shard_dir / f'al_shard{i}.json'
-            write_shard_config(path, index=i, total=len(shards), body=al_body,
-                               tasks=shard, source_config=al_cfg)
-        shard_configs.append(path)
-    if shard_configs:
-        log(f'[plan] 分片 AL 配置：{", ".join(p.name for p in shard_configs)}'
-            f'（task_names 分片，其余标量原样复制自 {al_cfg}）')
-
-    # ---------------- 步骤 12：启动 worker ----------------
-    workers_rows: List[Dict[str, Any]] = []
-    live_pids: List[int] = []
-    log('=' * 78)
-    log(f'启动 {len(shards)} 个扫描 worker（各 1 卡 + MAX_STEPS={args.worker_max_steps}'
-        f'{" + SMOKE_NO_CHECKPOINT=1" if not args.worker_checkpoint else ""}）')
-    log('=' * 78)
-    for i, shard in enumerate(shards):
-        gpu = shard_gpus[i]
-        cfg = shard_configs[i]
-        wdir = run_root / f'scan_shard{i}'
-        wdir.mkdir(parents=True, exist_ok=True)
-        wlog = wdir / f'worker_shard{i}_gpu{gpu}.log'
-        env = worker_env(common, gpu=gpu, train_out=wdir, max_steps=args.worker_max_steps,
-                         fingerprint=str(fingerprint), master_port=free_port(62510 + i * 10),
-                         smoke_no_checkpoint=not args.worker_checkpoint)
-        env['AL_CFG'] = str(cfg)
-        pid = spawn_background(script=launch_script, env=env, log_path=wlog, cwd=repo,
-                               shell_env=shell_env_for_launch(python), log=log)
-        time.sleep(0.4)
-        alive = proc_alive(pid)
-        argv = proc_cmdline(pid)
-        log(f'[scan] 片{i} GPU{gpu}：{len(shard)} 任务；pid={pid}；日志 {wlog}')
-        log(f'[scan]   cmdline: {" ".join(argv)[:160]}')
-        workers_rows.append({'index': i, 'gpu': gpu, 'tasks': list(shard), 'pid': pid,
-                             'log': str(wlog), 'out': str(wdir), 'config': str(cfg),
-                             'alive': alive})
-        live_pids.append(pid)
-        if not alive:
-            raise LaunchError(f'片{i}（pid={pid}）启动后立刻退出 ⇒ 拒绝继续；'
-                              f'日志尾部：\n{read_tail(wlog, 4000)}',
-                              EXIT_WORKER_NOT_READY)
-    report['shards'] = workers_rows
-
-    # ---------------- 步骤 13：就绪检查 ----------------
-    started = time.time()
-    first_check_done = False
-    ready_seen: Dict[int, int] = {}
-    log(f'[ready] 等待就绪：首轮检查在 T+{args.ready_wait:.0f}s，'
-        f'上限 T+{args.ready_timeout:.0f}s')
-    while True:
-        now = time.time()
-        alive_count = 0
-        ready_count = 0
-        problems: List[str] = []
-        for row in workers_rows:
-            pid = int(row['pid'])
-            alive = proc_alive(pid)
-            row['alive'] = alive
-            text = read_tail(Path(row['log']))
-            match = RE_READY.search(text)
-            expected = len(row['tasks'])
-            row['expected'] = expected
-            if match:
-                got = int(match.group(1))
-                row['ready_tasks'] = got
-                if got != expected:
-                    problems.append(f'片{row["index"]}：日志「已就绪：{got} 任务」'
-                                    f'与分片任务数 {expected} 不符（分片配置没生效？）')
-                else:
-                    ready_seen[int(row['index'])] = got
-            if alive:
-                alive_count += 1
-            elif not match:
-                fatal = detect_fatal(text) or '（日志里没有「已就绪」，也没有明显异常）'
-                problems.append(f'片{row["index"]}（pid={pid}）已退出且未就绪：{fatal}')
-            fatal_now = detect_fatal(text)
-            if fatal_now and not match:
-                problems.append(f'片{row["index"]}：日志出现致命错误「{fatal_now}」')
-        ready_count = len(ready_seen)
-        elapsed = now - started
-        if not first_check_done and elapsed >= args.ready_wait:
-            first_check_done = True
-            log(f'[ready] T+{elapsed:.0f}s：进程存活 {alive_count}/{len(workers_rows)}；'
-                f'已就绪 {ready_count}/{len(workers_rows)}'
-                + (f'（未就绪 {len(workers_rows) - ready_count} 个仍在加载模型）'
-                   if ready_count < len(workers_rows) else ''))
-        if problems:
-            for row in workers_rows:
-                if proc_alive(int(row['pid'])):
-                    terminate_own(int(row['pid']), expect_tokens=('al_50task_bf16.sh',
-                                                                  'train_lingbotvla.py'),
-                                  role=f'scan shard {row["index"]}', log=log)
-            detail = '\n  - '.join(problems)
-            for row in workers_rows:
-                log(f'[ready] 片{row["index"]} 日志尾部：\n'
-                    + '\n'.join('    ' + ln for ln in read_tail(Path(row['log']), 3000)
-                                .splitlines()[-25:]))
-            raise LaunchError(f'worker 存活/就绪检查未通过：\n  - {detail}', EXIT_WORKER_NOT_READY)
-        if ready_count == len(workers_rows) and alive_count == len(workers_rows):
-            log(f'[ready] T+{elapsed:.0f}s：全部就绪 —— '
-                + '；'.join(f'片{r["index"]}（GPU{r["gpu"]}）就绪 {len(r["tasks"])} 任务'
-                            for r in workers_rows))
+            cov_now = check_coverage(cache_dir, str(fingerprint), scout_ids)
+            round_target = [t for t in scan_target if t not in cov_now.covered]
+            if not round_target:
+                log('[retry] 目标范围已完整，无需补扫')
+                break
+            log(f'[retry] 第 {round_idx} 轮补扫 {len(round_target)} 个任务：'
+                + ', '.join(round_target[:10]) + ('…' if len(round_target) > 10 else ''))
+        if not round_target:
             break
-        if alive_count == 0:
-            break
-        if elapsed > args.ready_timeout:
-            for row in workers_rows:
-                if proc_alive(int(row['pid'])):
-                    terminate_own(int(row['pid']), expect_tokens=('al_50task_bf16.sh',
-                                                                  'train_lingbotvla.py'),
-                                  role=f'scan shard {row["index"]}', log=log)
-            raise LaunchError(f'等待就绪超过 {args.ready_timeout:.0f}s（已就绪 {ready_count}'
-                              f'/{len(workers_rows)}）⇒ 终止本次启动', EXIT_WORKER_NOT_READY)
-        time.sleep(2.0)
-
-    # ---------------- 步骤 14：逐分片进度（以缓存条目数为准）----------------
-    log('=' * 78)
-    log('扫描进行中（进度以缓存条目数为准；事件文件可能有残留数据，不用于判定）')
-    log('=' * 78)
-    deadline = time.time() + args.scan_timeout
-    last_line = ''
-    while True:
-        cov_now = check_coverage(cache_dir, str(fingerprint), scout_ids)
-        parts: List[str] = []
-        for row in workers_rows:
-            done = sum(1 for t in row['tasks'] if t in cov_now.covered)
-            row['scan_done'] = done
-            parts.append(f'片{row["index"]}(gpu{row["gpu"]}) {done}/{len(row["tasks"])}')
-        line = (f'[progress] T+{_human(time.time() - started)} | ' + ' | '.join(parts)
-                + f' | 合计 {len(cov_now.covered)}/{len(scout_ids)}（指纹目录内）')
-        if line != last_line:
-            log(line)
-            last_line = line
-        if not any(proc_alive(int(row['pid'])) for row in workers_rows):
-            log('[progress] 所有 worker 已退出')
-            break
-        if time.time() > deadline:
-            log(f'[progress] 超过 --scan-timeout={args.scan_timeout:.0f}s ⇒ 精确终止仍在跑的 worker')
-            for row in workers_rows:
-                if proc_alive(int(row['pid'])):
-                    terminate_own(int(row['pid']), expect_tokens=('al_50task_bf16.sh',
-                                                                  'train_lingbotvla.py'),
-                                  role=f'scan shard {row["index"]}', log=log)
-            break
-        time.sleep(max(2.0, float(args.poll_interval)))
-
-    # 收尾：覆盖已完整但 worker 还在跑（可能在做 1 个训练步）⇒ 给宽限
-    grace_deadline = time.time() + max(0.0, float(args.exit_grace))
-    while time.time() < grace_deadline:
-        cov_now = check_coverage(cache_dir, str(fingerprint), scout_ids)
-        if len(cov_now.missing) == 0 and not any(proc_alive(int(r['pid'])) for r in workers_rows):
-            break
-        if not any(proc_alive(int(r['pid'])) for r in workers_rows):
-            break
-        time.sleep(2.0)
-    for row in workers_rows:
-        if proc_alive(int(row['pid'])):
-            log(f'[cleanup] 片{row["index"]} 覆盖已齐但进程仍在（超过宽限 '
-                f'{args.exit_grace:.0f}s）⇒ 精确终止')
-            terminate_own(int(row['pid']), expect_tokens=('al_50task_bf16.sh',
-                                                          'train_lingbotvla.py'),
-                          role=f'scan shard {row["index"]}', log=log)
-    for row in workers_rows:
-        row['exited'] = not proc_alive(int(row['pid']))
+        round_shards = shard_tasks(round_target, min(len(gpus), len(round_target)))
+        round_gpus = gpus[:len(round_shards)]
+        check_union(round_target, round_shards)
+        all_workers_rows.extend(_scan_round(
+            args=args, log=log, repo=repo, launch_script=launch_script, python=python,
+            common=common, al_body=al_body, al_cfg=al_cfg, fingerprint=str(fingerprint),
+            cache_dir=cache_dir, scout_ids=scout_ids, run_root=run_root,
+            round_shards=round_shards, round_gpus=round_gpus, round_idx=round_idx,
+            tmpdir=tmpdir, worker_out_root=worker_out_root))
+    workers_rows = all_workers_rows
 
     # ---------------- 步骤 15：收尾统计（只看目标指纹目录）----------------
     final_cov = check_coverage(cache_dir, str(fingerprint), scout_ids)
@@ -1914,8 +2046,8 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     log(f'目标指纹目录  : {cache_dir}')
     log(f'本次扫描范围  : {len(scan_target)} 个任务'
         + ('（--no-cache 全量）' if args.no_cache else '（缓存缺失部分）')
-        if scan_target else '本次扫描范围  : 无（复用缓存）')
-    log(f'范围覆盖      : {target_cov.summary()}')
+        if scan_target else '本次扫描范围  : 无（复用缓存，未启动 worker）')
+    log(f'范围覆盖      : {target_cov.summary() if scan_target else "不适用（本次未扫描）"}')
     log(f'全集覆盖      : {final_cov.summary()}（该目录内 {final_cov.json_files()} 个条目文件）')
     if final_cov.missing:
         log(f'缺失任务（{len(final_cov.missing)} 个）：' + ', '.join(final_cov.missing))
@@ -1924,6 +2056,12 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         shard_of = {t: i for i, row in enumerate(workers_rows) for t in row['tasks']}
         log('缺失任务所属分片：'
             + ', '.join(f'{t}→片{shard_of.get(t, "?")}' for t in final_cov.missing[:15]))
+        timed_out = any(bool(r.get('timed_out')) for r in workers_rows)
+        if timed_out:
+            log('结论：扫描超过 --scan-timeout 且覆盖不完整 ⇒ 不启动训练'
+                '（已精确终止仍在跑的 worker；缺失清单见上）。')
+            report['ok'] = False
+            return EXIT_SCAN_TIMEOUT
         log('结论：覆盖不完整 ⇒ 不启动训练，请按上面的缺失清单补齐后重跑（本工具不会伪造覆盖数）。')
         report['ok'] = False
         return EXIT_SCAN_INCOMPLETE
@@ -1954,7 +2092,10 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     report.setdefault('commands', {})['train'] = equivalent_command(
         launch_script, tenv, train_log, repo)
     log(f'日志   : {train_log}')
-    log(f'PID    : {train_pid}（会话/进程组 {proc_pgid(train_pid)}；启动 1s 后存活={alive}）')
+    _pgid = proc_pgid(train_pid)
+    log(f'PID    : {train_pid}（会话/进程组 '
+        f'{_pgid if _pgid is not None else "本机无 /proc，按 PID 精确管理"}；'
+        f'启动 1s 后存活={alive}）')
     log(f'进程数 : {len(gpus)} 个 rank（N_GPU={len(gpus)}；'
         f'CUDA_VISIBLE_DEVICES={",".join(gpus)}）')
     log(f'输出   : {train_out}')
@@ -1966,7 +2107,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
             + '\n'.join('  ' + ln for ln in read_tail(train_log, 4000).splitlines()[-30:]))
         report['ok'] = False
         report['training']['alive'] = False
-        return EXIT_WORKER_NOT_READY
+        return EXIT_TRAIN_DIED
     report['ok'] = True
     return EXIT_OK
 
