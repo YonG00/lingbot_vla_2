@@ -53,6 +53,11 @@ if [ ! -e /data/miniconda3/envs/lingbotvla/bin/python ]; then
     export PY SPLIT_DIR PHASES MODEL_PATH CONFIG QWEN3VL TRAIN_OUT AL_CFG
 fi
 
+# ---- AMD 镜像兼容（2026-10-10：实例重建后必设）--------------------------------
+# aiter gluon 在 triton<3.6 时硬 raise ⇒ flash_attn 导入失败 ⇒ 模型注册表为空 ⇒ 退回 HF 加载器报错。
+# 设 AITER_USE_SYSTEM_TRITON=1 后 aiter 只警告不报错（详见 tools/rocm/fix_aiter_gluon_triton.sh）。
+export AITER_USE_SYSTEM_TRITON=${AITER_USE_SYSTEM_TRITON:-1}
+
 # ---- 参数 -------------------------------------------------------------------
 SPLIT_DIR=${SPLIT_DIR:-/data/train/task_splits_50}
 PHASES=${PHASES:-/data/train/phases}

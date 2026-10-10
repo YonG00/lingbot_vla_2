@@ -1217,6 +1217,10 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
         #    ⇒ 在**训练脚本侧**按 rank 加子目录（env 会被 shlex.quote 引号化，shell 变量展开不可行），
         #    见 `tasks/vla/train_lingbotvla.py` 里的 `_al_per_rank_compile_cache()`。
         #    逃生：`AL_SHARED_COMPILE_CACHE=1` 恢复共享目录。
+        # 🔴 AMD 镜像：aiter gluon 在 triton<3.6 时硬 raise ⇒ flash_attn 导入失败 ⇒
+        #    模型注册表为空 ⇒ 退回 HF 加载器（`Unrecognized configuration class`）。
+        #    设 1 后 aiter 只警告。实例重建后必带（脚本侧写了 /etc/profile.d 双保险）。
+        'AITER_USE_SYSTEM_TRITON': os.environ.get('AITER_USE_SYSTEM_TRITON', '1'),
         'TRITON_CACHE_DIR': str(args.triton_cache),
         'TORCHINDUCTOR_CACHE_DIR': str(args.torchinductor_cache),
         'AL_SCOUT_CACHE_MODE': 'bootstrap',
