@@ -216,3 +216,37 @@ def test_coverage_method_calls_exist():
     assert not unknown, f'Coverage 上被调用但不存在的方法：{unknown}（现有：{sorted(members)}）'
 
 
+
+
+# --------------------------------------------------------------------------- #
+# 重复常量同步校验（2026-10-10 真机事故：VERSION 漂移 ⇒ 真命中被判未命中、拒启动）
+# --------------------------------------------------------------------------- #
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_cache_constants_match_scout_cache():
+    """launcher 里复制的 scout 缓存常量必须与 `scout_cache.py` **逐字一致**。
+
+    真机现象：`scout_cache.VERSION` 升到 2 后 launcher 仍是 1 ⇒ `entry_is_hit` 报
+    `version=2 != 1` ⇒ 覆盖被判成 0/50 ⇒ launcher 以退出码 3 拒启动（"覆盖不完整"），
+    而缓存文件其实完全有效。注释写了"必须一致"但**没人校验**，于是漂移了。
+    """
+    import importlib.util
+    import re
+    src = LAUNCHER.read_text(encoding='utf-8')
+    sys.path.insert(0, str(LAUNCHER.parents[2]))
+    for mod_name in ('scout_cache',):
+        pass
+    spec = importlib.util.spec_from_file_location(
+        'scout_cache_probe', LAUNCHER.parents[2] / 'lingbotvla/auto_learning/scout_cache.py')
+    sc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sc)
+
+    def const(name: str) -> str:
+        m = re.search(rf'^{name}\s*=\s*([^\n#]+)', src, re.M)
+        assert m, f'launcher 里找不到常量 {name}'
+        return m.group(1).strip()
+
+    assert const('VERSION') == str(sc.VERSION), (
+        f'launcher VERSION={const("VERSION")} 与 scout_cache.VERSION={sc.VERSION} 不一致 ⇒ '
+        '会把真命中判成未命中、拒绝启动')
+    assert eval(const('MAX_JSON_BYTES')) == sc.MAX_JSON_BYTES, (   # noqa: S307 —— 源码常量，安全
+        f'launcher MAX_JSON_BYTES={const("MAX_JSON_BYTES")} 与 scout_cache 的 {sc.MAX_JSON_BYTES} 不一致')

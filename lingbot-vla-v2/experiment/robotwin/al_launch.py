@@ -79,8 +79,12 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 DEFAULT_GPUS = '0,1,2,3,5,6,7'
 
 #: scout 缓存记录 schema —— 必须与 `lingbotvla/auto_learning/scout_cache.py` 的 VERSION 一致
-VERSION = 1
-MAX_JSON_BYTES = 1_000_000
+# 🔴 这几个常量是 `lingbotvla/auto_learning/scout_cache.py` 的**副本**（本文件要独立可跑，
+#    故不 import）。**必须逐字同步** —— 2026-10-10 真机事故：scout 缓存 VERSION 升到 2 后
+#    这里仍是 1，导致 `entry_is_hit` 把**真命中判成未命中**、launcher 拒启动（退出码 3）。
+#    `tests/test_al_launch_env_passthrough.py::test_cache_constants_match_scout_cache` 会拦住漂移。
+VERSION = 2                      # 必须 == scout_cache.VERSION
+MAX_JSON_BYTES = 64 * 1024 * 1024   # 必须 == scout_cache.MAX_JSON_BYTES（单文件语义）
 NO_SEMANTIC_HASH_MARKER = 'scout-fingerprint: no-semantic-hash'
 
 #: 训练启动脚本（环境变量驱动）
