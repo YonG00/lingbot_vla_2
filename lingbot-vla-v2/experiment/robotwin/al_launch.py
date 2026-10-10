@@ -1056,6 +1056,10 @@ def build_parser() -> argparse.ArgumentParser:
                          help=f'TRITON_CACHE_DIR，默认 {DEFAULT_TRITON_CACHE}')
     runtime.add_argument('--torchinductor-cache', default=DEFAULT_TORCHINDUCTOR_CACHE,
                          help=f'TORCHINDUCTOR_CACHE_DIR，默认 {DEFAULT_TORCHINDUCTOR_CACHE}')
+    runtime.add_argument('--env', action='append', default=None, metavar='KEY=VALUE',
+                         help='额外传给扫描 worker 与训练的环境变量，可重复。'
+                              '例：--env AL_HARDNESS_SHARD=1 --env AL_HARDNESS_LOG_SEC=10。'
+                              '父进程里已存在的 AL_* 也会自动透传（并不再被白名单吞掉）')
     runtime.add_argument('--dtype', default='bfloat16',
                          help='AL_SCOUT_CACHE_DTYPE / 推理精度，默认 bfloat16（必须与权重一致）')
     runtime.add_argument('--scout-trajs', type=int, default=None,
@@ -1105,7 +1109,24 @@ def build_parser() -> argparse.ArgumentParser:
 def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path,
              train_config: Path, split_dir: Path, phases: Path, checkpoint: Path,
              manifest: Path, baseline: Path, norm: Path, dtype: str) -> Dict[str, str]:
-    """扫描 worker 与训练共用的环境变量（顺序即日志里的打印顺序）。"""
+    """扫描 worker 与训练共用的环境变量（顺序即日志里的打印顺序）。
+
+    🔴 2026-10-10：训练/worker 的环境是**白名单构造**（不继承父进程），这是有意的
+    （可审计、不受调用者 shell 影响）。但因此**父进程 export 的 `AL_*` 到不了子进程** ——
+    实测 `AL_HARDNESS_SHARD=1` 就是这样被吞掉的（rank 的 /proc/environ 里根本没有）。
+    两种补法都在下面：① `--env K=V` 显式传参（推荐，会打印出来）；
+    ② 父进程里已存在的 `AL_*`（不在本白名单里的）自动透传，避免"设了没生效"。
+    """
+    extra: Dict[str, str] = {}
+    for item in (getattr(args, 'env', None) or []):
+        k, _, v = str(item).partition('=')
+        k = k.strip()
+        if not k:
+            raise LaunchError(f'--env 参数不合法（应为 KEY=VALUE）：{item!r}')
+        extra[k] = v
+    for k, v in os.environ.items():
+        if k.startswith('AL_') and k not in extra:
+            extra[k] = v
     return {
         'PY': str(python),
         'PATH': f'{python.parent}:{os.environ.get("PATH", "/usr/bin:/bin")}',
@@ -1138,7 +1159,7 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
         'HF_DATASETS_OFFLINE': '1',
         'PYTORCH_CUDA_ALLOC_CONF': 'expandable_segments:True',
         'TOKENIZERS_PARALLELISM': 'false',
-    }
+    } | extra
 
 
 def worker_env(common: Dict[str, str], *, gpu: str, train_out: Path, max_steps: int,
