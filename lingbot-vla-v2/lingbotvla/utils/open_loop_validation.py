@@ -4,7 +4,9 @@
 --------
 * **复用当前训练中的模型权重**：不重新加载 ckpt、不额外实例化 6B inference policy
 * 走 ``model.sample_actions`` **推理路径**，**不走训练 ``.forward()`` loss 路径**
-* ``model.eval()`` + ``torch.inference_mode()``；结束后**逐模块恢复** training 标志
+* ``model.eval()`` + ``torch.no_grad()``（**不是** ``inference_mode`` —— 见
+  `_eval_tensor_context`：inference 张量会让 FSDP2 紧随其后的训练前向直接报错）；
+  结束后**逐模块恢复** training 标志
 * **整次 eval 固定 seed**，且**前后快照/恢复 RNG（含 CUDA）**
   ⇒ 既保证不同 step 的评测可比，也**不改变训练后续步的随机流**
 * 数据侧复用 ``build_vla_dataset``（与训练同一份 ``dataset_config``，只换 ``episode_ids_file``）
@@ -360,6 +362,47 @@ def _fsdp2_root_lazy_init(model: Any, *, logger: Any = None) -> str:
     return "lazy_init"
 
 
+def _eval_tensor_context():
+    """评测体的张量上下文 —— ``no_grad``，**绝不能**用 ``torch.inference_mode()``。
+
+    🔴 **为什么（2026-10-10 真机 hang + CPU/gloo 逐字复现）**
+
+    ``torch.inference_mode()`` 里建出来的张量**永久带 inference 标记**，之后在
+    InferenceMode **之外**对它做 inplace 写会抛::
+
+        RuntimeError: Inplace update to inference tensor outside InferenceMode is not allowed.
+
+    而 FSDP2 的 ``all_gather_copy_out`` 正是 inplace 写进**各单元缓存的 unsharded 参数**
+    （``split_with_sizes_copy(all_gather, sizes, dim=1, out=param.unsharded_param)``，
+    torch 2.8 ``_fsdp_collectives.py``）。
+
+    评测只对**根单元**做 ``unshard()``（在 inference_mode 之外，安全），但**嵌套单元**
+    （每个 decoder 层各一个 FSDP2 单元）是在**模型前向里**被各自的 pre-forward hook
+    all-gather 的 ⇒ 那一步**发生在 inference_mode 之内** ⇒ 它们的
+    ``fsdp_params[i].unsharded_param`` 被创建成 inference 张量、且被 FSDP2 缓存复用。
+
+    于是 AutoLearning 的真实时序必然踩上::
+
+        评测 #1（inference_mode，嵌套单元 unshard 被污染）
+        评测 #2（同上）
+        Hardness 扫描 / 第一个训练步（no_grad 或默认 grad，**InferenceMode 之外**）
+            → pre_forward → wait_for_unshard → all_gather_copy_out
+            → RuntimeError（每个 rank 同时踩到；若只有一个 rank 先抛，
+              另一个 rank 会永远等在集合通信里 ⇒ **表现为静默 hang**）
+
+    CPU 2 进程 gloo + 真 FSDP2 复现（`tools/al_bootstrap_order_fsdp2_repro.py`）::
+
+        EVAL_MODE=inference  ⇒ RuntimeError；被污染的张量 =
+                               blocks.0/blocks.1: fsdp_params[0].unsharded_param
+        EVAL_MODE=nograd     ⇒ 全链路通过（评测 → Hardness → 训练步 → 单元末评测）
+
+    ``torch.no_grad()`` 给出同样的「不建图、不记 grad」语义，但**不**打 inference 标记
+    ⇒ FSDP2 的 all-gather 缓冲区始终是普通张量。评测是纯读操作，二者在数值/显存上等价
+    （差别只是 no_grad 仍维护 version counter）。
+    """
+    return torch.no_grad()
+
+
 @contextlib.contextmanager
 def _fsdp_full_params_context(model: Any, *, logger: Any = None) -> Iterator[str]:
     """评测窗口内把**分片参数** all-gather 成完整权重；返回进入的模式（``''``=未分片）。
@@ -426,7 +469,10 @@ def _broadcast_object(payload: List[Any], *, src: int = 0) -> None:
 
 def _multirank_eval_payload(*, run: Callable[[], Dict[str, Any]], ws: int, rank: int,
                             broadcast: Callable[[List[Any]], None],
-                            all_ranks_run: bool = False) -> Dict[str, Any]:
+                            all_ranks_run: bool = False,
+                            fail_fast: Optional[Callable[[BaseException], bool]] = None,
+                            on_broadcast: Optional[Callable[[], None]] = None
+                            ) -> Dict[str, Any]:
     """多卡评测的执行与同步协议 —— **纯函数，便于单测**。
 
     * ``ws == 1``：直接在本进程跑（单卡路径，行为与以前逐字一致）；
@@ -438,13 +484,24 @@ def _multirank_eval_payload(*, run: Callable[[], Dict[str, Any]], ws: int, rank:
       （FSDP 的 all-gather 是集合通信，少一个 rank 就死锁），
       但**只有 rank0 的结果算数**（其余 rank 的结果可能是各自分片的中间态/不同随机），
       广播后所有 rank 用同一份 ⇒ 与复制并行同样的「指标一致、决策不分叉」。
-      非 0 rank 自己的异常**不抛出**（走到广播，用 rank0 的结果），
+      非 0 rank 自己的异常**默认不抛出**（走到广播，用 rank0 的结果），
       这样单个 rank 的偶发失败不会把整轮训练打断；
       ⚠️ 但若失败发生在**集合通信中途**（例如 all-gather 里 OOM），仍可能挂死 ——
       这是 FSDP 的固有限制，不受本函数控制。
+
+    🔴 **非 0 rank 失败时绝不再「静默」**（2026-10-10 真机 8 卡 12 分钟静默的教训）：
+    该异常**先原样打到 stderr**（带 rank + 完整栈），否则一旦这个 rank 走去等末尾广播、
+    其余 rank 还卡在 all-gather 里，等到 600 s NCCL 看门狗 abort 时日志里只剩
+    ``NCCL communicator was aborted`` —— 真因被彻底埋掉（真机实测就是这样）。
+    另外 ``fail_fast(exc)`` 返回 True 时**立刻抛出**（不再等广播）：
+    集合通信区内的失败必然让其余 rank 死等，早抛早拿到真因、由 torchrun 收掉整个作业。
+    该回调由调用方给（见 `_nonzero_failure_is_fatal`），默认 None ⇒ 保留旧语义。
     * rank0 失败时**广播错误标记**（而不是直接抛）⇒ 其余 rank 不会永久等在广播上。
 
     返回 rank0 的评测结果（或单卡时本进程的结果）。
+
+    ``on_broadcast``（可选）：**紧接在末尾广播之前**调用（逐 rank，用于阶段面包屑 ——
+    卡在广播上时日志里最后一行就是「广播」，与卡在 all-gather 上可以区分）。
     """
     if ws <= 1:
         return run()
@@ -458,13 +515,31 @@ def _multirank_eval_payload(*, run: Callable[[], Dict[str, Any]], ws: int, rank:
         else:
             try:
                 run()          # 只为参与集合通信；结果丢弃（不覆盖 rank0 的 payload）
-            except BaseException:  # noqa: BLE001 —— 非 0 rank 的结果一律作废，不改变协议
-                pass
+            except BaseException as exc:  # noqa: BLE001 —— 结果一律作废，但**必须留证据**
+                # 懒 import：本函数会被 AST 单测单独编译，不假设存在哪些模块级名字
+                import sys as _sys
+                import traceback as _tb
+                try:
+                    _head = (f"[open_loop][multirank] ⚠️ rank{int(rank)}/{int(ws)} 在评测体内失败"
+                             f"（旧行为会静默吞掉、只留 rank0 的结果）："
+                             f"{type(exc).__name__}: {exc}")
+                    _stack = "".join(_tb.format_exception(type(exc), exc,
+                                                          exc.__traceback__))
+                except Exception:  # noqa: BLE001
+                    _head, _stack = f"[open_loop][multirank] ⚠️ rank{rank} 评测失败: {exc!r}", ""
+                print(_head + "\n" + _stack, file=_sys.stderr, flush=True)
+                if callable(fail_fast) and fail_fast(exc):
+                    raise           # 集合通信区内的失败 ⇒ 立即失败（等下去只会拿到看门狗超时）
     elif rank == 0:
         try:
             payload[0] = {"ok": True, "result": run()}
         except BaseException as exc:  # noqa: BLE001 —— 必须广播失败原因，否则对端死等
             payload[0] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+    if callable(on_broadcast):
+        try:
+            on_broadcast()           # 逐 rank 阶段面包屑：卡在广播上时最后一行就是「广播」
+        except Exception:  # noqa: BLE001 —— 面包屑失败绝不改变协议
+            pass
     broadcast(payload)
     got = payload[0]
     if not isinstance(got, dict):
@@ -472,6 +547,325 @@ def _multirank_eval_payload(*, run: Callable[[], Dict[str, Any]], ws: int, rank:
     if not got.get("ok"):
         raise RuntimeError(f"多卡评测在 rank0 失败：{got.get('error')}")
     return got["result"]
+
+
+# ---------------------------------------------------------------------------
+# 多卡评测：一致性预检（把「沉默 10 分钟看门狗」变成「一行指名道姓的报错」）
+# ---------------------------------------------------------------------------
+#: 预检开关：``0`` ⇒ 关闭（回到 2026-10-10 之前的行为：直接进集合通信段）。
+EVAL_PREFLIGHT_ENV = "AL_EVAL_PREFLIGHT"
+#: 阶段面包屑开关：``0`` ⇒ 关闭每 rank 的阶段日志（单卡下本来就关）。
+EVAL_PHASE_LOG_ENV = "AL_EVAL_PHASE_LOG"
+#: 单个阶段停留超过这么多秒 ⇒ 打 WARNING（默认 120 s）。
+EVAL_STALL_SEC_ENV = "AL_EVAL_STALL_SEC"
+#: 停滞告警的轮询间隔（默认 ``min(15, AL_EVAL_STALL_SEC/2)``）。
+EVAL_STALL_POLL_SEC_ENV = "AL_EVAL_STALL_POLL_SEC"
+#: 非 0 rank 在**集合通信区内**失败时是否立即失败（默认 ``0`` = 旧行为：吞掉、用 rank0 结果）。
+#: 多卡 FSDP2 排障建议置 ``1``：那种失败必然让其余 rank 卡在 all-gather 上，
+#: 等到 600 s 看门狗只会拿到 ``NCCL communicator was aborted``，真因被埋掉。
+EVAL_FAIL_FAST_ENV = "AL_EVAL_FAIL_FAST_NONZERO"
+#: **窗口前对称预热**开关（默认开；``0`` ⇒ 不预热，回到旧行为）。
+#: 目的：把「首次前向的 kernel 编译」（Triton / fused-MoE / flex_attention，分钟级）
+#: 从集合通信窗口里挪到窗口之前，并且**所有 rank 一起付这份代价**（见 `_eval_warmup`）。
+EVAL_WARMUP_ENV = "AL_EVAL_WARMUP"
+#: 阶段面包屑的**逐 rank 落盘目录**（默认 ``<output_dir>/_open_loop_phase/rank<R>.log``）。
+#: 存在的理由：真机 8 卡里 rank4 **一行阶段日志都没有** —— 终端/管道抓取、logger 级别或
+#: rank 门控都可能丢一个 rank 的输出。逐 rank 独立文件 + ``flush`` 之后，
+#: 「这个 rank 到底有没有走到评测」变成一条 ``ls`` 就能回答的事实。
+EVAL_PHASE_DIR_ENV = "AL_EVAL_PHASE_DIR"
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    """读一个布尔开关环境变量（``0/false/no/off`` = 关）。"""
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return default
+    return str(raw).strip().lower() not in ("0", "false", "no", "off")
+
+
+def _preflight_enabled() -> bool:
+    return _env_flag(EVAL_PREFLIGHT_ENV, True)
+
+
+def _fail_fast_nonzero() -> bool:
+    return _env_flag(EVAL_FAIL_FAST_ENV, False)
+
+
+def _warmup_enabled() -> bool:
+    """窗口前对称预热开关（默认开）。"""
+    return _env_flag(EVAL_WARMUP_ENV, True)
+
+
+def _stall_seconds() -> float:
+    try:
+        return max(5.0, float(os.environ.get(EVAL_STALL_SEC_ENV, "120") or 120))
+    except (TypeError, ValueError):
+        return 120.0
+
+
+def _stall_poll_seconds(stall_sec: float) -> float:
+    """停滞告警的轮询间隔（``AL_EVAL_STALL_POLL_SEC`` 可覆盖）。
+
+    默认 ``min(15, stall_sec/2)``：阈值调小时（排障）不必再等 15 s 才看到告警 ——
+    真机 120 s 档下仍是 15 s，与之前逐字一致。
+    """
+    raw = os.environ.get(EVAL_STALL_POLL_SEC_ENV)
+    if raw is not None and str(raw).strip() != "":
+        try:
+            return max(0.05, float(raw))
+        except (TypeError, ValueError):
+            pass
+    return max(0.5, min(15.0, float(stall_sec) / 2.0))
+
+
+def _eval_rank_report(*, tag: str, ids: Sequence[int], rank: int,
+                      n_starts: Optional[int] = None, len_ds: Optional[int] = None,
+                      warmup: Optional[bool] = None,
+                      error: Optional[str] = None) -> Dict[str, Any]:
+    """一个 rank 的「评测身份 + 本地失败」摘要（预检交换的就是它）。
+
+    ``n_starts`` 是**本次将要跑的推理次数**（= 集合通信次数的一一对应量）；
+    ``len_ds`` 是子集数据集长度。二者只要有 rank 不同，FSDP 的 all-gather 次数
+    就会错配 ⇒ 其余 rank 永久等在集合通信里（真机表现 = 600 s 看门狗 + NCCL abort）。
+
+    ``warmup`` 是**本 rank 是否打算做窗口前预热**（`_eval_warmup_plan`）。
+    🔴 必须逐 rank 一致：预热内含**自己的 FSDP 全参数窗口**（集合通信），
+    若一个 rank 跳过、另一个 rank 进入 ⇒ 进入者永久等在 all-gather 上
+    ⇒ 预检 A 就把这种不对称判成 ``problems`` 并让所有 rank 一起停（fail-closed）。
+    """
+    return {
+        "rank": int(rank),
+        "tag": str(tag),
+        "ids": sorted(int(i) for i in ids),
+        "n_starts": (None if n_starts is None else int(n_starts)),
+        "len_ds": (None if len_ds is None else int(len_ds)),
+        "warmup": (None if warmup is None else bool(warmup)),
+        "error": (None if not error else str(error)),
+    }
+
+
+def _preflight_verdict(ws: int, reports: Sequence[Optional[Dict[str, Any]]]
+                       ) -> Dict[str, Any]:
+    """纯函数：把各 rank 的报告判成 ``failures`` / ``problems``（便于单测）。"""
+    failures = [r for r in reports if isinstance(r, dict) and r.get("error")]
+    ok = [r for r in reports if isinstance(r, dict) and not r.get("error")]
+    problems: List[str] = []
+    missing = [i for i, r in enumerate(reports) if not isinstance(r, dict)]
+    if missing:
+        problems.append(f"这些 rank 没有报回评测身份（未进入评测？）: {missing}")
+    if len(ok) > 1:
+        base = ok[0]
+        for r in ok[1:]:
+            for field in ("tag", "ids", "n_starts", "len_ds", "warmup"):
+                if r.get(field) != base.get(field):
+                    problems.append(
+                        f"rank{r['rank']} 与 rank{base['rank']} 的 {field} 不一致："
+                        f"{r.get(field)!r} vs {base.get(field)!r}")
+    return {"reports": list(reports), "failures": failures, "problems": problems,
+            "ws": int(ws)}
+
+
+def _format_preflight_error(verdict: Dict[str, Any], *, tag: str) -> str:
+    """把预检判定渲染成一条**能直接定位到 rank 与阶段**的错误消息。"""
+    lines = [
+        f"[open_loop][multirank] ❌ 多卡评测一致性预检未通过（tag={tag}，"
+        f"world_size={verdict.get('ws')}）—— 已在**任何 FSDP all-gather 之前**停下。",
+        "  为什么必须在这里停：分片并行下每个 rank 都必须执行**完全相同的**集合通信序列；"
+        "只要有一个 rank 的推理次数 / 回合集合 / 准备阶段失败与别人不同，",
+        "  其余 rank 就会永久卡在 all-gather 上，直到 NCCL 看门狗（默认 600 s）把整个作业 abort，"
+        "而真因会被 'NCCL communicator was aborted' 埋掉。",
+    ]
+    for r in verdict.get("reports") or []:
+        if not isinstance(r, dict):
+            lines.append(f"  - <缺失报告> {r!r}")
+            continue
+        flag = "❌失败" if r.get("error") else "✅"
+        lines.append(f"  - rank{r.get('rank')}: {flag} tag={r.get('tag')} "
+                     f"ids={r.get('ids')} n_starts={r.get('n_starts')} "
+                     f"len_ds={r.get('len_ds')}"
+                     + (f" error={r.get('error')}" if r.get("error") else ""))
+    for p in verdict.get("problems") or []:
+        lines.append(f"  ⚠️ {p}")
+    lines.append("  处理：① 上面 ❌ 的 rank 的真因就是它的 error（先修它）；"
+                 "② 若 n_starts 不一致 ⇒ 各 rank 的评测回合集合/索引不同（"
+                 "`_episode_ids_file` / `_episode_index_map` / `starts` 口径分叉）；"
+                 "③ 确认各 rank 走的是**同一次**评测（同一 tag）。"
+                 f" 关闭预检：{EVAL_PREFLIGHT_ENV}=0。")
+    return "\n".join(lines)
+
+
+def _multirank_eval_preflight(*, ws: int, rank: int, tag: str,
+                              local_report: Dict[str, Any],
+                              all_gather: Optional[Callable[[List[Any], Any], None]] = None
+                              ) -> Dict[str, Any]:
+    """多卡评测的**集合点预检**：交换各 rank 的评测身份与本地失败（纯函数 + 注入的 all_gather）。
+
+    * ``ws <= 1`` ⇒ 什么都不做（单卡行为逐字不变，无集合通信）；
+    * ``ws > 1`` ⇒ ``all_gather(reports, local_report)``（默认 `dist.all_gather_object`），
+      然后 `_preflight_verdict` 判定。
+
+    🔴 **为什么值得多这一次集合通信**：真机 8 卡 FSDP2 实测（2026-10-10）在
+    **bootstrap 的第一个 scout 评测**里挂死 600 s 后被看门狗 abort，日志里只有
+    ``NCCL communicator was aborted`` —— 因为失败 rank 要么自己去等末尾广播、
+    要么在准备阶段抛错后被吞掉，**其余 rank 还在 all-gather 里**。这次交换把
+    「谁失败了 / 谁的评测集合不一样」在**进入集合通信段之前**摊开，全部 rank
+    一起拿到同一份判定 ⇒ 要么一起继续，要么一起抛出指名道姓的错误。
+    """
+    if ws <= 1:
+        return _preflight_verdict(1, [local_report])
+    gather = all_gather
+    if gather is None:
+        def gather(_out: List[Any], _obj: Any) -> None:
+            import torch.distributed as dist
+            if not (dist.is_available() and dist.is_initialized()):
+                raise RuntimeError("多卡评测预检需要已初始化的 torch.distributed（当前未初始化）")
+            dist.all_gather_object(_out, _obj)
+
+    reports: List[Any] = [None] * int(ws)
+    gather(reports, local_report)
+    return _preflight_verdict(int(ws), reports)
+
+
+class _EvalPhaseTracker:
+    """评测**阶段面包屑** + **停滞告警**（纯本 rank 观测，**零集合通信**）。
+
+    🔴 存在理由：真机 8 卡 FSDP2 的实测失败形态是「12 分钟完全静默」——
+    非 0 rank 在评测里**一行日志都没有**（`info_rank0` 只在 rank0 打），
+    等来的只有 NCCL 看门狗。有了它，日志里会直接出现::
+
+        [open_loop][phase][rank3/8] 一致性预检 完成 (+0.02s, 累计 3.1s)
+        [open_loop][phase][rank3/8] ⚠️ 仍停在「推理 2/6」已 137.4s（其余 rank 请看各自日志）
+
+    ⇒ 谁停在哪个阶段、停了多久，一眼可见；不需要复跑、也不需要 py-spy。
+    开关：``AL_EVAL_PHASE_LOG=0`` 关闭；``AL_EVAL_STALL_SEC`` 调整告警阈值。
+
+    🔴 **输出通道（2026-10-10 二次修：真机 rank4 一行阶段日志都没有）**：每行都
+    ① 直接写 ``sys.stderr`` 并 ``flush``（**不经过 logger** ⇒ 不受 logger 级别、
+    ``LOCAL_RANK`` 门控、stdout 重定向/管道缓冲影响；进程被 NCCL SIGABRT 掉时也已落盘）；
+    ② 追加到**本 rank 自己的文件** ``<phase_dir>/rank<R>.log``（默认
+    ``<output_dir>/_open_loop_phase/``）。
+    两条通道都失败才退回 logger。⇒ 「某个 rank 没有阶段日志」不再可能是**日志机制**的锅：
+    要么它的文件里有行（抓取丢了），要么它连 ``▶ 进入评测`` 都没打出来 —— 那就说明它
+    卡/死在**更早**的位置（根本还没走到评测入口），这正是 rank4 那种情形的判据。
+    """
+
+    def __init__(self, logger: Any, *, rank: int = 0, ws: int = 1,
+                 enabled: bool = True, stall_sec: float = 120.0,
+                 poll_sec: float = 15.0, trace_dir: Optional[str] = None) -> None:
+        self.logger = logger
+        self.rank = int(rank)
+        self.ws = int(ws)
+        self.enabled = bool(enabled) and int(ws) > 1
+        self.stall_sec = float(stall_sec)
+        self.poll_sec = float(poll_sec)
+        self.trace_path = self._open_trace(trace_dir)
+        self._t0 = 0.0
+        self._phase = ""
+        self._phase_t0 = 0.0
+        self._thread = None
+        self._stop = None
+        self._last_warn = 0.0
+
+    # -- 内部 ---------------------------------------------------------------
+    def _open_trace(self, trace_dir: Optional[str]) -> Optional[str]:
+        """本 rank 的轨迹文件路径（``/…/rank<R>.log``）；建不出来就返回 None。"""
+        if not self.enabled or not trace_dir:
+            return None
+        try:
+            import os as _os
+            _os.makedirs(str(trace_dir), exist_ok=True)
+            return _os.path.join(str(trace_dir), f"rank{self.rank}.log")
+        except Exception:  # noqa: BLE001 —— 落盘失败绝不能影响评测
+            return None
+
+    def _log(self, msg: str, *, warn: bool = False) -> None:
+        if not self.enabled:
+            return
+        line = f"[open_loop][phase][rank{self.rank}/{self.ws}] {msg}"
+        wrote = False
+        # ① stderr（无缓冲、不看 logger 配置）—— 「逐 rank 可见」的硬保证
+        try:
+            import sys as _sys
+            print(line, file=_sys.stderr, flush=True)
+            wrote = True
+        except Exception:  # noqa: BLE001
+            pass
+        # ② 本 rank 自己的文件（终端/管道抓取丢了某个 rank 时仍然在）
+        if self.trace_path:
+            try:
+                with open(self.trace_path, "a", encoding="utf-8") as f:
+                    f.write(line + "\n")
+                    f.flush()
+                wrote = True
+            except Exception:  # noqa: BLE001
+                pass
+        # ③ 兜底：两条通道都不行才退回 logger（逐 rank 的 info/warning，不是 info_rank0）
+        if not wrote and self.logger is not None:
+            try:
+                (self.logger.warning if warn else self.logger.info)(line)
+            except Exception:  # noqa: BLE001 —— 日志失败绝不打断评测
+                pass
+
+    def note(self, msg: str, *, warn: bool = False) -> None:
+        """打一行**不改变当前阶段**的逐 rank 日志（例如「预热完成 +12.3s」）。"""
+        self._log(msg, warn=warn)
+
+    def _watchdog(self) -> None:
+        while not self._stop.wait(self.poll_sec):
+            try:
+                import time as _time
+                age = _time.time() - self._phase_t0
+                if self._phase and age >= self.stall_sec and \
+                        (age - self._last_warn) >= self.stall_sec:
+                    self._last_warn = age
+                    self._log(f"⚠️ 仍停在「{self._phase}」已 {age:.0f}s"
+                              f"（累计 {_time.time() - self._t0:.0f}s）——"
+                              "其余 rank 的最后阶段见各自日志；若这是死锁，NCCL 看门狗会在"
+                              "超时后 abort 整个作业", warn=True)
+            except Exception:  # noqa: BLE001
+                pass
+
+    # -- 公开接口 -----------------------------------------------------------
+    def begin(self, tag: str) -> None:
+        import time as _time
+        self._t0 = _time.time()
+        self._phase, self._phase_t0, self._last_warn = "进入评测", self._t0, 0.0
+        # 🔴 `begin()` 在**任何 FSDP 窗口/集合通信之前**调用 ⇒ 这一行一定先落地。
+        #    真机 rank4 一行阶段日志都没有 ⇒ 它连这里都没到（卡在更早的位置）——
+        #    这本身就是最重要的诊断信息（见 `_eval_prelude` 的顺序）。
+        self._log(f"▶ 进入评测 tag={tag}（逐 rank 阶段日志；停留 >{self.stall_sec:.0f}s 告警；"
+                  f"{EVAL_PHASE_LOG_ENV}=0 关闭）"
+                  + (f"；本 rank 轨迹文件={self.trace_path}" if self.trace_path else ""))
+        if self.enabled and self._thread is None:
+            import threading  # noqa: PLC0415
+            self._stop = threading.Event()
+            self._thread = threading.Thread(target=self._watchdog, name="al-eval-phase",
+                                            daemon=True)
+            self._thread.start()
+
+    def phase(self, name: str, **extra: Any) -> None:
+        import time as _time
+        now = _time.time()
+        if self._phase:
+            self._log(f"{self._phase} 完成 (+{now - self._phase_t0:.2f}s, "
+                      f"累计 {now - self._t0:.2f}s)")
+        self._phase, self._phase_t0, self._last_warn = name, now, 0.0
+        # ⚠️ 进入新阶段**立刻**打一行（同一秒也打）：真机「停在『进入评测』」
+        #    只能靠这一行区分「还没进窗口」与「已进窗口在等 all-gather」。
+        self._log(f"▶ {name}" + (f"（{extra}）" if extra else ""))
+
+    def end(self, *, ok: bool = True, note: str = "") -> None:
+        import time as _time
+        if self._phase:
+            self._log(f"{self._phase} 完成 (+{_time.time() - self._phase_t0:.2f}s, "
+                      f"累计 {_time.time() - self._t0:.2f}s)")
+        self._log(("✅ 评测结束" if ok else "❌ 评测失败") + f"（累计 {_time.time() - self._t0:.2f}s）"
+                  + (f" {note}" if note else ""), warn=not ok)
+        self._phase = ""
+        if self._stop is not None:
+            self._stop.set()
+            self._thread = None
+            self._stop = None
 
 
 def _world_size() -> int:
@@ -1181,6 +1575,17 @@ class OpenLoopValidator:
         self._strict_logged = False
         self._multirank_batch_warned = False   # 「多卡分片 ⇒ 强制逐条」告警只打一次
         self._noise_gen = None            # flow-matching noise 的专用 generator（每次 eval 重置）
+        # 🔴 多卡排障用（2026-10-10 真机 8 卡 12 分钟静默）：
+        #   * `_eval_in_collective_region` = 本 rank 是否已越过一致性预检、进入
+        #     「每层都 all-gather」的集合通信区。非 0 rank 在此之后失败 ⇒ 其余 rank 必然死等
+        #     （见 `_nonzero_failure_is_fatal`）。
+        #   * `_phases` = `_EvalPhaseTracker`（每 rank 阶段面包屑 + 停滞告警），懒建。
+        #   * `_warmup_done` = 本进程是否已做过「窗口前预热」（`_eval_warmup`，一次/进程：
+        #     首次前向的 kernel 编译是一次性成本，重复预热只是白付一次推理）。
+        self._eval_in_collective_region = False
+        self._phases = None
+        self._preflight_logged = False    # 预检通过只打一次（每次评测都打会刷屏）
+        self._warmup_done = False         # 窗口前预热（AL_EVAL_WARMUP；见 `_eval_warmup`）
         # Eval Batch 诊断证据（默认关闭；只有显式设置 AL_EVAL_BATCH_PROBE_DUMP /
         # AL_EVAL_BATCH_PROBE_REPEAT_SERIAL 才会录制 —— 见 `_probe_capture`）。
         self._probe_recorder = None       # ProbeRecorder：按样本身份收集实际入参/噪声/输出
@@ -1976,7 +2381,261 @@ class OpenLoopValidator:
         return pick_action_keys(ft, gt_phys, pred)
 
     # -- 指标 -----------------------------------------------------------------
-    def _evaluate_ids(self, ids: Sequence[int], tag: str) -> Dict[str, Any]:
+    def _eval_preflight(self, *, tag: str, ids: Sequence[int],
+                        local_report: Dict[str, Any],
+                        stage: str = "窗口前") -> Dict[str, Any]:
+        """多卡评测**一致性预检**（集合点）—— 必须在任何 FSDP all-gather 之前调用。
+
+        判定与失败策略：
+
+        * 单卡（``ws<=1``）或复制并行（非分片）：**不做任何集合通信**，直接放行
+          （单卡行为逐字不变；ddp 下 `_evaluate_ids` 只在 rank0 执行）；
+        * 分片并行（``_all_ranks_must_run_eval``）：`dist.all_gather_object` 交换
+          「本 rank 的 tag / ids / 推理次数 / 数据集长度 / 准备阶段错误」，
+          **任意 rank 失败或任意字段不一致 ⇒ 所有 rank 一起抛**（fail-closed）。
+          这就是「不让失败 rank 独自走去等广播、其余 rank 卡在 all-gather 里」的实现。
+        * ``AL_EVAL_PREFLIGHT=0`` ⇒ 跳过（回到 2026-10-10 之前的行为，仅用于回滚排障）。
+
+        ``stage`` 只是措辞（真机上会打出来）：本函数被调用**两次** ——
+        ``"窗口前（所有集合通信之前）"`` 与 ``"预热后（真实 unshard 窗口之前）"``，
+        见 `_eval_prelude`。两次都是 fail-closed，且都在**真实评测窗口之外**。
+        """
+        ws = _world_size()
+        sharded = ws > 1 and _all_ranks_must_run_eval(self.args)
+        if not sharded or not _preflight_enabled():
+            self._eval_in_collective_region = True
+            return {"reports": [local_report], "failures": [], "problems": [],
+                    "ws": max(1, int(ws)), "skipped": True}
+        verdict = _multirank_eval_preflight(ws=ws, rank=_global_rank(), tag=tag,
+                                            local_report=local_report)
+        if verdict.get("failures") or verdict.get("problems"):
+            raise RuntimeError(_format_preflight_error(verdict, tag=tag)
+                               + f"\n  预检阶段：{stage}")
+        if not self._preflight_logged:
+            self._preflight_logged = True
+            self.logger.info_rank0(
+                f"[open_loop][multirank] ✅ 一致性预检通过（world_size={ws}：各 rank 的 "
+                f"tag/ids/推理次数/数据集长度完全一致；关闭：{EVAL_PREFLIGHT_ENV}=0）")
+        return verdict
+
+    # -- 窗口前阶段：本地准备 → 预检 → 对称预热 → 预检 -------------------------
+    def _eval_prepare(self, ids: Sequence[int], tag: str) -> Dict[str, Any]:
+        """**窗口前**的本地准备（白名单文件 / 数据集 / 索引 / 起点）。
+
+        🔴 只做**本地**工作，**不发任何集合通信**；失败也**不就地抛** ——
+        收进返回值的 ``"prep_error"``，由 `_eval_prelude` 的集合点统一决定
+        （fail-closed：所有 rank 一起失败，而不是失败 rank 独自去等广播）。
+
+        返回值（dict，故意用 dict 而不是 dataclass：本模块会被 AST 单测单独编译）::
+
+            {"tag","ids","ds_path","ds","ft","ep_map","starts","stride",
+             "prep_error", "preflight_done"}
+        """
+        phases = self._phase_tracker()
+        prep: Dict[str, Any] = {
+            "tag": str(tag), "ids": [int(i) for i in ids], "ds_path": None,
+            "ds": None, "ft": None, "ep_map": None, "starts": [], "stride": None,
+            "warmup_item": None, "prep_error": None, "preflight_done": False,
+        }
+        try:
+            if phases is not None:
+                phases.phase(f"本地准备（数据集/索引） tag={tag} "
+                             f"ids={sorted(int(i) for i in ids)}")
+            ds_path = self._episode_ids_file(ids, tag)
+            prep["ds_path"] = ds_path
+            ds = self._dataset(ds_path)          # ← 磁盘 / 解码 / 元数据，**本地**且可能很慢
+            ft = self._ft_for(ds_path)
+            ep_map = _episode_index_map(ds)
+            if ep_map is None:
+                self.logger.warning(
+                    f"[open_loop] ⚠️ [{tag}] 拿不到 local_idx→episode_index 映射，"
+                    "退化为「每个 chunk 当作一条 trajectory」，聚合口径会与官方有偏差")
+            # 诊断证据用：样本身份的两个真实来源（ep_map ⇒ episode/chunk 起点；tag ⇒ 本次集合）
+            self._probe_ep_map = ep_map
+            self._probe_tag = tag
+            # 与官方 ``scripts/open_loop_eval.py`` 对齐：``chunk_ret=True`` 时按
+            # ``action_horizon = chunk_size`` 步进（官方 ``range(start_id, end_id, action_horizon)``），
+            # 每次推理用**整段** chunk。
+            # ⚠️ 逐帧（stride=1）会把同一批帧反复预测 ~chunk_size 次：一条 77 帧的轨迹要
+            #    77 次推理（2026-10-04 smoke 实测单次推理数秒级）⇒ 完全做不到"高频"，
+            #    而且**口径与官方不一致**（官方一条轨迹只推 2 次）。
+            # 🔴 2026-10-05：跳步必须**按回合各自从首帧开始**（见 `per_episode_starts`），
+            #   与官方 `range(start_id, end_id, action_horizon)` 等价。
+            #   ⚠️ padding 占比会变（实测我们 34.5% vs 官方 23.0%），但**偏差方向未实测**：
+            #      「padding 是送分题所以 MSE 偏低」只是**推测** —— 恒定 GT 利于"预测均值"，
+            #      可训练好的模型会预测**运动延续**，在这些帧上反而可能更差。
+            #      要量化请用 `tools/open_loop_eval_inprocess.py --flat-stride` 在同一 ckpt 上跑两遍。
+            stride = max(1, int(getattr(self._model_config, "chunk_size", 50) or 50))
+            starts = (per_episode_starts(ep_map, stride)
+                      if self.per_episode_stride and ep_map is not None
+                      else list(range(0, len(ds), stride)))
+            prep.update(ds=ds, ft=ft, ep_map=ep_map, starts=starts, stride=stride)
+            # 🔴 预热要用的那一条**也在这里读**（本地 I/O）：读失败必须发生在
+            #    *任何集合通信之前*，否则失败 rank 会跳过预热的 all-gather、
+            #    其余 rank 进入后永久等待（本机注入实测：正是死锁）。
+            if starts:
+                prep["warmup_item"] = ds[starts[0]]
+        except BaseException as exc:  # noqa: BLE001 —— 收集，由集合点统一决定
+            prep["prep_error"] = exc
+            self.logger.warning(
+                f"[open_loop][multirank] ⚠️ rank{_global_rank()} 评测**准备阶段**失败"
+                f"（{tag}）：{type(exc).__name__}: {exc}\n"
+                + traceback.format_exc())
+            if phases is not None:
+                phases.note(f"❌ 本地准备失败（{type(exc).__name__}: {exc}）—— "
+                            "已记录，等集合点由所有 rank 一起决定", warn=True)
+        return prep
+
+    def _eval_warmup_plan(self, prep: Optional[Dict[str, Any]]) -> bool:
+        """本 rank **是否打算**做窗口前预热 —— 纯本地判定，**必须逐 rank 一致**。
+
+        预检 A 会把它的值交换出去（`_eval_rank_report(warmup=…)`），不一致 ⇒ 所有 rank
+        一起在进入预热窗口之前抛。原因：预热内含自己的 FSDP 全参数窗口（集合通信），
+        「一个 rank 进、另一个不进」就是死锁（本机 gloo 注入实测）。
+        """
+        return bool(
+            _warmup_enabled()
+            and not bool(getattr(self, "_warmup_done", False))
+            and self.model is not None
+            and prep
+            and prep.get("prep_error") is None
+            and prep.get("ds") is not None and prep.get("ft") is not None
+            and prep.get("warmup_item") is not None
+            and prep.get("starts")
+        )
+
+    def _eval_warmup(self, prep: Dict[str, Any], tag: str,
+                     phases: Optional["_EvalPhaseTracker"] = None) -> Optional[str]:
+        """**窗口前**对称预热：把「首次前向的 kernel 编译」从真实评测窗口里挪出来。
+
+        返回 ``None``（成功 / 未做）或错误文本（预热失败，交给 `_eval_prelude` 的集合点）。
+
+        🔴 **为什么必须做**（真机 8 卡实测）：bootstrap 的第一个真评测里，7 个 rank 停在
+        `unshard()` 的 all-gather 上，只有 1 张卡 GPU 100% —— 它在付**首次前向的
+        kernel 编译**（Triton / fused-MoE / flex_attention，分钟级且无日志）。各 rank 的
+        首次编译被集合通信**串行化**（谁先到谁先编译，其余卡干等），于是
+        `TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC` 一到期，整组被 NCCL 看门狗拉下。
+
+        做法：**预检（= 一次集合点，天然对齐）之后**、真实窗口之前，每个 rank 用
+        **完全相同的输入**（同一个评测子集的第一条；预检已验证各 rank 的
+        `tag/ids/推理次数/len_ds` 一致）各跑**一次真实推理**。各 rank 同时开始编译
+        ⇒ 墙钟时间 ≈ 一次编译（而不是 N 次串行），且真实窗口里不再触发首次编译。
+
+        硬约束（全部满足）：
+
+        * **每个 rank 都做**（不是只有 rank0）—— 否则迟到者照样让全组干等；
+        * 输入各 rank 完全一致（同一个 ``starts[0]``，沿用 EVAL_SEED/ids 机制）；
+        * **无副作用**：走 `_eval_context()`（= `safe_eval_context`：RNG/参数/training 标志/
+          use_cache/attention/视觉网格缓存 快照→恢复→审计）+ `_eval_tensor_context()`
+          （``no_grad``，**不是** ``inference_mode``）⇒ 不抽 RNG、不留梯度、不改参数、
+          不留 inference tensor；`self._noise_gen` 也原样恢复（结果丢弃）；
+        * 每进程**只做一次**（编译是一次性成本），失败也不重试（避免每次评测白付一次）；
+        * 开关 ``AL_EVAL_WARMUP=0``（默认开），并逐 rank 打一行（含 rank 与耗时）。
+
+        🔴 **为什么它需要一个自己的「全参数窗口」**（`_sharded_eval_context`）：FSDP2 下
+        根单元的参数在 `unshard()` 之前是 **DTensor**，直接前向会报
+        ``aten.mm.default: got mixed torch.Tensor and DTensor``（本机 CPU/gloo 实测）。
+        所以「真实推理」这一步在分片并行下**不可能零集合通信**；本函数把这个窗口
+        放在 `_eval_prelude` 里、**真实窗口之前**且紧跟在预检集合点之后（各 rank 同时开跑）。
+        窗口本身是**集体进/出**（见 `_fsdp_full_params_context` 的红线：必须套在
+        `_multirank_eval_payload` **外面** —— 这里正是外面）。
+
+        🔴 **对称性是硬要求**：窗口是集合通信 ⇒ 「谁进谁不进」必须逐 rank 一致。
+        判据由 `_eval_warmup_plan` 给出，并**已随预检 A 交换过**（不一致 ⇒ 所有 rank
+        在进窗口之前就一起抛）。所以本函数不再自行决定「要不要做」以外的事情：
+        计划为 False 就原样返回，计划为 True 就**一定**进窗口。
+        """
+        if not self._eval_warmup_plan(prep):
+            return None
+        ds, ft = prep.get("ds"), prep.get("ft")
+        item = prep.get("warmup_item")
+        self._warmup_done = True        # 先置位：预热失败也不反复重试
+        prev_gen = getattr(self, "_noise_gen", None)
+        err: Optional[str] = None
+        t0 = time.time()
+        if phases is not None:
+            phases.phase(f"预热（窗口前，1 次真实推理，第 1/{len(prep.get('starts') or [])} 个起点）")
+        try:
+            with self._eval_context():                 # 快照→恢复→审计（无残留副作用）
+                with _eval_tensor_context():           # no_grad（不是 inference_mode）
+                    with self._sharded_eval_context():  # 见 docstring：FSDP2 根参数在窗口外是 DTensor
+                        self._infer_one(item, ft)
+        except BaseException as exc:  # noqa: BLE001 —— 失败也**不在这里抛**：交给下面的集合点
+            err = f"{type(exc).__name__}: {exc}"
+            self.logger.warning(
+                f"[open_loop][multirank] ⚠️ rank{_global_rank()} 预热失败（{tag}）：{err}\n"
+                + traceback.format_exc())
+        finally:
+            self._noise_gen = prev_gen                 # 预热不改变评测的噪声序列起点
+        dt = time.time() - t0
+        msg = (f"{'✅ 预热完成' if err is None else '❌ 预热失败'}"
+               f"（rank{_global_rank()}/{_world_size()}，1 次真实推理，+{dt:.1f}s"
+               + (f"，{err}" if err else "")
+               + f"；无副作用：RNG/参数/梯度/training 标志均已还原；{EVAL_WARMUP_ENV}=0 可关）")
+        if phases is not None:
+            phases.note(msg, warn=err is not None)
+        else:
+            self.logger.info_rank0(f"[open_loop][multirank] {msg}")
+        return err
+
+    def _eval_prelude(self, ids: Sequence[int], tag: str) -> Dict[str, Any]:
+        """**真实评测窗口之前**的全部阶段（所有 rank 都走同一条路，且都在窗口之外）::
+
+            ① 本地准备（数据集/索引/起点，纯本地）
+            ② 一致性预检 A —— **本进程里第一个集合通信**：任何 rank 失败/身份不一致 ⇒ 全组一起抛
+            ③ 对称预热（1 次真实推理；见 `_eval_warmup`）
+            ④ 一致性预检 B —— 把「预热结果」也纳入 fail-closed 判定，再放行真实窗口
+
+        🔴 顺序的两个要点：
+
+        * **① 必须在窗口之前**：`unshard()`（`_fsdp_full_params_context`）本身就是集合通信，
+          预检放在 `_evaluate_ids` 里面（旧实现）⇒ 预检只能护到「推理循环」，
+          **护不到 `unshard()` 这个真正出事的集合点**（真机日志里
+          ``一致性预检通过`` 出现 0 次、而 ``评测窗口：unshard()`` 出现了，就是这个原因）。
+        * **④ 在预热之后**：预热是新代码路径；它若在某个 rank 上失败，必须在**进入真实窗口之前**
+          被所有 rank 一起发现，否则那个 rank 会在真实窗口的 all-gather 上把全组拖到看门狗超时。
+        """
+        prep = self._eval_prepare(ids, tag)
+        # 预热的「计划」也要逐 rank 一致（预热窗口是集合通信）：不一致 ⇒ 预检 A 就停
+        warm_plan = self._eval_warmup_plan(prep)
+        report = _eval_rank_report(
+            tag=tag, ids=ids, rank=_global_rank(),
+            n_starts=(None if prep["prep_error"] is not None else len(prep["starts"])),
+            len_ds=(None if prep["prep_error"] is not None or prep["ds"] is None
+                    else len(prep["ds"])),
+            warmup=warm_plan,
+            error=(None if prep["prep_error"] is None
+                   else f"{type(prep['prep_error']).__name__}: {prep['prep_error']}"))
+        phases = self._phase_tracker()
+        if phases is not None:
+            phases.phase("一致性预检 A（本进程第一个集合点：本地准备之后、任何 FSDP 窗口之前）")
+        self._eval_preflight(tag=tag, ids=ids, local_report=report,
+                             stage="窗口前（所有集合通信之前）")
+        prep["preflight_done"] = True
+        if phases is not None:
+            phases.phase("一致性预检通过（进入窗口前；下一步=对称预热）"
+                         + ("" if warm_plan else f"；本 rank 不预热（{EVAL_WARMUP_ENV}=0 或已完成）"))
+        # ③ 对称预热（预检已确认各 rank 的 ids/推理次数/**预热计划**一致 ⇒ 输入与窗口进出都对称）
+        warm_err = self._eval_warmup(prep, tag, phases)
+        # ④ 预热后的复检：把预热失败/身份漂移变成**全 rank 一起抛**，而不是窗口里的挂死
+        if _preflight_enabled() and _world_size() > 1 and _all_ranks_must_run_eval(self.args):
+            report_b = _eval_rank_report(
+                tag=tag, ids=ids, rank=_global_rank(),
+                n_starts=(None if prep["prep_error"] is not None else len(prep["starts"])),
+                len_ds=(None if prep["prep_error"] is not None or prep["ds"] is None
+                        else len(prep["ds"])),
+                warmup=warm_plan,
+                error=(warm_err if warm_err is not None
+                       else (None if prep["prep_error"] is None
+                             else f"{type(prep['prep_error']).__name__}: {prep['prep_error']}")))
+            if phases is not None:
+                phases.phase("一致性预检 B（预热后、真实 unshard 窗口之前）")
+            self._eval_preflight(tag=tag, ids=ids, local_report=report_b,
+                                 stage="预热后（真实 unshard 窗口之前）")
+        return prep
+
+    def _evaluate_ids(self, ids: Sequence[int], tag: str, *,
+                      prep: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """在给定回合集合上算指标。**两套口径各自对齐自己的参照物**。
 
         A) **官方 `scripts/open_loop_eval.py` 口径** —— 先逐条 trajectory 算、再对
@@ -1999,40 +2658,49 @@ class OpenLoopValidator:
         demo_clean 下初始条件固定 ⇒ 两者应很接近，但**不能假设相等**。
 
         train-monitor 与 val **各自独立计算**（评测集不同 ⇒ baseline 不同）。
-        """
-        ds_path = self._episode_ids_file(ids, tag)
-        ds = self._dataset(ds_path)
-        ft = self._ft_for(ds_path)
-        ep_map = _episode_index_map(ds)
-        if ep_map is None:
-            self.logger.warning(
-                f"[open_loop] ⚠️ [{tag}] 拿不到 local_idx→episode_index 映射，"
-                "退化为「每个 chunk 当作一条 trajectory」，聚合口径会与官方有偏差")
-        # 诊断证据用：样本身份的两个真实来源（ep_map ⇒ episode/chunk 起点；tag ⇒ 本次集合）
-        self._probe_ep_map = ep_map
-        self._probe_tag = tag
 
+        🔴 **多卡：本函数体内含集合通信**（`_prediction_groups` ⇒ 模型前向 ⇒ 每层
+        FSDP all-gather）。因此分片并行下，**所有 rank 必须执行完全相同的推理次数**；
+        为此一致性预检被**前移到真实评测窗口之外**（见 `_eval_prelude`：本地准备 →
+        预检 A → 对称预热 → 预检 B），⇒ 不一致/失败时**在任何 FSDP 集合通信之前**
+        所有 rank 一起抛出指名报错，而不是卡死 600 s 后被 NCCL 看门狗 abort。
+
+        ``prep``：`_eval_prelude` 在窗口外算好的本地准备结果（复用，避免重复建数据集）。
+        直接调本函数（不走 `evaluate_ids`/`validate`）时 ``prep=None`` ⇒ 在这里本地准备，
+        并补一次预检（旧路径的语义不变）。
+        """
+        phases = self._phase_tracker()
+        prep = prep if prep is not None else self._eval_prepare(ids, tag)
+        ds, ft = prep.get("ds"), prep.get("ft")
+        ep_map, starts = prep.get("ep_map"), list(prep.get("starts") or [])
+        stride = prep.get("stride")
+        prep_error = prep.get("prep_error")
+        if prep_error is None and not prep.get("preflight_done"):
+            # 直接调 `_evaluate_ids`（没走窗口前阶段）⇒ 在这里补一次集合点预检：
+            # 分片并行下**所有 rank 都走这条**，所以仍然对称。
+            local_report = _eval_rank_report(
+                tag=tag, ids=ids, rank=_global_rank(), n_starts=len(starts),
+                len_ds=(None if ds is None else len(ds)), error=None)
+            self._eval_preflight(tag=tag, ids=ids, local_report=local_report,
+                                 stage="推理循环前（直接调用 `_evaluate_ids`）")
+            prep["preflight_done"] = True
+        if prep_error is not None:
+            # 单卡 / 预检关闭 / 直接调用：原样抛（行为与以前一致）；
+            # 预检开着且分片并行时，`_eval_prelude` 已在窗口外让**所有 rank** 一起抛过了。
+            raise prep_error
+        self._eval_in_collective_region = True   # ← 从这里开始每层 all-gather
+        if phases is not None:
+            phases.phase(f"推理循环（{len(starts)} 次推理 / {len(ds)} 帧）")
         chunks: List[tuple] = []        # (episode_key, gt(N,D), pr(N,D))
         action_keys: List[str] = []
-        # 与官方 ``scripts/open_loop_eval.py`` 对齐：``chunk_ret=True`` 时按
-        # ``action_horizon = chunk_size`` 步进（官方 ``range(start_id, end_id, action_horizon)``），
-        # 每次推理用**整段** chunk。
-        # ⚠️ 逐帧（stride=1）会把同一批帧反复预测 ~chunk_size 次：一条 77 帧的轨迹要
-        #    77 次推理（2026-10-04 smoke 实测单次推理数秒级）⇒ 完全做不到"高频"，
-        #    而且**口径与官方不一致**（官方一条轨迹只推 2 次）。
-        stride = max(1, int(getattr(self._model_config, "chunk_size", 50) or 50))
-        # 🔴 2026-10-05：跳步必须**按回合各自从首帧开始**（见 `per_episode_starts`），
-        #   与官方 `range(start_id, end_id, action_horizon)` 等价。
-        #   ⚠️ padding 占比会变（实测我们 34.5% vs 官方 23.0%），但**偏差方向未实测**：
-        #      「padding 是送分题所以 MSE 偏低」只是**推测** —— 恒定 GT 利于"预测均值"，
-        #      可训练好的模型会预测**运动延续**，在这些帧上反而可能更差。
-        #      要量化请用 `tools/open_loop_eval_inprocess.py --flat-stride` 在同一 ckpt 上跑两遍。
-        if self.per_episode_stride and ep_map is not None:
-            starts = per_episode_starts(ep_map, stride)
-        else:
-            starts = list(range(0, len(ds), stride))
+        _n_done = 0
         for _group in self._prediction_groups(ds, starts, ft, tag):
             for local_idx, item, pred in _group:
+                _n_done += 1
+                if phases is not None:
+                    # 面包屑：卡住时日志会显示「rank R 停在 第 i/N 次推理」——
+                    # 这正是「各 rank 推理次数是否一致」的现场证据。
+                    phases.phase(f"推理进度 {_n_done}/{len(starts)}（local_idx={local_idx}）")
                 if not self._shape_dumped:
                     self._shape_dumped = True
                     keys = sorted(item.keys())
@@ -2078,15 +2746,21 @@ class OpenLoopValidator:
                     _g = _to_numpy(gt_phys[action_keys[0]])
                     _a = _to_numpy(item["actions"])
                     _pad = _to_numpy(item["action_is_pad"]) if "action_is_pad" in item else None
+                    # ⚠️ 只打**实际存在**的行号：这里原先把 25/49 写死（按 chunk_size=50 的口径），
+                    #    一旦 chunk_size < 50（例如 CPU 复现用小 chunk、或改配置）就会
+                    #    `IndexError: index 25 is out of bounds` —— 诊断日志把评测搞挂。
+                    _rows = [i for i in (0, 25, 49) if i < _g.shape[0]]
+                    if not _rows:
+                        _rows = [0]
                     self.logger.info_rank0(
                         f"[open_loop][debug] chunk: local_idx={local_idx} len(ds)={len(ds)} "
                         f"stride={stride} gt.shape={_g.shape}")
                     self.logger.info_rank0(
-                        f"[open_loop][debug]   GT物理 action[0,:4]={_g[0, :4]} "
-                        f"[25,:4]={_g[25, :4]} [49,:4]={_g[49, :4]}")
+                        "[open_loop][debug]   GT物理 action"
+                        + " ".join(f"[{i},:4]={_g[i, :4]}" for i in _rows))
                     self.logger.info_rank0(
-                        f"[open_loop][debug]   GT归一化 actions[0,:4]={_a[0, :4]} "
-                        f"[25,:4]={_a[25, :4]} [49,:4]={_a[49, :4]}")
+                        "[open_loop][debug]   GT归一化 actions"
+                        + " ".join(f"[{i},:4]={_a[i, :4]}" for i in _rows))
                     self.logger.info_rank0(
                         f"[open_loop][debug]   GT逐维方差={np.var(_g, axis=0)}")
                     if _pad is not None:
@@ -2111,6 +2785,8 @@ class OpenLoopValidator:
 
         # ---- 按**完整 trajectory** 聚合（🔴 2026-10-04 审查 B2）----
         # 抽成纯函数 `aggregate_chunks` 是为了让 tools/open_loop_parity_check.py 能单测它。
+        if phases is not None:
+            phases.phase(f"聚合指标（{_n_done} 次推理 → {len(chunks)} 个有效 chunk）")
         out = aggregate_chunks(chunks)
         # review v0.1 #9：把实际用到的 action keys 一并返回（供审计 action space）；
         # 之前只有 `collect_gt_chunks` 返回它，evaluator 侧拿不到。
@@ -2153,14 +2829,32 @@ class OpenLoopValidator:
             pass
 
     # -- 对外入口 -------------------------------------------------------------
-    def _run(self, global_step: int) -> Dict[str, Dict[str, float]]:
-        """跑一次 train-monitor + val 评测并写 TB（不含任何状态切换，由 validate 负责）。"""
+    def _run(self, global_step: int, *,
+             preps: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Dict[str, float]]:
+        """跑一次 train-monitor + val 评测并写 TB（不含任何状态切换，由 validate 负责）。
+
+        ``preps``：`validate()` 在**真实 FSDP 窗口之外**算好的两份本地准备
+        （``{"train_monitor": …, "val": …}``，见 `_eval_prelude`）；为 None ⇒
+        `_evaluate_ids` 走旧路径自己准备（直接调 `_run` 的工具/测试保持旧语义）。
+        """
+        preps = preps or {}
         t0 = time.time()
         # 每次评测都从同一个噪声序列起点开始 ⇒ 不同 step 之间的曲线可比（噪声不是变量）
         self._noise_gen = None
-        with torch.inference_mode():
-            tr = self._evaluate_ids(self.train_monitor_ids, "train_monitor")
-            va = self._evaluate_ids(self.val_ids, "val")
+        # 🔴 必须走 `_eval_tensor_context()`（no_grad），**不要**改回 torch.inference_mode()：
+        #    inference 张量会污染 FSDP2 嵌套单元的 `unsharded_param`，
+        #    使**紧随其后的训练/Hardness 前向**抛
+        #    `Inplace update to inference tensor outside InferenceMode`（详见该函数 docstring）。
+        # ⚠️ `prep` 只在窗口外阶段真的算过时才作为**关键字**传（单卡/ddp 下为 None）：
+        #    有些单测会 monkeypatch `_evaluate_ids(ids, tag)` 做探针，多传一个关键字会炸。
+        with _eval_tensor_context():
+            _prep_tr, _prep_va = preps.get("train_monitor"), preps.get("val")
+            tr = (self._evaluate_ids(self.train_monitor_ids, "train_monitor")
+                  if _prep_tr is None else
+                  self._evaluate_ids(self.train_monitor_ids, "train_monitor", prep=_prep_tr))
+            va = (self._evaluate_ids(self.val_ids, "val")
+                  if _prep_va is None else
+                  self._evaluate_ids(self.val_ids, "val", prep=_prep_va))
         elapsed = time.time() - t0
         self.logger.info_rank0(
             f"[open_loop] step {global_step}: "
@@ -2233,16 +2927,23 @@ class OpenLoopValidator:
         """分片并行（FSDP1/FSDP2）下的「参数取全」窗口 —— 见 `_fsdp_full_params_context`。
 
         ⚠️ 两个调用红线（都写在 `_fsdp_full_params_context` 的 docstring 里）：
-        `_multirank_eval_payload` **外面**（集体进/出）+ `torch.inference_mode()` **外面**。
+        `_multirank_eval_payload` **外面**（集体进/出）+ 评测体**不能**用
+        ``torch.inference_mode()``（见 `_eval_tensor_context`）。
         """
         return _fsdp_full_params_context(self.model, logger=self.logger)
 
-    def _validate_once(self, global_step: int) -> Optional[Dict[str, Dict[str, float]]]:
-        """原 `validate()` 的**单次执行体**（安全上下文 + 失败降级为告警 + 返回 None）。"""
+    def _validate_once(self, global_step: int, *,
+                       preps: Optional[Dict[str, Dict[str, Any]]] = None
+                       ) -> Optional[Dict[str, Dict[str, float]]]:
+        """原 `validate()` 的**单次执行体**（安全上下文 + 失败降级为告警 + 返回 None）。
+
+        ``preps``：窗口外阶段（预检 A → 对称预热 → 预检 B）算好的两份本地准备；
+        ⚠️ 它必须在**真实 unshard 窗口之外**算好并传进来 —— 见 `_eval_prelude`。
+        """
         result = None
         with self._eval_context():
             try:
-                result = self._run(global_step)
+                result = self._run(global_step, preps=preps)
             except Exception as exc:  # noqa: BLE001
                 # ⚠️ 只打一行 type+msg 会让 smoke 阶段无法定位（2026-10-04 实测：
                 #    split_with_sizes 形状错只报一行，栈全丢）。这里必须打完整栈。
@@ -2283,11 +2984,39 @@ class OpenLoopValidator:
         # 分片并行：unshard/all-gather 完整参数必须在**所有 rank 一起**、且在
         # inference_mode **之外** 完成（unshard 会新建参数对象）。包在 payload 外面
         # ⇒ 即使 rank0 在评测里失败，其余 rank 也还在同一个 with 里、能一起退出。
-        with self._sharded_eval_context():
-            return _multirank_eval_payload(
-                run=lambda: self._validate_once(global_step),
-                ws=ws, rank=rank, broadcast=_broadcast_object,
-                all_ranks_run=_all_ranks_must_run_eval(self.args))
+        phases = self._phase_tracker()
+        if phases is not None:
+            phases.begin(f"validate@step{global_step}")
+        failed: Optional[BaseException] = None
+        try:
+            # ① 窗口前阶段（本地准备 → 预检 A → 对称预热 → 预检 B）：
+            #    **在 `_sharded_eval_context()`（= unshard 集合通信）之前**，所有 rank 都走。
+            #    这样 `unshard()` 这个真正出事的集合点也被预检/预热覆盖。
+            preps: Optional[Dict[str, Dict[str, Any]]] = None
+            if _all_ranks_must_run_eval(self.args):
+                preps = {}
+                for _ids, _tag in ((self.train_monitor_ids, "train_monitor"),
+                                   (self.val_ids, "val")):
+                    preps[_tag] = self._eval_prelude(list(_ids), _tag)
+            with self._sharded_eval_context():
+                if phases is not None:
+                    phases.phase("unshard（取全参数）完成")
+                return _multirank_eval_payload(
+                    run=lambda: self._validate_once(global_step, preps=preps),
+                    ws=ws, rank=rank, broadcast=_broadcast_object,
+                    all_ranks_run=_all_ranks_must_run_eval(self.args),
+                    fail_fast=self._nonzero_failure_is_fatal,
+                    on_broadcast=(None if phases is None
+                                  else lambda: phases.phase("广播（rank0 结果广播给所有 rank）")))
+        except BaseException as exc:  # noqa: BLE001
+            failed = exc
+            raise
+        finally:
+            self._eval_in_collective_region = False
+            if phases is not None:
+                phases.end(ok=failed is None,
+                           note=("" if failed is None
+                                 else f"{type(failed).__name__}: {failed}"))
 
     # ------------------------------------------------------------------ #
     # Stage B0：给 Auto Learning 用的两个公开入口
@@ -2369,20 +3098,101 @@ class OpenLoopValidator:
         # 多卡分片（fsdp*）：**所有 rank 都真跑前向**（all-gather 是集合通信），
         #   rank0 的结果广播给所有 rank（非 0 rank 自己的结果作废）。
         # 分片模式下「取全参数」窗口必须在 payload 外面（集体进/出 + 不在 inference_mode 里）。
-        with self._sharded_eval_context():
-            return _multirank_eval_payload(
-                run=lambda: self._evaluate_run(list(ids), tag),
-                ws=ws, rank=_global_rank(), broadcast=_broadcast_object,
-                all_ranks_run=_all_ranks_must_run_eval(self.args))
+        phases = self._phase_tracker()
+        if phases is not None:
+            phases.begin(tag)
+        failed: Optional[BaseException] = None
+        try:
+            # ① 窗口前阶段（本地准备 → 预检 A → 对称预热 → 预检 B）：**在 unshard 之前**，
+            #    所有 rank 都走 ⇒ `unshard()` 这个真机出事的集合点也被预检/预热覆盖。
+            #    非分片并行（ddp/单卡）不做：那时只有 rank0 真跑评测，没有集合通信错配风险。
+            prep = (self._eval_prelude(list(ids), tag)
+                    if _all_ranks_must_run_eval(self.args) else None)
+            with self._sharded_eval_context():
+                if phases is not None:
+                    phases.phase("unshard（取全参数）完成")
+                return _multirank_eval_payload(
+                    run=lambda: self._evaluate_run(list(ids), tag, prep=prep),
+                    ws=ws, rank=_global_rank(), broadcast=_broadcast_object,
+                    all_ranks_run=_all_ranks_must_run_eval(self.args),
+                    fail_fast=self._nonzero_failure_is_fatal,
+                    on_broadcast=(None if phases is None
+                                  else lambda: phases.phase("广播（rank0 结果广播给所有 rank）")))
+        except BaseException as exc:  # noqa: BLE001
+            failed = exc
+            raise
+        finally:
+            # 无论有没有阶段面包屑，都必须复位「已在集合通信区」标记
+            # （否则 `AL_EVAL_PHASE_LOG=0` 时下一次评测的准备阶段失败会被误判成
+            #  「集合通信区内失败」而走 fail-fast）
+            self._eval_in_collective_region = False
+            if phases is not None:
+                # ⚠️ 失败时**不要**再调 `phase()`（那条路径会打「完成」）——直接收尾
+                phases.end(ok=failed is None,
+                           note=("" if failed is None
+                                 else f"{type(failed).__name__}: {failed}"))
 
-    def _evaluate_run(self, ids: Sequence[int], tag: str) -> Dict[str, Any]:
-        """单次评测的实际执行体（安全上下文 + ``inference_mode`` + 结果）。"""
+    # -- 多卡：失败策略 / 阶段观测 ------------------------------------------
+    def _nonzero_failure_is_fatal(self, exc: BaseException) -> bool:
+        """非 0 rank 在评测体内失败时**是否立即失败**（由 `_multirank_eval_payload` 调用）。
+
+        判据（两条都必须成立）：
+        * ``AL_EVAL_FAIL_FAST_NONZERO=1``（默认 0 = 旧行为：吞掉、用 rank0 的结果）；
+        * 本 rank **已经进入集合通信区**（即过了 `_eval_prelude` / `_evaluate_ids`
+          的一致性预检）—— 那种失败必然让其余 rank 卡在 all-gather 上；等 600 s 看门狗
+          只会得到 ``NCCL communicator was aborted``，把真因埋掉。早抛 ⇒ torchrun 立刻
+          收掉整个作业、日志里留下完整栈。
+        集合通信区**之前**的失败（数据准备/预热）不抛：那种情况其余 rank 的结果仍然有效，
+        而且预检本来就会把它变成一次全 rank 一起抛的指名报错（见 `_eval_prelude` 的 A/B 两次）。
+        """
+        return bool(_fail_fast_nonzero() and self._eval_in_collective_region)
+
+    def _phase_trace_dir(self) -> Optional[str]:
+        """阶段面包屑的逐 rank 落盘目录（``AL_EVAL_PHASE_DIR`` 覆盖；无 output_dir ⇒ None）。"""
+        raw = os.environ.get(EVAL_PHASE_DIR_ENV)
+        if raw is not None:
+            return str(raw).strip() or None
+        out_dir = getattr(getattr(getattr(self, "args", None), "train", None),
+                          "output_dir", None)
+        if not out_dir:
+            return None
+        return os.path.join(str(out_dir), "_open_loop_phase")
+
+    def _phase_tracker(self) -> Optional["_EvalPhaseTracker"]:
+        """本实例的阶段面包屑器（``AL_EVAL_PHASE_LOG=0`` 或单卡 ⇒ 返回 None 表示"不用"）。"""
+        if not _env_flag(EVAL_PHASE_LOG_ENV, True):
+            return None
+        if _world_size() <= 1:
+            return None
+        tracker = getattr(self, "_phases", None)
+        if tracker is None:
+            _stall = _stall_seconds()
+            tracker = _EvalPhaseTracker(self.logger, rank=_global_rank(),
+                                        ws=_world_size(), stall_sec=_stall,
+                                        poll_sec=_stall_poll_seconds(_stall),
+                                        trace_dir=self._phase_trace_dir())
+            self._phases = tracker
+        return tracker
+
+    def _evaluate_run(self, ids: Sequence[int], tag: str, *,
+                      prep: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """单次评测的实际执行体（安全上下文 + ``no_grad`` + 结果）。
+
+        🔴 张量上下文用 ``_eval_tensor_context()``（no_grad），**不是**
+        ``torch.inference_mode()``：后者会让 FSDP2 嵌套单元缓存的 ``unsharded_param``
+        变成 inference 张量，紧接着的训练前向就报
+        ``Inplace update to inference tensor outside InferenceMode``（详见该函数 docstring）。
+
+        ``prep``：窗口外阶段（`_eval_prelude`）算好的本地准备，直接复用。
+        """
         with self._eval_context():
             try:
-                with torch.inference_mode():
+                with _eval_tensor_context():
                     # 每次评测都从同一个噪声序列起点开始 ⇒ 不同 step 之间可比
                     self._noise_gen = None
-                    return self._evaluate_ids(list(ids), tag)
+                    if prep is None:      # 同上：单卡/直调时保持「只传两个位置参数」
+                        return self._evaluate_ids(list(ids), tag)
+                    return self._evaluate_ids(list(ids), tag, prep=prep)
             except Exception as exc:  # noqa: BLE001
                 self.logger.warning(f"[open_loop] ⚠️ [{tag}] 评测失败: "
                                     f"{type(exc).__name__}: {exc}")

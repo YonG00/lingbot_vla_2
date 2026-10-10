@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 ROOT=Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:sys.path.insert(0,str(ROOT))
-from lingbotvla.auto_learning.scout_cache import provenance
+from lingbotvla.auto_learning.scout_cache import EVAL_SOURCES, provenance, source_manifest
 
 
 def plan(args):
@@ -32,16 +32,17 @@ def verify(args):
         p.update(status='BLOCKED',reason='missing sources: '+','.join(missing))
         return p
     shards=sorted(args.checkpoint.glob('*.safetensors'))
-    sources={'eval':ROOT/'lingbotvla/utils/open_loop_validation.py',
-             'model':ROOT/'lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla_v2.py',
-             'transform':ROOT/'lingbotvla/data/vla_data/transform.py',
-             'eval_precision':ROOT/'lingbotvla/utils/eval_precision.py',
-             'evaluator':ROOT/'lingbotvla/auto_learning/evaluator.py',
-             'gmean':ROOT/'lingbotvla/auto_learning/decision/gmean.py',
-             'manifest':args.manifest,'norm':args.norm,
-             'thresholds':args.thresholds,'baseline':args.baseline,
-             'checkpoint_config':args.checkpoint/'config.json',
-             'checkpoint_tokenizer':args.checkpoint/'tokenizer.json'}
+    # 🔴 与运行时**同一份**清单（`scout_cache.EVAL_SOURCES`）：两边清单一旦分叉，
+    #    preflight 认证过的指纹就不再等于 build.py 真正用的指纹（2026-10-10 修）。
+    sources,missing=source_manifest(ROOT,{
+        'manifest':args.manifest,'norm':args.norm,
+        'thresholds':args.thresholds,'baseline':args.baseline,
+        'checkpoint_config':args.checkpoint/'config.json',
+        'checkpoint_tokenizer':args.checkpoint/'tokenizer.json'},strict=False)
+    if missing:
+        p.update(status='BLOCKED',
+                 reason='source 缺失: '+', '.join(f'{k}({r})' for k,r in missing))
+        return p
     try:
         sig=provenance(weight_files=shards,sources=sources,options={
             'inference_dtype':args.dtype,'noise_seed':1234,
@@ -51,8 +52,10 @@ def verify(args):
         p.update(status='BLOCKED',reason=str(exc))
         return p
     p.update({'status':'READY','provenance_sha256':sig,'weight_shards':len(shards),
+             'eval_source_files':len(EVAL_SOURCES),'total_sources':len(sources),
              'cache_namespace':str(args.cache_root / sig) if args.cache_root else None,
-             'proof':'SHA256 of raw checkpoint shard bytes + code + norm + split + thresholds + baseline'})
+             'proof':('SHA256 of raw checkpoint shard bytes + code(AST 语义 hash for .py) '
+                      '+ norm + split + thresholds + baseline')})
     return p
 
 

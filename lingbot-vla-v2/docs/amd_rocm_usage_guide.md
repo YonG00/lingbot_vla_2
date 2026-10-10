@@ -491,3 +491,71 @@ AutoDL 上"仅冻 ViT"是由**另一条路径**实现的 —— 那条路径与 
   ```
 * 本仓库相关工具：`tools/rocm/{fix_aiter_gluon_triton.sh, make_official_scaffold.sh}`、
   `tools/rescue_before_destroy.sh`、根目录 `watch_amd_gpu.sh`
+
+
+---
+
+## 14. 指定 scout 缓存 / 强制重扫（`AL_SCOUT_CACHE_*`）
+
+> 2026-10-10 加入。**用途**：Bootstrap 的全池 scout 扫描很贵（串行 ~14 分钟 ✗），
+> 有时我们**明确知道**该用哪份结果、或明确要求重扫 ⇒ 给操作者两个开关 ✓。
+
+### 14.1 原理（一句话）
+
+```
+BootstrapScoutCache(root, fingerprint) 内部就是：  path = root / fingerprint
+   ⇒ 读 = 找 path/<任务>__<ids>.json    写 = 只由 rank0 写该目录 ✓
+   ⇒ 所以【指定指纹 = 指定缓存目录】✓ 不哈希、不复制、不迁移 ✓
+```
+
+### 14.2 三种模式
+
+| 模式 | 环境变量 | 行为 |
+|---|---|---|
+| **自动（默认）** ✓ | 只设 `AL_SCOUT_CACHE_MODE=bootstrap` | 按依赖内容算指纹 ⇒ 逻辑/数据/权重/选项**任一变化就自动失效** ✓（安全兜底 ✓）|
+| **指定缓存重载** ✓ | `+ AL_SCOUT_CACHE_FINGERPRINT=<64位指纹>` | **跳过指纹计算**，直接用该目录 ⇒ 命中就用、缺的照常真扫并写回 ✓（**有效性由操作者负责** ✓）|
+| **强制重扫** ✓ | `+ AL_SCOUT_CACHE_FORCE_RESCAN=1` | 目录名换成 `<指纹>-force-<时间戳>` ⇒ 必然全部 miss ⇒ **全量重扫** ✓（原目录不动 ✓）|
+
+### 14.3 用法
+
+```bash
+# 1) 先看有哪些缓存目录（目录名就是完整指纹 ✓）
+ls -d /workspace/al/scout_cache/*/
+# 2) 取【完整 64 位】名字（前 8 位够你认人）
+FP=$(basename $(ls -d /workspace/al/scout_cache/*/ | grep 3c8b15e2))
+echo ${#FP}          # 必须是 64 ✓
+
+# 3) 启动时带上（其余环境变量照常）
+AL_SCOUT_CACHE_MODE=bootstrap \
+AL_SCOUT_CACHE_ROOT=/workspace/al/scout_cache \
+AL_SCOUT_CACHE_FINGERPRINT=$FP \          # ← 指定缓存重载 ✓（不要这行就是自动模式）
+AL_SCOUT_CACHE_CHECKPOINT=/workspace/models/robbyant_lingbot-vla-v2-6b-bf16 \
+AL_SCOUT_CACHE_MANIFEST=/workspace/al/task_splits_50/manifest.json \
+AL_SCOUT_CACHE_BASELINE=/workspace/al/task_splits_50/task_baseline.json \
+AL_SCOUT_CACHE_NORM=<repo>/assets/norm_stats/robotwin_competition_clean.json \
+AL_SCOUT_CACHE_DTYPE=bfloat16 \
+bash experiment/robotwin/al_50task_bf16.sh
+```
+
+### 14.4 注意事项（都踩过 ✗）
+
+1. **必须 64 位小写 hex** ✗ —— 传 16 位前缀 ⇒ `ValueError: invalid provenance fingerprint`
+   （这个校验是好事 ✓：防手误造出一个空目录 ✓）
+2. **`AL_SCOUT_CACHE_MODE=bootstrap` 仍必须设** ✓ —— 两个开关是它的子功能；不设则整个缓存块不启用 ✓
+3. **指定一个不存在的指纹 ⇒ 目录会被创建** ✓（`mkdir(parents=True)` ✓）⇒ 等效于"空缓存 + 全量重扫并写进该目录" ✓
+4. **写缓存只有 rank0** ✓（多卡并发写会撕裂 ✓，所以 `write_enabled` 默认仅 rank0 ✓）
+5. **语义边界** ✓：指定即信任 ✓ —— 工具**不会**替你核对"这份缓存是不是当前代码/权重算的" ✗
+   ⇒ 操作者要自己判断（判据：依赖文件 mtime 都早于缓存目录 ✓）
+   ⇒ 拿不准就用**自动模式** ✓（它会自动失效 ✓）
+6. **分片共享** ✓：8 卡并行预扫描用的 `al_shard*.yaml` 与正式 run 的主配置**指纹相同** ✓
+   —— 因为指纹**不含** AL 配置文件本身 ✓，只含其中影响评测的字段（`scout_trajs`/`noise_seed`/`stride`/`image_augment`/`inference_dtype`）✓
+
+### 14.5 常见流程：8 卡并行预扫描 + 正式 run 复用
+
+```bash
+# ① 8 个 worker（各 1 卡 × 任务分片）写缓存
+for i in 0..7: CUDA_VISIBLE_DEVICES=$i N_GPU=1 AL_CFG=configs/auto_learning/al_shard$i.yaml  …
+# ② 正式 run：自动模式（推荐 ✓）或显式指定那份新指纹 ✓
+```
+> ⚠️ 改了**被指纹纳入的文件**（`open_loop_validation.py` / `scout_cache.py` / 数据/权重…）⇒ 自动模式会失效重扫 ✓
+> ⇒ 此时应当【重跑 ①】而不是硬指旧缓存 ✓（除非你确定改动不影响评测数字 ✓ —— 那就用 `AL_SCOUT_CACHE_FINGERPRINT` ✓）

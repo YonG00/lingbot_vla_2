@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
@@ -144,6 +145,7 @@ class AutoLearningParts:
     manifest_path: str
     baseline_path: Optional[str] = None
     baseline_store: Any = None
+    config_path: Optional[str] = None  # `--train.auto_learning` 指向的 yaml（scout 指纹要用）
     notes: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -286,6 +288,7 @@ def build_auto_learning_parts(
     return AutoLearningParts(
         cfg=cfg, catalog=cat, resolver=resolver, lazy_sampler=LazyAutoLearnSampler(),
         manifest_path=manifest_path, baseline_path=baseline_path, baseline_store=store,
+        config_path=config_path,
         notes={"n_tasks": len(cat)},
     )
 
@@ -364,8 +367,7 @@ def finish_auto_learning(
         if int(getattr(args.train, 'step_offset', -1)) != 500:
             log.warning('[scout_cache] step_offset=%s != 500：仍启用缓存（fingerprint 含模型身份）',
                         getattr(args.train, 'step_offset', None))
-        from ..scout_cache import BootstrapScoutCache, provenance
-        from pathlib import Path
+        from ..scout_cache import BootstrapScoutCache, provenance, source_manifest
         ckpt = Path(os.environ['AL_SCOUT_CACHE_CHECKPOINT']).resolve()
         loaded = getattr(args.model, 'model_path', None)
         if loaded is None or Path(loaded).resolve() != ckpt:
@@ -378,28 +380,63 @@ def finish_auto_learning(
         if bool(getattr(args.train, 'enable_resume', False)):
             raise RuntimeError('Scout cache forbidden when Resume is enabled')
         shards = sorted(ckpt.glob('*.safetensors'))
-        src = {
-            'eval': Path(__file__).resolve().parents[2] / 'utils/open_loop_validation.py',
-            'model': Path(__file__).resolve().parents[2] / 'models/vla/lingbot_vla/modeling_lingbot_vla_v2.py',
-            'transform': Path(__file__).resolve().parents[2] / 'data/vla_data/transform.py',
-            'eval_precision': Path(__file__).resolve().parents[2] / 'utils/eval_precision.py',
-            'evaluator': Path(__file__).resolve().parents[1] / 'evaluator.py',
-            'gmean': Path(__file__).resolve().parents[1] / 'decision/gmean.py',
+        # ---- 评测 source 清单（唯一事实来源见 `scout_cache.EVAL_SOURCES`）----
+        # 🔴 2026-10-10：原实现只列了 6 个代码文件，漏了**数据集构造链**（multi_vla_dataset /
+        #    base_dataset / dataset.py / utils.py …）与 **AL 配置文件本身** ⇒ 改这些文件会让
+        #    评测数字变化而指纹不变（拿旧扫描结果判 PASS，危险）；反过来改一行注释又会
+        #    让 50 个结果全废（真机实测今天两次，重扫 ~5 分钟）。
+        #    ⇒ ① 清单补全（宁可多列）；② `.py` 改用 AST 语义 hash（注释/空行不再失效）。
+        repo_root = Path(__file__).resolve().parents[2]
+        _al_cfg_path = getattr(parts, 'config_path', None) or os.environ.get('AL_AUTO_LEARNING_CONFIG')
+        src_extra = {
             'manifest': Path(os.environ['AL_SCOUT_CACHE_MANIFEST']),
             'norm': Path(os.environ['AL_SCOUT_CACHE_NORM']),
             'thresholds': Path(cfg.pass_thresholds_file),
             'baseline': Path(os.environ['AL_SCOUT_CACHE_BASELINE']),
+            # [2026-10-10] **不**把 AL 配置文件整份计入指纹：8 卡并行预扫描用 al_shard0..7.yaml、
+            # 正式 run 用主配置 ⇒ 若按文件 hash 会得到 9 个不同指纹 ⇒ 分片结果无法被正式 run 命中。
+            # 配置中真正影响评测结果的字段（scout_trajs / noise_seed / stride / image_augment /
+            # inference_dtype）已经在 provenance 的 options 里逐项列出，安全性不受影响。
             'checkpoint_config': ckpt / 'config.json',
             'checkpoint_tokenizer': ckpt / 'tokenizer.json',
         }
+        src_extra = {k: v for k, v in src_extra.items() if v is not None}
+        src, missing = source_manifest(
+            repo_root, src_extra, strict=False,
+            on_missing=lambda key, reason: log.warning(
+                '[scout_cache] ⚠️ 评测 source 缺失，已从指纹中跳过: %s（%s）', key, reason))
+        if missing:
+            log.warning(
+                '[scout_cache] ⚠️ 共 %d 个 source 未纳入指纹: %s ⇒ 若这些文件其实在评测路径上，'
+                '请先修好再启用缓存（缺文件的指纹"看起来合法"但语义不完整）',
+                len(missing), [k for k, _ in missing])
+        log.info_rank0(
+            f'[scout_cache] 指纹纳入 {len(src)} 个 source'
+            f'（{len([k for k in src if k not in src_extra])} 个评测链代码文件 + '
+            f'{len(src_extra)} 个数据/配置文件）+ {len(shards)} 个权重分片；'
+            '`.py` 用 AST 语义 hash（注释/空行/docstring 不再失效）')
         fp = provenance(weight_files=shards, sources=src,
                         options={'inference_dtype': os.environ['AL_SCOUT_CACHE_DTYPE'],
                                  'noise_seed': 1234,
                                  'scout_trajs': cfg.global_scout_val_trajs,
                                  'stride': 'per_episode',
                                  'image_augment': bool(getattr(args.data, 'image_augment', False))})
+        # [2026-10-10 用户要求] 两个显式开关，操作者说了算（默认仍走自动指纹 ✓）：
+        #   AL_SCOUT_CACHE_FINGERPRINT=<fp>  ⇒ 直接用指定指纹目录（跳过自动指纹；= "指定缓存重载"）
+        #   AL_SCOUT_CACHE_FORCE_RESCAN=1    ⇒ 忽略已有条目、强制重扫（写到一个带时间戳的新目录）
+        _fp_override = os.environ.get('AL_SCOUT_CACHE_FINGERPRINT', '').strip()
+        if _fp_override:
+            log.warning('[scout_cache] 使用显式指纹 %s（跳过自动指纹计算；有效性由操作者负责）',
+                        _fp_override)
+            fp = _fp_override
+        if os.environ.get('AL_SCOUT_CACHE_FORCE_RESCAN', '') == '1':
+            import time as _time
+            _forced = f'{fp}-force-{int(_time.time())}'
+            log.warning('[scout_cache] FORCE_RESCAN=1 ⇒ 忽略已有缓存，强制重扫（写入 %s）', _forced)
+            fp = _forced
         scout_cache = BootstrapScoutCache(os.environ['AL_SCOUT_CACHE_ROOT'], fingerprint=fp)
-        log.info_rank0('[auto_learning] strict Bootstrap Scout cache enabled; never used in Rescan')
+        log.info_rank0(f'[auto_learning] strict Bootstrap Scout cache enabled; fp={fp[:12]}…; '
+                       'never used in Rescan')
     backend = build_real_backend(
         catalog=cat, resolver=parts.resolver, adapter=adapter, hardness=hardness,
         dataset=None, baseline_store=parts.baseline_store)
