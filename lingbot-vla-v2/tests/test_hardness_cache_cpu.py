@@ -1,13 +1,18 @@
-"""hardness 逐样本磁盘缓存：CPU 契约测试（2026-10-10）。
+"""hardness 单文件缓存（显式文件 + 模型名）契约测试 —— 2026-10-10 重写版。
+
+对应需求（用户 2026-10-10 定）：
+  1. 缓存**文件由入参显式指定**，不做指纹推导 ⇒ 改代码不再让缓存失效；
+  2. 缓存内记 `model`，**模型不同即视为未命中**（明确打印原因，不静默复用）。
 
 覆盖：
-  1. 首次全未命中 → 写入 → 再读全命中，且**数值逐位一致**；
-  2. **部分复用**：请求更大 id 集合时，只缺新增的那些（不同 probe 设置互补）；
-  3. 指纹不符 ⇒ 一律不命中（换权重/换口径后不得复用）；
-  4. 噪声语义版本不符 ⇒ 不命中；
-  5. 坏 JSON / 超大文件 ⇒ 视为未命中，不抛异常；
-  6. **写失败不打断训练**（只读文件系统上 store 应静默返回）；
-  7. 非法指纹（长度/字符）⇒ 构造时就报错（fail-fast，防手误）。
+  * 命中往返：首次全缺 → 写入 → 再读全命中，数值逐位一致；
+  * 部分复用：不同 probe 子集按**并集**互补，不互相覆盖；
+  * **模型不同 ⇒ 未命中**（核心新语义）；同模型跨代码改动仍命中（需求 1 的收益）；
+  * 噪声语义版本不符 / schema 不符 ⇒ 未命中；
+  * 坏 JSON / 超大文件 ⇒ 视为未命中，不抛异常；
+  * 写失败（父路径是文件）⇒ 静默返回，绝不打断训练；
+  * 非 rank0 只读；`store()` 写入前重读 ⇒ **不覆盖别处已写入的任务**；
+  * 端到端：`RealHardnessScorer` 第二轮 **0 次模型调用**、数值逐位一致。
 """
 
 from __future__ import annotations
@@ -19,137 +24,182 @@ from pathlib import Path
 import pytest
 
 from lingbotvla.auto_learning.hardness_cache import (
-    MAX_JSON_BYTES, NOISE_SEMANTIC_VERSION, VERSION, HardnessSampleCache,
+    MAX_JSON_BYTES, NOISE_SEMANTIC_VERSION, VERSION,
+    HardnessSampleCache, resolve_model_name,
 )
 
-FP = 'a' * 64
+MODEL = 'robbyant_lingbot-vla-v2-6b-bf16'
 
 
-def _cache(tmp_path: Path, fp: str = FP, **kw) -> HardnessSampleCache:
-    return HardnessSampleCache(tmp_path, fp, **kw)
+def _cache(path: Path, model: str = MODEL, **kw) -> HardnessSampleCache:
+    return HardnessSampleCache(path, model=model, **kw)
 
 
-def test_first_load_miss_then_store_then_hit_roundtrip(tmp_path):
-    c = _cache(tmp_path)
+# --------------------------------------------------------------------------- #
+# 基本往返与并集
+# --------------------------------------------------------------------------- #
+def test_miss_then_store_then_hit_roundtrip(tmp_path):
+    f = tmp_path / 'hardness.json'
+    c = _cache(f)
     ids = [1, 5, 9]
     hits, miss = c.load('task_a', ids)
     assert hits == {} and miss == ids, '首次必须全未命中'
 
     c.store('task_a', {1: 0.11, 5: 0.55, 9: 0.99})
 
-    hits2, miss2 = c.load('task_a', ids)
+    c2 = _cache(f)                       # 新实例、同一文件
+    hits2, miss2 = c2.load('task_a', ids)
     assert miss2 == [], '写入后应全命中'
-    assert hits2[1] == 0.11 and hits2[5] == 0.55 and hits2[9] == 0.99, '数值必须逐位一致'
-    assert c.cached_count('task_a') == 3
+    assert hits2 == {1: 0.11, 5: 0.55, 9: 0.99}, '数值必须逐位一致'
+    assert c2.cached_count('task_a') == 3
 
 
-def test_partial_reuse_across_different_probe_subsets(tmp_path):
-    """不同 probe 设置扫的是不同子集 ⇒ 缓存按样本并集互补，而不是互相作废。"""
-    c = _cache(tmp_path)
+def test_partial_reuse_union_across_probe_subsets(tmp_path):
+    f = tmp_path / 'hardness.json'
+    c = _cache(f)
     c.store('t', {1: 1.0, 2: 2.0})
     hits, miss = c.load('t', [1, 2, 3, 4])
     assert hits == {1: 1.0, 2: 2.0} and miss == [3, 4], '只应缺新增样本'
-    # 补扫 3/4 后再读：四个全命中
     c.store('t', {3: 3.0, 4: 4.0})
-    hits2, miss2 = c.load('t', [1, 2, 3, 4])
-    assert miss2 == [] and len(hits2) == 4
-    assert c.cached_count('t') == 4, '并集应为 4（不能互相覆盖）'
+    _, miss2 = _cache(f).load('t', [1, 2, 3, 4])
+    assert miss2 == [], '并集后应全命中'
+    assert _cache(f).cached_count('t') == 4
 
 
-def test_fingerprint_mismatch_is_a_miss(tmp_path):
-    _cache(tmp_path, fp='b' * 64).store('t', {1: 1.0})
-    other = _cache(tmp_path, fp='c' * 64)
+def test_store_preserves_other_task_written_elsewhere(tmp_path):
+    """`store()` 必须**先重读文件**：否则会用它自己的陈旧副本盖掉别的任务。"""
+    f = tmp_path / 'hardness.json'
+    a = _cache(f)
+    b = _cache(f)
+    a.load('taskA', [1])                 # a 读到空文件（触发 _data 缓存）
+    b.store('taskB', {7: 0.7})           # b 先写 taskB
+    a.store('taskA', {1: 0.1})           # a 后写 —— 不得把 taskB 抹掉
+    raw = json.loads(f.read_text(encoding='utf-8'))
+    assert set(raw['tasks']) == {'taskA', 'taskB'}, f'任务被覆盖：{sorted(raw["tasks"])}'
+    assert raw['tasks']['taskB']['losses'] == {'7': 0.7}
+
+
+# --------------------------------------------------------------------------- #
+# 模型名（核心新语义）
+# --------------------------------------------------------------------------- #
+def test_model_mismatch_is_a_miss_and_logged(tmp_path):
+    f = tmp_path / 'hardness.json'
+    _cache(f, model='model_A').store('t', {1: 1.0})
+
+    other = _cache(f, model='model_B')
     hits, miss = other.load('t', [1])
-    assert hits == {} and miss == [1], '指纹不同不得复用'
+    assert hits == {} and miss == [1], '模型不同不得复用'
+    assert other.last_miss_reason == 'model_mismatch'
     assert other.cached_count('t') == 0
 
 
+def test_same_model_across_code_change_reuses(tmp_path):
+    """需求 1 的核心收益：**同一模型名**下，改代码不该影响命中（旧指纹方案会失效）。"""
+    f = tmp_path / 'hardness.json'
+    _cache(f).store('t', {1: 1.0, 2: 2.0})
+    hits, miss = HardnessSampleCache(f, model=MODEL).load('t', [1, 2])
+    assert miss == [] and len(hits) == 2
+
+
+def test_model_mismatch_rebuilds_file_with_new_model(tmp_path):
+    """换模型后写入：文件应以新模型名重建（旧模型数据不残留）。"""
+    f = tmp_path / 'hardness.json'
+    _cache(f, model='model_A').store('t', {1: 1.0})
+    _cache(f, model='model_B').store('t', {2: 2.0})
+    raw = json.loads(f.read_text(encoding='utf-8'))
+    assert raw['model'] == 'model_B'
+    assert raw['tasks']['t']['losses'] == {'2': 2.0}
+
+
+@pytest.mark.parametrize('explicit,ckpt,expect', [
+    ('my-model', '/anywhere/weights', 'my-model'),
+    (None, '/models/robbyant_lingbot-vla-v2-6b-bf16', 'robbyant_lingbot-vla-v2-6b-bf16'),
+    (None, None, 'unknown'),
+])
+def test_resolve_model_name(explicit, ckpt, expect):
+    assert resolve_model_name(explicit, checkpoint_dir=ckpt) == expect
+
+
+def test_empty_model_is_rejected(tmp_path):
+    with pytest.raises(ValueError, match='model'):
+        HardnessSampleCache(tmp_path / 'h.json', model='   ')
+
+
+# --------------------------------------------------------------------------- #
+# 版本 / 容错
+# --------------------------------------------------------------------------- #
 def test_noise_semantic_version_mismatch_is_a_miss(tmp_path):
-    c = _cache(tmp_path)
-    c.store('t', {1: 1.0})
-    p = c._task_path('t')
-    raw = json.loads(p.read_text(encoding='utf-8'))
+    f = tmp_path / 'hardness.json'
+    _cache(f).store('t', {1: 1.0})
+    raw = json.loads(f.read_text(encoding='utf-8'))
     raw['noise_semantic_version'] = NOISE_SEMANTIC_VERSION + 1
-    p.write_text(json.dumps(raw), encoding='utf-8')
-    hits, miss = c.load('t', [1])
-    assert hits == {} and miss == [1], '噪声语义版本变了必须重扫（口径已不同）'
+    f.write_text(json.dumps(raw), encoding='utf-8')
+    hits, miss = _cache(f).load('t', [1])
+    assert hits == {} and miss == [1], '噪声语义版本变了必须重扫'
+
+
+def test_schema_version_mismatch_is_a_miss(tmp_path):
+    f = tmp_path / 'hardness.json'
+    f.write_text(json.dumps({'version': VERSION - 1, 'model': MODEL, 'tasks': {}}),
+                 encoding='utf-8')
+    hits, miss = _cache(f).load('t', [1])
+    assert hits == {} and miss == [1]
 
 
 def test_corrupt_or_oversized_file_is_tolerated(tmp_path):
-    c = _cache(tmp_path)
-    c.store('bad', {1: 1.0})
-    c._task_path('bad').write_text('{not json', encoding='utf-8')
-    hits, miss = c.load('bad', [1])
+    f = tmp_path / 'hardness.json'
+    f.write_text('{not json', encoding='utf-8')
+    hits, miss = _cache(f).load('t', [1])
     assert hits == {} and miss == [1], '坏文件应视为未命中而不是抛异常'
 
-    c.store('big', {1: 1.0})
-    p = c._task_path('big')
-    raw = json.loads(p.read_text(encoding='utf-8'))
-    # 直接按上限造：每条 `"123": 1.5` 约 15 字节 ⇒ 条目数 = 上限/12 保证超出
-    raw['losses'] = {str(i): 1.5 for i in range(MAX_JSON_BYTES // 12)}
-    p.write_text(json.dumps(raw), encoding='utf-8')
-    assert p.stat().st_size > MAX_JSON_BYTES, '测试造数必须真的超过上限'
-    hits2, miss2 = c.load('big', [1])
-    assert hits2 == {} and miss2 == [1], '超过上限应视为未命中'
+    big = {'version': VERSION, 'noise_semantic_version': NOISE_SEMANTIC_VERSION, 'model': MODEL,
+           'tasks': {'t': {'losses': {str(i): 1.5 for i in range(MAX_JSON_BYTES // 12)}}}}
+    f.write_text(json.dumps(big), encoding='utf-8')
+    assert f.stat().st_size > MAX_JSON_BYTES, '测试造数必须真的超过上限'
+    hits2, miss2 = _cache(f).load('t', [1])
+    assert hits2 == {} and miss2 == [1]
 
 
 def test_store_failure_does_not_raise(tmp_path):
-    """父路径是普通文件 ⇒ mkdir 必失败；store 必须静默返回（绝不打断训练）。"""
+    """父路径是普通文件 ⇒ mkdir 必失败；store 必须静默返回。"""
     blocker = tmp_path / 'blocked'
     blocker.write_text('not a dir', encoding='utf-8')
-    c = HardnessSampleCache(blocker, FP)
-    c.store('t', {1: 1.0})          # 不应抛异常
-    hits, miss = c.load('t', [1])
-    assert hits == {} and miss == [1]
+    c = HardnessSampleCache(blocker / 'h.json', model=MODEL)
+    c.store('t', {1: 1.0})
+    assert not (blocker / 'h.json').exists()
 
 
 def test_disabled_cache_is_pure_passthrough(tmp_path):
-    c = _cache(tmp_path, enabled=False)
-    c.store('t', {1: 1.0})          # enabled=False 不写
+    f = tmp_path / 'hardness.json'
+    c = _cache(f, enabled=False)
+    c.store('t', {1: 1.0})
     hits, miss = c.load('t', [1])
     assert hits == {} and miss == [1]
-    assert not (tmp_path / FP).exists()
+    assert not f.exists()
 
 
 def test_readonly_rank_does_not_write(tmp_path):
-    writer = _cache(tmp_path, write_enabled=True)
-    writer.store('t', {1: 1.0})
-    reader = _cache(tmp_path, write_enabled=False)
-    hits, miss = reader.load('t', [1])
+    f = tmp_path / 'hardness.json'
+    _cache(f, write_enabled=True).store('t', {1: 1.0})
+    reader = _cache(f, write_enabled=False)
+    hits, _ = reader.load('t', [1])
     assert hits == {1: 1.0}, '非 rank0 也必须能读'
-    reader.store('t', {2: 2.0})     # 非 rank0 不写
-    assert writer.cached_count('t') == 1
-
-
-@pytest.mark.parametrize('bad', ['', 'abc', 'A' * 64, 'z' * 64, 'a' * 63])
-def test_invalid_fingerprint_fails_fast(tmp_path, bad):
-    with pytest.raises(ValueError):
-        HardnessSampleCache(tmp_path, bad)
-
-
-def test_version_field_written(tmp_path):
-    c = _cache(tmp_path)
-    c.store('t', {1: 1.0})
-    raw = json.loads(c._task_path('t').read_text(encoding='utf-8'))
-    assert raw['version'] == VERSION
-    assert raw['noise_semantic_version'] == NOISE_SEMANTIC_VERSION
-    assert raw['fingerprint'] == FP and raw['task'] == 't' and raw['n'] == 1
+    reader.store('t', {2: 2.0})
+    assert _cache(f).cached_count('t') == 1, '非 rank0 不得写'
 
 
 # --------------------------------------------------------------------------- #
-# 端到端：RealHardnessScorer 是否真的**跳过**已缓存样本（核心收益所在）
+# 端到端：RealHardnessScorer 真的跳过已缓存样本
 # --------------------------------------------------------------------------- #
 class _CountingCore:
-    """桩 scorer：记录被真正打分的 sample id（按 per-sample-id 语义，值可复现）。"""
-
     def __init__(self):
         self.scored: list[int] = []
 
     def score(self, items, sample_ids=None):  # noqa: ANN001
         import numpy as np
-        sids = [int(it['idx']) for it in items] if sample_ids is None else [int(s) for s in sample_ids]
+        sids = ([int(it['idx']) for it in items] if sample_ids is None
+                else [int(s) for s in sample_ids])
         self.scored.extend(sids)
-        # 逐样本确定性：只由 sid 决定（模拟 per-sample-id RNG）
         return np.asarray([float(sid) * 0.001 + 0.5 for sid in sids], dtype=float)
 
 
@@ -158,54 +208,44 @@ class _StubDataset:
         return {'joint_mask': True, 'idx': int(idx)}
 
 
-def test_scorer_skips_cached_samples_end_to_end(tmp_path):
-    """第二轮扫描：已缓存样本**不得**再进模型；且返回值与第一轮逐位一致。"""
+def _scorer(core, cache):
     from lingbotvla.auto_learning.real.backend import RealHardnessScorer
+    return RealHardnessScorer(core, _StubDataset(), max_batch=4, logger=None, cache=cache)
 
-    os.environ['AL_HARDNESS_UNIFY_RNG'] = '1'      # 走逐样本绑定噪声（与分片同一语义）
+
+def test_scorer_skips_cached_samples_end_to_end(tmp_path):
+    f = tmp_path / 'hardness.json'
+    os.environ['AL_HARDNESS_UNIFY_RNG'] = '1'
     os.environ.pop('AL_HARDNESS_SHARD', None)
     try:
-        # --- 第一轮：全部真扫，写入缓存 ---
         core1 = _CountingCore()
-        c1 = HardnessSampleCache(tmp_path, FP)
-        s1 = RealHardnessScorer(core1, _StubDataset(), max_batch=4, logger=None, cache=c1)
         ids = list(range(1, 13))
-        out1 = s1.score('t', ids)
+        out1 = _scorer(core1, _cache(f)).score('t', ids)
         assert sorted(core1.scored) == ids, '第一轮应真扫全部样本'
-        assert c1.cached_count('t') == len(ids), '第一轮应把结果写进缓存'
+        assert _cache(f).cached_count('t') == len(ids)
 
-        # --- 第二轮：全命中 ⇒ 一个样本都不该进模型 ---
         core2 = _CountingCore()
-        c2 = HardnessSampleCache(tmp_path, FP)
-        s2 = RealHardnessScorer(core2, _StubDataset(), max_batch=4, logger=None, cache=c2)
-        out2 = s2.score('t', ids)
+        out2 = _scorer(core2, _cache(f)).score('t', ids)
         assert core2.scored == [], f'已缓存样本不得再进模型，实际打了 {core2.scored}'
         assert out2 == out1, '复用结果必须与首轮逐位一致'
 
-        # --- 第三轮：请求更大集合 ⇒ 只补缺失 ---
         core3 = _CountingCore()
-        c3 = HardnessSampleCache(tmp_path, FP)
-        s3 = RealHardnessScorer(core3, _StubDataset(), max_batch=4, logger=None, cache=c3)
-        big = list(range(1, 13)) + [100, 101]
-        out3 = s3.score('t', big)
+        big = ids + [100, 101]
+        out3 = _scorer(core3, _cache(f)).score('t', big)
         assert sorted(core3.scored) == [100, 101], f'只应补扫新增样本，实际 {core3.scored}'
         assert set(out3) == set(big) and out3[1] == out1[1]
-        assert c3.cached_count('t') == len(big), '并集应累积'
+        assert _cache(f).cached_count('t') == len(big)
     finally:
         os.environ.pop('AL_HARDNESS_UNIFY_RNG', None)
 
 
-def test_scorer_without_cache_keeps_old_behavior(tmp_path):
-    """不传 cache ⇒ 行为与改造前一致（每轮全扫）。"""
-    from lingbotvla.auto_learning.real.backend import RealHardnessScorer
-
+def test_scorer_without_cache_keeps_old_behavior():
     os.environ['AL_HARDNESS_UNIFY_RNG'] = '1'
     os.environ.pop('AL_HARDNESS_SHARD', None)
     try:
         core = _CountingCore()
-        s = RealHardnessScorer(core, _StubDataset(), max_batch=4, logger=None)   # 无 cache
         ids = list(range(1, 7))
-        s.score('t', ids)
+        _scorer(core, None).score('t', ids)
         assert sorted(core.scored) == ids, '无缓存时必须全扫（默认行为不变）'
     finally:
         os.environ.pop('AL_HARDNESS_UNIFY_RNG', None)

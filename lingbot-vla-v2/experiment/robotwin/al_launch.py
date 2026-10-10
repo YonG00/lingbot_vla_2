@@ -92,6 +92,8 @@ DEFAULT_PYTHON = '/opt/robotwin-env/bin/python'
 DEFAULT_CACHE_ROOT = '/workspace/al/scout_cache'
 #: hardness 逐样本缓存根（持久卷：体积小、跨实例重建仍可复用）
 DEFAULT_HARDNESS_CACHE_ROOT = '/workspace/al/hardness_cache'
+#: hardness 缓存**文件**（2026-10-10 起：由入参显式指定，路径不参与指纹推导）
+DEFAULT_HARDNESS_CACHE_FILE = '/workspace/al/hardness_cache/hardness.json'
 DEFAULT_CHECKPOINT = '/workspace/models/robbyant_lingbot-vla-v2-6b-bf16'
 DEFAULT_SPLIT_DIR = '/workspace/al/task_splits_50'
 DEFAULT_PHASES = '/workspace/al/phases_al'
@@ -1010,9 +1012,16 @@ def build_parser() -> argparse.ArgumentParser:
                       help='梯度累积，默认 1（脚本自算 GBS = MICRO*GAS*N_GPU）')
     core.add_argument('--cache-root', default=DEFAULT_CACHE_ROOT,
                       help=f'scout 缓存根目录，默认 {DEFAULT_CACHE_ROOT}')
-    core.add_argument('--hardness-cache', default=DEFAULT_HARDNESS_CACHE_ROOT,
-                        help='hardness 逐样本 loss 的磁盘缓存根（跨 run 复用；'
-                             "留空字符串 '' 可关闭）。默认 " + DEFAULT_HARDNESS_CACHE_ROOT)
+    core.add_argument('--hardness-cache-file', default=DEFAULT_HARDNESS_CACHE_FILE,
+                        help='hardness 逐样本 loss 的**缓存文件**（显式指定，跨 run 复用；'
+                             "留空字符串 '' 可关闭）。默认 " + DEFAULT_HARDNESS_CACHE_FILE)
+    core.add_argument('--hardness-cache', default=None,
+                        help='(已弃用) 旧入参：缓存**目录**；等价于 '
+                             '--hardness-cache-file <目录>/hardness.json')
+    core.add_argument('--model-name', default=None,
+                        help='模型标识（写入缓存用于判定可用性；默认取权重目录名）。'
+                             '换模型 ⇒ 缓存自动失效重扫')
+
     core.add_argument('--fingerprint', default=None,
                       help='显式指定 64 位指纹（跳过计算；必须是完整小写 hex）')
 
@@ -1132,6 +1141,15 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
     for k, v in os.environ.items():
         if k.startswith('AL_') and k not in extra:
             extra[k] = v
+    # 🔴 hardness 缓存：**显式文件**（2026-10-10 起不再用指纹目录）。
+    # 兼容旧 `--hardness-cache <目录>`：落成该目录下的固定文件名。
+    _hc_file = str(getattr(args, 'hardness_cache_file', '') or '')
+    _hc_legacy = str(getattr(args, 'hardness_cache', '') or '')
+    if not _hc_file and _hc_legacy:
+        _hc_file = str(Path(_hc_legacy) / 'hardness.json')
+    # 模型标识：显式 --model-name，否则取权重目录名（换模型 ⇒ 缓存自动失效）
+    _model_name = (str(getattr(args, 'model_name', '') or '')
+                   or Path(str(checkpoint)).expanduser().name or 'unknown')
     return {
         'PY': str(python),
         'PATH': f'{python.parent}:{os.environ.get("PATH", "/usr/bin:/bin")}',
@@ -1150,7 +1168,8 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
         'TRITON_CACHE_DIR': str(args.triton_cache),
         'TORCHINDUCTOR_CACHE_DIR': str(args.torchinductor_cache),
         'AL_SCOUT_CACHE_MODE': 'bootstrap',
-        'AL_HARDNESS_CACHE': str(getattr(args, 'hardness_cache', '') or ''),
+        'AL_HARDNESS_CACHE_FILE': str(_hc_file),  # 显式文件（见上方解析）
+        'AL_MODEL_NAME': str(_model_name),
         'AL_SCOUT_CACHE_ROOT': str(args.cache_root),
         'AL_SCOUT_CACHE_CHECKPOINT': str(checkpoint),
         'AL_SCOUT_CACHE_MANIFEST': str(manifest),
@@ -1804,8 +1823,11 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     # 🔴 hardness-cache **不参与 20G 下限检查**（2026-10-10 自锁事故）：
     #    它的体积是"每任务几十 KB"，却因为被塞进这套空间检查，在 /workspace 只剩 19.7G
     #    时把**任何启用缓存的启动**都拦死在退出码 2。改为只探测"父目录存在且可写"。
-    if getattr(args, 'hardness_cache', ''):
-        _hc = Path(args.hardness_cache)
+    # 兼容新旧入参：新为 `--hardness-cache-file <文件>`（取父目录），旧为 `--hardness-cache <目录>`。
+    _hc_arg = str(getattr(args, 'hardness_cache_file', '') or getattr(args, 'hardness_cache', '') or '')
+    if _hc_arg:
+        _hc_raw = Path(_hc_arg)
+        _hc = _hc_raw if _hc_raw.suffix == '' else _hc_raw.parent
         # 缓存目录**允许不存在**（`store()` 内部 `mkdir(parents=True)` 会自建）
         # ⇒ 只需确认"最近存在的祖先"可写即可，不要求父目录已存在。
         _anc = _hc
