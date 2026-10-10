@@ -1,5 +1,5 @@
 retry_budget_steps: 99
-pool_ratio_skip: 1.0e9   # 不因"太难"排除任何任务（多难都要学）；仅 ratio<0.2 的"已过"不进池
+pool_ratio_skip: 1.0e+9   # 不因"太难"排除任务（多难都要学）；仅 ratio<0.2 的"已过"不进池
 pool_ratio_pass: 0.2
 pool_filter_by_gmean_ratio: true
 # DERIVED from experiment_50task_gmean200_train2.yaml（唯一差别：target_total_passed_tasks 4→3）
