@@ -60,6 +60,8 @@ MIXED=${MIXED:-false}
 AUGMENT=false                      # Auto Learning 要求 image_augment=false（开了会 fail-fast）
 
 MODEL_PATH=${MODEL_PATH:-/data/models/lingbot-vla-v2-6b-base/lingbot-vla-v2-6b}
+#: 训练配置（各机器路径不同；ROCm/cpu1 用 configs/rocm/robotwin_official_paths_rocm.yaml 覆盖）
+CONFIG=${CONFIG:-/data/train/configs/robotwin_official_paths.yaml}
 STEP_OFFSET=${STEP_OFFSET:-0}      # >0 时编号接着旧模型（见 train_lingbotvla.py 的注释）
 RESUME=${RESUME:-0}
 RESUME_BOOL=$([ "$RESUME" = "1" ] && echo true || echo false)
@@ -207,7 +209,7 @@ export QWEN3VL_PATH=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Ins
 export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0}
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-bash train.sh tasks/vla/train_lingbotvla.py /data/train/configs/robotwin_official_paths.yaml \\
+bash train.sh tasks/vla/train_lingbotvla.py "$CONFIG" \\
   --model.model_path       $MODEL_PATH \\
   --data.train_path        $PHASES/datasets.txt \\
   --data.episode_ids_file  $TRAIN_IDS \\
@@ -294,7 +296,7 @@ EXTRA_ARGS=${EXTRA_ARGS:-}
 
 set +e
 bash train.sh tasks/vla/train_lingbotvla.py \
-    /data/train/configs/robotwin_official_paths.yaml \
+    "$CONFIG" \
     --model.model_path       "$MODEL_PATH" \
     --data.train_path        "$PHASES/datasets.txt" \
     --data.episode_ids_file  "$TRAIN_IDS" \
