@@ -101,9 +101,10 @@ def test_score_emits_progress_and_completion():
 
     joined = '\n'.join(log.lines)
     assert '[hardness] 开始打分' in joined, joined
-    assert 'samples=40' in joined, joined
+    assert '本 rank 40/40 样本' in joined, joined
     assert '约 10 批' in joined, joined
     assert '[hardness] 打分完成' in joined, joined
+    assert '汇总后 40 个' in joined, joined
     # 时间节流下仍必须有"首批"与"最后一批"的进度行
     assert '[hardness] 进度 4/40' in joined, joined
     assert '[hardness] 进度 40/40' in joined, joined
@@ -144,9 +145,10 @@ def test_scan_emits_start_and_done_with_counts():
     assert scan.scanned_sample_ids == sorted(scan.losses.keys()), 'scanned 与 losses 必须一一对应'
     assert len(scan.losses) == len(set(scan.losses)), '样本不得重复计入'
     assert 0 < scan.n_scanned <= len(record.sample_ids)
-    # 外层"待打分样本 x/y 帧"与内层"开始打分 samples=" 必须一致
+    # 外层"待打分样本 x/y 帧"与内层"本 rank x/y 样本" 必须一致
     outer = [ln for ln in log.lines if '待打分样本' in ln][0]
     inner = [ln for ln in log.lines if '[hardness] 开始打分' in ln][0]
     n_outer = int(outer.split('待打分样本 ', 1)[1].split('/', 1)[0])
-    n_inner = int(inner.split('samples=', 1)[1].split(' ', 1)[0])
+    # 形如 `… 本 rank 32/32 样本 …`
+    n_inner = int(inner.split('本 rank ', 1)[1].split('/', 1)[0])
     assert n_outer == n_inner, f'外层/内层样本数不一致: {n_outer} vs {n_inner}'

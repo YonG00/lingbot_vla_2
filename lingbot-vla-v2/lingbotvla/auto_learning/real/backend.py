@@ -117,11 +117,35 @@ class RealHardnessScorer:
                 reserve_gib=float(os.environ.get('AL_HARDNESS_RESERVE_GIB', '10')))
 
     def score(self, task: str, sample_ids: Sequence[int]) -> Dict[int, float]:
-        ids = [int(s) for s in sample_ids]
+        ids_all = [int(s) for s in sample_ids]
         # 阶段名走实例属性 ⇒ 递归子调用也能带上正确标签（局部变量会被重置为 main）。
         _hr_phase = getattr(self, '_hr_phase_override', None) or 'main'
-        if not ids:
+        if not ids_all:
             return {}
+
+        # ---------------- 多卡按 rank 分片（2026-10-10）----------------
+        # 🔴 现状问题：hardness 扫描在**每个 rank 上各算一遍完全相同的全量样本** ⇒
+        #    7 卡时算力浪费 7×、墙钟零收益；而瓶颈恰恰是逐样本读帧（实测 ~5.0 s/样本，
+        #    打分只有 ~0.2–0.3 s/样本）。⇒ 按 `ids[rank::world_size]` 交错切片，
+        #    每 rank 只读自己那份，读完 `all_gather_object` 汇总。
+        # 🔴 **必须同时绑定 sample_ids**：分片后同一样本会与不同邻居凑批，而默认路径的
+        #    噪声是"整批一个 generator"（`fixed_noise(B, …)`）⇒ 换批即换噪声、结果不可比。
+        #    绑定后逐样本噪声只由 (seed, sid) 决定，分片/批大小都不再影响数值。
+        # `AL_HARDNESS_SHARD=1` 开启；未初始化分布式或 world_size==1 ⇒ 自动退回单卡全量。
+        _shard_on = os.environ.get('AL_HARDNESS_SHARD', '') == '1'
+        _rank, _world = 0, 1
+        if _shard_on:
+            try:
+                import torch.distributed as _dist
+                if _dist.is_available() and _dist.is_initialized() and _dist.get_world_size() > 1:
+                    _rank = int(_dist.get_rank())
+                    _world = int(_dist.get_world_size())
+                else:
+                    _shard_on = False
+            except Exception:  # noqa: BLE001 —— 分片不可用时退回单卡全量
+                _shard_on = False
+        ids = ids_all[_rank::_world] if _shard_on else list(ids_all)
+
         out: Dict[int, float] = {}
         data_seconds = 0.0
         score_seconds = 0.0
@@ -131,27 +155,35 @@ class RealHardnessScorer:
         #    单任务上千样本 × 每批 8 个 ⇒ 数百批、几十分钟静默。真机实测因此把"在扫难度"
         #    误判成"卡死"，白花约 40 分钟排查。⇒ 按**时间节流**打点（默认最多每 15s 一行），
         #    首尾各强制一行，保证"日志不动"这件事不再能被误读。
-        #    仅 rank0 输出：多卡下各 rank 内容一致，7 份重复只会淹掉日志。
+        #    分片时各 rank 内容不同 ⇒ **每 rank 都打进度**（带 rank 标记）；未分片时只有
+        #    rank0 有意义，仍走 info_rank0 以免 7 份重复淹日志。
         _log_n = len(ids)
+        _log_all = len(ids_all)
         _log_every = float(os.environ.get('AL_HARDNESS_LOG_SEC', '15') or 15)
         _log_t0 = time.perf_counter()
         _log_last = 0.0
         # 首行用的批大小：auto 模式下会动态变，这里按"起始批大小"给个量级即可。
         _log_bs = (int(self._auto_batch.current) if self._auto_batch is not None
                    else max(1, int(self.max_batch)))
+        _tag = f'rank{_rank}/{_world} ' if _shard_on else ''
 
         def _hr_log(msg: str) -> None:
             if self.logger is None:
                 return
             try:
-                self.logger.info_rank0(msg)
+                if _shard_on:
+                    self.logger.info(msg)          # 各 rank 进度不同 ⇒ 都保留
+                else:
+                    self.logger.info_rank0(msg)    # 未分片 ⇒ 内容相同，只留 rank0
             except Exception:  # noqa: BLE001 —— 日志失败绝不该打断扫描
                 pass
 
-        _hr_log(f'[hardness] 开始打分：task={task} phase={_hr_phase} samples={_log_n} '
-                f'batch={_log_bs}{"(auto)" if self._auto_batch is not None else ""} '
-                f'⇒ 约 {(_log_n + _log_bs - 1) // _log_bs} 批（每 {_log_every:.0f}s 报一次进度；'
-                'AL_HARDNESS_LOG_SEC 可调）')
+        _hr_log(f'[hardness] {_tag}开始打分：task={task} phase={_hr_phase} '
+                f'本 rank {_log_n}/{_log_all} 样本'
+                + (f'（{_world} 卡分片，交错切片 ids[{_rank}::{_world}]）' if _shard_on else '')
+                + f' batch={_log_bs}{"(auto)" if self._auto_batch is not None else ""}'
+                f' ⇒ 约 {(_log_n + _log_bs - 1) // max(1, _log_bs)} 批'
+                f'（每 {_log_every:.0f}s 报一次进度；AL_HARDNESS_LOG_SEC 可调）')
         while i < len(ids):
             batches += 1
             data_started = time.perf_counter()
@@ -190,8 +222,9 @@ class RealHardnessScorer:
             score_started = time.perf_counter()
             # 🔴 要求5：fixed 与 auto 必须使用**同一套逐样本噪声语义**。
             #  - 报告模式（AL_HARDNESS_REPORT_OUT）或 auto 模式：传 sample_ids ⇒ per-sample-id RNG；
-            #  - 允许用 AL_HARDNESS_UNIFY_RNG=1 在 production fixed 路径也启用（默认关，行为不变）。
-            _bind_ids = (self._auto_batch is not None or bool(_hr_out)
+            #  - 允许用 AL_HARDNESS_UNIFY_RNG=1 在 production fixed 路径也启用（默认关，行为不变）；
+            #  - **分片模式强制启用**：分片会改变"谁和谁凑一批"，逐样本噪声才保证可比（见上方说明）。
+            _bind_ids = (self._auto_batch is not None or bool(_hr_out) or _shard_on
                           or os.environ.get('AL_HARDNESS_UNIFY_RNG') == '1')
             vals = (self.scorer.score(items, sample_ids=chunk) if _bind_ids
                     else self.scorer.score(items))
@@ -242,17 +275,44 @@ class RealHardnessScorer:
                 _done = min(i, len(ids))
                 _rate = _done / _elapsed if _elapsed > 0 else 0.0
                 _eta = ((len(ids) - _done) / _rate) if _rate > 0 else float('inf')
-                _hr_log(f'[hardness] 进度 {_done}/{len(ids)}（批 {batches}）'
+                _hr_log(f'[hardness] {_tag}进度 {_done}/{len(ids)}（批 {batches}）'
                         f' 用时 {_elapsed:.0f}s 速度 {_rate:.1f} 样本/s'
                         f' ETA {("?" if _eta == float("inf") else f"{_eta:.0f}s")}'
                         f' | data {data_seconds:.1f}s score {score_seconds:.1f}s'
                         + (' [最后一批]' if _is_last else ''))
-        _hr_log(f'[hardness] 打分完成：task={task} phase={_hr_phase} samples={len(ids)} '
-                f'批次={batches} 总用时 {time.perf_counter() - _log_t0:.1f}s'
+
+        # ---------------- 分片汇总 ----------------
+        if _shard_on:
+            import torch.distributed as _dist
+            _gathered: List[Any] = [None] * _world
+            _dist.all_gather_object(_gathered, out)
+            merged: Dict[int, float] = {}
+            for piece in _gathered:
+                if not piece:
+                    continue
+                for _sid, _val in piece.items():
+                    _sid = int(_sid)
+                    if _sid in merged:
+                        raise RuntimeError(
+                            f'[hardness] 分片汇总出现重复样本 sid={_sid}'
+                            f'（rank={_rank}/{_world}）⇒ 分片逻辑有 bug，拒绝静默继续')
+                    merged[_sid] = float(_val)
+            _missing = [s for s in ids_all if s not in merged]
+            if _missing:
+                raise RuntimeError(
+                    f'[hardness] 分片汇总缺 {len(_missing)} 个样本'
+                    f'（例：{_missing[:8]}）⇒ 有 rank 少算或多算，拒绝静默继续')
+            out = merged
+
+        _hr_log(f'[hardness] {_tag}打分完成：task={task} phase={_hr_phase} '
+                f'本 rank {len(ids)} 个样本、汇总后 {len(out)} 个'
+                f' 批次={batches} 总用时 {time.perf_counter() - _log_t0:.1f}s'
                 f'（data {data_seconds:.1f}s / score {score_seconds:.1f}s）')
         self.last_timing = {"data_wall_seconds": round(data_seconds, 5),
                             "score_submit_seconds": round(score_seconds, 5),
                             "batches": batches, "samples": len(ids),
+                            "sharded": bool(_shard_on), "rank": int(_rank),
+                            "world_size": int(_world),
                             "final_batch": (self._auto_batch.current if self._auto_batch else self.max_batch),
                             "auto_batch_mode": self._auto_batch is not None}
         # 单进程验收阶段（要求4/7）：main(Batch8) → replay(Batch1) → repeat(Batch8)。
