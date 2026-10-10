@@ -427,9 +427,11 @@ def entry_is_hit(path: Path, *, fingerprint: str, task: str, ids: Sequence[int]
             or not math.isclose(nmse, mse / base, rel_tol=1e-5, abs_tol=1e-8)
             or not math.isclose(mse, sum(vals) / len(vals), rel_tol=1e-4, abs_tol=1e-7)):
         return False, 'metrics 自洽性校验未通过'
-    gmean = m.get('gmean_mse')
-    if gmean is None or not math.isfinite(float(gmean)):
-        return False, 'gmean_mse 缺失/非有限（GMean 模式不算命中）'
+    # 🔴 **不要**在这里额外要求 `gmean_mse`（2026-10-10 实测踩坑）：
+    #    `BootstrapScoutCache.load()`（唯一权威）**没有**这一条；在 ratio 模式下评测器
+    #    根本不会写 `gmean_mse`（本批 50 条实测全是 `None`）⇒ 多要这一条会让本工具
+    #    **永远数到 0/命中**、进度条一直 0/50，最后误判"扫不全"而拒绝启动训练——
+    #    而训练那边其实 50/50 全命中。判据必须与 `load()` 逐条一致，宁可少要不可多要。
     return True, 'ok'
 
 
@@ -741,6 +743,22 @@ def proc_cmdline(pid: int) -> List[str]:
     return [part.decode('utf-8', 'replace') for part in raw.split(b'\0') if part]
 
 
+def proc_ppid(pid: int) -> int:
+    """父进程 id（`/proc/<pid>/stat` 第 4 个字段）；读不到 ⇒ -1。
+
+    用途：并发占用检查必须把「调用本工具的 shell」也算成自己人，否则工具会自匹配（见
+    `list_other_runs` 的说明）。
+    """
+    try:
+        stat = (_proc_dir(pid) / 'stat').read_text(encoding='utf-8')
+    except OSError:
+        return -1
+    try:
+        return int(stat[stat.rindex(')') + 1:].split()[1])
+    except (ValueError, IndexError):
+        return -1
+
+
 def proc_pgid(pid: int) -> Optional[int]:
     """进程组 id（`/proc/<pid>/stat` 第 5 个字段）。"""
     try:
@@ -822,18 +840,41 @@ def terminate_own(pid: int, *, expect_tokens: Sequence[str], role: str,
     return True
 
 
+def _self_skip_pids() -> set:
+    """并发占用检查要跳过的 PID = 自己 + 全部祖先进程。
+
+    单独抽出来是为了能被单测直接调用（见 `tests/test_al_launch_self_match.py`）。
+    """
+    skip = {os.getpid()}
+    if sys.platform != 'linux':
+        return skip
+    cur = os.getpid()
+    for _ in range(16):          # 祖先链最多回溯 16 层；/proc 读不到就停
+        parent = proc_ppid(cur)
+        if parent <= 1 or parent in skip:
+            break
+        skip.add(parent)
+        cur = parent
+    return skip
+
+
 def list_other_runs(extra_names: Sequence[str]) -> List[Dict[str, Any]]:
     """只读扫描 `/proc`：列出在跑的 `train_lingbotvla.py` / 本工具进程（抢卡预警）。"""
     if sys.platform != 'linux':
         return []
     tokens = ['train_lingbotvla.py', *extra_names]
     found: List[Dict[str, Any]] = []
-    me = os.getpid()
+    # 🔴 必须把**自己和全部祖先进程**都排除掉（2026-10-10 实测踩坑）：
+    #    本工具的文件名就是 `al_launch.py`，而调用它的那条 shell 命令行里同样含这个字符串
+    #    （典型：`bash -c "cd … && python experiment/robotwin/al_launch.py --dry-run | tail"`）。
+    #    只排 `os.getpid()` ⇒ 工具**把自己当成"已有训练在跑"**，dry-run 以退出码 2 拒绝启动。
+    #    这跟仓库铁律里 `pgrep -f` 自匹配是同一个坑，只是从 shell 层搬到了 Python 层。
+    skip = _self_skip_pids()
     for entry in Path('/proc').iterdir():
         if not entry.name.isdigit():
             continue
         pid = int(entry.name)
-        if pid == me:
+        if pid in skip:
             continue
         argv = proc_cmdline(pid)
         if not argv:

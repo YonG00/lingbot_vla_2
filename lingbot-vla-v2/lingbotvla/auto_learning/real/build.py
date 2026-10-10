@@ -293,6 +293,44 @@ def build_auto_learning_parts(
     )
 
 
+def _looks_like_repo_root(path: Path) -> bool:
+    """仓库根的判据：能同时看到 `lingbotvla/` 包与打包标记之一。"""
+    return ((path / 'lingbotvla' / '__init__.py').is_file()
+            and ((path / 'pyproject.toml').is_file() or (path / 'setup.py').is_file()))
+
+
+def resolve_repo_root(start: Optional[Path] = None) -> Path:
+    """从 `start`（默认本文件）向上找**仓库根**。
+
+    🔴 为什么不能写死层数（2026-10-10 真机实测踩坑，代价 = 缓存指纹静默降级）：
+    本文件位于 `<repo>/lingbotvla/auto_learning/real/build.py`，需要 **3** 层才到仓库根，
+    而原实现写的是 `Path(__file__).resolve().parents[2]` ⇒ 只到 `<repo>/lingbotvla/`。
+    于是 `source_manifest()` 拿这个假根去拼 `EVAL_SOURCES` 的 14 条相对路径，
+    **全部被判成"文件不存在"并静默跳过**：指纹从 20 个 source 退化成 6 个
+    （真机 worker 日志原话：「指纹纳入 6 个 source（0 个评测链代码文件）」）。
+    两个后果都不报错：
+      ① 指纹不再覆盖评测链代码 ⇒ 改了评测代码也能命中旧缓存（拿过期扫描判 PASS，危险）；
+      ② 与启动器 `al_launch.py`（按仓库根算，20 个 source）**永远算不到同一指纹**
+         ⇒ 启动器预扫的 50 条缓存永远不被训练命中，每次启动白扫一遍。
+
+    现在改为**向上找标记**，再退回"能解析出 `EVAL_SOURCES` 第一条"的层，最后才回退原路径。
+    """
+    here = Path(start or __file__).resolve()
+    for candidate in [here, *here.parents]:
+        if _looks_like_repo_root(candidate):
+            return candidate
+    try:                                  # 兜底：不依赖打包标记
+        from ..scout_cache import EVAL_SOURCES
+        rel = EVAL_SOURCES[0][1]
+    except Exception:                     # noqa: BLE001 —— 清单不可用则不做这项兜底
+        rel = None
+    if rel:
+        for candidate in here.parents:
+            if (candidate / rel).is_file():
+                return candidate
+    return here
+
+
 def finish_auto_learning(
     parts: AutoLearningParts,
     *,
@@ -386,7 +424,13 @@ def finish_auto_learning(
         #    评测数字变化而指纹不变（拿旧扫描结果判 PASS，危险）；反过来改一行注释又会
         #    让 50 个结果全废（真机实测今天两次，重扫 ~5 分钟）。
         #    ⇒ ① 清单补全（宁可多列）；② `.py` 改用 AST 语义 hash（注释/空行不再失效）。
-        repo_root = Path(__file__).resolve().parents[2]
+        # 🔴 用 `resolve_repo_root()` 而不是写死 `parents[N]`：写死层数会静默丢掉 14 条
+        #    评测链代码（详因见该函数 docstring，2026-10-10 真机实测）。
+        repo_root = resolve_repo_root(__file__)
+        if not (repo_root / 'lingbotvla' / 'utils' / 'open_loop_validation.py').is_file():
+            log.warning(
+                '[scout_cache] ⚠️ 推出来的仓库根看起来不对：%s（找不到评测链文件）'
+                '⇒ 指纹会退化成"只有数据/配置文件"，请检查仓库布局', repo_root)
         _al_cfg_path = getattr(parts, 'config_path', None) or os.environ.get('AL_AUTO_LEARNING_CONFIG')
         src_extra = {
             'manifest': Path(os.environ['AL_SCOUT_CACHE_MANIFEST']),
