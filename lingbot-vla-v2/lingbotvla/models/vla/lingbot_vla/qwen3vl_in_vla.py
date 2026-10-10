@@ -256,6 +256,20 @@ class Qwen3VLForConditionalGeneration(_Qwen3VLForConditionalGeneration, Generati
         self.lm_head = nn.Linear(config.text_config.hidden_size, config.text_config.vocab_size, bias=False)
         self.post_init()
 
+    # 🔴 2026-10-10 真机（ROCm 7.2.1 / gfx1100）实测：上游 `_deepstack_process` 的
+    #   「布尔掩码索引写」会让 Inductor 生成融合 kernel
+    #   `triton_tem_fused_slice_backward_transpose_view_zeros_2`（其反向是 `IndexPutBackward0`
+    #   写入 zeros ⇒ slice_backward + transpose + view + zeros），而 Triton AMD 后端的
+    #   `TritonAMDGPUOptimizeDotOperands` pass 对它**确定性失败**（`PassManager::run failed`，
+    #   7/7 rank；主编译与异步预热两条路径都崩）；同处 `aten.nonzero.default` 也无法编译。
+    #   ⇒ 把这一段移出 Dynamo 图、走 eager。每次前向只涉及 **deepstack 层数** 次掩码读写，
+    #   相对整层 attention/MoE 可忽略；语义与上游**完全一致**，只是不做算子融合。
+    #   不开编译时本装饰器为空操作。证据与归因过程：`.workbuddy/memory/2026-10-10-session2.md` §27。
+    @torch.compiler.disable(reason="gfx1100: 布尔掩码索引写的融合反向 kernel 触发 Triton AMD pass 缺陷")
+    def _deepstack_process(self, hidden_states, visual_pos_masks, visual_embeds):
+        """覆写上游实现：语义等价，仅把「读+加+写」移出编译图（见上方说明）。"""
+        return super()._deepstack_process(hidden_states, visual_pos_masks, visual_embeds)
+
 
 @torch.compiler.disable
 def preprcess_grid_thw(self, grid_thw: torch.Tensor):
