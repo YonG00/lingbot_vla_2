@@ -41,6 +41,8 @@ def _helpers() -> Dict[str, Any]:
               "_is_sharded_mode", "_fsdp_eval_unsupported", "_multirank_eval_supported",
               "_all_ranks_must_run_eval", "_multirank_batch_allowed",
               "_fsdp1_class", "_fsdp2_mixin", "_sharded_model_kind",
+              # `_fsdp_full_params_context` 依赖这两个（FSDP2 评测前必须先做根单元惰性初始化）
+              "_fsdp2_state", "_fsdp2_root_lazy_init",
               "_fsdp_full_params_context",
               "_broadcast_object", "_multirank_eval_payload")
     consts = ("SHARDED_EVAL_MODES", "MULTIRANK_EVAL_MODES",

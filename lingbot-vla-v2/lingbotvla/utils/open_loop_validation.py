@@ -39,6 +39,13 @@
   ⇒ 直接调它会用到**分片参数**。CPU/gloo + 真实 FSDP2 实测：
   ``RuntimeError: aten.mm.default: got mixed torch.Tensor and DTensor``；
   FSDP1 剥掉包装后实测 ``RuntimeError: size mismatch ...``。
+  🔴 **还必须先让 FSDP2 根单元完成惰性初始化（2026-10-10 真机 crash）**：FSDP2 靠
+  「根模块的第一次前向」确定根单元、建立共享通信状态（``FSDPState._lazy_init``）；
+  bootstrap 评测发生在**任何训练前向之前**，``sample_actions`` 又绕过根模块 hook
+  ⇒ 子单元各自被当成根 ⇒ 紧随其后的训练第一步前向报
+  ``FSDP requires running forward through the root module first``（8 卡真机更早表现为
+  ``HIP error: an illegal memory access was encountered`` ⇒ 进程组 abort / SIGABRT）。
+  修法：进窗口前调 `_fsdp2_root_lazy_init()`（纯本地簿记，无前向/无集合通信/不动 RNG 与参数）。
 * 逃生开关：``AL_EVAL_FSDP_UNSUPPORTED=1`` ⇒ 回到旧的 fail-fast（多卡只允许 ``ddp``）。
 * ``sample_actions`` 的调用 glue 是**照抄** ``deploy/lingbot_vla_v2_policy.py`` 的
   ``PolicyPreprocessMixin.sample_actions_batch``（无法真正复用：那个 mixin 依赖一个
@@ -284,6 +291,75 @@ def _sharded_model_kind(model: Any) -> str:
     return ""
 
 
+def _fsdp2_state(model: Any) -> Any:
+    """FSDP2 单元的 ``FSDPState``（拿不到 ⇒ ``None``，绝不抛）。"""
+    if not isinstance(model, torch.nn.Module):
+        return None
+    getter = getattr(model, "_get_fsdp_state", None)
+    if not callable(getter):
+        return None
+    try:
+        return getter()
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _fsdp2_root_lazy_init(model: Any, *, logger: Any = None) -> str:
+    """评测前确保 **FSDP2 根单元**已完成惰性初始化。
+
+    返回 ``'lazy_init'``（本次刚做）/ ``'already'``（之前已做）/ ``''``（不是 FSDP2）。
+
+    🔴 **为什么必须有这一步（2026-10-10 真机 crash + CPU/gloo 逐字复现）**
+    FSDP2 的「谁是根单元、各单元共享哪份通信状态」是在 ``FSDPState._lazy_init()`` 里定的，
+    而它**只由根模块第一次前向的 pre-forward hook 触发**（``_fsdp_state.py``：
+    ``_root_pre_forward()`` 的第一句就是 ``self._lazy_init()``）。bootstrap 开环评测发生在
+    **任何训练前向之前**，而评测走的 ``sample_actions`` 是**自定义方法**：它绕过根模块的
+    ``__call__``（因此不触发根 hook），只在内部调**子单元**的 ``__call__``
+    ⇒ 子单元（decoder 层）各自被当成「根」init、共享状态被拆散。此时：
+    * 紧随其后的**训练第一步前向**在根 ``_lazy_init`` 里报
+      ``RuntimeError: FSDP state has already been lazily initialized for <layer>
+      / FSDP requires running forward through the root module first``（2 卡真机原样报错）；
+    * 8 卡真机上更早一步就烂掉：``HIP error: an illegal memory access was encountered``
+      ⇒ 进程组 abort / SIGABRT。
+    两种表现都是**同一条**「根没 init 就先动了子单元」。
+
+    ✅ 这一步是**纯本地簿记**，已逐行核对 torch 2.8 源码：``FSDPState._lazy_init`` ⇒
+    ``_init_fqns`` + ``_init_shared_state``（``FSDPCommContext.lazy_init`` 只建 stream/句柄）
+    + 各 ``FSDPParamGroup.lazy_init``（``reset_sharded_param`` 只重挂/重 pad，不改数值；
+    ``_init_mp_dtypes`` / state_dict hook）。**没有集合通信、没有前向、不碰 RNG、不改参数**，
+    所以：所有 rank 都调用它是安全的（本就没有「必须对称」的集合通信）；不需要构造
+    warm-up 输入，也就谈不上「各 rank 输入不一致」；不在 ``torch.inference_mode()`` 里跑
+    ⇒ 不会产生 inference tensor。等价于「根模块跑一次极小前向」的第一步，但**零算力/零显存**。
+
+    ⚠️ 用的是 torch 私有 API（``_get_fsdp_state`` / ``_lazy_init``）：这是**唯一**能在没有
+    真实输入的情况下完成根 init 的入口。拿不到时**拒绝继续**（fail-fast），而不是放过去
+    把模型状态搞坏 —— 那种「修好了评测、下一步训练炸」的失败模式正是本函数要消灭的。
+    """
+    if _sharded_model_kind(model) != "fsdp2":
+        return ""
+    state = _fsdp2_state(model)
+    if state is None:
+        raise RuntimeError(
+            "模型是 FSDP2（FSDPModule）但拿不到 FSDPState（torch 内部 API 变了）⇒ 无法在评测前"
+            "完成根单元惰性初始化；直接评测会让子单元被误当根单元，随后训练前向报 "
+            "`FSDP requires running forward through the root module first`。"
+            "请升级/回退 torch，或设 AL_EVAL_FSDP_UNSUPPORTED=1 回到旧行为（多卡只允许 ddp）。")
+    if getattr(state, "_is_root", None) is not None:
+        return "already"          # 训练前向之后（或上一次评测已补过）⇒ 什么都不用做
+    lazy_init = getattr(state, "_lazy_init", None)
+    if not callable(lazy_init):
+        raise RuntimeError(
+            "模型是 FSDP2（FSDPModule）但 FSDPState 上没有 _lazy_init()（torch 版本差异）⇒ 无法在"
+            "评测前完成根单元惰性初始化，拒绝继续。请升级/回退 torch，或设 "
+            "AL_EVAL_FSDP_UNSUPPORTED=1 回到旧行为（多卡只允许 ddp）。")
+    lazy_init()
+    if logger is not None:
+        logger.info_rank0(
+            "[open_loop][fsdp] 评测前：FSDP2 根单元惰性初始化完成"
+            "（= 根模块第一次前向 hook 的第一步；无前向/无集合通信/不动 RNG 与参数）")
+    return "lazy_init"
+
+
 @contextlib.contextmanager
 def _fsdp_full_params_context(model: Any, *, logger: Any = None) -> Iterator[str]:
     """评测窗口内把**分片参数** all-gather 成完整权重；返回进入的模式（``''``=未分片）。
@@ -297,11 +373,15 @@ def _fsdp_full_params_context(model: Any, *, logger: Any = None) -> Iterator[str
     完整参数；在 inference_mode 里建出来的张量带 inference 标记，
     一旦被训练侧的 backward 用到就炸。调用点已保证这一点。
 
-    * FSDP2：``model.unshard()`` / ``model.reshard()``（**只对根单元**；嵌套单元
-      —— 每层 decoder —— 仍靠自己的前向 hook 逐层 all-gather，这是 FSDP2 的设计）。
+    * FSDP2：先 `_fsdp2_root_lazy_init`（**必须在 unshard 之前**，见其 docstring：
+      bootstrap 评测时根模块还没跑过前向），再 ``model.unshard()`` / ``model.reshard()``
+      （**只对根单元**；嵌套单元 —— 每层 decoder —— 仍靠自己的前向 hook 逐层 all-gather，
+      这是 FSDP2 的设计）。
     * FSDP1：``FullyShardedDataParallel.summon_full_params(writeback=False, rank0_only=False)``
       ⇒ 每个 rank 都拿到完整参数，可各自跑前向；退出后分片视图恢复
       （CPU/gloo 实测：退出后正常 ``model(x)`` 前向仍然 OK）。
+      FSDP1 的根 init 由 ``summon_full_params`` 自己完成（CPU/gloo 实测：不打任何前向
+      直接评测后，训练前向与 backward 都正常），这里不需要额外 warm-up。
       代价：窗口内每个 rank 多一份完整参数（显存）；fsdp1 不是本项目主用模式，
       48G 卡上如果 OOM，请改用 fsdp2（分片参数不必整份驻留）。
     """
@@ -322,6 +402,9 @@ def _fsdp_full_params_context(model: Any, *, logger: Any = None) -> Iterator[str
             raise RuntimeError(
                 "模型是 FSDP2（FSDPModule）但拿不到 unshard()/reshard()（torch 版本过旧）"
                 "⇒ 评测会用到**分片参数**，拒绝继续。请升级 torch 或改用 ddp。")
+        # 🔴 顺序不能反：根单元没 init 就 unshard/前向 ⇒ 子单元各自当根 ⇒ 之后训练前向报
+        #    `FSDP requires running forward through the root module first`（详见该函数 docstring）。
+        _fsdp2_root_lazy_init(model, logger=logger)
         if logger is not None:
             logger.info_rank0("[open_loop][fsdp] 评测窗口：unshard()（FSDP2 根单元取全参数）")
         unshard()
