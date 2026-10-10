@@ -1467,7 +1467,7 @@ def _selfcheck(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> in
 
 def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script: Path,
                 python: Path, common: Dict[str, str], al_body: Dict[str, Any],
-                al_cfg: Path, fingerprint: str, cache_dir: Path, scout_ids: Dict[str, List[int]],
+                al_cfg: Path, fingerprint: str, cache_file: Path, scout_ids: Dict[str, List[int]],
                 run_root: Path, round_shards: List[List[str]], round_gpus: List[str],
                 round_idx: int, tmpdir: Path, worker_out_root: Path) -> List[Dict[str, Any]]:
     """跑一轮并行扫描：生成分片配置 → 启动 worker → 就绪检查 → 逐分片进度 → 精确清场。
@@ -1479,16 +1479,16 @@ def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script
     #: 主轮沿用文档里的 al_shard<i>.json；补扫轮加轮次前缀，互不覆盖
     cfg_prefix = 'al_shard' if round_idx == 0 else f'al_retry{round_idx}_shard'
     # ---------------- 步骤 11：--no-cache 备份旧目录 / 生成分片配置 ----------------
-    if fingerprint and args.no_cache and cache_dir.exists() and any(cache_dir.glob('*.json')):
-        backup = cache_dir.with_name(cache_dir.name + '.bak-' + _stamp())
+    if args.no_cache and cache_file.is_file():
+        backup = cache_file.parent / (cache_file.name + '.bak-' + _stamp())
         if backup.exists():
-            backup = cache_dir.with_name(cache_dir.name + f'.bak-{_stamp()}-{os.getpid()}')
-        cache_dir.rename(backup)
+            backup = cache_file.parent / (cache_file.name + f'.bak-{_stamp()}-{os.getpid()}')
+        cache_file.rename(backup)
         log(f'[cache] --no-cache：旧指纹目录已改名备份（不删除）⇒ {backup}')
     for label, path in (('TMPDIR', tmpdir), ('TRITON_CACHE_DIR', Path(args.triton_cache)),
                         ('TORCHINDUCTOR_CACHE_DIR', Path(args.torchinductor_cache)),
                         ('worker-out-root', worker_out_root), ('run 目录', run_root),
-                        ('缓存目录', cache_dir)):
+                        ('缓存文件目录', cache_file.parent)):
         path.mkdir(parents=True, exist_ok=True)
 
     shard_configs: List[Path] = []
@@ -2017,7 +2017,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     else:
         cov_before = check_coverage(cache_file, _scout_model, scout_ids)
         report['coverage_before'] = cov_before.as_dict()
-        log(f'[cache] 目录 {cache_dir}')
+        log(f'[cache] 文件 {cache_file}')
         log(f'[cache] 该目录下 {cov_before.json_files()} 个条目文件；'
             f'覆盖 {cov_before.summary()} 个任务')
         if args.no_cache:
@@ -2171,16 +2171,16 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         return EXIT_OK
 
     # ---------------- 步骤 11-14：分片扫描（--retry-rounds 时补扫剩余缺失）----------------
-    if fingerprint and args.no_cache and cache_dir.exists() and any(cache_dir.glob('*.json')):
-        backup = cache_dir.with_name(cache_dir.name + '.bak-' + _stamp())
+    if args.no_cache and cache_file.is_file():
+        backup = cache_file.parent / (cache_file.name + '.bak-' + _stamp())
         if backup.exists():
-            backup = cache_dir.with_name(cache_dir.name + f'.bak-{_stamp()}-{os.getpid()}')
-        cache_dir.rename(backup)
+            backup = cache_file.parent / (cache_file.name + f'.bak-{_stamp()}-{os.getpid()}')
+        cache_file.rename(backup)
         log(f'[cache] --no-cache：旧指纹目录已改名备份（不删除）⇒ {backup}')
     for label, path in (('TMPDIR', tmpdir), ('TRITON_CACHE_DIR', Path(args.triton_cache)),
                         ('TORCHINDUCTOR_CACHE_DIR', Path(args.torchinductor_cache)),
                         ('worker-out-root', worker_out_root), ('run 目录', run_root),
-                        ('缓存目录', cache_dir)):
+                        ('缓存文件目录', cache_file.parent)):
         path.mkdir(parents=True, exist_ok=True)
 
     all_workers_rows: List[Dict[str, Any]] = []
@@ -2204,14 +2204,14 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         all_workers_rows.extend(_scan_round(
             args=args, log=log, repo=repo, launch_script=launch_script, python=python,
             common=common, al_body=al_body, al_cfg=al_cfg, fingerprint=str(fingerprint),
-            cache_dir=cache_dir, scout_ids=scout_ids, run_root=run_root,
+            cache_file=cache_file, scout_ids=scout_ids, run_root=run_root,
             round_shards=round_shards, round_gpus=round_gpus, round_idx=round_idx,
             tmpdir=tmpdir, worker_out_root=worker_out_root))
     workers_rows = all_workers_rows
 
     # ---------------- 步骤 15：收尾统计（只看目标指纹目录）----------------
     final_cov = check_coverage(cache_file, _scout_model, scout_ids)
-    target_cov = Coverage(cache_dir, str(fingerprint))
+    target_cov = Coverage(cache_file, _scout_model)
     for task in scan_target:
         if task in final_cov.rows:
             target_cov.rows[task] = final_cov.rows[task]
@@ -2221,7 +2221,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     log('=' * 78)
     log('扫描收尾统计（只统计目标指纹目录）')
     log('=' * 78)
-    log(f'目标指纹目录  : {cache_dir}')
+    log(f'目标缓存文件  : {cache_file}')
     log(f'本次扫描范围  : {len(scan_target)} 个任务'
         + ('（--no-cache 全量）' if args.no_cache else '（缓存缺失部分）')
         if scan_target else '本次扫描范围  : 无（复用缓存，未启动 worker）')

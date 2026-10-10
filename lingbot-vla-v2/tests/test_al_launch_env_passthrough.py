@@ -148,3 +148,31 @@ def test_scout_and_hardness_cache_files_are_distinct_paths():
     blob = proc.stdout + proc.stderr
     assert '/workspace/al/scout_cache/scout.json' in blob
     assert '/workspace/al/hardness_cache/hardness.json' in blob
+
+
+# --------------------------------------------------------------------------- #
+# 残留标识符防回归（2026-10-10：cache_dir→cache_file 改名后漏改 14 处，真机才炸出 NameError）
+# --------------------------------------------------------------------------- #
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_no_stale_cache_dir_identifier():
+    """`cache_dir` 已被 `cache_file` 取代（缓存从目录改成单文件）。
+
+    真机教训：改名时只改了部分引用，剩下的在 `--no-cache` 等**本地 dry-run 走不到**的分支里，
+    直到真机启动才抛 `NameError: name 'cache_dir' is not defined`（退出码 6）。这条用源码级
+    断言把所有残留一次挡住（`al_cfg: Path, cache_dir` 这类子串假阳性由 `cache_dir` 单词边界过滤）。
+    """
+    import re
+    src = LAUNCHER.read_text(encoding='utf-8')
+    hits = [m.start() for m in re.finditer(r'\bcache_dir\b', src)]
+    assert not hits, (
+        f'al_launch.py 仍残留 {len(hits)} 处 `cache_dir` 标识符（应全部为 cache_file）：'
+        + str([src[max(0, h - 40):h + 20].replace("\n", "\\n") for h in hits[:3]]))
+
+
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_scan_round_signature_uses_cache_file():
+    """`_scan_round` 的形参必须叫 `cache_file`（与调用点一致）。"""
+    src = LAUNCHER.read_text(encoding='utf-8')
+    i = src.index('def _scan_round(')
+    head = src[i:i + 400]
+    assert 'cache_file: Path' in head, head[:300]
