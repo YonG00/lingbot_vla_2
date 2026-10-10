@@ -250,3 +250,48 @@ def test_cache_constants_match_scout_cache():
         '会把真命中判成未命中、拒绝启动')
     assert eval(const('MAX_JSON_BYTES')) == sc.MAX_JSON_BYTES, (   # noqa: S307 —— 源码常量，安全
         f'launcher MAX_JSON_BYTES={const("MAX_JSON_BYTES")} 与 scout_cache 的 {sc.MAX_JSON_BYTES} 不一致')
+
+
+# --------------------------------------------------------------------------- #
+# 按 rank 隔离编译缓存（2026-10-10 真机冻结事故的修法）
+# --------------------------------------------------------------------------- #
+def test_per_rank_compile_cache_isolation(tmp_path):
+    """`_al_per_rank_compile_cache()` 必须按 LOCAL_RANK 加子目录、幂等、且有逃生开关。
+
+    真机现象：7 个 rank 共享同一 `TORCHINDUCTOR_CACHE_DIR` 时，231 个编译 worker 烧 ~8 核
+    却零产物，首步编译永久冻结（v28 冻在 4620 kernel、v29 冻在 5846 kernel，GPU 0%）。
+    """
+    import ast
+    import subprocess
+    import sys
+    script = ROOT / 'tasks/vla/train_lingbotvla.py'
+    assert script.is_file(), f'找不到 {script}'
+    code = (
+        "import ast, os\n"
+        f"src = open({str(script)!r}).read()\n"
+        "fn = next(n for n in ast.parse(src).body"
+        " if isinstance(n, ast.FunctionDef) and n.name == '_al_per_rank_compile_cache')\n"
+        "ns = {'os': os}\n"
+        "exec(compile(ast.Module(body=[fn], type_ignores=[]), '<f>', 'exec'), ns)\n"
+        "ns['_al_per_rank_compile_cache']()\n"
+        "ns['_al_per_rank_compile_cache']()\n"        # 幂等
+        "print(os.environ['TORCHINDUCTOR_CACHE_DIR'])\n"
+    )
+    env = {'PATH': '/usr/bin:/bin', 'LOCAL_RANK': '5',
+           'TORCHINDUCTOR_CACHE_DIR': '/base/ti', 'TRITON_CACHE_DIR': '/base/tr'}
+    out = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True,
+                         env=env, timeout=60)
+    assert out.returncode == 0, out.stderr[-500:]
+    assert out.stdout.strip() == '/base/ti/rank5', out.stdout
+    # 幂等：调用两次仍只有一个 rank5
+    assert out.stdout.count('rank5') == 1
+
+    env_shared = dict(env, AL_SHARED_COMPILE_CACHE='1')
+    out2 = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True,
+                          env=env_shared, timeout=60)
+    assert out2.stdout.strip() == '/base/ti', f'逃生开关失效：{out2.stdout}'
+
+    env_norank = {k: v for k, v in env.items() if k != 'LOCAL_RANK'}
+    out3 = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True,
+                          env=env_norank, timeout=60)
+    assert out3.stdout.strip() == '/base/ti', f'无 LOCAL_RANK 时不应改动：{out3.stdout}'

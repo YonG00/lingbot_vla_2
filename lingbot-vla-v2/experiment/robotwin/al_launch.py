@@ -1211,6 +1211,12 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
         'MODEL_PATH': str(checkpoint),
         'QWEN3VL': str(args.qwen3vl),
         'TMPDIR': str(args.tmpdir),
+        # 🔴 2026-10-10 真机实测：7 个 rank **共享**同一个编译缓存目录时，231 个 Inductor 编译
+        #    worker 会烧 CPU（~8 核）却**零产物**（缓存文件 45s 不增），首步编译永久冻结
+        #    （v28 冻在 4620 kernel、v29 冻在 5846 kernel，GPU 0%）。
+        #    ⇒ 在**训练脚本侧**按 rank 加子目录（env 会被 shlex.quote 引号化，shell 变量展开不可行），
+        #    见 `tasks/vla/train_lingbotvla.py` 里的 `_al_per_rank_compile_cache()`。
+        #    逃生：`AL_SHARED_COMPILE_CACHE=1` 恢复共享目录。
         'TRITON_CACHE_DIR': str(args.triton_cache),
         'TORCHINDUCTOR_CACHE_DIR': str(args.torchinductor_cache),
         'AL_SCOUT_CACHE_MODE': 'bootstrap',

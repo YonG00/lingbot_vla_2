@@ -11,6 +11,29 @@ from collections import defaultdict
 import numpy as np
 import torch
 import torch.distributed as dist
+
+
+def _al_per_rank_compile_cache() -> None:
+    """让每个 rank 用**独立的编译缓存目录**（2026-10-10 真机定案）。
+
+    现象：7 个 rank 共享 `TORCHINDUCTOR_CACHE_DIR` 时，231 个 Inductor 编译 worker 会
+    烧掉 ~8 个 CPU 核却**零产物**（缓存文件 45 秒不增），首步编译永久冻结
+    （al_v28 冻在 4620 kernel、al_v29 冻在 5846 kernel，GPU 全程 0%）。
+
+    做法：在**进程启动时**把 `LOCAL_RANK` 拼到两个缓存目录后面。必须在这里做——
+    启动器通过 `shlex.quote` 渲染 `env KEY=VALUE`，shell 变量在那层**不会展开**。
+    逃生：设 `AL_SHARED_COMPILE_CACHE=1` 恢复共享目录（对比实验/排障用）。
+    """
+    if os.environ.get('AL_SHARED_COMPILE_CACHE') == '1':
+        return
+    rank = os.environ.get('LOCAL_RANK') or os.environ.get('RANK')
+    if rank is None or not str(rank).strip():
+        return
+    for key in ('TORCHINDUCTOR_CACHE_DIR', 'TRITON_CACHE_DIR'):
+        base = os.environ.get(key)
+        if base and not base.rstrip('/').endswith(f'rank{rank}'):
+            os.environ[key] = f"{base.rstrip('/')}/rank{rank}"
+
 import wandb
 from PIL import Image
 from tqdm import trange
@@ -54,7 +77,10 @@ from lingbotvla.models.vla.vision_models.module_utils import (
 )
 from lingbotvla.models.vla.lingbot_vla.moe_load_balance import build_moe_load_balance_hook
 import gc
+
+_al_per_rank_compile_cache()   # 按 rank 隔离编译缓存（见函数 docstring）
 gc.set_threshold(50000, 50, 50)
+
 
 logger = helper.create_logger(__name__)
 # try:
