@@ -23,6 +23,7 @@ from .thresholds import (
     forget_code_ex,
     is_forgotten_ex,
     pass_line,
+    pool_filter_enabled,
 )
 
 
@@ -54,7 +55,11 @@ def decide_after_unit(
 
     # NaN / Inf 绝不能参与「达标」判断（测试方案 §I01）。
     # 但也不能无限 CONTINUE —— 用满 min_steps 后照样 DEFER，保证有界。
-    if not is_finite_metric(val):
+    # 🔴 候选池 ratio 模式（``pool_filter_by_gmean_ratio``）下 NMSE 只是 legacy 显示量：
+    #    缺 baseline ⇒ nmse 恒为 None，若还在这里拦，GMean 指标再好的任务也永远
+    #    DEFER(metric_invalid)。指标有效性由上面的 gmean 守卫 + `check_pass` 把关。
+    #    开关关闭（默认）⇒ 条件退化回改造前的 `if not is_finite_metric(val)`。
+    if not is_finite_metric(val) and not pool_filter_enabled(cfg):
         if attempt_step >= threshold:
             return Verdict(
                 Decision.DEFER,

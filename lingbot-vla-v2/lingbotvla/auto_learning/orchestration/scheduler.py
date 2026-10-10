@@ -29,7 +29,19 @@ from ..decision.metrics import (
     train_val_gap,
 )
 from ..decision.review import Reviewer
-from ..decision.thresholds import PassCheck, check_pass, is_pass, pass_line
+from ..decision.thresholds import (
+    POOL_RATIO_DISABLED,
+    POOL_RATIO_PASSED,
+    POOL_RATIO_TOO_HARD,
+    POOL_RATIO_TRAINABLE,
+    PassCheck,
+    check_pass,
+    gmean_pool_bucket,
+    gmean_pool_ratio,
+    is_pass,
+    pass_line,
+    pool_filter_enabled,
+)
 from ..decision.state_machine import (
     apply_defer,
     apply_pass,
@@ -68,6 +80,30 @@ def _true_nmse(extra_state, task: str):
         return round(extra_state.true_nmse(task), 5)
     except KeyError:
         return None
+
+
+def _fmt_metric(value: Any) -> str:
+    """把指标格式化成人类可读原因串里的 4 位小数；None/NaN/Inf ⇒ ``n/a``。
+
+    ratio 模式（``pool_filter_by_gmean_ratio``）下缺 baseline ⇒ ``nmse=None``，
+    旧代码的 `f"{scout.nmse:.4f}"` 会直接 TypeError 把 bootstrap/rescan 打挂
+    （CPU 契约测试抓出来的）。nmse 有限时输出与改造前**逐字相同**。
+    """
+    return f"{float(value):.4f}" if is_finite_metric(value) else "n/a"
+
+
+def _nmse_is_required(cfg: Any) -> bool:
+    """NMSE 是否仍是**必要条件**（旧口径 / 非 ratio 模式）。
+
+    🔴 ``pool_filter_by_gmean_ratio=true`` 时 NMSE 降级为 legacy 显示量：
+    缺 baseline ⇒ NMSE 恒为 None，此时**不能**用「NMSE 非有限」否掉一个
+    GMean 指标完好的任务（否则「允许缺 baseline 启动」只是一句空话：
+    任务会在 bootstrap 被排除、或在第一个 unit 后带着 metric_invalid 永远 DEFER）。
+    指标有效性改由 GMean 自己把关（``record.metric_valid`` / ``check_pass``）。
+
+    开关关闭（默认）⇒ 恒为 True，行为与改造前**逐字一致**。
+    """
+    return not pool_filter_enabled(cfg)
 
 
 MAX_METRIC_ROWS = 20000
@@ -335,6 +371,8 @@ class Scheduler:
     # ================================================================ #
     def _bootstrap_one(self) -> Dict[str, Any]:
         al = self.al
+        # False = ratio 模式：NMSE 是 legacy 显示量，缺 baseline 不影响判定（见 _nmse_is_required）
+        nmse_required = _nmse_is_required(al)
         name = self.state.bootstrap_queue.pop(0)
         rec = self.registry.get(name)
 
@@ -358,7 +396,10 @@ class Scheduler:
 
         # NaN / Inf 不能进排序（测试方案 §I01）—— 明确标 invalid 并记录，不 fail-fast
         # （一个坏任务不该把整轮跑挂掉），但它从此不会出现在 candidate 池里。
-        if not is_finite_metric(scout.nmse):
+        # 🔴 ratio 模式（pool_filter_by_gmean_ratio）下 NMSE 只是 legacy 显示量：
+        #    缺 baseline ⇒ nmse=None，但 GMean 尺子是完好的 ⇒ **不在这里排除**
+        #    （有效性由下面的 rec.metric_valid 用 GMean 把关）。
+        if not is_finite_metric(scout.nmse) and nmse_required:
             rec.metric_valid = False
             rec.set_status(
                 TaskStatus.CANDIDATE,
@@ -396,7 +437,8 @@ class Scheduler:
                 self._record_eval(rec, confirm, kind="confirm")
                 event["confirm_nmse"] = confirm.nmse
                 event["confirm_trajs"] = confirm.n_trajs
-                if not (confirm.metric_valid and is_finite_metric(confirm.nmse)
+                # ratio 模式下 nmse 允许为 None（缺 baseline）；指标有效性由 GMean 把关
+                if not (confirm.metric_valid and (is_finite_metric(confirm.nmse) or not nmse_required)
                         and is_pass(al, name, nmse=confirm.nmse, mse=confirm.mse,
                                     gmean_mse=confirm.gmean_mse)):
                     # 4 条不通过 ⇒ 用更可信的 4-val 值当 scout 估计
@@ -408,8 +450,8 @@ class Scheduler:
                 accepted = confirm
             apply_pass(
                 rec, al,
-                f"bootstrap scout={scout.nmse:.4f}"
-                + (f" → confirm={accepted.nmse:.4f}" if al.scout_confirm_enabled else " (2-traj direct)"),
+                f"bootstrap scout={_fmt_metric(scout.nmse)}"
+                + (f" → confirm={_fmt_metric(accepted.nmse)}" if al.scout_confirm_enabled else " (2-traj direct)"),
                 ReasonCode.BOOTSTRAP_PASS.value,
             )
             rec.best_nmse = accepted.nmse
@@ -426,8 +468,58 @@ class Scheduler:
             return event
 
         rec.set_status(TaskStatus.CANDIDATE, "scout 未达标")
+        # ---- 候选池 ratio 分档（可选；开关关闭 ⇒ 下面整段不执行，行为与改造前一致）----
+        bucket, ratio = self._pool_bucket_and_ratio(name, scout.gmean_mse)
+        if bucket == POOL_RATIO_PASSED:
+            # ratio < pool_ratio_pass ⇒ 视为**已过**，不进候选池。
+            # （默认 0.2 < 1 ⇒ 这类任务本来就会被上面的 is_pass 判成 PASS；
+            #   这里只兜住"把 pool_ratio_pass 配到 >1"的非常规配置 —— 那种情况下
+            #   它也**不**算 PASS，只是不占候选池。）
+            rec.set_status(
+                TaskStatus.CANDIDATE,
+                f"pool_ratio_passed: gmean ratio={ratio:.4f} < pool_ratio_pass={al.pool_ratio_pass}",
+            )
+            event["result"] = "pool_passed"
+            event["pool_ratio"] = ratio
+            event["note"] = "ratio 已低于 lower 档 ⇒ 视为已过，不进候选池"
+            return event
+        if bucket == POOL_RATIO_TOO_HARD:
+            # ratio > pool_ratio_skip ⇒ 视为**太难**，暂不选（状态仍是 CANDIDATE，
+            # 后续 Rescan / 轮次 rollover 会重新测；_select 侧用同一个分档过滤）。
+            rec.set_status(
+                TaskStatus.CANDIDATE,
+                f"pool_ratio_too_hard: gmean ratio={ratio:.4f} > pool_ratio_skip={al.pool_ratio_skip}",
+            )
+            event["result"] = "pool_too_hard"
+            event["pool_ratio"] = ratio
+            event["note"] = "ratio 高于 upper 档 ⇒ 太难，暂不选（不消耗 attempt）"
+            return event
         event["result"] = "candidate"
+        if ratio is not None:
+            event["pool_ratio"] = ratio
         return event
+
+    def _pool_bucket_and_ratio(self, task: str, gmean_mse) -> tuple:
+        """(ratio 分档, ratio)。开关关闭 ⇒ ("disabled", None)，调用方走旧行为。"""
+        if not pool_filter_enabled(self.al):
+            return POOL_RATIO_DISABLED, None
+        bucket = gmean_pool_bucket(self.al, task, gmean_mse=gmean_mse)
+        return bucket, gmean_pool_ratio(self.al, task, gmean_mse=gmean_mse)
+
+    def _pool_candidates(self) -> List[TaskRecord]:
+        """候选池（**唯一**入口；`_select` 只从这里取）。
+
+        * 开关关闭（默认）⇒ `candidate_records()`，与改造前逐字一致。
+        * 开关打开 ⇒ ratio 模式：NMSE 不再是必要条件（缺 baseline 时为 None），
+          改用「实测 gmean_mse / 该任务参考线」分档，**只有可练段进池**。
+        """
+        if not pool_filter_enabled(self.al):
+            return self.registry.candidate_records()
+        return self.registry.candidate_records(
+            require_finite_nmse=False,
+            predicate=lambda r: gmean_pool_bucket(
+                self.al, r.task_name, gmean_mse=r.scout_gmean_mse) == POOL_RATIO_TRAINABLE,
+        )
 
     def _candidate_priority(self, rec: TaskRecord) -> tuple:
         """Rank by the *active* pass metric, not an unrelated NMSE.
@@ -453,8 +545,20 @@ class Scheduler:
         al = self.al
         st = self.state
 
-        cands = self.registry.candidate_records()
+        cands = self._pool_candidates()
         if not cands:
+            if pool_filter_enabled(al) and self.registry.by_status(TaskStatus.CANDIDATE):
+                # 池子被 ratio 分档清空（全是"已过"/"太难"）⇒ 明确告诉人为什么收工，
+                # 否则又是一次「训练照跑、什么都不选」的静默失败。
+                _buckets: Dict[str, List[str]] = {}
+                for _rec in self.registry.by_status(TaskStatus.CANDIDATE):
+                    _b, _r = self._pool_bucket_and_ratio(_rec.task_name, _rec.scout_gmean_mse)
+                    _buckets.setdefault(_b, []).append(
+                        f"{_rec.task_name}(ratio={_r:.3f})" if _r is not None else _rec.task_name)
+                if self.logger is not None:
+                    self.logger.warning(
+                        "[auto_learning] 候选池被 pool_ratio 分档清空"
+                        f"（可练段 = [{al.pool_ratio_pass}, {al.pool_ratio_skip}]）：{_buckets}")
             promoted = rollover_round(self.registry, al)
             if promoted:
                 st.round += 1
@@ -517,9 +621,16 @@ class Scheduler:
         pick.current_val_nmse = vm.nmse
         pick.current_val_mse = vm.mse
         pick.current_val_gmean_mse = vm.gmean_mse
+        pick.current_train_gmean_mse = tm.gmean_mse
         pick.prev_train_nmse = tm.nmse
         pick.prev_val_nmse = vm.nmse
-        pick.train_val_gap_ratio = train_val_gap(vm.nmse, tm.nmse)
+        # GMean 的"上一个 unit 值"（ratio 模式下 LP 用它算；非 ratio 模式只是多记两个数，
+        # 不参与任何判定 ⇒ 既有行为不变）
+        pick.prev_val_gmean_mse = vm.gmean_mse
+        pick.prev_train_gmean_mse = tm.gmean_mse
+        pick.train_val_gap_ratio = (
+            train_val_gap(vm.gmean_mse, tm.gmean_mse) if pool_filter_enabled(al)
+            else train_val_gap(vm.nmse, tm.nmse))
         pick.last_eval_step = st.global_step
         self._record_eval(pick, tm, kind="active_train")
         self._record_eval(pick, vm, kind="active_val")
@@ -678,14 +789,30 @@ class Scheduler:
 
         rec.prev_train_nmse = rec.current_train_nmse
         rec.prev_val_nmse = rec.current_val_nmse
+        rec.prev_val_gmean_mse = rec.current_val_gmean_mse
+        rec.prev_train_gmean_mse = rec.current_train_gmean_mse
         rec.current_train_nmse = tm.nmse
         rec.current_val_nmse = vm.nmse
         rec.current_val_mse = vm.mse
         rec.current_val_gmean_mse = vm.gmean_mse
-        rec.lp50 = learning_progress(rec.prev_val_nmse, rec.current_val_nmse)
-        rec.lp_train = learning_progress(rec.prev_train_nmse, rec.current_train_nmse)
+        rec.current_train_gmean_mse = tm.gmean_mse
+        # LP 与 gap 都是**尺度无关**的比值 ⇒ 用 gmean 还是 nmse 算数值等价（同一 baseline）。
+        # 🔴 ratio 模式下必须用 gmean：缺 baseline 时 nmse 恒为 None ⇒ 旧 LP 永远是
+        #    None ⇒ `decide_after_unit` 的 ④ 只会 CONTINUE(LP_UNAVAILABLE)，attempt
+        #    永不收尾（一个任务被无限训练）。非 ratio 模式逐字不变。
+        _gmean_scale = pool_filter_enabled(al)
+        rec.lp50 = (learning_progress(rec.prev_val_gmean_mse, rec.current_val_gmean_mse)
+                    if _gmean_scale else
+                    learning_progress(rec.prev_val_nmse, rec.current_val_nmse))
+        rec.lp_train = (learning_progress(rec.prev_train_gmean_mse,
+                                          rec.current_train_gmean_mse)
+                        if _gmean_scale else
+                        learning_progress(rec.prev_train_nmse, rec.current_train_nmse))
         gap_prev = rec.train_val_gap_ratio
-        rec.train_val_gap_ratio = train_val_gap(rec.current_val_nmse, rec.current_train_nmse)
+        rec.train_val_gap_ratio = (train_val_gap(rec.current_val_gmean_mse,
+                                                 rec.current_train_gmean_mse)
+                                   if _gmean_scale else
+                                   train_val_gap(rec.current_val_nmse, rec.current_train_nmse))
         rec.overfit = is_overfit(
             rec.lp_train,
             rec.lp50,
@@ -902,6 +1029,8 @@ class Scheduler:
         直接 PASS（不再消耗训练预算）。
         """
         al = self.al
+        # ratio 模式下 nmse 允许为 None（缺 baseline）⇒ 不用它当"指标有效"的前提
+        nmse_required = _nmse_is_required(al)
         rows: List[Dict[str, Any]] = []
         for rec in self.registry:
             if rec.task_name == self.state.current_task:
@@ -924,7 +1053,8 @@ class Scheduler:
             # 🔴 不能用裸的 `scout.metric_valid` —— 评测器可能把 metric_valid 置 True
             # 却给出 NaN/Inf。rescan 若把这种任务「重新洗白」回候选池，
             # 它就会带着 inf 进 `min(...)`（测试方案 §I01 抓出来的真 bug）。
-            rec.metric_valid = (scout.metric_valid and is_finite_metric(scout.nmse)
+            rec.metric_valid = (scout.metric_valid
+                                and (is_finite_metric(scout.nmse) or not nmse_required)
                                 and (al.pass_metric != "gmean_mse" or
                                      is_finite_metric(scout.gmean_mse)))
             rec.last_eval_step = self.state.global_step
@@ -932,7 +1062,7 @@ class Scheduler:
             row = {"task": rec.task_name, "nmse": scout.nmse, "status": rec.status}
             if (
                 rec.metric_valid
-                and is_finite_metric(scout.nmse)
+                and (is_finite_metric(scout.nmse) or not nmse_required)
                 # 判定走统一入口（口径由 cfg.pass_metric 决定；
                 # mse 模式下任务没有可用阈值 ⇒ 不判 PASS）
                 and is_pass(al, rec.task_name, nmse=scout.nmse, mse=scout.mse,
@@ -949,7 +1079,8 @@ class Scheduler:
                     )
                     self._record_eval(rec, confirm, kind="rescan_confirm")
                     row["confirm_nmse"] = confirm.nmse
-                    if not (confirm.metric_valid and is_finite_metric(confirm.nmse)
+                    if not (confirm.metric_valid
+                            and (is_finite_metric(confirm.nmse) or not nmse_required)
                             and is_pass(al, rec.task_name, nmse=confirm.nmse, mse=confirm.mse,
                                         gmean_mse=confirm.gmean_mse)):
                         # Confirm disagrees with Scout: prioritize using the
@@ -957,7 +1088,7 @@ class Scheduler:
                         rec.scout_nmse = confirm.nmse
                         rec.scout_gmean_mse = confirm.gmean_mse
                         rec.metric_valid = (confirm.metric_valid
-                                            and is_finite_metric(confirm.nmse)
+                                            and (is_finite_metric(confirm.nmse) or not nmse_required)
                                             and (al.pass_metric != "gmean_mse"
                                                  or is_finite_metric(confirm.gmean_mse)))
                         rows.append(row)
@@ -965,8 +1096,8 @@ class Scheduler:
                     accepted = confirm
                 apply_pass(
                     rec, al,
-                    f"rescan 自动达标 scout={scout.nmse:.4f}"
-                    + (f" → confirm={accepted.nmse:.4f}" if al.scout_confirm_enabled else " (2-traj direct)"),
+                    f"rescan 自动达标 scout={_fmt_metric(scout.nmse)}"
+                    + (f" → confirm={_fmt_metric(accepted.nmse)}" if al.scout_confirm_enabled else " (2-traj direct)"),
                     ReasonCode.RESCAN_PASS.value,
                 )
                 rec.best_nmse = accepted.nmse
@@ -978,6 +1109,13 @@ class Scheduler:
                 self._mark_auto_pass(rec.task_name)
                 row["auto_pass"] = True
                 row["pass_source"] = "confirm" if al.scout_confirm_enabled else "scout_direct"
+            else:
+                # 没有免费 PASS：ratio 模式下把分档写进 rescan 行，便于事后解释
+                # 「为什么这个任务一直没被选中」。
+                _bucket, _ratio = self._pool_bucket_and_ratio(rec.task_name, scout.gmean_mse)
+                if _ratio is not None:
+                    row["pool_ratio"] = _ratio
+                    row["pool_bucket"] = _bucket
             rows.append(row)
         return rows
 

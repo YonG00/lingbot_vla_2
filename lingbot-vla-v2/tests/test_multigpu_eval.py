@@ -1,17 +1,27 @@
-"""多卡（DDP）评测支持的 CPU 测试。
+"""多卡评测支持的 CPU 测试。
 
 背景：AL 的 hook 在**所有 rank** 无条件驱动调度器 ⇒ 评测也必须在所有 rank 拿到**同一份**结果，
 否则各 rank 决策分叉（各训各的任务）。设计：
-* 所有 rank 一起进入评测（保持 DDP 对称）；
-* **rank0 计算并广播结果**（广播即同步点）；
+* 所有 rank 一起进入评测（保持对称）；
+* **复制并行（ddp）**：rank0 计算并广播结果（广播即同步点）；
+* **分片并行（fsdp1/fsdp2/fsdp2-vescale）**：**每个 rank 都真跑前向**（FSDP 的 all-gather
+  是集合通信，少一个 rank 就挂死），但只有 rank0 的结果算数，广播后所有 rank 用同一份；
+  评测窗口内用 `_fsdp_full_params_context` 把分片参数 all-gather 回完整权重；
 * rank0 失败时**广播错误标记**，让所有 rank 一起抛 —— 不会永久等在广播上。
+
+（真实 FSDP2/FSDP1 的 all-gather 行为在 `tests/test_openloop_multirank_fsdp.py`
+用**两个真进程 + gloo** 验证 —— 本文件只测纯逻辑。）
 """
 from __future__ import annotations
 
 import ast
+import contextlib
+import json
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import List
 
 import pytest
 import torch
@@ -19,18 +29,71 @@ import torch
 REPO = Path(__file__).resolve().parents[1]
 SRC = REPO / "lingbotvla/utils/open_loop_validation.py"
 
+#: 被编译的函数会引用这些模块级常量 ⇒ 一并从**源码**里取（不复制字面量，避免测试与实现漂移）
+_WANTED_CONSTS = ("SHARDED_EVAL_MODES", "MULTIRANK_EVAL_MODES",
+                  "FSDP_EVAL_UNSUPPORTED_ENV", "MULTIRANK_BATCH_ENV", "EVAL_SEED")
+
+_WANTED_FUNCS = ("_world_size", "_global_rank", "_data_parallel_mode", "_ddp_replicated",
+                 "_is_sharded_mode", "_fsdp_eval_unsupported", "_multirank_eval_supported",
+                 "_all_ranks_must_run_eval", "_multirank_batch_allowed",
+                 "_fsdp1_class", "_fsdp2_mixin", "_sharded_model_kind",
+                 "_fsdp_full_params_context",
+                 "_broadcast_object", "_multirank_eval_payload", "_unwrap_eval_model")
+
 
 def _mod():
-    """按 AST 编译多卡相关模块级函数（本地无法 import 该模块：transformers 版本差异）。"""
-    wanted = ("_world_size", "_global_rank", "_data_parallel_mode", "_ddp_replicated",
-              "_broadcast_object", "_multirank_eval_payload", "_unwrap_eval_model")
+    """按 AST 编译多卡相关模块级函数（本地无法 import 该模块：缺 torchdata/transformers 版本差异）。"""
+    wanted = _WANTED_FUNCS
     tree = ast.parse(SRC.read_text(encoding="utf-8"))
-    fns = [x for x in tree.body if isinstance(x, ast.FunctionDef) and x.name in wanted]
-    assert len(fns) == len(wanted), [f.name for f in fns]
+    body = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name in wanted:
+            body.append(node)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if any(getattr(t, "id", None) in _WANTED_CONSTS for t in targets):
+                body.append(node)
+    got = {n.name for n in body if isinstance(n, ast.FunctionDef)}
+    assert got == set(wanted), f"源码里找不到这些函数: {sorted(set(wanted) - got)}"
     ast.fix_missing_locations(tree)
-    ns = {"Any": object, "List": list, "Dict": dict, "Callable": object, "torch": torch}
-    exec(compile(ast.Module(body=fns, type_ignores=[]), str(SRC), "exec"), ns)
-    return SimpleNamespace(**{k: ns[k] for k in wanted})
+    ns = {"Any": object, "List": list, "Dict": dict, "Callable": object, "Iterator": object,
+          "Tuple": tuple, "Optional": object, "torch": torch, "os": os,
+          "contextlib": contextlib}
+    exec(compile(ast.Module(body=body, type_ignores=[]), str(SRC), "exec"), ns)
+    return SimpleNamespace(**{k: ns[k] for k in list(wanted) + list(_WANTED_CONSTS)})
+
+
+def _args(mode):
+    return SimpleNamespace(train=SimpleNamespace(data_parallel_mode=mode))
+
+
+def _simulate_protocol(m, *, ranks, all_ranks_run, run_by_rank):
+    """按 rank 顺序**忠实模拟**一次 `broadcast_object_list`（rank0 写、其余读 rank0 的）。
+
+    真实语义：每个 rank 各自持有 payload；rank0 的那份是真相（`src=0`），
+    其余 rank 的内容会被 rank0 的覆盖。这里按 rank 升序调用 ⇒ rank0 先写进 box。
+    返回 ``(每个 rank 的返回值 / 抛出的异常, 每个 rank 调用 run() 的次数)``。
+    """
+    box = {"rank0_payload": None}
+    calls = {r: 0 for r in ranks}
+    out = {}
+    for r in sorted(ranks):
+        def _run(rr=r):
+            calls[rr] += 1
+            return run_by_rank[rr]()
+
+        def _bc(payload, rr=r):
+            if rr == 0:
+                box["rank0_payload"] = payload[0]
+            else:
+                payload[0] = box["rank0_payload"]
+
+        try:
+            out[r] = m._multirank_eval_payload(run=_run, ws=len(ranks), rank=r,
+                                               broadcast=_bc, all_ranks_run=all_ranks_run)
+        except BaseException as exc:  # noqa: BLE001
+            out[r] = exc
+    return out, calls
 
 
 # ---------------------------------------------------------------------------
@@ -125,11 +188,293 @@ def test_missing_args_defaults_to_ddp():
     assert m._ddp_replicated(SimpleNamespace()) is True
 
 
+# ---------------------------------------------------------------------------
+# 多卡评测模式白名单（2026-10-10：fsdp1/fsdp2/fsdp2-vescale 解禁）
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("mode", ["dp", "ddp", "fsdp1", "fsdp2", "fsdp2-vescale"])
+def test_sharded_modes_are_now_supported(mode):
+    """`ws>1 + fsdp2` **不再**抛错（这是本次改造的核心诉求）。"""
+    m = _mod()
+    assert m._multirank_eval_supported(_args(mode)) is True, mode
+
+
+@pytest.mark.parametrize("mode", ["hsdp", "tp", "bogus"])
+def test_unknown_modes_still_fail_fast(mode):
+    """白名单之外的模式**不猜**：宁可直接报错，也不要拿分片参数算出无效指标。"""
+    m = _mod()
+    assert m._multirank_eval_supported(_args(mode)) is False, mode
+
+
+@pytest.mark.parametrize("mode,all_ranks", [("ddp", False), ("dp", False), ("fsdp1", True),
+                                            ("fsdp2", True), ("fsdp2-vescale", True)])
+def test_all_ranks_run_only_for_sharded(mode, all_ranks):
+    """分片并行：**每个 rank 都要跑前向**（all-gather 是集合通信）；复制并行只有 rank0 算。"""
+    m = _mod()
+    assert m._all_ranks_must_run_eval(_args(mode)) is all_ranks, mode
+
+
+def test_sharded_modes_are_superset_of_replicated():
+    m = _mod()
+    for mode in ("dp", "ddp"):
+        assert mode in m.MULTIRANK_EVAL_MODES
+    for mode in ("fsdp1", "fsdp2", "fsdp2-vescale"):
+        assert mode in m.SHARDED_EVAL_MODES and mode in m.MULTIRANK_EVAL_MODES
+    assert not set(m.SHARDED_EVAL_MODES) & {"dp", "ddp"}
+
+
+# ---------------------------------------------------------------------------
+# 逃生开关：AL_EVAL_FSDP_UNSUPPORTED=1 ⇒ 回到旧的 fail-fast 行为
+# ---------------------------------------------------------------------------
+def test_escape_hatch_restores_old_behaviour(monkeypatch):
+    m = _mod()
+    monkeypatch.setenv("AL_EVAL_FSDP_UNSUPPORTED", "1")
+    assert m._fsdp_eval_unsupported() is True
+    for mode in ("fsdp1", "fsdp2", "fsdp2-vescale"):
+        assert m._multirank_eval_supported(_args(mode)) is False, mode   # 旧的 fail-fast
+        assert m._all_ranks_must_run_eval(_args(mode)) is False, mode
+    assert m._multirank_eval_supported(_args("ddp")) is True             # ddp 仍然可用
+    assert m._multirank_eval_supported(SimpleNamespace()) is True        # 缺省=ddp
+
+
+def test_escape_hatch_is_off_by_default(monkeypatch):
+    m = _mod()
+    monkeypatch.delenv("AL_EVAL_FSDP_UNSUPPORTED", raising=False)
+    assert m._fsdp_eval_unsupported() is False
+    assert m._multirank_eval_supported(_args("fsdp2")) is True
+
+
+def test_multirank_batch_escape_hatch(monkeypatch):
+    """多卡分片默认**禁止批处理**（批内 OOM 回退是本 rank 局部决策 ⇒ all-gather 次数错配）。"""
+    m = _mod()
+    monkeypatch.delenv("AL_EVAL_BATCH_MULTIRANK", raising=False)
+    assert m._multirank_batch_allowed() is False
+    monkeypatch.setenv("AL_EVAL_BATCH_MULTIRANK", "1")
+    assert m._multirank_batch_allowed() is True
+
+
+# ---------------------------------------------------------------------------
+# all_ranks_run=True 的协议（分片并行）：每个 rank 都算，但只认 rank0 的结果
+# ---------------------------------------------------------------------------
+def test_all_ranks_run_calls_run_on_every_rank():
+    m = _mod()
+    out, calls = _simulate_protocol(
+        m, ranks=[0, 1, 2], all_ranks_run=True,
+        run_by_rank={r: (lambda rr=r: {"mse": 0.1 * rr, "who": rr}) for r in (0, 1, 2)})
+    assert calls == {0: 1, 1: 1, 2: 1}, "分片并行下**每个** rank 都必须真跑前向"
+    assert all(v == {"mse": 0.0, "who": 0} for v in out.values()), out
+
+
+def test_all_ranks_run_uses_rank0_result_everywhere():
+    """各 rank 拿到的指标必须**完全相同**（决策不分叉）——即使每个 rank 都自己算过。"""
+    m = _mod()
+    out, _ = _simulate_protocol(
+        m, ranks=[0, 1], all_ranks_run=True,
+        run_by_rank={0: lambda: {"mse": 1.0}, 1: lambda: {"mse": 2.0}})
+    assert out[0] == out[1] == {"mse": 1.0}
+
+
+def test_replicated_mode_keeps_rank0_only_compute():
+    """复制并行（ddp）行为**逐字不变**：非 0 rank 不自算。"""
+    m = _mod()
+    out, calls = _simulate_protocol(
+        m, ranks=[0, 1], all_ranks_run=False,
+        run_by_rank={0: lambda: {"mse": 3.0}, 1: lambda: {"mse": 4.0}})
+    assert calls == {0: 1, 1: 0}
+    assert out[0] == out[1] == {"mse": 3.0}
+
+
+def test_all_ranks_run_nonzero_failure_does_not_disturb_protocol():
+    """非 0 rank 自己失败 ⇒ 不抛出、不影响结果（用 rank0 的）。"""
+    m = _mod()
+    def _boom():
+        raise RuntimeError("rank1 local OOM (non-collective)")
+    out, calls = _simulate_protocol(
+        m, ranks=[0, 1], all_ranks_run=True,
+        run_by_rank={0: lambda: {"mse": 5.0}, 1: _boom})
+    assert calls == {0: 1, 1: 1}
+    assert out[0] == out[1] == {"mse": 5.0}
+
+
+def test_all_ranks_run_rank0_failure_is_broadcast():
+    """rank0 失败 ⇒ 所有 rank 一起抛（不能让对端死等）。"""
+    m = _mod()
+    def _boom():
+        raise RuntimeError("CUDA out of memory (rank0)")
+    out, _ = _simulate_protocol(
+        m, ranks=[0, 1], all_ranks_run=True,
+        run_by_rank={0: _boom, 1: lambda: {"mse": 9.9}})
+    for r in (0, 1):
+        assert isinstance(out[r], RuntimeError) and "rank0 失败" in str(out[r])
+    assert "CUDA out of memory (rank0)" in str(out[1])
+
+
+def test_single_rank_path_unchanged_with_all_ranks_flag():
+    """单卡（ws=1）：无论 all_ranks_run 取值都直接本地跑、不广播。"""
+    m = _mod()
+    for flag in (False, True):
+        calls = {"n": 0, "bc": 0}
+        out = m._multirank_eval_payload(
+            run=lambda: (calls.__setitem__("n", calls["n"] + 1), {"mse": 7.0})[1],
+            ws=1, rank=0,
+            broadcast=lambda p: calls.__setitem__("bc", calls["bc"] + 1),
+            all_ranks_run=flag)
+        assert out == {"mse": 7.0} and calls == {"n": 1, "bc": 0}
+
+
+# ---------------------------------------------------------------------------
+# 分片识别（结构性，不看 data_parallel_mode）+ 取全参数窗口
+# ---------------------------------------------------------------------------
+def test_plain_module_is_not_sharded():
+    m = _mod()
+    assert m._sharded_model_kind(torch.nn.Linear(2, 2)) == ""
+
+
+def test_full_params_context_is_noop_on_plain_model():
+    m = _mod()
+    layer = torch.nn.Linear(2, 2)
+    with m._fsdp_full_params_context(layer) as kind:
+        assert kind == ""
+        layer(torch.ones(1, 2))          # 窗口内可正常前向
+
+
+def test_full_params_context_yields_inside_and_restores():
+    """`_fsdp_full_params_context` 是 contextmanager：yield 后**一定**回到原状态。"""
+    m = _mod()
+    seen = []
+    with m._fsdp_full_params_context(torch.nn.Linear(2, 2)) as kind:
+        seen.append(("in", kind))
+    seen.append(("out", None))
+    assert seen == [("in", ""), ("out", None)]
+
+
 def test_broadcast_requires_initialized_dist():
     """未初始化 dist ⇒ 明确报错（不静默走单卡逻辑，否则多卡下会静默不同步）。"""
     m = _mod()
     with pytest.raises(RuntimeError, match="torch.distributed"):
         m._broadcast_object([None])
+
+
+# ---------------------------------------------------------------------------
+# 各 rank 输入一致：噪声种子固定 + 每次评测重置；episode_ids 文件原子写
+# ---------------------------------------------------------------------------
+def _validator_class(methods):
+    """AST 编译 `OpenLoopValidator` 的指定方法（本地无法 import 该模块）。"""
+    tree = ast.parse(SRC.read_text(encoding="utf-8"))
+    cls = next(n for n in tree.body
+               if isinstance(n, ast.ClassDef) and n.name == "OpenLoopValidator")
+    keep = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in methods]
+    got = {n.name for n in keep}
+    assert got == set(methods), sorted(set(methods) - got)
+    body = [ast.ClassDef(name="OpenLoopValidator", bases=[], keywords=[],
+                         body=keep, decorator_list=[])]
+    for node in tree.body:                       # 方法依赖的模块级函数/常量
+        if isinstance(node, ast.FunctionDef) and node.name == "_global_rank":
+            body.append(node)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if any(getattr(t, "id", None) == "EVAL_SEED" for t in targets):
+                body.append(node)
+    ast.fix_missing_locations(tree)
+    ns = {"os": os, "json": json, "torch": torch, "Any": object, "List": list, "Dict": dict,
+          "Sequence": object, "Tuple": tuple, "Optional": object}
+    new_mod = ast.Module(body=body, type_ignores=[])
+    ast.fix_missing_locations(new_mod)          # 新建的 ClassDef 要补行号才能 compile
+    exec(compile(new_mod, str(SRC), "exec"), ns)
+    return ns["OpenLoopValidator"]
+
+
+def test_noise_generator_is_seed_fixed_and_identical_across_ranks():
+    """各 rank 的 noise 必须**逐位相同**：独立 generator + 固定 EVAL_SEED（不掺 rank）。"""
+    V = _validator_class(("_noise_generator",))
+
+    def _mk():
+        v = V.__new__(V)
+        v._noise_gen = None
+        v.device = "cpu"
+        return v
+
+    shape = (1, 4, 3)
+    ranks = [_mk() for _ in range(3)]                      # 三个「rank」
+    draws = [torch.randn(shape, generator=v._noise_generator("cpu")) for v in ranks]
+    assert all(torch.equal(draws[0], d) for d in draws[1:]), "各 rank 噪声不一致"
+
+    # 每次评测重置（`_run` / `_evaluate_run` 都置 None）⇒ 不同 step 之间可比
+    for v in ranks:
+        v._noise_gen = None
+    draws2 = [torch.randn(shape, generator=v._noise_generator("cpu")) for v in ranks]
+    assert torch.equal(draws[0], draws2[0]), "重置后没有回到同一个噪声序列起点"
+    assert all(torch.equal(draws2[0], d) for d in draws2[1:])
+
+    # 源码级：两处入口都必须重置 generator
+    src = SRC.read_text(encoding="utf-8")
+    assert src.count("self._noise_gen = None") >= 3, "每次评测都要重置噪声起点"
+
+
+def test_episode_ids_file_same_content_every_rank(tmp_path):
+    """同一组 ids ⇒ 各 rank 写出的白名单文件**内容相同**（evaluation 输入一致的前提）。"""
+    V = _validator_class(("_episode_ids_file",))
+    args = SimpleNamespace(train=SimpleNamespace(output_dir=str(tmp_path)))
+    v = V.__new__(V)
+    v.args = args
+    p0 = v._episode_ids_file([99, 1, 5], "val")
+    assert json.loads(Path(p0).read_text()) == [1, 5, 99]
+    p1 = v._episode_ids_file([5, 99, 1], "val")            # 另一个「rank」同样的 ids
+    assert p0 == p1 and json.loads(Path(p1).read_text()) == [1, 5, 99]
+    assert not list(tmp_path.rglob("*.tmp")), "临时文件必须已被 os.replace 吃掉"
+
+
+def test_episode_ids_file_write_is_atomic_under_concurrency(tmp_path):
+    """多卡下所有 rank 写**同一个路径** ⇒ 必须原子替换，读方绝不能读到写了一半的 JSON。"""
+    import threading
+
+    V = _validator_class(("_episode_ids_file",))
+    g = V._episode_ids_file.__globals__
+    tls = threading.local()
+    g["_global_rank"] = lambda: getattr(tls, "rank", 0)     # 每个线程扮演一个 rank
+    args = SimpleNamespace(train=SimpleNamespace(output_dir=str(tmp_path)))
+
+    ids = list(range(200))
+    stop = threading.Event()
+    bad: List[str] = []
+
+    def _writer(rank: int):
+        tls.rank = rank
+        v = V.__new__(V)
+        v.args = args
+        for _ in range(60):
+            v._episode_ids_file(list(reversed(ids)), "val")
+
+    def _reader():
+        tls.rank = 99
+        v = V.__new__(V)
+        v.args = args
+        p = v._episode_ids_file(ids, "val")
+        while not stop.is_set():
+            try:
+                if json.loads(Path(p).read_text()) != ids:
+                    bad.append("读到不完整/不一致的白名单")
+            except Exception as exc:  # noqa: BLE001
+                bad.append(f"{type(exc).__name__}: {exc}")
+
+    writers = [threading.Thread(target=_writer, args=(r,)) for r in range(4)]
+    reader = threading.Thread(target=_reader)
+    reader.start()
+    for t in writers:
+        t.start()
+    for t in writers:
+        t.join()
+    stop.set()
+    reader.join()
+    assert not bad, f"并发写破坏了白名单文件: {bad[:3]}"
+    assert json.loads(Path(tmp_path, "_open_loop_ids", "val.json").read_text()) == sorted(ids)
+
+
+def test_noise_seed_constant_is_not_rank_dependent():
+    """噪声/输入路径里**不得**出现按 rank 变化的分支（否则各 rank 输入不同 ⇒ 结果不可比）。"""
+    src = SRC.read_text(encoding="utf-8")
+    noise = src[src.index("def _noise_generator"):src.index("def _probe_identity_for")]
+    assert "_global_rank" not in noise and "RANK" not in noise and "rank" not in noise.replace(
+        "不能靠", ""), noise
 
 
 # ---------------------------------------------------------------------------
@@ -141,8 +486,14 @@ def test_source_wiring():
     assert "eval batching unsupported on multiple FSDP ranks" not in src
     assert "目前**只支持单卡**" not in src
     assert "_multirank_eval_payload(" in src and "_evaluate_run" in src
-    # 构造检查与批处理守卫都要改成"允许 DDP、拒绝分片"
-    assert src.count("_ddp_replicated(") >= 3
+    # 三处旧守卫（构造 / 批处理 / evaluate_ids）都改成「模式白名单 + 分片取全参数」
+    assert src.count("_multirank_eval_supported(") >= 3
+    assert src.count("_all_ranks_must_run_eval(") >= 4
+    # 旧的 "只支持 DDP" 硬失败文案必须消失
+    assert "多卡评测只支持" not in src
+    # 分片模式的取全参数窗口必须存在，且用结构化识别（不看 data_parallel_mode）
+    assert "_fsdp_full_params_context" in src and "summon_full_params" in src
+    assert 'unshard()' in src and "FSDPModule" in src
     # 探针证据目录按 rank 分目录（多卡下不许互相覆盖）
     assert "rank{_global_rank()}" in src
 
@@ -259,6 +610,24 @@ def test_unwrap_does_not_strip_plain_submodule_named_module():
     outer = torch.nn.Module()
     outer.module = _FakeInner()          # 普通子模块，不是 DDP 包装
     assert u(outer) is outer, "非包装类的 .module 不得被剥掉"
+
+
+def test_unwrap_keeps_fsdp1_wrapper():
+    """🔴 FSDP1 **不能剥**（2026-10-10 修正）。
+
+    `FullyShardedDataParallel.module` 里是**分片**参数 ⇒ 剥掉后前向要么报
+    `RuntimeError: size mismatch ...`、要么结果无效（CPU/gloo 实测，见
+    `tests/test_openloop_multirank_fsdp.py`）。评测改用 `summon_full_params` 取全参数。
+    """
+    u = _unwrap()
+    inner = _FakeInner()
+    fsdp1 = type("FullyShardedDataParallel", (torch.nn.Module,), {})()
+    fsdp1.module = inner
+    assert u(fsdp1) is fsdp1, "FSDP1 包装必须保留（它的 forward 才做 all-gather）"
+    # 叠加 compile(FSDP1(model))：只剥 compile，保留 FSDP1
+    opt = type("OptimizedModule", (torch.nn.Module,), {})()
+    opt._orig_mod = fsdp1
+    assert u(opt) is fsdp1
 
 
 def test_validator_unwraps_before_assigning_self_model():

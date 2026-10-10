@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import contextlib
 import os
 import socket
 import sys
@@ -37,13 +38,29 @@ def _helpers() -> Dict[str, Any]:
     """AST 编译 `open_loop_validation` 的多卡工具（该模块本地无法 import：transformers 版本差异）。"""
     src = REPO / "lingbotvla/utils/open_loop_validation.py"
     wanted = ("_world_size", "_global_rank", "_data_parallel_mode", "_ddp_replicated",
+              "_is_sharded_mode", "_fsdp_eval_unsupported", "_multirank_eval_supported",
+              "_all_ranks_must_run_eval", "_multirank_batch_allowed",
+              "_fsdp1_class", "_fsdp2_mixin", "_sharded_model_kind",
+              "_fsdp_full_params_context",
               "_broadcast_object", "_multirank_eval_payload")
+    consts = ("SHARDED_EVAL_MODES", "MULTIRANK_EVAL_MODES",
+              "FSDP_EVAL_UNSUPPORTED_ENV", "MULTIRANK_BATCH_ENV")
     tree = ast.parse(src.read_text(encoding="utf-8"))
-    fns = [x for x in tree.body if isinstance(x, ast.FunctionDef) and x.name in wanted]
-    assert len(fns) == len(wanted), [f.name for f in fns]
+    body = []
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name in wanted:
+            body.append(node)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if any(getattr(t, "id", None) in consts for t in targets):
+                body.append(node)
+    got = {n.name for n in body if isinstance(n, ast.FunctionDef)}
+    assert got == set(wanted), sorted(set(wanted) - got)
     ast.fix_missing_locations(tree)
-    ns: Dict[str, Any] = {"Any": object, "List": list, "Dict": dict, "Callable": object}
-    exec(compile(ast.Module(body=fns, type_ignores=[]), str(src), "exec"), ns)
+    ns: Dict[str, Any] = {"Any": object, "List": list, "Dict": dict, "Callable": object,
+                          "Iterator": object, "Tuple": tuple, "Optional": object,
+                          "os": os, "contextlib": contextlib}
+    exec(compile(ast.Module(body=body, type_ignores=[]), str(src), "exec"), ns)
     return {k: ns[k] for k in wanted}
 
 
@@ -84,6 +101,54 @@ def _worker(rank: int, world_size: int, port: int, tmp: str, fail_first: bool,
                                            broadcast=H["_broadcast_object"])
         res["normal_result_ok"] = (got == _FAKE_RESULT)
         res["normal_local_calls"] = calls["run"]           # 非 0 rank 应为 0
+
+        # ---- ①b 分片并行：all_ranks_run=True ⇒ **每个 rank 都跑**，但只用 rank0 的结果 ----
+        #  （FSDP 的 all-gather 是集合通信：任何一个 rank 不跑就挂死；而各 rank 自己的
+        #    结果是各自视角的 ⇒ 必须统一用 rank0 的，否则决策分叉。）
+        calls2 = {"run": 0}
+
+        def _run2() -> Dict[str, Any]:
+            calls2["run"] += 1
+            return dict(_FAKE_RESULT, who=rank)
+
+        got2 = H["_multirank_eval_payload"](run=_run2, ws=world_size, rank=rank,
+                                            broadcast=H["_broadcast_object"],
+                                            all_ranks_run=True)
+        res["allranks_local_calls"] = calls2["run"]        # 每个 rank 都应为 1
+        res["allranks_result_is_rank0"] = (got2.get("who") == 0)
+        res["allranks_result_ok"] = (got2 == dict(_FAKE_RESULT, who=0))
+
+        # 非 0 rank 自己失败 ⇒ 不得影响协议（用 rank0 的结果）
+        def _run2_nonzero_boom() -> Dict[str, Any]:
+            if rank != 0:
+                raise RuntimeError("synthetic-nonzero-local-failure")
+            return {"who": 0}
+
+        got3 = H["_multirank_eval_payload"](run=_run2_nonzero_boom, ws=world_size,
+                                            rank=rank, broadcast=H["_broadcast_object"],
+                                            all_ranks_run=True)
+        res["allranks_nonzero_failure_tolerated"] = (got3 == {"who": 0})
+
+        # rank0 失败 ⇒ **所有 rank 一起抛**（带原因），不能有人死等
+        def _run2_rank0_boom() -> Dict[str, Any]:
+            if rank == 0:
+                raise RuntimeError("synthetic-rank0-failure-in-allranks")
+            return {"who": rank}
+
+        try:
+            H["_multirank_eval_payload"](run=_run2_rank0_boom, ws=world_size, rank=rank,
+                                         broadcast=H["_broadcast_object"], all_ranks_run=True)
+            res["allranks_rank0_failure_raised"] = False
+            res["allranks_rank0_failure_msg"] = ""
+        except Exception as exc:  # noqa: BLE001
+            res["allranks_rank0_failure_raised"] = True
+            res["allranks_rank0_failure_msg"] = f"{type(exc).__name__}: {exc}"
+
+        # 失败路径之后通信组仍然可用
+        again2 = H["_multirank_eval_payload"](run=lambda: {"ok": 2}, ws=world_size,
+                                              rank=rank, broadcast=H["_broadcast_object"],
+                                              all_ranks_run=True)
+        res["allranks_group_reusable"] = (again2 == {"ok": 2})
 
         # ---- ② 失败路径：rank0 抛 ⇒ 所有 rank 一起抛（**不能有人死等**）----
         def _boom() -> Dict[str, Any]:
@@ -187,6 +252,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             problems.append(f"rank{r}: rank0 失败时本 rank 没有正确抛（{res}）")
         if not res.get("group_reusable"):
             problems.append(f"rank{r}: 失败路径后通信组不可再用")
+        # ---- 分片并行（all_ranks_run=True）----
+        if res.get("allranks_local_calls") != 1:
+            problems.append(f"rank{r}: all_ranks_run=True 时本 rank 应恰好跑 1 次，"
+                            f"实际 {res.get('allranks_local_calls')}")
+        if not res.get("allranks_result_is_rank0") or not res.get("allranks_result_ok"):
+            problems.append(f"rank{r}: all_ranks_run=True 的结果必须统一用 rank0 的")
+        if not res.get("allranks_nonzero_failure_tolerated"):
+            problems.append(f"rank{r}: 非 0 rank 自己失败不应影响协议结果")
+        if not res.get("allranks_rank0_failure_raised"):
+            problems.append(f"rank{r}: all_ranks_run 下 rank0 失败时本 rank 必须抛")
+        elif "synthetic-rank0-failure-in-allranks" not in str(res.get("allranks_rank0_failure_msg")):
+            problems.append(f"rank{r}: rank0 失败原因没广播过来: {res.get('allranks_rank0_failure_msg')}")
+        if not res.get("allranks_group_reusable"):
+            problems.append(f"rank{r}: all_ranks_run 失败路径后通信组不可再用")
 
     ev = Path(tmp) / "events.jsonl"
     lines = [l for l in ev.read_text(encoding="utf-8").splitlines() if l.strip()] if ev.is_file() else []
@@ -201,6 +280,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         res = results.get(r, {})
         print(f"   rank{r}: 广播一致={res.get('normal_result_ok')} 本地计算次数={res.get('normal_local_calls')} "
               f"失败路径抛错={res.get('fail_raised')} 组可复用={res.get('group_reusable')}")
+        print(f"   rank{r}: [分片] 本地计算次数={res.get('allranks_local_calls')} "
+              f"结果=rank0:{res.get('allranks_result_is_rank0')} "
+              f"非0失败可容忍={res.get('allranks_nonzero_failure_tolerated')} "
+              f"rank0失败一起抛={res.get('allranks_rank0_failure_raised')} "
+              f"组可复用={res.get('allranks_group_reusable')}")
     print(f"[smoke] 事件流行数={len(lines)}（期望 2）  scout 缓存文件数={len(scout)}（期望 1）")
     if problems:
         print("[smoke] ❌ 发现问题：")
@@ -210,7 +294,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             if results.get(r, {}).get("traceback"):
                 print(f"   --- rank{r} traceback ---\n{results[r]['traceback']}")
         return 2
-    print("[smoke] ✅ 多卡评测协议体检通过（广播一致 / 非 0 rank 不自算 / 失败不死锁 / 组可复用 / 写入守卫）")
+    print("[smoke] ✅ 多卡评测协议体检通过（广播一致 / 非 0 rank 不自算 / 失败不死锁 / 组可复用 / "
+          "分片模式所有 rank 一起跑且统一用 rank0 结果 / 写入守卫）")
     return 0
 
 

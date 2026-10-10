@@ -683,17 +683,20 @@ def main():
 
     fsdp_kwargs = {}
     if args.train.freeze_vit:
-        # 🔴 原来写 model.visual：LingbotVlaV2Policy 的视觉塔在 model.qwenvl.visual
-        #    ⇒ AttributeError: 'LingbotVlaV2Policy' object has no attribute 'visual'（2026-10-10 实测）
-        _vit = getattr(getattr(model, "qwenvl", None), "visual", None)
-        if _vit is None:
-            _vit = getattr(model, "visual", None)
-        if _vit is None:
-            raise AttributeError("[freeze_vit] 找不到视觉塔（期望 model.qwenvl.visual）")
-        _vit.requires_grad_(False)
-        _vit.eval()
-        if args.train.data_parallel_mode == "fsdp1":
-            fsdp_kwargs["use_orig_params"] = True
+        # 🔴 按【参数名】冻结视觉塔，不依赖属性层级：
+        #    该调用发生在 build_parallelize_model 之前，此刻 model.qwenvl / model.visual 都取不到
+        #    （2026-10-10 实测：getattr 定位失败 ⇒ AttributeError）。named_parameters() 是可靠的。
+        _vit_names = [n for n, _ in model.named_parameters() if ".visual." in n or n.startswith("visual.")]
+        if not _vit_names:
+            raise AttributeError("[freeze_vit] named_parameters 里找不到视觉塔参数（.visual.）")
+        for _n, _p in model.named_parameters():
+            if _n in set(_vit_names):
+                _p.requires_grad_(False)
+        _n_frozen = sum(p.numel() for n, p in model.named_parameters() if n in set(_vit_names))
+        logger.info_rank0(f"[freeze_vit] 已冻结视觉塔参数 {len(_vit_names)} 个张量 / {_n_frozen/1e6:.1f} M 参数")
+        for _m in model.modules():
+            if type(_m).__name__.endswith("VisionModel") or type(_m).__name__.endswith("VisionTransformerPretrainedModel"):
+                _m.eval()
 
     model = build_parallelize_model(
         model,

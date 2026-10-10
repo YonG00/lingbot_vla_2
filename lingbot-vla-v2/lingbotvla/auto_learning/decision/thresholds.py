@@ -70,6 +70,24 @@ PASS_METRICS = (PASS_METRIC_NMSE, PASS_METRIC_MSE, PASS_METRIC_GMEAN)
 #: 阈值表文件版本
 THRESHOLDS_VERSION = 1
 
+# --------------------------------------------------------------------------- #
+# 候选池 ratio 分档（``cfg.pool_filter_by_gmean_ratio``，**默认关闭**）
+#
+# 这是**候选池筛选**的尺子，与 PASS 判定（:func:`check_pass`）是两件事：
+# PASS 判定永远比较 ``实测值 <= 该任务参考线``；ratio 分档只决定"要不要花算力去练"。
+# 两者共用同一把尺子（同一个 ``gmean_mse`` 与同一条参考线）⇒ 不会分叉。
+# --------------------------------------------------------------------------- #
+POOL_RATIO_DISABLED = "disabled"      # 开关关闭 ⇒ 不用 ratio 判据（旧 NMSE 口径）
+POOL_RATIO_PASSED = "pool_passed"     # ratio < pool_ratio_pass ⇒ 视为已过，不进候选池
+POOL_RATIO_TRAINABLE = "trainable"    # pass <= ratio <= skip ⇒ 可练，进候选池
+POOL_RATIO_TOO_HARD = "too_hard"      # ratio > pool_ratio_skip ⇒ 太难，暂不选
+POOL_RATIO_NO_LINE = "no_line"        # 该任务没有可用参考线 ⇒ 算不出 ratio
+POOL_RATIO_INVALID = "invalid"        # 实测 gmean 非有限（NaN/Inf/缺失）
+POOL_RATIO_BUCKETS = (
+    POOL_RATIO_DISABLED, POOL_RATIO_PASSED, POOL_RATIO_TRAINABLE,
+    POOL_RATIO_TOO_HARD, POOL_RATIO_NO_LINE, POOL_RATIO_INVALID,
+)
+
 
 class ThresholdsError(ValueError):
     """阈值表加载/校验失败（配置或文件问题，必须让人看到）。"""
@@ -276,6 +294,56 @@ def metric_value(metric: str, *, nmse: Optional[float], mse: Optional[float], gm
 
 
 # --------------------------------------------------------------------------- #
+# 候选池 ratio（``pool_filter_by_gmean_ratio``）—— **只筛池子，不改 PASS 判定**
+# --------------------------------------------------------------------------- #
+def pool_filter_enabled(cfg: Any) -> bool:
+    """候选池是否改用 GMean ratio 筛选（**默认关闭**）。
+
+    ``cfg.pool_filter_by_gmean_ratio`` 是总开关；口径不是 ``gmean_mse`` 时**视为未启用**
+    （``AutoLearningConfig.validate()`` 已在配置层 fail-fast，这里再兜一层：
+    绝不静默拿别的尺子算 ratio）。
+    """
+    if not bool(getattr(cfg, "pool_filter_by_gmean_ratio", False)):
+        return False
+    return active_metric(cfg) == PASS_METRIC_GMEAN
+
+
+def gmean_pool_ratio(cfg: Any, task: str, *, gmean_mse: Optional[float]) -> Optional[float]:
+    """``ratio = 该任务实测 gmean_mse / 该任务的参考线``。
+
+    参考线 = ``pass_thresholds_file`` 里该任务的值（与 PASS 判定**同一条线**）。
+    没有可用线 / 参考线非正 / 实测值非有限 ⇒ ``None``（算不出 ratio，不做任何猜测）。
+    """
+    metric, line = pass_line(cfg, task)
+    if metric != PASS_METRIC_GMEAN:
+        return None
+    if not (line is not None and is_finite_metric(line) and float(line) > 0.0):
+        return None
+    if not is_finite_metric(gmean_mse):
+        return None
+    return float(gmean_mse) / float(line)
+
+
+def gmean_pool_bucket(cfg: Any, task: str, *, gmean_mse: Optional[float]) -> str:
+    """把一条 scout/confirm 的 gmean 实测值分到 :data:`POOL_RATIO_BUCKETS` 里的某一档。
+
+    开关关闭 ⇒ :data:`POOL_RATIO_DISABLED`（调用方必须走旧行为，本函数绝不自行降级）。
+    """
+    if not pool_filter_enabled(cfg):
+        return POOL_RATIO_DISABLED
+    if not is_finite_metric(gmean_mse):
+        return POOL_RATIO_INVALID
+    ratio = gmean_pool_ratio(cfg, task, gmean_mse=gmean_mse)
+    if ratio is None:
+        return POOL_RATIO_NO_LINE
+    if ratio < float(getattr(cfg, "pool_ratio_pass", 0.2)):
+        return POOL_RATIO_PASSED
+    if ratio > float(getattr(cfg, "pool_ratio_skip", 5.0)):
+        return POOL_RATIO_TOO_HARD
+    return POOL_RATIO_TRAINABLE
+
+
+# --------------------------------------------------------------------------- #
 # 判定结果
 # --------------------------------------------------------------------------- #
 class PassCheck(str):
@@ -365,8 +433,12 @@ def forget_code_ex(
 __all__ = [
     "PASS_METRIC_NMSE", "PASS_METRIC_MSE", "PASS_METRIC_GMEAN", "PASS_METRICS",
     "THRESHOLDS_VERSION", "ThresholdsError",
+    "POOL_RATIO_DISABLED", "POOL_RATIO_PASSED", "POOL_RATIO_TRAINABLE",
+    "POOL_RATIO_TOO_HARD", "POOL_RATIO_NO_LINE", "POOL_RATIO_INVALID",
+    "POOL_RATIO_BUCKETS",
     "PassThresholds", "PassCheck",
     "active_metric", "attached_thresholds", "pass_line", "metric_value",
     "verify_threshold_stat_compatible",
+    "pool_filter_enabled", "gmean_pool_ratio", "gmean_pool_bucket",
     "check_pass", "is_pass", "is_forgotten_ex", "forget_code_ex",
 ]

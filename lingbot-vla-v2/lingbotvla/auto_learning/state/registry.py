@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from ..config import AutoLearningConfig
 from ..decision.metrics import is_finite_metric
@@ -104,6 +104,13 @@ class TaskRecord:
     best_mse: Optional[float] = None
     current_val_gmean_mse: Optional[float] = None
     best_gmean_mse: Optional[float] = None
+    #: 上一个 unit 的 GMean 实测值 —— 候选池 ratio 模式下 LP / train-val gap 用
+    #: **同一把尺子**算（缺 baseline 时 nmse 恒为 None，旧 LP 字段会一直是 None
+    #: ⇒ attempt 永不收尾）。
+    #: 旧存档没有这几个键 ⇒ `from_dict` 走默认 None（向后兼容）。
+    prev_val_gmean_mse: Optional[float] = None
+    prev_train_gmean_mse: Optional[float] = None
+    current_train_gmean_mse: Optional[float] = None
     train_val_gap_ratio: Optional[float] = None
     lp50: Optional[float] = None
     lp_train: Optional[float] = None
@@ -269,18 +276,33 @@ class TaskRegistry:
     def pass_tasks(self) -> List[str]:
         return [r.task_name for r in self.by_status(TaskStatus.PASS)]
 
-    def candidate_records(self) -> List[TaskRecord]:
+    def candidate_records(self, *, require_finite_nmse: bool = True,
+                          predicate: Optional[Callable[["TaskRecord"], bool]] = None
+                          ) -> List[TaskRecord]:
         """可被 scheduler 选中的任务。
 
-        `metric_valid` + `nmse` 有限 + **有可用通过线**，三个条件缺一不可 ——
+        `metric_valid` + **有可用通过线**，两个条件缺一不可（恒成立）——
         否则 NaN 会进 `min(...)`，排序结果未定义（测试方案 §I01）；
         没有通过线的任务（`pass_metric="mse"` 且阈值表 null）不该被选中白烧 attempt。
+
+        额外两个**可选**参数（默认值 = 改造前行为，逐字不变）：
+
+        * ``require_finite_nmse``：是否要求 ``scout_nmse`` 有限。
+          候选池 ratio 模式（``cfg.pool_filter_by_gmean_ratio``）下由 scheduler 传
+          ``False`` —— 该模式下 NMSE 只是 legacy 显示量，缺 baseline 时恒为 None，
+          不能因此把任务排除出候选池。
+        * ``predicate``：额外的池子判据（ratio 模式传"ratio 落在可练段"）。
         """
-        return [
+        out = [
             r
             for r in self.by_status(TaskStatus.CANDIDATE)
-            if r.metric_valid and is_finite_metric(r.scout_nmse) and r.pass_line_usable
+            if r.metric_valid and r.pass_line_usable
         ]
+        if require_finite_nmse:
+            out = [r for r in out if is_finite_metric(r.scout_nmse)]
+        if predicate is not None:
+            out = [r for r in out if predicate(r)]
+        return out
 
     def coverage(self) -> float:
         n = len(self)

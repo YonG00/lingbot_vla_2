@@ -252,7 +252,17 @@ def build_auto_learning_parts(
         # 🔴 review v0.2 #6：正式 Auto Learning **必须有** baseline。
         #    否则 Scheduler 拿到 NMSE=None ⇒ 任务被静默排除出候选池 ——
         #    表现是「训练照跑、但什么任务都不选」，而不是任何报错。
-        if not cfg.allow_missing_baseline:
+        # ✅ 例外（用户口径「统一到一把尺子」）：`pass_metric="gmean_mse"` **且**打开
+        #    候选池 ratio 筛选时，筛选/判定都只看 GMean 与参考线，**不需要** NMSE
+        #    ⇒ 允许缺 baseline（降级为 warning，不再拒绝启动）。
+        if _gmean_ratio_pool_mode(cfg):
+            if logger is not None:
+                logger.warning(
+                    "[auto_learning] ⚠️ 没有 baseline store，但 "
+                    "pass_metric='gmean_mse' + pool_filter_by_gmean_ratio=true ⇒ "
+                    "不拒绝启动：候选池筛选与 PASS 判定都走 GMean/参考线，NMSE 只是 "
+                    "legacy 显示量（会一直是 n/a）。")
+        elif not cfg.allow_missing_baseline:
             raise ValueError(
                 "[auto_learning] enabled=true 但没有可用的 baseline store "
                 f"（auto_learning_baseline={baseline_path!r}）⇒ 拒绝启动。\n"
@@ -261,11 +271,14 @@ def build_auto_learning_parts(
                 "  先跑：python -m lingbotvla.auto_learning.tools.compute_task_baseline "
                 "--manifest <manifest.json> --config <lingbotvla_cli.yaml>\n"
                 "  确实要无 baseline 跑 smoke：显式设 "
-                "auto_learning.allow_missing_baseline=true（仅供 smoke/单测）。")
-        if logger is not None:
-            logger.warning(
-                "[auto_learning] ⚠️ allow_missing_baseline=true ⇒ NMSE=None，"
-                "所有任务会被排除出候选池（仅供 smoke / 单测）")
+                "auto_learning.allow_missing_baseline=true（仅供 smoke/单测）；\n"
+                "  或者改用 GMean 尺子：pass_metric='gmean_mse' + "
+                "pool_filter_by_gmean_ratio=true + pass_thresholds_file=...。")
+        else:
+            if logger is not None:
+                logger.warning(
+                    "[auto_learning] ⚠️ allow_missing_baseline=true ⇒ NMSE=None，"
+                    "所有任务会被排除出候选池（仅供 smoke / 单测）")
 
     # ---- 按任务的通过阈值表（pass_metric="mse" 时必须有，fail-fast）----
     _attach_pass_thresholds(cfg, cat, store, logger)
@@ -317,14 +330,23 @@ def finish_auto_learning(
     adapter = EvaluatorAdapter(validator, cat, parts.baseline_store, logger=log,
                                require_baseline=False)
     # 有 store ⇒ 缺 baseline 直接报错（B1 计划 §12 fail-fast）；没 store 时允许 nmse=None
-    adapter.require_baseline = parts.baseline_store is not None
-    if parts.baseline_store is not None:
+    # ✅ 例外：GMean ratio 候选池模式下 NMSE 不参与判据 ⇒ 不再要求逐任务 baseline。
+    _relax_baseline = _gmean_ratio_pool_mode(cfg)
+    adapter.require_baseline = parts.baseline_store is not None and not _relax_baseline
+    if parts.baseline_store is not None and not _relax_baseline:
         miss = [t for t in cat.task_names()
                 if parts.baseline_store.get(t, cat.entry(t).sha256_train) is None]
         if miss:
             raise RuntimeError(
                 f"这些任务缺 Fixed Baseline（Auto Learning 启动即 fail-fast）: {miss}\n"
                 f"  先跑：python -m lingbotvla.auto_learning.tools.compute_task_baseline ...")
+    elif parts.baseline_store is not None and _relax_baseline:
+        miss = [t for t in cat.task_names()
+                if parts.baseline_store.get(t, cat.entry(t).sha256_train) is None]
+        if miss:
+            log.warning(
+                f"[auto_learning] ⚠️ 这些任务缺 Fixed Baseline: {miss} ⇒ NMSE 为 n/a；"
+                "当前是 GMean ratio 候选池模式，筛选/判定都不需要 NMSE，继续启动。")
 
     # ---- Hardness（用**训练数据集**取样本；index 空间与 sample_id 一致）----
     hardness = build_real_hardness(model, _dataset_for_hardness(model, args, processor),
@@ -334,8 +356,14 @@ def finish_auto_learning(
     # Optional strict-provenance cache: off by default; never Rescan/Review.
     scout_cache = None
     if os.environ.get('AL_SCOUT_CACHE_MODE', 'off') == 'bootstrap':
-        if cfg.pass_metric != 'gmean_mse' or int(getattr(args.train, 'step_offset', -1)) != 500:
-            raise RuntimeError('Scout cache only supports GMean Step500 initial Bootstrap')
+        if cfg.pass_metric != 'gmean_mse':
+            raise RuntimeError('Scout cache only supports GMean (gmean_mse)')
+        # [ROCM-PORT 2026-10-10] 原实现把 step_offset==500 当硬门槛（AutoDL step-500 续训场景）。
+        # 我们从原始 base（step_offset=0）起跑，同样需要复用扫描缓存 ⇒ 降级为警告；
+        # 缓存的 fingerprint 已含权重内容（见 provenance），跨起点不会串味。
+        if int(getattr(args.train, 'step_offset', -1)) != 500:
+            log.warning('[scout_cache] step_offset=%s != 500：仍启用缓存（fingerprint 含模型身份）',
+                        getattr(args.train, 'step_offset', None))
         from ..scout_cache import BootstrapScoutCache, provenance
         from pathlib import Path
         ckpt = Path(os.environ['AL_SCOUT_CACHE_CHECKPOINT']).resolve()
@@ -494,6 +522,20 @@ def validate_batch_alignment(cfg: AutoLearningConfig, args: Any, log: Any) -> No
         "1 个 DataLoader logical batch = 1 个 optimizer step")
 
 
+def _gmean_ratio_pool_mode(cfg: AutoLearningConfig) -> bool:
+    """是否「GMean 一把尺子」模式：``pass_metric='gmean_mse'`` + 候选池 ratio 开关。
+
+    只有这个模式下才允许 baseline 缺失 / 指纹不一致降级为 warning ——
+    此时候选池筛选与 PASS 判定都只依赖 ``pass_thresholds_file`` 里的每任务参考线，
+    ``task_baseline.json`` 的 NMSE 分母不再参与任何判据（仅剩 legacy 显示用途）。
+
+    开关关闭（默认）⇒ 恒为 False ⇒ 所有守卫逐字维持原样（fail-fast）。
+    """
+    from ..decision.thresholds import pool_filter_enabled
+
+    return bool(pool_filter_enabled(cfg))
+
+
 def _verify_baseline_fingerprint(parts: AutoLearningParts, cfg: AutoLearningConfig,
                                  args: Any, model: Any, log: Any) -> None:
     """baseline 的 config 指纹必须与**本次真实运行配置**一致（review v0.2 #6）。
@@ -501,6 +543,9 @@ def _verify_baseline_fingerprint(parts: AutoLearningParts, cfg: AutoLearningConf
     原实现直接 `BaselineStore.load(path)`，把文件里自带的旧指纹当成「当前指纹」⇒
     「昨天 chunk=50/norm=A 算的 baseline，今天 chunk=25/norm=B」也能命中，
     NMSE 的分母是错的尺子且**无任何报错**。
+
+    ✅ 例外：GMean ratio 候选池模式下 NMSE 不参与任何判据 ⇒ 指纹不一致只 warning
+    （不 fail-fast），但仍然**逐字记录**两边的指纹，便于事后审计。
     """
     store = parts.baseline_store
     if store is None:
@@ -508,11 +553,30 @@ def _verify_baseline_fingerprint(parts: AutoLearningParts, cfg: AutoLearningConf
     from ..baseline import runtime_config_fingerprint
 
     runtime_fp = runtime_config_fingerprint(args, getattr(model, "config", None))
+    relaxed = _gmean_ratio_pool_mode(cfg)
     if not store.config_fingerprint:
+        if relaxed:
+            log.warning(
+                "[auto_learning] ⚠️ baseline store 里没有 config_fingerprint；"
+                "当前是 GMean ratio 候选池模式（NMSE 不参与判据）⇒ 只 warning 不拒绝启动。"
+                f"  本次运行算出来 : {runtime_fp}")
+            return
         raise RuntimeError(
             "[auto_learning] baseline store 里没有 config_fingerprint ⇒ 无法确认它与"
             "本次运行配置一致。请用 tools/compute_task_baseline.py --recompute 重算。")
     if runtime_fp != store.config_fingerprint:
+        if relaxed:
+            log.warning(
+                "[auto_learning] ⚠️ baseline 的 config 指纹与本次运行配置不一致；"
+                "当前是 GMean ratio 候选池模式（候选池与 PASS 判定都走 "
+                "pass_thresholds_file 的每任务参考线，NMSE 只是 legacy 显示量）"
+                "⇒ 只 warning 不拒绝启动。\n"
+                f"  baseline 文件里 : {store.config_fingerprint}\n"
+                f"  本次运行算出来 : {runtime_fp}\n"
+                "  若要 NMSE 重新可信，请重算："
+                "python -m lingbotvla.auto_learning.tools.compute_task_baseline "
+                "--manifest <manifest.json> --config <lingbotvla_cli.yaml> --recompute")
+            return
         raise RuntimeError(
             "[auto_learning] baseline 的 config 指纹与**本次运行配置**不一致 ⇒ 拒绝启动。\n"
             f"  baseline 文件里 : {store.config_fingerprint}\n"

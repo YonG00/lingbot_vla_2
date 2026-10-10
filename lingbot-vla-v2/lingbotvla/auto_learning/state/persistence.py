@@ -93,6 +93,13 @@ def config_fingerprint(al: Any, task_names: Sequence[str]) -> Dict[str, Any]:
                 if table is not None else None)
         fp["gmean_thresholds_sha256"] = (
             hashlib.sha256(blob.encode("utf-8")).hexdigest() if blob is not None else None)
+        # 候选池 ratio 筛选会改变"哪些任务进训练"⇒ 必须进 resume 指纹。
+        # 但只在开关**打开**时才加键：关闭时（默认）指纹与改造前逐字相同，
+        # 旧 DCP 仍能干净 resume（同一套 target_total_passed_tasks 的处理方式）。
+        if bool(getattr(al, "pool_filter_by_gmean_ratio", False)):
+            fp["pool_filter_by_gmean_ratio"] = True
+            fp["pool_ratio_pass"] = float(getattr(al, "pool_ratio_pass", 0.2))
+            fp["pool_ratio_skip"] = float(getattr(al, "pool_ratio_skip", 5.0))
     return fp
 
 

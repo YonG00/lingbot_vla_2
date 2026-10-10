@@ -29,15 +29,25 @@ def _validator_class():
               '_infer_serial_group')]
     cls.body=methods
     # 模块级诊断小工具（默认路径无副作用）也按源码编译，避免"替身与生产不一致"
-    mod_funcs=[x for x in tree.body if isinstance(x,ast.FunctionDef)
-               and x.name in ('_probe_warn_legacy_dump','_probe_repeat_env',
-                              '_eval_batch_size','_ddp_replicated','_data_parallel_mode',
-                              '_global_rank')]
-    ns={'torch':torch,'np':np,'Dict':dict,'Any':object,'Sequence':list,'List':list,
-        'EVAL_SEED':1234,'os':os,'time':time,'_world_size':lambda:1,'_visual_grid_cache_clear':lambda model:None,
+    # （2026-10-10：`_prediction_groups` 新增了多卡分片守卫 ⇒ 依赖这几个谓词与常量，
+    #   必须一起编译，否则替身里只靠 `_world_size()==1` 短路侥幸通过。）
+    _names=('_probe_warn_legacy_dump','_probe_repeat_env','_eval_batch_size',
+            '_ddp_replicated','_data_parallel_mode','_global_rank',
+            '_is_sharded_mode','_fsdp_eval_unsupported','_multirank_eval_supported',
+            '_all_ranks_must_run_eval','_multirank_batch_allowed')
+    _consts=('SHARDED_EVAL_MODES','MULTIRANK_EVAL_MODES',
+             'FSDP_EVAL_UNSUPPORTED_ENV','MULTIRANK_BATCH_ENV')
+    mod_funcs=[x for x in tree.body if isinstance(x,ast.FunctionDef) and x.name in _names]
+    mod_consts=[x for x in tree.body if isinstance(x,(ast.Assign,ast.AnnAssign))
+                and any(getattr(t,'id',None) in _consts for t in
+                        (x.targets if isinstance(x,ast.Assign) else [x.target]))]
+    assert {x.name for x in mod_funcs}==set(_names), sorted(set(_names)-{x.name for x in mod_funcs})
+    ns={'torch':torch,'np':np,'Dict':dict,'Any':object,'Sequence':list,'List':list,'Tuple':tuple,
+        'Iterator':object,'Optional':object,'EVAL_SEED':1234,'os':os,'time':time,
+        '_world_size':lambda:1,'_visual_grid_cache_clear':lambda model:None,
         '_visual_grid_cache_restore':lambda model,saved:None}
     ast.fix_missing_locations(tree)
-    exec(compile(ast.Module(body=mod_funcs+[cls],type_ignores=[]),str(src),'exec'),ns)
+    exec(compile(ast.Module(body=mod_consts+mod_funcs+[cls],type_ignores=[]),str(src),'exec'),ns)
     return ns['OpenLoopValidator']
 
 OpenLoopValidator=_validator_class()

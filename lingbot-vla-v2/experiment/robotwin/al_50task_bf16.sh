@@ -150,7 +150,7 @@ else
 fi
 
 MANIFEST="$SPLIT_DIR/manifest.json"
-TRAIN_IDS="$SPLIT_DIR/combined.train_ids.json"
+TRAIN_IDS="${TRAIN_IDS-$SPLIT_DIR/combined.train_ids.json}"
 BASELINE="$SPLIT_DIR/task_baseline.json"
 
 # ---- 从 AL 配置里读出真实收工条件（别在计划里写死）--------------------------
@@ -211,7 +211,7 @@ export QWEN3VL_PATH=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Ins
 if [ -z "${CUDA_VISIBLE_DEVICES:-}" ]; then
   if [ "${N_GPU:-1}" -gt 1 ] 2>/dev/null; then
     export CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((N_GPU - 1)))
-    export HIP_VISIBLE_DEVICES="${HIP_VISIBLE_DEVICES:-$CUDA_VISIBLE_DEVICES}"
+    export HIP_VISIBLE_DEVICES="${HIP_VISIBLE_DEVICES:-${CUDA_VISIBLE_DEVICES:-}}"
   else
     export CUDA_VISIBLE_DEVICES=0
   fi
@@ -301,7 +301,7 @@ export PATH="$(dirname "$PY"):$PATH"
 if [ -z "${CUDA_VISIBLE_DEVICES:-}" ]; then
   if [ "${N_GPU:-1}" -gt 1 ] 2>/dev/null; then
     export CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((N_GPU - 1)))
-    export HIP_VISIBLE_DEVICES="${HIP_VISIBLE_DEVICES:-$CUDA_VISIBLE_DEVICES}"
+    export HIP_VISIBLE_DEVICES="${HIP_VISIBLE_DEVICES:-${CUDA_VISIBLE_DEVICES:-}}"
   else
     export CUDA_VISIBLE_DEVICES=0
   fi
@@ -317,7 +317,7 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     "$CONFIG" \
     --model.model_path       "$MODEL_PATH" \
     --data.train_path        "$PHASES/datasets.txt" \
-    --data.episode_ids_file  "$TRAIN_IDS" \
+    ${TRAIN_IDS:+${TRAIN_IDS:+--data.episode_ids_file "$TRAIN_IDS"}} \
     --data.image_augment     false \
     --train.output_dir       "$TRAIN_OUT" \
     --train.micro_batch_size "$MICRO" \

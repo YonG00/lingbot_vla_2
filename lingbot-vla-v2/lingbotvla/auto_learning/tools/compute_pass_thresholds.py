@@ -33,6 +33,10 @@
    同一份配置算的，拒绝产出。
 3. **阈值 < baseline_mse**：线比"全猜均值"还松 ⇒ 等于不设防，拒绝产出。
 
+⚠️ 上面 2/3 两道检查**只在 baseline 给了该任务的 ``mse`` 时执行**。若该任务在
+baseline store 里没有可用的 ``mse``（GMean ratio 候选池模式下 baseline 允许缺失），
+则**跳过这两道检查并打一行 RuntimeWarning**，绝不静默当成通过、也绝不删守卫。
+
 产出
 ----
 ``PassThresholds`` 格式 JSON（见 ``decision/thresholds.py``），带
@@ -47,6 +51,7 @@ import json
 import math
 import os
 import sys
+import warnings
 from typing import Any, Dict, List, Optional
 
 from ..baseline import BaselineStore
@@ -143,6 +148,27 @@ def compute_thresholds(
     for name, rows in sorted(eval_by_task.items()):
         fb = base_by_name[name]
 
+        # baseline 的 `mse` 可能缺失/非法（GMean ratio 模式下 baseline 允许缺 —— 那时
+        # NMSE 不参与任何判据）⇒ 检查 2/3 跳过并 warning，**不是**删掉这两道守卫：
+        # 只要 baseline_mse 可用，就照旧严格 fail-fast。
+        base_mse: Optional[float] = None
+        raw_base = fb.get("mse") if isinstance(fb, dict) else None
+        if raw_base is not None:
+            try:
+                base_mse = float(raw_base)
+            except (TypeError, ValueError):
+                base_mse = None
+            if base_mse is not None and not (math.isfinite(base_mse) and base_mse > 0):
+                base_mse = None
+        if base_mse is None:
+            warnings.warn(
+                f"{name}: baseline 缺可用的 mse ⇒ 跳过「nmse↔mse/baseline 自洽」与"
+                "「阈值 < baseline_mse」两道检查（仅在 baseline 确实缺失时降级；"
+                "该阈值表不可再用于 NMSE 口径）",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
         # ---- 检查 2：nmse ↔ mse/baseline 自洽 ----
         ms_vals: List[float] = []
         for r in rows:
@@ -152,8 +178,7 @@ def compute_thresholds(
                 continue
             ms_vals.append(float(mse))
             nmse = r.get("nmse")
-            base_mse = float(fb["mse"])
-            if nmse is not None and base_mse > 0:
+            if base_mse is not None and nmse is not None:
                 expect = float(mse) / base_mse
                 if abs(float(nmse) - expect) / max(expect, 1e-12) > 0.01:
                     problems.append(
@@ -166,8 +191,7 @@ def compute_thresholds(
         line = _stat(ms_vals, stat) * (1.0 + margin)
 
         # ---- 检查 3：阈值必须 < baseline_mse（线不能比"全猜均值"还松） ----
-        base_mse = float(fb["mse"])
-        if not (line < base_mse):
+        if base_mse is not None and not (line < base_mse):
             problems.append(
                 f"{name}: 阈值={line:.5f} ≥ baseline_mse={base_mse:.5f} "
                 f"（stat={stat}×{1+margin:.2f}）⇒ 比全猜均值还松，等于不设防")

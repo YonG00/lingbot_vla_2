@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import math
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
@@ -73,6 +74,24 @@ class AutoLearningConfig:
     #: 阈值表与当前数据的 config_fingerprint 不一致时是否放行。
     #: 🔴 默认 **False ⇒ fail-fast**：这类错位不会报错、只会静默错判。
     allow_thresholds_fingerprint_mismatch: bool = False
+
+    # ----- 候选池筛选口径（可选；**默认关闭 ⇒ 与改造前逐字一致**）-----
+    #: True 时**候选池筛选**改用「一把尺子」：
+    #: ``ratio = 该任务实测 gmean_mse / 该任务的参考线``（参考线来自
+    #: ``pass_thresholds_file``，即 ``pass_metric="gmean_mse"`` 那份表）。
+    #:
+    #: * ``ratio < pool_ratio_pass``  ⇒ 视为**已过**，不进候选池
+    #: * ``pool_ratio_pass <= ratio <= pool_ratio_skip`` ⇒ **可练**，进候选池
+    #: * ``ratio > pool_ratio_skip`` ⇒ 视为**太难**，暂不选
+    #:
+    #: 关闭时仍走旧的 NMSE 判据（需要 baseline；缺 baseline ⇒ NMSE=None
+    #: ⇒ 任务全部排除出候选池）。打开后 NMSE 降级为 legacy 显示量，
+    #: 缺 baseline 不再拒绝启动、也不再排除任务（见 ``real/build.py``）。
+    pool_filter_by_gmean_ratio: bool = False
+    #: ``ratio`` 下界：低于它视为已过（默认 0.2 = 参考线的 1/5）。
+    pool_ratio_pass: float = 0.2
+    #: ``ratio`` 上界：高于它视为太难、暂不选（默认 5.0 = 参考线的 5 倍）。
+    pool_ratio_skip: float = 5.0
 
     # ----- train / eval cadence -----
     eval_interval_steps: int = 50
@@ -220,6 +239,30 @@ class AutoLearningConfig:
                 "（按任务的阈值表，由 tools/compute_pass_thresholds.py 产出）；"
                 "否则所有任务都会因『无可用阈值』而无法判 PASS。"
             )
+        # ---- 候选池 ratio 筛选（可选）----
+        # 阈值**恒校验**（默认值合法 ⇒ 对既有配置零影响）：笔误不该等到开开关才发现。
+        for _name in ("pool_ratio_pass", "pool_ratio_skip"):
+            _v = getattr(self, _name)
+            if isinstance(_v, bool) or not isinstance(_v, (int, float)) or not math.isfinite(float(_v)):
+                raise ValueError(f"{_name} 必须是有限数值，实际 {_v!r}")
+        if not (0.0 < float(self.pool_ratio_pass) < float(self.pool_ratio_skip)):
+            raise ValueError(
+                f"必须 0 < pool_ratio_pass < pool_ratio_skip，实际 "
+                f"pool_ratio_pass={self.pool_ratio_pass}, pool_ratio_skip={self.pool_ratio_skip}"
+            )
+        if self.pool_filter_by_gmean_ratio:
+            # ratio 的分母 = 每任务参考线（gmean 阈值表）⇒ 没这两样就没法算 ratio。
+            if self.pass_metric != "gmean_mse":
+                raise ValueError(
+                    "pool_filter_by_gmean_ratio=true 只在 pass_metric='gmean_mse' 下有意义"
+                    f"（当前 pass_metric={self.pass_metric!r}）："
+                    "ratio 的分子/分母都必须来自 GMean 尺子。"
+                )
+            if not self.pass_thresholds_file:
+                raise ValueError(
+                    "pool_filter_by_gmean_ratio=true 时必须给 pass_thresholds_file"
+                    "（每任务参考线）—— 否则算不出 ratio。"
+                )
 
     # ---------------------------------------------------------------- #
     @property

@@ -24,12 +24,22 @@
 所以直接用 dataset item（训练 apply）即可同时拿到「与官方等价的观测」和「可用的 GT」，
 **前提是 ``image_augment=False``**；本模块在 ``image_augment=True`` 时打警告。
 
-已知限制
---------
-* 🔴 **只支持单卡**：``global_rank == 0`` 跑 eval，其余 rank 直接进入下一步 ⇒ 多卡下
-  FSDP2 的 all-gather 会**死锁**，且 rank0 上参数是分片的、结果无效。
-  ``world_size > 1`` 时**构造即 fail-fast**（见 ``_world_size``）。上多卡前必须改成
-  「rank0 跑 + 其他 rank barrier + 参数 all-gather」。
+多卡（``world_size > 1``）—— 2026-10-10 起支持
+--------------------------------------------
+* **复制并行**（``ddp`` / 其它未知模式：参数在每个 rank 上都是完整的）：
+  **所有 rank 一起进入协议**，只有 **rank0 计算**，其余 rank 等在广播上；
+  结果用 rank0 的 ⇒ 各 rank 指标一致、决策不分叉（`_multirank_eval_payload`）。
+* **分片并行**（``fsdp1`` / ``fsdp2`` / ``fsdp2-vescale``）：
+  **所有 rank 都真跑前向**（FSDP 的 all-gather 是集合通信，少一个 rank 就死锁），
+  评测窗口内由 `_fsdp_full_params_context` 把参数 all-gather 回**完整权重**
+  （FSDP2 = ``FSDPModule.unshard()``，FSDP1 = ``summon_full_params``），
+  rank0 的结果广播给所有 rank。
+  🔴 **为什么必须显式 unshard（实测）**：``sample_actions`` 是模型上的**自定义方法**，
+  不是 ``forward`` / ``__call__``，而 FSDP 的 all-gather 挂在**前向 hook** 上
+  ⇒ 直接调它会用到**分片参数**。CPU/gloo + 真实 FSDP2 实测：
+  ``RuntimeError: aten.mm.default: got mixed torch.Tensor and DTensor``；
+  FSDP1 剥掉包装后实测 ``RuntimeError: size mismatch ...``。
+* 逃生开关：``AL_EVAL_FSDP_UNSUPPORTED=1`` ⇒ 回到旧的 fail-fast（多卡只允许 ``ddp``）。
 * ``sample_actions`` 的调用 glue 是**照抄** ``deploy/lingbot_vla_v2_policy.py`` 的
   ``PolicyPreprocessMixin.sample_actions_batch``（无法真正复用：那个 mixin 依赖一个
   inference policy 实例，构造它就要分配 25.5G，违背"不复制模型"）。
@@ -132,18 +142,25 @@ def _unwrap_eval_model(model: Any) -> Any:
     （栈里还经 `torch/_dynamo/eval_frame.py` ⇒ 外层还有 `torch.compile`）。
 
     * `torch.compile` ⇒ ``_orig_mod``（类名 `OptimizedModule`）
-    * DDP / FSDP1 / DataParallel ⇒ ``.module``
+    * DDP / DataParallel ⇒ ``.module``（参数**复制** ⇒ 剥掉后前向照样有效）
     * 可能多层叠加（`compile(DDP(model))`）⇒ 循环剥离。
 
+    🔴 **FSDP1 是例外，不能剥**（2026-10-10 修正）：`FullyShardedDataParallel` 的
+    ``.module`` 里是**分片**参数，剥掉后前向要么报
+    ``RuntimeError: size mismatch ...``、要么结果无效。评测改用
+    `_fsdp_full_params_context`（`summon_full_params`）在**包装体上**把参数取全。
+    包装体的 ``__getattr__`` 会把 ``config`` 等属性转发给内层模块（torch 源码确认），
+    所以属性访问不受影响。
+    （FSDP2 是原地 patch、没有 `.module`；其参数是 DTensor ⇒ 由 `unshard()` 处理。）
+
     ⚠️ 按**包装类名**判定，不用"有 `.module` 就剥" —— 普通模型也可能有名为 `module` 的子模块。
-    （FSDP2 是原地 patch、没有 `.module`；其参数是 DTensor ⇒ 已由并行模式守卫拦下，不在这里处理。）
     """
     cur = model
     for _ in range(8):
         cls = type(cur).__name__
         if cls == "OptimizedModule":
             inner = getattr(cur, "_orig_mod", None)
-        elif cls in ("DistributedDataParallel", "FullyShardedDataParallel", "DataParallel"):
+        elif cls in ("DistributedDataParallel", "DataParallel"):
             inner = getattr(cur, "module", None)
         else:
             inner = None
@@ -172,12 +189,148 @@ def _data_parallel_mode(args: Any) -> str:
 
 
 def _ddp_replicated(args: Any) -> bool:
-    """多卡评测只允许 **DDP**（参数复制）。
+    """多卡评测是否走「参数复制」协议（``ddp``/缺省；参数在每个 rank 上都是完整的）。
 
-    FSDP1/2 / fsdp2-vescale 的参数是**分片**的 ⇒ 单个 rank 上的评测结果无效
-    （且 rank0 评测时其他 rank 继续训练会与 all-gather 错配）。
+    ⚠️ 分片并行（fsdp1/fsdp2/fsdp2-vescale）**不是**复制 —— 它们在评测窗口内需要
+    把参数 all-gather 回完整权重（`_fsdp_full_params_context`），且**所有 rank 都要跑前向**
+    （`_all_ranks_must_run_eval`）。本函数保持原语义，供「是否需要 unshard」的判断使用。
     """
-    return _data_parallel_mode(args) == "ddp"
+    return not _is_sharded_mode(args)
+
+
+#: 参数**分片**的并行模式（评测需要 all-gather 完整权重 + 所有 rank 一起跑前向）。
+SHARDED_EVAL_MODES: Tuple[str, ...] = ("fsdp1", "fsdp2", "fsdp2-vescale")
+#: 多卡评测**支持**的模式白名单（复制 + 分片）。不在这里的模式 ⇒ fail-fast，不猜。
+MULTIRANK_EVAL_MODES: Tuple[str, ...] = ("dp", "ddp") + SHARDED_EVAL_MODES
+#: 逃生开关：置 ``1`` ⇒ 回到**旧的** fail-fast 行为（多卡只允许 ddp），便于排障/回滚。
+FSDP_EVAL_UNSUPPORTED_ENV = "AL_EVAL_FSDP_UNSUPPORTED"
+#: 逃生开关：置 ``1`` ⇒ 允许「多卡分片 + 评测批处理」（默认禁止，理由见 `_prediction_groups`）。
+MULTIRANK_BATCH_ENV = "AL_EVAL_BATCH_MULTIRANK"
+
+
+def _is_sharded_mode(args: Any) -> bool:
+    """当前配置是不是**分片**并行（参数不完整 ⇒ 必须 all-gather + 所有 rank 跑）。"""
+    return _data_parallel_mode(args) in SHARDED_EVAL_MODES
+
+
+def _fsdp_eval_unsupported() -> bool:
+    """``AL_EVAL_FSDP_UNSUPPORTED=1`` ⇒ 回到旧的「多卡只支持 ddp」fail-fast 行为。"""
+    return os.environ.get(FSDP_EVAL_UNSUPPORTED_ENV, "").strip() == "1"
+
+
+def _multirank_eval_supported(args: Any) -> bool:
+    """``world_size > 1`` 时是否允许评测。
+
+    逃生开关 ``AL_EVAL_FSDP_UNSUPPORTED=1`` 时**逐字回到旧行为**：只认
+    ``data_parallel_mode == 'ddp'``（旧实现的判定就是这一条字面量比较）。
+    """
+    if _fsdp_eval_unsupported():
+        return _data_parallel_mode(args) == "ddp"
+    return _data_parallel_mode(args) in MULTIRANK_EVAL_MODES
+
+
+def _all_ranks_must_run_eval(args: Any) -> bool:
+    """分片并行下**每个 rank 都必须真跑评测前向**（all-gather 是集合通信）。
+
+    复制并行（ddp）：只有 rank0 算，其余 rank 等在广播上（省算力，且与旧行为一致）。
+    """
+    if _fsdp_eval_unsupported():
+        return False
+    return _is_sharded_mode(args)
+
+
+def _multirank_batch_allowed() -> bool:
+    """多卡分片下是否允许「评测批处理」（默认**禁止**，见 `_prediction_groups` 的说明）。"""
+    return os.environ.get(MULTIRANK_BATCH_ENV, "").strip() == "1"
+
+
+def _fsdp1_class():
+    """FSDP1 包装类（拿不到 ⇒ None）。"""
+    try:
+        from torch.distributed.fsdp import FullyShardedDataParallel
+        return FullyShardedDataParallel
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _fsdp2_mixin():
+    """FSDP2 的 ``FSDPModule`` mixin（torch≥2.6 公开导出；旧版走私有路径）。"""
+    try:
+        from torch.distributed.fsdp import FSDPModule
+        return FSDPModule
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from torch.distributed._composable.fsdp import FSDPModule
+        return FSDPModule
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _sharded_model_kind(model: Any) -> str:
+    """**按模型实际类型**识别分片包装：``'fsdp1'`` / ``'fsdp2'`` / ``''``。
+
+    ⚠️ 不看 ``--train.data_parallel_mode``：配置与实际模型不一致时，只有按实际模型走
+    才不会拿分片参数去评测（配置只用来决定协议与守卫）。
+    """
+    if not isinstance(model, torch.nn.Module):
+        return ""
+    f1 = _fsdp1_class()
+    if f1 is not None and isinstance(model, f1):
+        return "fsdp1"
+    f2 = _fsdp2_mixin()
+    if f2 is not None and isinstance(model, f2):
+        return "fsdp2"
+    return ""
+
+
+@contextlib.contextmanager
+def _fsdp_full_params_context(model: Any, *, logger: Any = None) -> Iterator[str]:
+    """评测窗口内把**分片参数** all-gather 成完整权重；返回进入的模式（``''``=未分片）。
+
+    🔴 **集体操作**：所有 rank 必须一起进、一起出（FSDP1 的 ``summon_full_params`` 与
+    FSDP2 的 ``unshard()`` 都会做集合通信）。调用方必须把它套在
+    `_multirank_eval_payload` **外面**，这样即使 rank0 在评测里失败，
+    其余 rank 也仍在同一个 with 里、能一起退出（不会有人卡在 all-gather 上）。
+
+    🔴 **必须在 ``torch.inference_mode()`` 之外**：unshard 会把参数对象换成新建的
+    完整参数；在 inference_mode 里建出来的张量带 inference 标记，
+    一旦被训练侧的 backward 用到就炸。调用点已保证这一点。
+
+    * FSDP2：``model.unshard()`` / ``model.reshard()``（**只对根单元**；嵌套单元
+      —— 每层 decoder —— 仍靠自己的前向 hook 逐层 all-gather，这是 FSDP2 的设计）。
+    * FSDP1：``FullyShardedDataParallel.summon_full_params(writeback=False, rank0_only=False)``
+      ⇒ 每个 rank 都拿到完整参数，可各自跑前向；退出后分片视图恢复
+      （CPU/gloo 实测：退出后正常 ``model(x)`` 前向仍然 OK）。
+      代价：窗口内每个 rank 多一份完整参数（显存）；fsdp1 不是本项目主用模式，
+      48G 卡上如果 OOM，请改用 fsdp2（分片参数不必整份驻留）。
+    """
+    kind = _sharded_model_kind(model)
+    if kind == "fsdp1":
+        fsdp1 = _fsdp1_class()
+        if logger is not None:
+            logger.info_rank0(
+                "[open_loop][fsdp] 评测窗口：summon_full_params（FSDP1，所有 rank 取全参数）")
+        with fsdp1.summon_full_params(model, recurse=True, writeback=False,
+                                      rank0_only=False):
+            yield "fsdp1"
+        return
+    if kind == "fsdp2":
+        unshard = getattr(model, "unshard", None)
+        reshard = getattr(model, "reshard", None)
+        if not callable(unshard) or not callable(reshard):
+            raise RuntimeError(
+                "模型是 FSDP2（FSDPModule）但拿不到 unshard()/reshard()（torch 版本过旧）"
+                "⇒ 评测会用到**分片参数**，拒绝继续。请升级 torch 或改用 ddp。")
+        if logger is not None:
+            logger.info_rank0("[open_loop][fsdp] 评测窗口：unshard()（FSDP2 根单元取全参数）")
+        unshard()
+        try:
+            yield "fsdp2"
+        finally:
+            reshard()
+        return
+    yield ""
 
 
 def _broadcast_object(payload: List[Any], *, src: int = 0) -> None:
@@ -189,21 +342,42 @@ def _broadcast_object(payload: List[Any], *, src: int = 0) -> None:
 
 
 def _multirank_eval_payload(*, run: Callable[[], Dict[str, Any]], ws: int, rank: int,
-                            broadcast: Callable[[List[Any]], None]) -> Dict[str, Any]:
-    """多卡（DDP）评测的执行与同步协议 —— **纯函数，便于单测**。
+                            broadcast: Callable[[List[Any]], None],
+                            all_ranks_run: bool = False) -> Dict[str, Any]:
+    """多卡评测的执行与同步协议 —— **纯函数，便于单测**。
 
     * ``ws == 1``：直接在本进程跑（单卡路径，行为与以前逐字一致）；
-    * ``ws > 1``：**所有 rank 一起进入**（保持 DDP 对称，避免有的 rank 先跑进集合通信）；
-      **rank0 计算并广播结果**（广播即同步点），其余 rank 等待并使用广播结果 ⇒
-      各 rank 拿到的评测指标**完全相同** ⇒ 调度器决策不会分叉；
+    * ``ws > 1`` + ``all_ranks_run=False``（复制并行 ddp）：所有 rank 一起进入协议
+      （保持对称，避免有的 rank 先跑进集合通信），**rank0 计算并广播结果**，
+      其余 rank 等待并使用广播结果 ⇒ 各 rank 拿到的评测指标**完全相同**
+      ⇒ 调度器决策不会分叉；
+    * ``ws > 1`` + ``all_ranks_run=True``（分片并行 fsdp*）：**每个 rank 都真跑 `run()`**
+      （FSDP 的 all-gather 是集合通信，少一个 rank 就死锁），
+      但**只有 rank0 的结果算数**（其余 rank 的结果可能是各自分片的中间态/不同随机），
+      广播后所有 rank 用同一份 ⇒ 与复制并行同样的「指标一致、决策不分叉」。
+      非 0 rank 自己的异常**不抛出**（走到广播，用 rank0 的结果），
+      这样单个 rank 的偶发失败不会把整轮训练打断；
+      ⚠️ 但若失败发生在**集合通信中途**（例如 all-gather 里 OOM），仍可能挂死 ——
+      这是 FSDP 的固有限制，不受本函数控制。
     * rank0 失败时**广播错误标记**（而不是直接抛）⇒ 其余 rank 不会永久等在广播上。
 
-    返回 rank0 的评测结果（或本进程结果）。
+    返回 rank0 的评测结果（或单卡时本进程的结果）。
     """
     if ws <= 1:
         return run()
     payload: List[Any] = [None]
-    if rank == 0:
+    if all_ranks_run:
+        if rank == 0:
+            try:
+                payload[0] = {"ok": True, "result": run()}
+            except BaseException as exc:  # noqa: BLE001 —— 必须广播失败原因，否则对端死等
+                payload[0] = {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
+        else:
+            try:
+                run()          # 只为参与集合通信；结果丢弃（不覆盖 rank0 的 payload）
+            except BaseException:  # noqa: BLE001 —— 非 0 rank 的结果一律作废，不改变协议
+                pass
+    elif rank == 0:
         try:
             payload[0] = {"ok": True, "result": run()}
         except BaseException as exc:  # noqa: BLE001 —— 必须广播失败原因，否则对端死等
@@ -922,6 +1096,7 @@ class OpenLoopValidator:
         self._audit_logged = False        # 只在第一次 eval 时打印「恢复审计通过」
         self._normstats_logged = False    # 只在第一次 eval 时打印归一化统计指纹
         self._strict_logged = False
+        self._multirank_batch_warned = False   # 「多卡分片 ⇒ 强制逐条」告警只打一次
         self._noise_gen = None            # flow-matching noise 的专用 generator（每次 eval 重置）
         # Eval Batch 诊断证据（默认关闭；只有显式设置 AL_EVAL_BATCH_PROBE_DUMP /
         # AL_EVAL_BATCH_PROBE_REPEAT_SERIAL 才会录制 —— 见 `_probe_capture`）。
@@ -933,23 +1108,35 @@ class OpenLoopValidator:
         self._probe_task = None           # 任务名（由 evaluator 传入；未知 ⇒ None，不臆造）
         self._probe_tag = None            # val / train_monitor / al_<task>_<split>_<ids>
 
-        # 🔴 只支持单卡：多卡下 rank0 跑 eval 时其他 rank 会直接进入下一步 ⇒ FSDP2
-        #    all-gather 死锁；且 rank0 上参数是分片的、评测结果无效。
-        #    2026-10-04 审查 B6：这里直接 fail-fast，不实现多卡 eval。
+        # 🔴 多卡（2026-10-10 改造）：**所有 rank 一起进评测**，而不是 rank0 单独跑。
+        #    旧实现在这里对分片并行 fail-fast（rank0 跑 eval 时其他 rank 直接进入下一步
+        #    ⇒ FSDP 的 all-gather 与训练侧集合通信错配 ⇒ **死锁**；且 rank0 上是分片参数）。
+        #    现在：复制并行（ddp）⇒ rank0 算 + 广播；分片并行 ⇒ 所有 rank 一起跑前向，
+        #    评测窗口内把参数 all-gather 回完整权重（见 `_fsdp_full_params_context`）。
+        #    逃生开关 AL_EVAL_FSDP_UNSUPPORTED=1 ⇒ 回到旧的 fail-fast 行为。
         #    （离线「只收 GT」模式 model=None，不走 FSDP/推理，不受此限制。）
         if model is not None:
             ws = _world_size()
-            if ws > 1 and not _ddp_replicated(args):
+            if ws > 1 and not _multirank_eval_supported(args):
                 raise RuntimeError(
-                    f"[open_loop] 多卡评测只支持 **data_parallel_mode='ddp'**（参数复制），"
-                    f"当前 world_size={ws}、data_parallel_mode={_data_parallel_mode(args)!r}。\n"
-                    f"  分片并行（fsdp1/fsdp2/fsdp2-vescale）下 rank 上只有局部参数 ⇒ 评测结果无效；"
-                    f"且 rank0 评测时其他 rank 继续训练会与 all-gather 错配。\n"
-                    f"  请三选一：① 用 ddp；② 用单卡；③ 把 --train.open_loop_eval_steps 设为 0。")
+                    f"[open_loop] 多卡评测不支持 data_parallel_mode="
+                    f"{_data_parallel_mode(args)!r}（world_size={ws}）。"
+                    + ("  已设置 AL_EVAL_FSDP_UNSUPPORTED=1 ⇒ 回到旧行为：多卡只支持 "
+                       "data_parallel_mode='ddp'（参数复制）。\n"
+                       if _fsdp_eval_unsupported() else
+                       f"  支持的模式：{list(MULTIRANK_EVAL_MODES)}。\n")
+                    + "  请三选一：① 用受支持的模式；② 用单卡；③ 把 --train.open_loop_eval_steps 设为 0。")
             if ws > 1:
-                logger.info_rank0(
-                    f"[open_loop] 多卡评测已启用（world_size={ws} + DDP 参数复制）："
-                    "所有 rank 一起进入评测，rank0 计算并广播结果 ⇒ 各 rank 指标一致、决策不分叉")
+                if _all_ranks_must_run_eval(args):
+                    logger.info_rank0(
+                        f"[open_loop] 多卡分片评测已启用（world_size={ws} + "
+                        f"data_parallel_mode={_data_parallel_mode(args)!r}）："
+                        "**所有 rank 一起进入评测**（FSDP all-gather 是集合通信），评测窗口内 "
+                        "all-gather 出完整参数，rank0 计算/汇总并广播结果 ⇒ 各 rank 指标一致、决策不分叉")
+                else:
+                    logger.info_rank0(
+                        f"[open_loop] 多卡评测已启用（world_size={ws} + DDP 参数复制）："
+                        "所有 rank 一起进入评测，rank0 计算并广播结果 ⇒ 各 rank 指标一致、决策不分叉")
 
         if getattr(args.data, "image_augment", False):
             logger.warning(
@@ -1057,12 +1244,22 @@ class OpenLoopValidator:
         return n
 
     def _episode_ids_file(self, ids: Sequence[int], tag: str) -> str:
-        """把一组回合号落成临时白名单文件（build_vla_dataset 只认文件）。"""
+        """把一组回合号落成临时白名单文件（build_vla_dataset 只认文件）。
+
+        🔴 **原子写**（2026-10-10）：多卡分片模式下**所有 rank 都会写同一个路径**
+        （大家跑同一组 ids、同一个 tag），如果有人正写到一半、别的 rank 去读，
+        就会读到截断的 JSON（`json.JSONDecodeError`）或空白名单。
+        做法：先写本 rank 自己的临时文件，再 `os.replace`（POSIX 原子替换）。
+        各 rank 写入内容**完全相同**（`sorted(int(i))`）⇒ 谁赢都一样。
+        """
         out_dir = os.path.join(self.args.train.output_dir, "_open_loop_ids")
         os.makedirs(out_dir, exist_ok=True)
         path = os.path.join(out_dir, f"{tag}.json")
-        with open(path, "w") as f:
-            json.dump(sorted(int(i) for i in ids), f)
+        payload = json.dumps(sorted(int(i) for i in ids))
+        tmp = f"{path}.rank{_global_rank()}.tmp"
+        with open(tmp, "w") as f:
+            f.write(payload)
+        os.replace(tmp, path)
         return path
 
     # -- 噪声（显式喂，保证可复现 + 可与官方对拍）--------------------------------
@@ -1426,7 +1623,22 @@ class OpenLoopValidator:
         _probe_warn_legacy_dump(getattr(self, "logger", None))
         if mode == 'auto' and os.environ.get('AL_EVAL_BATCH_APPROVED') != '1':
             raise RuntimeError('auto batch requires AL_EVAL_BATCH_APPROVED=1 after real GPU parity approval')
-        if mode == 'serial' or not torch.cuda.is_available():
+        # 🔴 多卡**分片**并行（fsdp1/fsdp2/fsdp2-vescale）⇒ 强制单条（2026-10-10）。
+        #    理由（**正确性**，不是显存闸门）：批处理的 OOM 回退是**本 rank 局部**决策
+        #    （`except torch.cuda.OutOfMemoryError` ⇒ 该组退回单条），一旦某个 rank 的
+        #    batch_size 与别人不同，各 rank 的**前向次数**就不再一一对应 ⇒
+        #    FSDP 每层 all-gather 的次数也会不同 ⇒ 集合通信错配 ⇒ **挂死**。
+        #    （复制并行 ddp 不受影响：只有 rank0 跑前向，没有前向内的集合通信。）
+        #    显式放行：AL_EVAL_BATCH_MULTIRANK=1（自担风险，各 rank 必须同批大小）。
+        _multirank_sharded = _world_size() > 1 and _all_ranks_must_run_eval(self.args)
+        _force_serial_sharded = _multirank_sharded and not _multirank_batch_allowed()
+        if _force_serial_sharded and not getattr(self, '_multirank_batch_warned', False):
+            self._multirank_batch_warned = True
+            self.logger.warning(
+                '[open_loop][eval-batch] ⚠️ 多卡分片并行（world_size>1 + fsdp*）⇒ **强制逐条评测**：'
+                '批内 OOM 回退是本 rank 局部决策，各 rank 批大小不一致会让 all-gather 次数错配、'
+                f'直接挂死。确需批处理请显式设置 {MULTIRANK_BATCH_ENV}=1（并保证各 rank 同批大小）。')
+        if mode == 'serial' or _force_serial_sharded or not torch.cuda.is_available():
             _probe_out_s = os.environ.get('AL_EVAL_BATCH_PROBE_OUT')
             for idx in starts:
                 item = ds[idx]
@@ -1450,11 +1662,11 @@ class OpenLoopValidator:
                         self.logger.info_rank0(f'[open_loop][eval-batch] probe batch1 record failed: {_exc!r}')
                 yield [(idx, item, pred)]
             return
-        if _world_size() != 1 and not _ddp_replicated(self.args):
+        if _world_size() != 1 and not _multirank_eval_supported(self.args):
             raise RuntimeError(
-                'eval batching 需要单卡或 DDP（参数复制）；'
+                'eval batching 需要单卡或受支持的多卡模式；'
                 f'当前 world_size={_world_size()}、data_parallel_mode='
-                f'{_data_parallel_mode(self.args)!r}（分片并行不支持）')
+                f'{_data_parallel_mode(self.args)!r}')
         # 🔴 **显存闸门已废除**（用户 2026-10-09 定："去掉闸门，没用"）。
         #    历史教训：组批前 `free_before < reserve + 12`（=22 GiB 硬阈值）在 2×48G DDP 上
         #    （模型已占 26.5 GB/卡、空闲 21.4 GiB）把**每一组**都判成"显存不足" ⇒ 批处理全程不生效；
@@ -1934,17 +2146,16 @@ class OpenLoopValidator:
             on_audit_ok=self._log_audit_ok,
         )
 
-    def validate(self, global_step: int) -> Optional[Dict[str, Dict[str, float]]]:
-        """在训练循环里调用：固定 seed、跑 eval、**任何情况下**恢复全部临时状态。
+    def _sharded_eval_context(self) -> Iterator[str]:
+        """分片并行（FSDP1/FSDP2）下的「参数取全」窗口 —— 见 `_fsdp_full_params_context`。
 
-        Stage B0 起，临时的 5 类状态（use_cache / attention / 视觉网格缓存 /
-        模块 training 标志 / 三套 RNG）由 `safe_eval_context` 统一处理 ——
-        与 `evaluate_ids()` 走**同一条** snapshot-restore-审计路径。
+        ⚠️ 两个调用红线（都写在 `_fsdp_full_params_context` 的 docstring 里）：
+        `_multirank_eval_payload` **外面**（集体进/出）+ `torch.inference_mode()` **外面**。
         """
-        if self.args.train.global_rank != 0:
-            # 第一版只在 rank0 做；上多卡前这里要改成 "rank0 跑 + 其他 rank barrier"
-            return None
+        return _fsdp_full_params_context(self.model, logger=self.logger)
 
+    def _validate_once(self, global_step: int) -> Optional[Dict[str, Dict[str, float]]]:
+        """原 `validate()` 的**单次执行体**（安全上下文 + 失败降级为告警 + 返回 None）。"""
         result = None
         with self._eval_context():
             try:
@@ -1956,6 +2167,44 @@ class OpenLoopValidator:
                                     f"{type(exc).__name__}: {exc}")
                 self.logger.warning("[open_loop] ---- traceback ----\n" + traceback.format_exc())
         return result
+
+    def validate(self, global_step: int) -> Optional[Dict[str, Dict[str, float]]]:
+        """在训练循环里调用：固定 seed、跑 eval、**任何情况下**恢复全部临时状态。
+
+        Stage B0 起，临时的 5 类状态（use_cache / attention / 视觉网格缓存 /
+        模块 training 标志 / 三套 RNG）由 `safe_eval_context` 统一处理 ——
+        与 `evaluate_ids()` 走**同一条** snapshot-restore-审计路径。
+
+        🔴 **多卡时序一致性（2026-10-10）**：旧实现在这里 `if global_rank != 0: return None`
+        ⇒ 非 0 rank 直接跳过评测进入下一步，而 rank0 还在评测里 ⇒ 分片并行下
+        all-gather 与训练侧集合通信错配 ⇒ **死锁**（复制并行下也只是一次静默错位）。
+        现在所有 rank 都进 `_multirank_eval_payload`：
+        * 复制并行（ddp）：rank0 算、其余 rank 等在**广播**上；
+        * 分片并行（fsdp*）：所有 rank 都真跑前向，rank0 的结果广播给所有 rank。
+        两条路径下**每个 rank 拿到的返回值都相同**（旧实现非 0 rank 恒为 None）。
+        """
+        ws = _world_size()
+        rank = _global_rank()
+        if ws <= 1:
+            # 单卡：行为与以前逐字一致（非 0 rank 在单卡下不存在，保留原来的守卫）
+            if self.args.train.global_rank != 0:
+                return None
+            return self._validate_once(global_step)
+        if not _multirank_eval_supported(self.args):
+            raise RuntimeError(
+                f"[open_loop] 多卡评测不支持 data_parallel_mode="
+                f"{_data_parallel_mode(self.args)!r}（world_size={ws}）"
+                + ("（AL_EVAL_FSDP_UNSUPPORTED=1：回到旧行为，多卡只支持 ddp）"
+                   if _fsdp_eval_unsupported() else
+                   f"；支持 {list(MULTIRANK_EVAL_MODES)}"))
+        # 分片并行：unshard/all-gather 完整参数必须在**所有 rank 一起**、且在
+        # inference_mode **之外** 完成（unshard 会新建参数对象）。包在 payload 外面
+        # ⇒ 即使 rank0 在评测里失败，其余 rank 也还在同一个 with 里、能一起退出。
+        with self._sharded_eval_context():
+            return _multirank_eval_payload(
+                run=lambda: self._validate_once(global_step),
+                ws=ws, rank=rank, broadcast=_broadcast_object,
+                all_ranks_run=_all_ranks_must_run_eval(self.args))
 
     # ------------------------------------------------------------------ #
     # Stage B0：给 Auto Learning 用的两个公开入口
@@ -2025,14 +2274,23 @@ class OpenLoopValidator:
             raise RuntimeError(
                 "evaluate_ids 需要真实模型（当前实例是离线 GT-only 模式，只能 collect_gt_chunks）")
         ws = _world_size()
-        if ws > 1 and not _ddp_replicated(self.args):
+        if ws > 1 and not _multirank_eval_supported(self.args):
             raise RuntimeError(
-                f"多卡评测只支持 DDP（参数复制）；当前 data_parallel_mode="
-                f"{_data_parallel_mode(self.args)!r}（分片并行下 rank 上只有局部参数）")
-        # 单卡：直接跑（行为与以前逐字一致）；多卡：所有 rank 一起进入，rank0 计算并广播结果。
-        return _multirank_eval_payload(
-            run=lambda: self._evaluate_run(list(ids), tag),
-            ws=ws, rank=_global_rank(), broadcast=_broadcast_object)
+                f"多卡评测不支持 data_parallel_mode={_data_parallel_mode(self.args)!r}"
+                f"（world_size={ws}）"
+                + ("（AL_EVAL_FSDP_UNSUPPORTED=1：回到旧行为，多卡只支持 ddp）"
+                   if _fsdp_eval_unsupported() else
+                   f"；支持 {list(MULTIRANK_EVAL_MODES)}"))
+        # 单卡：直接跑（行为与以前逐字一致）。
+        # 多卡复制（ddp）：所有 rank 一起进入，rank0 计算并广播结果。
+        # 多卡分片（fsdp*）：**所有 rank 都真跑前向**（all-gather 是集合通信），
+        #   rank0 的结果广播给所有 rank（非 0 rank 自己的结果作废）。
+        # 分片模式下「取全参数」窗口必须在 payload 外面（集体进/出 + 不在 inference_mode 里）。
+        with self._sharded_eval_context():
+            return _multirank_eval_payload(
+                run=lambda: self._evaluate_run(list(ids), tag),
+                ws=ws, rank=_global_rank(), broadcast=_broadcast_object,
+                all_ranks_run=_all_ranks_must_run_eval(self.args))
 
     def _evaluate_run(self, ids: Sequence[int], tag: str) -> Dict[str, Any]:
         """单次评测的实际执行体（安全上下文 + ``inference_mode`` + 结果）。"""
