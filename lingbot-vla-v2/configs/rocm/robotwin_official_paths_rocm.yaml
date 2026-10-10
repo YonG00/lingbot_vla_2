@@ -32,7 +32,12 @@ train:
   precompute_grid_thw: true
   vlm_causal: true
   vlm_fsdp: true
-  attention_implementation: flex_cached
+  # 🔴 2026-10-10 真机（ROCm 7.2.1 / gfx1100）：`flex_cached` 会让 VLM 主干走 flex attention，
+  #   其**反向**生成的 `triton_tem_fused_slice_backward_transpose_view_zeros_2` 在 Triton AMD 后端
+  #   `TritonAMDGPUOptimizeDotOperands` pass 上**确定性失败**（`PassManager::run failed`，7/7 rank）
+  #   ⇒ 开 `torch.compile` 必崩。改用语义等价的 SDPA 实现（`sdpa_attention_forward`）：
+  #   数值对拍（真实形状 d=256 / GQA 8:1 / seq 320）前向 ≤2.33e-06、反向梯度 ≤3.46e-06。
+  attention_implementation: sdpa
   use_moe: true
   token_moe_layers:
   - 0

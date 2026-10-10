@@ -227,3 +227,81 @@ def flex_attention_with_block_mask(
     attn_output = attn_output.transpose(1, 2).contiguous()
     attn_output = attn_output.reshape(batch_size, -1, attn_output.shape[2] * attn_output.shape[3])
     return attn_output
+
+
+# --------------------------------------------------------------------------- #
+# SDPA 版（2026-10-10）：绕开 flex attention 的 Triton 反向 kernel 崩溃
+# --------------------------------------------------------------------------- #
+@torch.compiler.disable(reason="mask 归一化放在图外，注意力本体仍可被编译")
+def sdpa_attention_forward(
+    query_states: torch.Tensor,
+    key_states: torch.Tensor,
+    value_states: torch.Tensor,
+    attention_mask: torch.Tensor,
+    scaling=None,
+):
+    """`flex_attention_forward` 的 **SDPA 等价实现**（签名 / 返回契约完全相同）。
+
+    为什么需要它
+    ------------
+    真机（ROCm 7.2.1 / gfx1100）实测：flex attention 的**反向**会让 Inductor 生成
+    `triton_tem_fused_slice_backward_transpose_view_zeros_2`，而 Triton AMD 后端的
+    `TritonAMDGPUOptimizeDotOperands` pass 对它**确定性失败**（`PassManager::run failed`，
+    7/7 rank）。⇒ 用原生 SDPA 走同一条注意力语义。
+
+    契约（与 `flex_attention_forward` 一致）
+    ---------------------------------------
+    输入 Q/K/V: ``[B, L, H, D]``（K/V 头数可少于 Q，即 GQA）
+    输入 mask : ``bool [B, Q, KV]``（**True = 允许**）或 ``[B, 1, Q, KV]``
+    输出      : ``[B, L, H*D]``，dtype 与输入 Q 一致
+
+    🔴 三个必须遵守的实测结论（数值对拍 demo：4/4 通过，最差 3.46e-06）
+      1. **bool mask 直接传、绝不取反**（PyTorch 的 SDPA 语义即 True = 保留）；
+      2. **SDPA 不接受 ``[B,Q,KV]`` 配多头 Q** ⇒ 必须补成 ``[B,1,Q,KV]``（否则报
+         "The size of tensor a (8) must match ... b (2)"）；
+      3. **GQA 必须用 ``repeat_interleave(g, dim=2)`` 展开**（与仓库 flex 路径的
+         `einops.repeat("b l h d -> b l (h g) d")` 同序）+ ``enable_gqa=False``；
+         若改用 ``enable_gqa=True`` 而不展开，head 映射不同 ⇒ 误差≈输出量级。
+      另：与 flex 路径一致，Q/K/V **全升 fp32**，输出再转回原 dtype。
+    """
+    b, q_len, n_qh, head_dim = query_states.shape
+    kv_len = key_states.shape[1]
+    n_kvh = key_states.shape[2]
+    original_dtype = query_states.dtype
+
+    if attention_mask is None:
+        raise ValueError('attention_mask 为 None：拒绝假设"全可见"（与 flex 路径行为不同）')
+    mask = attention_mask
+    if mask.ndim == 4:                       # [B, 1, Q, KV] ⇒ 压掉头维
+        if mask.shape[1] != 1:
+            raise ValueError(f'期望头维为 1 的 mask，得到 {tuple(mask.shape)}')
+        mask = mask[:, 0]
+    if mask.ndim != 3:
+        raise ValueError(f'期望 [B,Q,KV] 的稠密 mask，得到 {tuple(mask.shape)}')
+    if mask.shape[0] != b:
+        raise ValueError(f'mask batch {mask.shape[0]} 与 Q batch {b} 不一致')
+    mask = mask[:, :q_len, :kv_len]
+    if mask.dtype != torch.bool:
+        raise TypeError(f'仓库 mask 应为 bool（True=允许），得到 {mask.dtype}')
+    keep = mask[:, None, :, :]               # ⇒ [B,1,Q,KV]
+
+    g = n_qh // n_kvh
+    if g * n_kvh != n_qh:
+        raise ValueError(f'GQA 头数不整除：Q={n_qh} KV={n_kvh}')
+    k = key_states.repeat_interleave(g, dim=2) if g > 1 else key_states
+    v = value_states.repeat_interleave(g, dim=2) if g > 1 else value_states
+
+    q = query_states.transpose(1, 2).float()      # [B,H,Q,D]
+    k = k.transpose(1, 2).float()
+    v = v.transpose(1, 2).float()
+
+    out = F.scaled_dot_product_attention(
+        q, k, v,
+        attn_mask=keep,
+        dropout_p=0.0,
+        is_causal=False,                     # 可见性已全部编码在 mask 里
+        scale=head_dim ** -0.5 if scaling is None else scaling,
+        enable_gqa=False,                    # K/V 已展开成多头
+    )
+    out = out.transpose(1, 2).contiguous().reshape(b, q_len, n_qh * head_dim)
+    return out.to(original_dtype)

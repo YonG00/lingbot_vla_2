@@ -1550,9 +1550,14 @@ class PaliGemmaWithExpertConfig(PretrainedConfig):
                 "You set `freeze_vision_encoder=False` and `train_expert_only=True` which are not compatible."
             )
 
-        if self.attention_implementation not in ["eager", "fa2", "flex"]:
+        # 2026-10-10：加入 "sdpa"（原生 SDPA 实现，绕开 flex 反向 kernel 的 gfx1100 编译崩溃）。
+        # ⚠️ "sdpa" 目前只在 `LingbotVlaV2.get_attention_interface()` 里实现；若把它路由到
+        #    `PI0FlowMatching`，`get_attention_interface()` 会拒绝（那里只认 eager/fa2/flex），
+        #    这里是**提前**给出清晰报错而不是走到深处分支才失败。
+        if self.attention_implementation not in ["eager", "fa2", "flex", "sdpa"]:
             raise ValueError(
-                f"Wrong value provided for `attention_implementation` ({self.attention_implementation}). Expected 'eager', 'fa2' or 'flex'."
+                f"Wrong value provided for `attention_implementation` ({self.attention_implementation}). "
+                "Expected 'eager', 'fa2', 'flex' or 'sdpa'."
             )
 
 class PaliGemmaWithExpertModel(PreTrainedModel):

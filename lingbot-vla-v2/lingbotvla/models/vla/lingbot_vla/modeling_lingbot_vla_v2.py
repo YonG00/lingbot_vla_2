@@ -31,7 +31,12 @@ from .utils import (
     prefix_query_token_spans,
     sample_beta,
 )
-from .flex_attention import build_block_mask, flex_attention_forward, flex_attention_with_block_mask
+from .flex_attention import (
+    build_block_mask,
+    flex_attention_forward,
+    flex_attention_with_block_mask,
+    sdpa_attention_forward,
+)
 from lingbotvla.models.loader import LingBotVLAWeightLoader
 from lingbotvla.ops.triton_moe_loss import triton_sequence_wise_balance_loss
 from lingbotvla.models.vla.lingbot_vla.qwen2_action_expert import (
@@ -420,6 +425,12 @@ class QwenvlWithExpertV2Model(PreTrainedModel):
         if self.config.attention_implementation == "flex_cached":
             print("=====Using Flex Cached (prebuilt BlockMask) Attn=====")
             return flex_attention_forward
+        if self.config.attention_implementation == "sdpa":
+            # 🔴 2026-10-10：与 flex 路径语义等价，但绕开 flex 反向 kernel 在 gfx1100 上的
+            #   Triton AMD pass 崩溃（`PassManager::run failed`，7/7 rank）。
+            #   数值对拍（真实形状 d=256/GQA 8:1/seq 320）：前向 ≤2.33e-06、反向梯度 ≤3.46e-06。
+            print("=====Using SDPA Attn=====")
+            return sdpa_attention_forward
         if self.config.attention_implementation == "eager":
             print("=====Using Eager Attn=====")
             return our_eager_attention_forward
