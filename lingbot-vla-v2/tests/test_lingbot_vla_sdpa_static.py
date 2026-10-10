@@ -62,3 +62,11 @@ def test_config_uses_sdpa_not_flex_cached():
     assert lines, '配置里找不到 attention_implementation'
     val = lines[-1].split(':', 1)[1].strip()
     assert val == 'sdpa', f'ROCm 配置应为 sdpa（绕开 flex 反向崩溃），实际 {val!r}'
+
+
+def test_attention_override_escape_hatch_exists():
+    """`AL_VLM_ATTENTION` 逃生舱必须存在：用于 A/B 与故障归因（崩溃到底出在哪条路径）。"""
+    src = (ROOT / 'modeling_lingbot_vla_v2.py').read_text(encoding='utf-8')
+    assert 'AL_VLM_ATTENTION' in src, '缺少注意力实现的环境变量覆盖开关'
+    assert "_override or self.config.attention_implementation" in src, \
+        '覆盖逻辑必须"有 env 用 env、否则用配置"，不得改变默认行为'

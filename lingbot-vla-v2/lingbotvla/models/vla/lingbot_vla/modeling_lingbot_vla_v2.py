@@ -419,22 +419,30 @@ class QwenvlWithExpertV2Model(PreTrainedModel):
         return outputs_embeds, past_key_values, router_logits_list
 
     def get_attention_interface(self):
-        if self.config.attention_implementation == "flex":
+        # 🔴 逃生舱（2026-10-10）：`AL_VLM_ATTENTION=<flex|flex_cached|sdpa|eager>` 可**临时覆盖**
+        #    配置里的取值，用于 A/B 与故障归因（"崩了到底是这条路径还是别处"）。
+        #    只影响本函数返回哪个实现，不改任何配置对象；不设该 env 时行为与之前完全一致。
+        import os as _os
+        _override = (_os.environ.get('AL_VLM_ATTENTION') or '').strip()
+        _impl = _override or self.config.attention_implementation
+        if _override:
+            print(f"=====Attention override by AL_VLM_ATTENTION: {_impl}=====")
+        if _impl == "flex":
             print("=====Using Flex Attn=====")
             return flex_attention_forward
-        if self.config.attention_implementation == "flex_cached":
+        if _impl == "flex_cached":
             print("=====Using Flex Cached (prebuilt BlockMask) Attn=====")
             return flex_attention_forward
-        if self.config.attention_implementation == "sdpa":
+        if _impl == "sdpa":
             # 🔴 2026-10-10：与 flex 路径语义等价，但绕开 flex 反向 kernel 在 gfx1100 上的
             #   Triton AMD pass 崩溃（`PassManager::run failed`，7/7 rank）。
             #   数值对拍（真实形状 d=256/GQA 8:1/seq 320）：前向 ≤2.33e-06、反向梯度 ≤3.46e-06。
             print("=====Using SDPA Attn=====")
             return sdpa_attention_forward
-        if self.config.attention_implementation == "eager":
+        if _impl == "eager":
             print("=====Using Eager Attn=====")
             return our_eager_attention_forward
-        raise ValueError(f"Invalid attention implementation: {self.config.attention_implementation}")
+        raise ValueError(f"Invalid attention implementation: {_impl}")
 
 
 class FlowMatchingV2(FlowMatchingV1):
