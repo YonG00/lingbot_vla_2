@@ -52,7 +52,7 @@ pass_thresholds_file: /workspace/eval_results/open_loop/ref50k/pass_thresholds_g
 pass_nmse: 0.35  # 兼容占位；GMean 模式下不参与 PASS
 
 # ----- train / eval cadence（正式值）-----
-eval_interval_steps: 50         # 一个 learning unit = 50 个 optimizer step
+eval_interval_steps: 3
 min_steps_before_defer: 99
 defer_retry_steps: 99
 
