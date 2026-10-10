@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from typing import Callable
 import numpy as np
 from lingbotvla.utils import helper
@@ -26,6 +28,19 @@ def get_all_tasks(task_files, sep=' '):
                 if not line:
                     continue
                 data_name, task = line.split(sep)
+                task_path = Path(task).expanduser()
+                if not task_path.exists():
+                    try:
+                        relative_path = task_path.relative_to("/workspace/RoboTwin")
+                    except ValueError:
+                        pass
+                    else:
+                        relocated_path = (
+                            Path(os.environ.get("ROBOTWIN_ROOT", "/RoboTwin"))
+                            / relative_path
+                        )
+                        if relocated_path.exists():
+                            task = str(relocated_path)
                 data_names.append(data_name)
                 task_list.append(task)
         f.close()
@@ -49,7 +64,7 @@ class MultiVLADataset(Dataset):
         image_transforms: Callable | None = None,
         delta_timestamps: dict[list[float]] | None = None,
         tolerances_s: dict | None = None,
-        video_backend: str = 'torchcodec',
+        video_backend: str = 'pyav',
         chunk_size: int = 50,
         image_size = (224, 224),
         do_nomalize = True,

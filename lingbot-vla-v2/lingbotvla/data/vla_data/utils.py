@@ -86,6 +86,11 @@ class FeatureTransform:
 
         if norm_stats_path is None:
             norm_stats_path = robot_config.pop('norm_stats')
+            if not os.path.isabs(norm_stats_path):
+                repository_root = os.path.abspath(
+                    os.path.join(os.path.dirname(__file__), "../../..")
+                )
+                norm_stats_path = os.path.join(repository_root, norm_stats_path)
         else:
             robot_config.pop('norm_stats')
 

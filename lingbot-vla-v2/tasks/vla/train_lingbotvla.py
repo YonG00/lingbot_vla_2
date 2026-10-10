@@ -42,6 +42,7 @@ from lingbotvla.utils.checkpoint_guard import (
 )
 from lingbotvla.utils.arguments import EvalArguments, DataArguments, ModelArguments, TrainingArguments, parse_args, save_args
 from lingbotvla.utils.dist_utils import all_reduce
+from lingbotvla.utils.lora_utils import add_lora_to_model, freeze_parameters
 from lingbotvla.models.config_registry import get_config_registry
 
 from lingbotvla.models.vla.vision_models.module_utils import (
@@ -124,6 +125,20 @@ def get_moe_param_groups(model: "torch.nn.Module", args_train) -> Optional[List[
 
 @dataclass
 class MyTrainingArguments(TrainingArguments):
+    use_lora: bool = field(
+        default=False,
+        metadata={"help": "Train PEFT LoRA adapters instead of full model weights."},
+    )
+    lora_rank: int = field(default=8, metadata={"help": "LoRA rank."})
+    lora_alpha: int = field(default=16, metadata={"help": "LoRA alpha."})
+    lora_scope: Literal["action_expert", "all_attention"] = field(
+        default="action_expert",
+        metadata={"help": "Apply LoRA to action expert attention or all attention layers."},
+    )
+    lora_target_modules: str = field(
+        default="q_proj,k_proj,v_proj,o_proj",
+        metadata={"help": "Comma-separated attention projection module names."},
+    )
     freeze_vit: bool = field(
         default=False,
         metadata={"help": "Whether or not to freeze the vit parameters."},
@@ -500,6 +515,31 @@ def main():
         config_kwargs=config_kwargs,
         moe_implementation=getattr(args.model, 'moe_implementation', None),
     )
+    if args.train.use_lora:
+        if args.train.train_expert_only:
+            raise ValueError("use_lora=true requires train_expert_only=false; LoRA freezes base weights itself.")
+        freeze_parameters(model)
+        if args.train.lora_scope == "action_expert":
+            target_pattern = (
+                r".*qwenvl_with_expert\.qwen_expert\..*\."
+                r"(q_proj|k_proj|v_proj|o_proj)"
+            )
+        else:
+            target_pattern = args.train.lora_target_modules
+        model = add_lora_to_model(
+            model,
+            lora_rank=args.train.lora_rank,
+            lora_alpha=args.train.lora_alpha,
+            lora_target_modules=target_pattern,
+            lora_target_modules_support=None,
+        )
+        trainable = sum(param.numel() for param in model.parameters() if param.requires_grad)
+        total = sum(param.numel() for param in model.parameters())
+        logger.info_rank0(
+            f"LoRA enabled: scope={args.train.lora_scope}, rank={args.train.lora_rank}, "
+            f"alpha={args.train.lora_alpha}, trainable={trainable:,}/{total:,} "
+            f"({100.0 * trainable / total:.4f}%)"
+        )
     use_depth_align = True if args.train.align_params != {} else False
     use_future_depth = args.train.align_params.get('depth', {}).get('use_future_depth', False)
     use_future_video = use_depth_align and args.train.align_params.get('use_future_video', False)

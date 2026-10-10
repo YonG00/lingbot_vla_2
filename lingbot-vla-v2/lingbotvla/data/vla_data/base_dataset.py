@@ -25,7 +25,11 @@ from torchvision.transforms.v2 import Resize
 try:
     from lerobot.datasets.lerobot_dataset import LeRobotDataset as BaseLeRobotDataset
     from lerobot.datasets.lerobot_dataset import LeRobotDatasetMetadata
-    from lerobot.datasets.utils import hf_transform_to_torch
+    try:
+        from lerobot.datasets.utils import hf_transform_to_torch
+    except ImportError:
+        # LeRobot 0.6 keeps the transform with the dataset reader.
+        from lerobot.datasets.dataset_reader import hf_transform_to_torch
     LEROBOT_DATASET_API = "v3"
 except ImportError:
     from lerobot.common.datasets.lerobot_dataset import LeRobotDataset as BaseLeRobotDataset
@@ -167,6 +171,11 @@ class LeRobotDataset(BaseLeRobotDataset):
         return item
 
     def __getitem__(self, idx) -> dict:
+        # LeRobot 0.6 moved delta-indexing and video decoding into
+        # DatasetReader. Reuse that implementation for v3 datasets instead of
+        # relying on the pre-0.6 attributes formerly exposed on the dataset.
+        if LEROBOT_DATASET_API == "v3" and hasattr(self, "_ensure_reader"):
+            return self._ensure_reader().get_item(idx)
         # Ensure dataset is loaded when we actually need to read from it
         item = self.hf_dataset[idx]
         ep_idx = item["episode_index"].item()
@@ -220,7 +229,7 @@ class VLADataset(Dataset):
         robot_config_root,
         config=None,
         processor=None,
-        video_backend = 'torchcodec',
+        video_backend = 'pyav',
         chunk_size = 50,
         image_size = (224, 224),
         do_nomalize = True,
@@ -255,6 +264,7 @@ class VLADataset(Dataset):
             #       norm_stats_file → .../robotwin_competition_clean.json (count   548,893 帧，**本数据集**)
             #   后果：训练/训练中评测用 A 套、官方开环+闭环评测用 B 套 ⇒ 模型输入分布不一致。
             #   实测（同一份 50k 权重）：用本数据集那套评，平均 MSE 0.47071 vs 另一套 0.48397（−2.7%）。
+            video_backend="pyav",
             #   修法：优先用 `dataset_config.norm_stats_file`；没有该字段时保持原行为（向后兼容）。
             self.feature_transform = FeatureTransform(robot_config, dataset_config, self.config, \
                         processor, disabled_image_features, do_nomalize, \

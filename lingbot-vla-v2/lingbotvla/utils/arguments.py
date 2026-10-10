@@ -982,8 +982,10 @@ def parse_args(rootclass: T) -> T:
     for base, arg_dict in input_data.items():
         for arg_name, arg_value in arg_dict.items():
             if f"--{base}.{arg_name}=" not in cmd_args_string:  # lower priority
-                # Skip list fields with None values to use default
-                if f"{base}.{arg_name}" in list_fields and arg_value is None:
+                # Keep dataclass defaults for YAML nulls and empty lists. Passing
+                # them through argparse turns null into the string "null" and
+                # emits a list flag without values, respectively.
+                if arg_value is None or (f"{base}.{arg_name}" in list_fields and not arg_value):
                     continue
 
                 cmd_args.append(f"--{base}.{arg_name}")

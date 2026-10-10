@@ -39,16 +39,27 @@ def add_lora_to_model(
     if init_lora_weights == "kaiming":
         init_lora_weights = True
 
+    # PEFT treats a string as a full regular expression and a list as suffix
+    # matches.  Keep both forms available so callers can constrain adapters to
+    # one branch of a multi-tower VLA model (for example qwen_expert only).
+    target_modules = (
+        lora_target_modules
+        if isinstance(lora_target_modules, str) and lora_target_modules.startswith(".*")
+        else [item.strip() for item in lora_target_modules.split(",") if item.strip()]
+        if isinstance(lora_target_modules, str)
+        else lora_target_modules
+    )
     lora_config = LoraConfig(
         r=lora_rank,
         lora_alpha=lora_alpha,
         init_lora_weights=init_lora_weights,
-        target_modules=lora_target_modules.split(","),
+        target_modules=target_modules,
     )
 
-    for lora_target_module in lora_config.target_modules:
-        if lora_target_module not in lora_target_modules_support:
-            raise ValueError(f"lora_target_module {lora_target_module} not in lora_target_modules_support")
+    if lora_target_modules_support is not None and not isinstance(target_modules, str):
+        for lora_target_module in target_modules:
+            if lora_target_module not in lora_target_modules_support:
+                raise ValueError(f"lora_target_module {lora_target_module} not in lora_target_modules_support")
 
     model = inject_adapter_in_model(lora_config, model)
     for param in model.parameters():
@@ -71,6 +82,7 @@ def add_lora_to_model(
         print(
             f"{num_updated_keys} parameters are loaded from {pretrained_lora_path}. {num_unexpected_keys} parameters are unexpected."
         )
+    return model
 
 
 def load_state_dict(file_path, torch_dtype=None):

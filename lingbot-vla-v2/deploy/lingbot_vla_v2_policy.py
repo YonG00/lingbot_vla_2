@@ -251,6 +251,18 @@ class LingbotVLAv2Server:
             )
         return model
 
+    @staticmethod
+    def _is_training_alignment_key(key: str) -> bool:
+        """Identify teacher-only alignment weights absent from inference policy."""
+        return key.startswith((
+            "model.current_video_align_",
+            "model.depth_align_",
+            "model.future_depth_align_",
+            "model.future_video_align_",
+            "model.current_shared_task_proj",
+            "model.future_shared_task_proj",
+        ))
+
     def load_model_weights(self, path_to_pi_model, strict=True):
         all_safetensors = glob(os.path.join(path_to_pi_model, "*.safetensors"))
         merged_weights = {}
@@ -259,6 +271,26 @@ class LingbotVLAv2Server:
             with safe_open(file_path, framework="pt", device="cpu") as f:
                 for key in f.keys():
                     merged_weights[key] = f.get_tensor(key)
+        inference_keys = set(self.vla.state_dict())
+        training_only_keys = {
+            key for key in merged_weights
+            if key not in inference_keys and self._is_training_alignment_key(key)
+        }
+        unexpected_keys = set(merged_weights) - inference_keys - training_only_keys
+        if unexpected_keys:
+            raise RuntimeError(
+                "Unexpected checkpoint keys not understood by inference model: "
+                + ", ".join(sorted(unexpected_keys))
+            )
+        if training_only_keys:
+            print(
+                f"Ignoring {len(training_only_keys)} full-SFT training-only "
+                "alignment weights during inference"
+            )
+            merged_weights = {
+                key: value for key, value in merged_weights.items()
+                if key not in training_only_keys
+            }
         self.vla.load_state_dict(merged_weights, strict=strict)
 
     def merge_qwen_config(self, qwen_config):
@@ -300,7 +332,21 @@ class LingbotVLAv2Server:
         print(f"loading model from: {path_to_pi_model}")
         
         # load training config
-        training_config_path = Path(path_to_pi_model).parent.parent.parent/'lingbotvla_cli.yaml'
+        configured_path = os.environ.get('LINGBOTVLA_TRAINING_CONFIG')
+        experiment_root = Path(__file__).resolve().parents[3]
+        candidate_paths = [
+            Path(configured_path) if configured_path else None,
+            Path(path_to_pi_model) / 'lingbotvla_cli.yaml',
+            Path(path_to_pi_model).parent.parent.parent / 'lingbotvla_cli.yaml',
+            experiment_root / 'training/lingbotvla_cli.yaml',
+        ]
+        training_config_path = next(
+            (candidate for candidate in candidate_paths if candidate and candidate.is_file()),
+            None,
+        )
+        if training_config_path is None:
+            searched = ', '.join(str(candidate) for candidate in candidate_paths if candidate)
+            raise FileNotFoundError(f'No LingBot-VLA training config found; searched: {searched}')
         with open(training_config_path, 'r') as f:
             training_config = yaml.safe_load(f)
         f.close()
@@ -315,6 +361,9 @@ class LingbotVLAv2Server:
 
         # Set attention_implementation to 'eager' to speed up evaluation.
         config.attention_implementation = 'eager'
+        # The official checkpoint enables a single-shape ViT cache. Disable it
+        # for the websocket server so one process can serve variable env batches.
+        config.precompute_grid_thw = False
         
         # set base model according to training config
         training_base_model = training_config['model']['tokenizer_path']
