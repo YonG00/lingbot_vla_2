@@ -221,7 +221,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 bash train.sh tasks/vla/train_lingbotvla.py "$CONFIG" \\
   --model.model_path       $MODEL_PATH \\
   --data.train_path        $PHASES/datasets.txt \\
-  --data.episode_ids_file  $TRAIN_IDS \\
+  ${TRAIN_IDS:+--data.episode_ids_file "$TRAIN_IDS"} \\
   --data.image_augment     false \\
   --train.output_dir       $TRAIN_OUT \\
   --train.micro_batch_size $MICRO \\
@@ -317,7 +317,7 @@ bash train.sh tasks/vla/train_lingbotvla.py \
     "$CONFIG" \
     --model.model_path       "$MODEL_PATH" \
     --data.train_path        "$PHASES/datasets.txt" \
-    ${TRAIN_IDS:+${TRAIN_IDS:+--data.episode_ids_file "$TRAIN_IDS"}} \
+    ${TRAIN_IDS:+--data.episode_ids_file "$TRAIN_IDS"} \
     --data.image_augment     false \
     --train.output_dir       "$TRAIN_OUT" \
     --train.micro_batch_size "$MICRO" \
