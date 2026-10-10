@@ -127,6 +127,31 @@ class RealHardnessScorer:
         score_seconds = 0.0
         batches = 0
         i = 0
+        # 🔴 进度可见性（2026-10-10 加）：这段 while 是 AL 里**唯一没有任何输出**的长循环，
+        #    单任务上千样本 × 每批 8 个 ⇒ 数百批、几十分钟静默。真机实测因此把"在扫难度"
+        #    误判成"卡死"，白花约 40 分钟排查。⇒ 按**时间节流**打点（默认最多每 15s 一行），
+        #    首尾各强制一行，保证"日志不动"这件事不再能被误读。
+        #    仅 rank0 输出：多卡下各 rank 内容一致，7 份重复只会淹掉日志。
+        _log_n = len(ids)
+        _log_every = float(os.environ.get('AL_HARDNESS_LOG_SEC', '15') or 15)
+        _log_t0 = time.perf_counter()
+        _log_last = 0.0
+        # 首行用的批大小：auto 模式下会动态变，这里按"起始批大小"给个量级即可。
+        _log_bs = (int(self._auto_batch.current) if self._auto_batch is not None
+                   else max(1, int(self.max_batch)))
+
+        def _hr_log(msg: str) -> None:
+            if self.logger is None:
+                return
+            try:
+                self.logger.info_rank0(msg)
+            except Exception:  # noqa: BLE001 —— 日志失败绝不该打断扫描
+                pass
+
+        _hr_log(f'[hardness] 开始打分：task={task} phase={_hr_phase} samples={_log_n} '
+                f'batch={_log_bs}{"(auto)" if self._auto_batch is not None else ""} '
+                f'⇒ 约 {(_log_n + _log_bs - 1) // _log_bs} 批（每 {_log_every:.0f}s 报一次进度；'
+                'AL_HARDNESS_LOG_SEC 可调）')
         while i < len(ids):
             batches += 1
             data_started = time.perf_counter()
@@ -208,6 +233,23 @@ class RealHardnessScorer:
                                 self.logger.warning(f'[hardness] report write failed: {_exc!r}')
                             except Exception:
                                 pass
+            # ---- 进度打点（时间节流；首批与末批强制）----
+            _now = time.perf_counter()
+            _is_last = i >= len(ids)
+            if _is_last or batches == 1 or (_now - _log_last) >= _log_every:
+                _log_last = _now
+                _elapsed = _now - _log_t0
+                _done = min(i, len(ids))
+                _rate = _done / _elapsed if _elapsed > 0 else 0.0
+                _eta = ((len(ids) - _done) / _rate) if _rate > 0 else float('inf')
+                _hr_log(f'[hardness] 进度 {_done}/{len(ids)}（批 {batches}）'
+                        f' 用时 {_elapsed:.0f}s 速度 {_rate:.1f} 样本/s'
+                        f' ETA {("?" if _eta == float("inf") else f"{_eta:.0f}s")}'
+                        f' | data {data_seconds:.1f}s score {score_seconds:.1f}s'
+                        + (' [最后一批]' if _is_last else ''))
+        _hr_log(f'[hardness] 打分完成：task={task} phase={_hr_phase} samples={len(ids)} '
+                f'批次={batches} 总用时 {time.perf_counter() - _log_t0:.1f}s'
+                f'（data {data_seconds:.1f}s / score {score_seconds:.1f}s）')
         self.last_timing = {"data_wall_seconds": round(data_seconds, 5),
                             "score_submit_seconds": round(score_seconds, 5),
                             "batches": batches, "samples": len(ids),

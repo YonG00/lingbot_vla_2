@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import math
+import time
 from dataclasses import dataclass
 from typing import Any, Dict, List
 
@@ -127,11 +128,36 @@ class HardnessScanner:
                 f"任务 {record.task_name} 的扫描子集为空（检查 TaskEntry.samples_by_traj）"
             )
 
+        # 🔴 外层可见性（2026-10-10 加）：`scan()` 是 `Scheduler._select()` 里最贵的一步，
+        #    而它自身（抽样比例、帧数、总时长）此前**完全没有日志**，只有内层 scorer 会打点。
+        #    这里给出"扫什么/扫多少/多久"，让"日志不动"能被立刻区分为「在扫」或「真卡死」。
+        _scan_t0 = time.perf_counter()
+        _scan_log = getattr(self.scorer, 'logger', None)
+
+        def _say(msg: str) -> None:
+            if _scan_log is None:
+                return
+            try:
+                _scan_log.info_rank0(msg)
+            except Exception:  # noqa: BLE001 —— 日志失败不该打断扫描
+                pass
+
+        _say(f'[hardness] 扫描开始：task={record.task_name} '
+             f'轨迹 {len(chosen)}/{len(record.train_traj_ids)} 条'
+             f'（fraction={cfg.hardness_probe_fraction}）'
+             f' ⇒ 待打分样本 {len(scanned_ids)}/该任务 {len(record.sample_ids)} 帧')
+
         scored = self.scorer.score(record.task_name, scanned_ids)
         losses = {int(s): float(v) for s, v in scored.items()}
         order = list(losses.keys())
         ranks = percentile_rank([losses[s] for s in order])
         difficulties = {s: r for s, r in zip(order, ranks)}
+
+        _vals = sorted(losses.values())
+        _say(f'[hardness] 扫描完成：task={record.task_name} 打分 {len(losses)}/{len(scanned_ids)} 个样本'
+             f' 用时 {time.perf_counter() - _scan_t0:.1f}s'
+             + (f' | loss 均值 {sum(_vals) / len(_vals):.4f} p90 {_vals[int(0.9 * (len(_vals) - 1))]:.4f}'
+                if _vals else ''))
 
         # 未扫描样本 → 默认中等难度（文档 §21），避免「没扫到 = 永远没机会训练」
         default_w = difficulty_to_weight(
