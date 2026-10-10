@@ -52,9 +52,13 @@ pass_thresholds_file: /workspace/eval_results/open_loop/ref50k/pass_thresholds_g
 pass_nmse: 0.35  # 兼容占位；GMean 模式下不参与 PASS
 
 # ----- train / eval cadence（正式值）-----
-eval_interval_steps: 2     # 测试配置：每 2 步评测一次（生产用 50）
-min_steps_before_defer: 2
-defer_retry_steps: 2
+#: 一个 learning unit = `eval_interval_steps` 个 optimizer step，unit 末尾才做 REVIEW/判定。
+#: 2026-10-10 用户定：2 → 50（正式训练）。真实成本结构见当日流水：一个 unit 的真训练
+#: 只有 ~10 s/步，而评测+难度扫描此前占 80%+ ⇒ 拉大 cadence 是**唯一有量级收益**的旋钮。
+#: ⚠️ `min_steps_before_defer` / `defer_retry_steps` **必须是本值的整数倍**（config.py 强制校验）。
+eval_interval_steps: 50
+min_steps_before_defer: 100
+defer_retry_steps: 100
 
 # ----- after PASS -----
 continue_after_pass: false      # 达标即转下一个任务，不继续磨
@@ -70,7 +74,7 @@ max_attempts_per_task: 2        # 首轮 + 1 次重试 ⇒ 再不行 EXHAUSTED
 # ----- optional rescue -----
 #: 保持 false：打开后**每次 DEFER 前会先重扫一次 hardness**（多 1–2 分钟/次）。
 defer_resample_retry: false
-defer_retry_steps: 2
+defer_retry_steps: 100
 
 # ----- overfit -----
 early_defer_on_overfit: true
@@ -88,7 +92,12 @@ replay_slots: 3
 new_ratio: 0.7                 # 0.7 NEW / 0.3 Replay，空 PASS 池时全部为 NEW
 
 # ----- hardness -----
-hardness_probe_fraction: 0.10
+#: 轨迹选取比例：`k = ceil(n_traj × fraction)`。本机任务多为 40 条 train 轨迹
+#: ⇒ 0.05 恰为 **2/40** 条轨迹（整段扫其全部帧）。
+#: ⚠️ 这是**方法学参数**，不是纯性能旋钮：未扫描的样本按 `difficulty_unscored_default`
+#: 计权重（本配置 0.5），所以调小它会让采样权重分布更"平"。
+#: 2026-10-10 用户定：0.10 → 0.05（扫描帧数减半）。它**不在 scout 缓存指纹内**，不会让既有缓存失效。
+hardness_probe_fraction: 0.05
 hardness_weight_min: 1.0
 hardness_weight_max: 3.0
 hardness_alpha: 2.0
