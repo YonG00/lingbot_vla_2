@@ -42,6 +42,46 @@
 
 ---
 
+## 1.1 🔴 第 0 号前置条件：`AITER_USE_SYSTEM_TRITON=1`（比编译问题更早一层）
+
+**这是"训练起不来"的另一个独立成因**，发生在任何编译/注意力问题**之前**（模型模块 import 阶段）。
+若这一层没好，根本走不到本文 §2 的编译报错。
+
+**症状链（一个根因串起来）**
+
+```
+/opt/aiter/aiter/ops/triton/gluon/__init__.py 在 import 时校验 triton>=3.6.0
+  ⇒ 镜像里是 triton 3.5.1+rocm7.2.1 ⇒ raise RuntimeError
+    ⇒ flash_attn（ROCm 版）硬依赖 aiter（该 import 不在 try/except 内）导入失败
+      ⇒ lingbotvla 模型模块导入失败（注册表架构数 = 0）
+        ⇒ get_loader() 退回 HuggingfaceLoader
+          ⇒ ValueError: Unrecognized configuration class
+```
+
+实测报错：
+```
+aiter 失败: aiter gluon kernels require triton>=3.6.0, found 3.5.1+rocm7.2.1.gita272dfa8
+flash_attn 失败: 同上
+```
+
+**修法（零侵入，不改任何文件）**：aiter 源码本来就是"设了环境变量就只警告"：
+```python
+if int(os.environ.get("AITER_USE_SYSTEM_TRITON", 0)): warnings.warn(...)
+else: raise RuntimeError(...)
+```
+⇒ 只需 `export AITER_USE_SYSTEM_TRITON=1`。修复后实测：
+```
+aiter OK ✓   flash_attn OK ✓   注册表架构数: 2 ✓
+```
+
+⚠️ **实例重建会丢**：这条修复若只写在容器可写层（或只改 `/opt/aiter`），**实例重建后必现**。
+已入库幂等修复脚本（见提交 `b0a3c3b`）；新实例启动时应先跑一次，或把该变量写进启动脚本/环境。
+
+> 与本文主线的关系：本节是"第 0 层"，§2–§4 是"第 1、2 层"。
+> 三层都可能独立导致"训练起不来"，**排查顺序应从第 0 层往上**。
+
+---
+
 ## 2. 问题一：编译崩溃（`PassManager::run failed`）
 
 ### 2.1 原始报错（7/7 rank 全部失败）
@@ -262,8 +302,10 @@ grep -a "Step: 1/5000"                    …/logs/train_al_vNN.log   # 首步�
 grep -ac "PassManager::run failed"        …/logs/train_al_vNN.log   # 必须为 0
 ```
 
-**如果再遇到"卡在 Step 0"，按这个顺序查（每步都有实测判据）**：
+**如果训练起不来，按这个顺序查（从最底层往上，每步都有实测判据）**：
 
+0. **先确认模型能 import**（第 0 层）：`AITER_USE_SYSTEM_TRITON=1` 是否已设；
+   症状是 `Unrecognized configuration class` / 注册表架构数 = 0（见 §1.1）；
 1. `grep -c "PassManager::run failed"` ⇒ 非 0 说明又开编译了（检查 `use_compile`）；
 2. 采样编译缓存文件数 60 秒 ⇒ **不增长** + worker 烧 CPU ⇒ 编译阶段死锁（检查 per-rank 隔离是否生效）；
 3. `grep -a "torch_dynamo_resume_in"` ⇒ 有 ⇒ 编译开着且存在图断裂；
