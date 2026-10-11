@@ -113,11 +113,79 @@ def test_model_mismatch_rebuilds_file_with_new_model(tmp_path):
 
 @pytest.mark.parametrize('explicit,ckpt,expect', [
     ('my-model', '/anywhere/weights', 'my-model'),
-    (None, '/models/robbyant_lingbot-vla-v2-6b-bf16', 'robbyant_lingbot-vla-v2-6b-bf16'),
+    ('my-model', None, 'my-model'),
+    # 路径**不足 4 段** ⇒ 按实际段数取（旧行为不变）
+    (None, '/models/robbyant_lingbot-vla-v2-6b-bf16', 'models/robbyant_lingbot-vla-v2-6b-bf16'),
     (None, None, 'unknown'),
+    (None, 'relative/dir', 'relative/dir'),
 ])
 def test_resolve_model_name(explicit, ckpt, expect):
     assert resolve_model_name(explicit, checkpoint_dir=ckpt) == expect
+
+
+# --------------------------------------------------------------------------- #
+# 「模型标识 = checkpoint 尾部 4 段」—— 2026-10-11 用户定（方案 A）
+# --------------------------------------------------------------------------- #
+TRAIN_CKPT = ('/models/robotwin-persistent/al_runs/train_al_v37/'
+              'checkpoints/global_step_500/hf_ckpt')
+
+
+def test_model_name_keeps_run_and_step_tail4():
+    """尾部 4 段必须保留 **run 名 + 步数 + 权重类型**（这正是修 bug 的目的）。"""
+    assert resolve_model_name(None, checkpoint_dir=TRAIN_CKPT) == \
+        'train_al_v37/checkpoints/global_step_500/hf_ckpt'
+
+
+def test_base_and_trained_ckpt_get_different_names():
+    """**核心回归**：base 权重与"训练 500 步后的权重"必须得到**不同**标识。
+
+    实测踩过：二者都被算成 `robbyant_lingbot-vla-v2-6b-bf16` ⇒ base 的 scout/hardness
+    缓存被错误地用在 500 步权重的训练上（而两者表现差异极大：nmse 0.79 vs 0.09）。
+    """
+    base = resolve_model_name(None, checkpoint_dir='/workspace/models/robbyant_lingbot-vla-v2-6b-bf16')
+    trained = resolve_model_name(None, checkpoint_dir=TRAIN_CKPT)
+    assert base != trained, f'base 与训练后权重不能同标识：{base!r} == {trained!r}'
+
+
+@pytest.mark.parametrize('run_a,run_b', [('train_al_v37', 'train_al_v38')])
+def test_different_runs_same_step_do_not_collide(run_a, run_b):
+    """**核心回归**：不同 run 的同一 step（都叫 global_step_500）不得撞车。
+
+    若只取尾部 3 段（`checkpoints/global_step_500/hf_ckpt`），这两个 run 会得到同一个标识
+    ⇒ 缓存互串。尾部 4 段把 run 名保住，因此必须不同。
+    """
+    ca = f'/models/robotwin-persistent/al_runs/{run_a}/checkpoints/global_step_500/hf_ckpt'
+    cb = f'/models/robotwin-persistent/al_runs/{run_b}/checkpoints/global_step_500/hf_ckpt'
+    na, nb = (resolve_model_name(None, checkpoint_dir=c) for c in (ca, cb))
+    assert na != nb, f'不同 run 撞车：{na!r}'
+
+
+def test_different_steps_do_not_collide():
+    """同 run 内不同步数必须得到不同标识（缓存与步数绑定）。"""
+    n250 = resolve_model_name(None, checkpoint_dir=TRAIN_CKPT.replace('500', '250'))
+    n500 = resolve_model_name(None, checkpoint_dir=TRAIN_CKPT)
+    assert n250 != n500
+
+
+def test_explicit_name_still_wins():
+    """显式 `--model-name` 仍然是**唯一权威**（向后兼容，不改变既有语义）。"""
+    assert resolve_model_name('explicit-name', checkpoint_dir=TRAIN_CKPT) == 'explicit-name'
+
+
+def test_model_name_never_used_as_path(tmp_path):
+    """标识含 `/` 也必须安全：缓存把它当**纯字符串**写入 JSON，不做路径拼接。"""
+    model = resolve_model_name(None, checkpoint_dir=TRAIN_CKPT)
+    assert '/' in model
+    f = tmp_path / 'hardness.json'
+    c = HardnessSampleCache(f, model=model)
+    c.store('t', {1: 0.5})
+    raw = json.loads(f.read_text(encoding='utf-8'))
+    assert raw['model'] == model                      # 原样保存
+    assert (tmp_path / 'hardness.json').is_file()     # 缓存路径不受标识影响
+    # 标识不同 ⇒ 读取判未命中
+    other = HardnessSampleCache(f, model='train_al_v38/checkpoints/global_step_500/hf_ckpt')
+    assert other.load('t', [1])[0] == {}
+    assert other.last_miss_reason == 'model_mismatch'
 
 
 def test_empty_model_is_rejected(tmp_path):

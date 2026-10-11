@@ -33,16 +33,33 @@ NOISE_SEMANTIC_VERSION = 1
 MAX_JSON_BYTES = 64 * 1024 * 1024
 
 
+#: 从 checkpoint 路径推导模型标识时保留的**尾部路径段数**（用户 2026-10-11 定）。
+#:
+#: 为什么不是 basename：训练产出的权重目录通常长这样 ——
+#:     …/al_runs/train_al_v37/checkpoints/global_step_500/hf_ckpt
+#: 只取 basename 会得到 `hf_ckpt`，**丢掉 run 名与步数** ⇒ 不同 run/不同步数的权重会撞成同一个
+#: 标识、缓存互串（实测踩过：base 权重与 500 步权重都被算成 `robbyant_lingbot-vla-v2-6b-bf16`，
+#: 于是 base 的 scout/hardness 指标被用在 500 步权重的训练上）。取尾部 4 段得到
+#: `train_al_v37/checkpoints/global_step_500/hf_ckpt` ⇒ **唯一、可读、且与步数绑定**。
+#: 段数不足 4 时按实际段数取（`/models/foo-6b` ⇒ `models/foo-6b`），对新路径的影响最小。
+MODEL_NAME_PATH_SEGMENTS = 4
+
+
 def resolve_model_name(explicit: Optional[str] = None, *,
                        checkpoint_dir: Optional[str | Path] = None,
                        fallback: str = 'unknown') -> str:
-    """模型标识：优先显式入参，其次权重目录名，最后 `fallback`。"""
+    """模型标识：优先显式入参，其次 checkpoint 路径的**尾部 4 段**，最后 `fallback`。
+
+    ⚠️ 标识**只做字符串比较**（写进缓存 JSON 的 `model` 字段、读时逐字比对），
+    不会被当作文件名/路径使用 ⇒ 含 `/` 安全，而且这正是把"run + 步数 + 权重类型"
+    都体现在标识里的手段。
+    """
     if explicit:
         return str(explicit)
     if checkpoint_dir:
-        name = Path(checkpoint_dir).expanduser().name
-        if name:
-            return name
+        parts = [p for p in Path(checkpoint_dir).expanduser().parts if p not in ('/', '')]
+        if parts:
+            return '/'.join(parts[-MODEL_NAME_PATH_SEGMENTS:])
     return fallback
 
 

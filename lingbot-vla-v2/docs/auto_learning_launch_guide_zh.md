@@ -19,7 +19,10 @@
 > 🔴 **2026-10-10 起缓存不用指纹寻址**：以前是"算指纹 → 用指纹命名缓存目录"，改代码就会
 > 换目录 ⇒ 缓存全失效（实测一次改动导致 7 个任务重扫、单次扫描 208 秒）。现在改成
 > **显式文件 + 模型名**：文件路径由 `--scout-cache-file` / `--hardness-cache-file` 指定，
-> 缓存有效性只由 **`--model-name`** 决定（换模型才失效，改代码不失效）。
+> 缓存有效性只由 **模型标识** 决定（换模型/换权重要求失效，改代码不失效）。
+> **标识怎么来**（2026-10-11 起）：`--model-name` 显式给了就用它；**没给则取 `--checkpoint` 路径的尾部 4 段**
+> （例如 `train_al_v37/checkpoints/global_step_500/hf_ckpt`）⇒ **run 名 + 步数 + 权重类型**都在标识里，
+> 因此 base 权重与"训练 500 步后的权重"**自动区分**，不会互相误用缓存。
 > 指纹仍可算，但**默认不计算**（`--compute-fingerprint` 才开）——计算它要读 11.9 GiB 权重分片。
 
 ---
@@ -225,7 +228,7 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
 | `--micro` / `--gas` | 拉起训练时的实测值 **`5` / `1`**（GBS 35） | 传给启动脚本的 `MICRO` / `GAS`；脚本自算 `GBS = MICRO*GAS*N_GPU` | 显存不够或要改全局批大小时。**AL 要求 `micro*gas == AL 配置的 batch_size`**，否则启动即报错。⚠️ 本机把 micro 从 12 一路降到 5 的实测经验：**降 micro 几乎省不下显存**（峰值 49.1→48.9 GiB），省下的主要是每步时间（14.1→11.0 s/it） |
 | `--scout-cache-file` | `/workspace/al/scout_cache/scout.json` | **scout 缓存文件**（单文件，含 `model` 字段） | 缓存换盘/换位置时 |
 | `--hardness-cache-file` | `/workspace/al/hardness_cache/hardness.json` | **hardness（样本难度）缓存文件** | 同上 |
-| `--model-name` | 取权重目录名 | **缓存有效性判据**：与缓存文件里的 `model` 逐字比较，不一致即全部未命中 | 换模型时；或想手工指定一个稳定标识时 |
+| `--model-name` | **空**（不传则从 `--checkpoint` 自动推导） | **缓存有效性判据**：与缓存文件里的 `model` 逐字比较，不一致即全部未命中。**不传时**取 checkpoint 路径**尾部 4 段**（`train_al_v37/checkpoints/global_step_500/hf_ckpt`）⇒ 与 run/步数绑定 | 想强制复用某份缓存时（显式给名字）；⚠️ 显式给了就用它，**不再看实际权重** |
 | `--cache-root` | 空（兼容保留） | 旧参数：等价于 `<目录>/scout.json` | 只有沿用旧命令时才需要 |
 | `--fingerprint` | 空 | (已弃用) 显式 64 位指纹；**不再用于缓存寻址**，仅作记录 | 需要复现某次运行的记录时 |
 | `--compute-fingerprint` | 关 | 计算并打印 provenance 指纹 | 默认关闭：计算要读 11.9 GiB 权重分片（每轮多花 1–3 分钟），而它已不参与寻址 |
@@ -315,7 +318,7 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
 
 | 决定项 | 具体内容 |
 |---|---|
-| **模型身份** | `--model-name`（缺省取权重目录名）。与文件里的 `model` 字段**逐字比较**，不一致即全部未命中 |
+| **模型身份** | `--model-name`；未给则取 `--checkpoint` 路径**尾部 4 段**（`MODEL_NAME_PATH_SEGMENTS=4`）。与文件里的 `model` 字段**逐字比较**，不一致即全部未命中 |
 | schema 版本 | 文件里的 `version` 必须等于 `scout_cache.VERSION`（launcher 里有一份**副本常量**，两端必须同步，测试会拦住漂移） |
 | 单条记录自洽性 | `metrics.mse == mean(per_traj_mse)`、`nmse == mse/baseline_mse`、`metric_valid`、回合集合与键一致 |
 
@@ -403,7 +406,8 @@ worker 则导出单张卡的编号。要换卡请改 `--gpus`，不要靠脚本�
 
 | 原因 | 表现 | 处置 |
 |---|---|---|
-| **换了模型**（`--model-name` 与文件里的 `model` 不一致） | 日志点名 `model_mismatch`，覆盖显示 `0/50` ⇒ 真扫一遍并重建 | 确认模型名写对；若确实换了模型，让它重扫（或把结果写进新文件） |
+| **换了模型 / 换了权重**（标识与文件里的 `model` 不一致） | 日志点名 `model_mismatch`，覆盖显示 `0/50` ⇒ 真扫一遍并重建 | 无需处理（自动重扫）；若想复用旧缓存，显式 `--model-name` 传旧标识 |
+| **从别的 run/步数继续训**（例如从 `global_step_500/hf_ckpt` 起） | 标识自动变成 `train_al_vXX/checkpoints/global_step_500/hf_ckpt` ⇒ 与 base 的缓存**不同**，自动重扫 | 这是**刻意**的：base 的 scout/hardness 指标不能代表训练后的权重 |
 | 文件坏 / schema 不符 / 版本不符 | 视为未命中并重建（**不抛异常**） | 无需处理，重扫后自动恢复 |
 
 **改代码 / 改注释 / 改 AL 配置都不会让缓存失效**（这是 2026-10-10 改造的核心目的：
