@@ -1213,6 +1213,15 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
     for k, v in os.environ.items():
         if k.startswith('AL_') and k not in extra:
             extra[k] = v
+    #: 🔴 2026-10-11 真机踩坑：`SAVE_EVERY` / `HF_PASS_INTERVAL` 是**训练脚本**读的变量
+    #    （`al_50task_bf16.sh` 第 81 / 113 行），不带 `AL_` 前缀 ⇒ 被上面的白名单丢掉，
+    #    于是 shell 里 `SAVE_EVERY=400 python al_launch.py …` **静默无效**
+    #    （实测：存档仍是默认 1000 步、HF 里程碑仍是默认"每 2 个任务"）。
+    #    它们属于"存档节奏"这类明确参数 ⇒ 纳入透传白名单；显式 `--env` 仍然优先
+    #    （`| extra` 在返回字典最后合并）。
+    for _k in ('SAVE_EVERY', 'HF_PASS_INTERVAL'):
+        if _k in os.environ and _k not in extra:
+            extra[_k] = os.environ[_k]
     # 🔴 2026-10-11：`AL_SCAN_SKIP_HARDNESS` **禁止自动透传**。
     #    它只由 `_scan_round()` 注入扫描 worker；若从父进程 shell 漏进来，训练进程会
     #    跳过 hardness（bootstrap 一空就收工）⇒ 训练评测口径被破坏。

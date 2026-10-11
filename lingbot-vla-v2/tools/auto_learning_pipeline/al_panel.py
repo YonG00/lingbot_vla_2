@@ -42,25 +42,95 @@ def sh(cmd: List[str]) -> str:
         return ''
 
 
-def rank_count() -> int:
-    """只数**真正的训练 rank**（判据：该进程是 `torch.distributed.run` 的直接子进程）。
+def discover_trainers() -> List[Dict[str, object]]:
+    """发现机上**所有**训练器（torchrun 进程组），每个一档。
 
-    ⚠️ 不能用"环境里有没有 `WORLD_SIZE`"——dataloader / 编译 worker 都**继承**父进程环境
-    （实测把 6 个 rank 数成 54 个）。也不能只靠 cmdline 匹配（bash / train.sh / torchrun
-    的命令行里都含脚本名）。
+    为什么不能只数一个数字：一台机器上**可以同时跑多个 run**（实测 al_v41 六卡 + al_v42 两卡），
+    旧实现把「所有 torchrun 的直接子进程」加在一起 ⇒ 显示 `8 rank`，对任何单个 run 都是错的。
+
+    判据（全部来自 /proc 事实，不写死 run 名/卡数）：
+      * **组**   = 一个 `torch.distributed.run` 进程；
+      * **ranks** = 该 torchrun 的**直接子进程**数（并与其 `WORLD_SIZE` 交叉校验）；
+      * **run 名** = rank 子进程环境里 `TRAIN_OUT` 的 basename（如 `train_al_v42` ⇒ `al_v42`），
+        缺失时退到 `AL_CFG` / cmdline 里的 CONFIG 路径；
+      * 另收 `CUDA_VISIBLE_DEVICES`（占哪几张卡）、`AL_MODEL_NAME`（基底）、`PYTHONPATH`（哪个代码副本）、
+        `/proc/<pid>/stat` 的启动时间（用于"最新"兜底）。
     """
-    all_pids = _pids()
-    torchrun_pids = set()
-    for p in all_pids:
-        if 'torch.distributed.run' in _cmdline(p):
-            torchrun_pids.add(p)
-    if not torchrun_pids:
-        return 0
-    n = 0
-    for p in all_pids:
-        if _ppid(p) in torchrun_pids:
-            n += 1
-    return n
+    pids = _pids()
+    parent: Dict[str, str] = {}
+    for pid in pids:
+        parent[pid] = _ppid(pid)
+    out: List[Dict[str, object]] = []
+    for tp in pids:
+        if 'torch.distributed.run' not in _cmdline(tp):
+            continue
+        kids = [c for c in pids if parent.get(c) == tp]
+        if not kids:
+            continue
+        env = _environ(kids[0])
+        train_out = env.get('TRAIN_OUT', '')
+        # 🔴 判据必须是 **basename**：TRAIN_OUT 是绝对路径（`/models/…/train_al_v42`），
+        #    对整串做 `startswith('train_')` 恒为 False ⇒ 会掉进下面的回退正则，
+        #    而回退正则会被 `al_eval2_*.yaml` 里的 `al_eval2` 命中 ⇒ 解析成错误的 `al_v2`。
+        _base = Path(train_out).name
+        run = _base[len('train_'):] if _base.startswith('train_') else ''
+        al_cfg = env.get('AL_CFG', '')
+        if not run and al_cfg:
+            # 回退只认"**以 al_v<数字> 结尾**"的运行名目录，避免误吃 al_eval2 这类配置名
+            m = re.search(r'(?:^|/)(al_v\d+)(?:/|$)', al_cfg)
+            run = m.group(1) if m else ''
+        world = env.get('WORLD_SIZE', '')
+        started = min((_start_ticks(c) for c in kids), default=0)
+        out.append({
+            'pgid': tp,
+            'run': run,
+            'ranks': len(kids),
+            'world_size': int(world) if str(world).isdigit() else None,
+            'gpus': env.get('CUDA_VISIBLE_DEVICES', ''),
+            'model': env.get('AL_MODEL_NAME', ''),
+            'workspace': env.get('PYTHONPATH', ''),
+            'al_cfg': al_cfg,
+            'started': started,
+        })
+    out.sort(key=lambda t: -int(t['started']))          # 最新启动的排前面
+    return out
+
+
+def find_trainer(trainers: List[Dict[str, object]], run: str) -> Optional[Dict[str, object]]:
+    """挑出属于 `run` 的训练器；挑不到返回 None（**不拿别的 run 的数字充数**）。"""
+    for t in trainers:
+        if t['run'] and t['run'] == run:
+            return t
+    for t in trainers:                                   # 退一步：按 run 目录出现在哪条环境里匹配
+        # 退一步：按"run 目录路径"精确匹配（**不做宽子串**：`al_v4` 会误命中 `al_v41`）
+        if run:
+            want = f'/train_{run}'
+            for t in trainers:
+                hay = ' '.join(str(t.get(k, '')) for k in ('al_cfg', 'workspace', 'model'))
+                if want in hay:
+                    return t
+    return None
+
+
+def _fmt_trainer(t: Dict[str, object]) -> str:
+    src = '进程' if t['run'] else '（run 名未识别）'
+    head = f"{src} {t['ranks']} rank"
+    if t['gpus']:
+        head += f" · GPU{t['gpus']}"
+    if t['run']:
+        head += f" · {t['run']}"
+    return head
+
+
+def print_trainers(trainers: List[Dict[str, object]], run: str) -> None:
+    """列出机上所有训练器（多 run 并存时一眼看清谁在跑、几个 rank、占哪几张卡）。"""
+    print(f' 训练器: 共 {len(trainers)} 个' if trainers else ' 训练器: 无（未发现 torchrun）')
+    for t in trainers:
+        mark = ' ← 本 run' if t['run'] == run else ''
+        extra = f" | 基底 {Path(str(t['model'])).name}" if t['model'] else ''
+        ws = Path(str(t['workspace'])).name if t['workspace'] else ''
+        extra += f' | 代码 {ws}' if ws else ''
+        print(f"   · {_fmt_trainer(t)}{extra}{mark}")
 
 
 def _pids() -> List[str]:
@@ -84,6 +154,31 @@ def _cmdline(pid: str) -> str:
             return fh.read().decode('utf-8', 'replace')
     except OSError:
         return ''
+
+
+def _environ(pid: str) -> Dict[str, str]:
+    """只读**训练 rank 子进程**的 environ（2~8 个），不做全表扫描 —— 快且省。"""
+    try:
+        with open(f'/proc/{pid}/environ', 'rb') as fh:
+            raw = fh.read().decode('utf-8', 'replace')
+    except OSError:
+        return {}
+    out: Dict[str, str] = {}
+    for kv in raw.split('\0'):
+        if '=' in kv:
+            k, v = kv.split('=', 1)
+            out[k] = v
+    return out
+
+
+def _start_ticks(pid: str) -> int:
+    """进程启动时刻（/proc/<pid>/stat 第 22 字段，单位 tick）—— 用于"最新训练器"兜底。"""
+    try:
+        with open(f'/proc/{pid}/stat', 'rb') as fh:
+            body = fh.read().decode('utf-8', 'replace').rsplit(')', 1)[1].split()
+        return int(body[19])                              # state(0) 之后第 20 项 = starttime
+    except (OSError, IndexError, ValueError):
+        return 0
 
 
 def pick_run(arg: Optional[str]) -> str:
@@ -251,22 +346,34 @@ def derive_status(events: Path) -> Tuple[Dict[str, str], List[str]]:
     return status, passed
 
 
-def step_progress(log: Path, interval: Optional[int]) -> Tuple[Optional[int], Optional[float], int]:
-    """返回 (最新 step, 稳态 s/it 中位数, 采样到的步数)。"""
+def step_progress(log: Path, interval: Optional[int]) -> Tuple[Optional[int], Optional[float], int, Optional[float]]:
+    """返回 (最新 step, **稳态** s/it 中位数, 采样步数, 最新一步的 s/it)。
+
+    🔴 为什么必须区分"稳态"和"最新一步"（真机踩坑）：
+        `s/it` 是**平均**步时；unit 边界那一步要跑开环评测 ⇒ 实测被抬到 **276.95s/it**
+        （同期稳态是 13 s/it 量级）。只看最新一步会误判成"训练变慢 20 倍"。
+        判据：`interval`（评测间隔，默认 50）—— step % interval == 0 的样本算**边界步**，剔除后取中位数。
+
+    🔴 另一个坑：日志里进度条用 `\\r` 分隔，切片 400KB **可能只含 1 个样本** ⇒
+        "中位数"退化成单点。这里先把 `\\r` 归一成 `\\n` 再匹配，并把窗口放大到 2 MB。
+    """
     if not log.is_file():
-        return None, None, 0
+        return None, None, 0, None
     try:
-        tail = log.read_text(encoding='utf-8', errors='replace')[-400_000:]
+        tail = log.read_text(encoding='utf-8', errors='replace')[-2_000_000:]
     except OSError:
-        return None, None, 0
+        return None, None, 0, None
+    tail = tail.replace('\r', '\n')                       # 进度条分隔符归一
     hits = re.findall(r'Step:\s*(\d+)/\d+\s*\[[^]]*?([\d.]+)s/it', tail)
     if not hits:
         m = re.findall(r'Step:\s*(\d+)/', tail)
-        return (int(m[-1]) if m else None), None, 0
-    steps = [int(a) for a, _ in hits]
-    rates = [float(b) for _, b in hits]
-    steady = rates[-10:] if len(rates) >= 3 else rates
-    return steps[-1], statistics.median(steady), len(hits)
+        return (int(m[-1]) if m else None), None, 0, None
+    latest = float(hits[-1][1])
+    iv = int(interval) if interval else 50
+    steady_rates = [float(b) for a, b in hits if iv and int(a) % iv != 0]   # 剔掉边界步
+    if len(steady_rates) < 3:                            # 稳态样本太少 ⇒ 退回全部
+        steady_rates = [float(b) for _, b in hits]
+    return int(hits[-1][0]), statistics.median(steady_rates[-20:]), len(hits), latest
 
 
 # --------------------------------------------------------------------------- #
@@ -276,14 +383,57 @@ def main() -> int:
     ap = argparse.ArgumentParser(description='AL 训练仪表盘')
     ap.add_argument('run', nargs='?', default=None, help='run 名（默认自动选最新）')
     ap.add_argument('--all', action='store_true', help='列出全部任务（默认只列最接近通关的若干）')
+    ap.add_argument('--trainers', action='store_true',
+                    help='只列出机上所有训练器（多 run 并存时用；每个一行）')
     ap.add_argument('--top', type=int, default=4,
                     help='默认显示多少个任务（按倍数升序；默认 4 以便整屏可见；--all 看全部）')
     args = ap.parse_args()
 
+    if getattr(args, 'trainers', False):
+        _ts = discover_trainers()
+        print('=' * 78)
+        print(' AL 训练器（torchrun 进程组）')
+        print('=' * 78)
+        print_trainers(_ts, '')
+        return 0
+
     run = pick_run(args.run)
-    if not run or not (ROOT / f'train_{run}').is_dir():
-        print(f'未找到 run（ROOT={ROOT}）。请指定：al_panel.py <run名>；'
-              '或用 AL_ROOT=<al_runs 目录> 覆盖根目录。')
+    run_dir = (ROOT / f'train_{run}') if run else None
+    if not run or run_dir is None or not run_dir.is_dir():
+        # 🔴 三种情况必须分开说（真机踩坑：新 run 在预扫阶段**目录尚未创建**，
+        #    旧提示语一律说"未找到 run"，让人误以为 run 名写错）：
+        #    ① 进程在跑但目录没建 ⇒ 仍在启动/预扫；
+        #    ② 进程不在跑且目录没建 ⇒ 真的没有这个 run；
+        #    ③ 目录在但事件流为空 ⇒ 刚起，还没走到第一个 unit。
+        running = [t for t in discover_trainers() if t.get('run') == run]
+        existing = sorted(q.name[len('train_'):] for q in ROOT.glob('train_*') if q.is_dir())
+        print('=' * 78)
+        print(f' AL 仪表盘  run={run or "(未指定)"}')
+        print('=' * 78)
+        if running:
+            t0 = running[0]
+            print(' 状态: 已启动但**尚未进入训练**（run 目录未创建 ⇒ 仍在预扫/初始化）')
+            print(f'   · {_fmt_trainer(t0)} | 代码 {Path(str(t0["workspace"])).name}')
+            log = Path('/workspace/runtime/logs') / f'launch_{run}.log'
+            if log.is_file():
+                try:
+                    tail = log.read_text(encoding='utf-8', errors='replace')[-6000:]
+                except OSError:
+                    tail = ''
+                prog = re.findall(r'合计 (\d+/\d+)', tail)
+                if prog:
+                    print(f'   · 预扫进度: {prog[-1]}（日志 {log}）')
+                else:
+                    print(f'   · 启动日志: {log}')
+            else:
+                print(f'   · 启动日志: 未找到 {log}')
+            print(f'   · 进入训练后（目录出现 {run_dir}）本面板自动有数据')
+        else:
+            print(f' 状态: 未找到 run（ROOT={ROOT}）')
+            if existing:
+                print(f' 现有 run: {", ".join(existing[-8:])}')
+            print(' 用法: al_panel.py <run名>；或用 AL_ROOT=<al_runs 目录> 覆盖根目录')
+        print('=' * 78)
         return 2
     cfg = run_cfg(run)
     thresholds = load_thresholds(cfg['thresholds'])          # type: ignore[arg-type]
@@ -292,8 +442,9 @@ def main() -> int:
     last, per_task = read_events(ev_path)
     derived_status, derived_passed = derive_status(ev_path)
     series = read_series(ev_path)
-    nrank = rank_count()
-    step, sit, nsamples = step_progress(ROOT / 'logs' / f'train_{run}.log', cfg['interval'])  # type: ignore[arg-type]
+    trainers = discover_trainers()
+    trainer = find_trainer(trainers, run)
+    step, sit, nsamples, latest_sit = step_progress(ROOT / 'logs' / f'train_{run}.log', cfg['interval'])  # type: ignore[arg-type]
 
     # 🔴 通关数口径（真机纠错两次后的结论）：
     #    * **registry 指标 `curriculum/passed_tasks` 是权威**（scheduler 自己算，含训练中新增 PASS）；
@@ -309,12 +460,27 @@ def main() -> int:
     _th = Path(str(cfg['thresholds'] or '?')).name
     _iv = f'；每 {cfg["interval"]} 步判定一次' if cfg['interval'] else ''
     print(f' 门槛: {_th.replace("pass_thresholds_", "")}（{len(thresholds)} 任务）{_iv}')
-    st_line = (f' 状态: 训练中（{nrank} rank/{nrank} 卡）'
-               if nrank else ' 状态: 未在训练')
+    # 🔴 状态行只报**本 run 自己的训练器**；机上有多个训练器时**绝不合并计数**
+    #    （旧实现把 v41 的 6 rank + v42 的 2 rank 加成 8 ⇒ 对两个 run 都错）。
+    if trainer:
+        _r = int(trainer['ranks'])                        # type: ignore[arg-type]
+        ws = trainer['world_size']
+        st_line = f' 状态: 训练中（{_r} rank'
+        if ws is not None and int(ws) != _r:              # type: ignore[arg-type]
+            st_line += f'/{ws}⚠️'
+        st_line += f' · GPU{trainer["gpus"]}）' if trainer['gpus'] else '）'
+    elif not trainers:
+        st_line = ' 状态: 未在训练（未发现 torchrun 进程）'
+    else:
+        st_line = ' 状态: 本 run 无进程（机上另有训练器在跑，见下方"训练器"）'
     if step is not None:
         st_line += f' | Step {step}'
+    # 🔴 步时必须**分开报**：`s/it` 是平均值，边界步含评测（实测 276.9s/it vs 稳态 13s/it）；
+    #    只报一个数会被读成"训练变慢 20 倍"。
     if sit:
-        st_line += f' | {sit:.1f}s/it'
+        st_line += f' | 稳态 {sit:.1f}s/it'
+        if latest_sit is not None and sit and latest_sit > sit * 1.6:
+            st_line += f'（当前步 {latest_sit:.0f}s/it：含评测/扫描）'
     pct = (100.0 * passed / target) if target else 0.0
     _extra = ''
     if isinstance(newly, (int, float)):
@@ -322,7 +488,12 @@ def main() -> int:
     if isinstance(boot, (int, float)) and boot:
         _extra += f' | Bootstrap {int(boot)}'
     print(st_line)
-    print(f' 通关: {passed}/{target}（{pct:.0f}%）还差 {max(0, target - passed)}{_extra}')
+    print(f' 通关: {passed}/{target}（{pct:.0f}%）还差 {max(0, target - passed)}{_extra}'
+          + ('' if reg_passed is not None else '（本 run 尚未产生判定）'))
+    # 新 run（如 al_v42）自己的事件流里还没有 curriculum/* ⇒ 上面那个数字来自**别的 run/继承口径**，
+    # 必须点明，不能让读者以为是本 run 的战绩。
+    if reg_passed is None and derived_passed:
+        print('   ⚠️ 本 run 尚无 curriculum 指标；下列通关记为**其它 run/历史**，仅供对照')
     if derived_passed:
         _tail = ''
         if reg_passed is not None and len(derived_passed) < reg_passed:
@@ -333,6 +504,8 @@ def main() -> int:
     if cfg['interval'] and step is not None:
         _rem = int(cfg['interval']) - (step % int(cfg['interval']))
         print(f' 下一次判定: 再过 {_rem} 步（Step {step + _rem}）')
+    if len(trainers) > 1 or (trainers and not trainer):
+        print_trainers(trainers, run)
 
     # 逐任务：以**阈值表**为准（50 个全有），指标取已评测到的最新值
     rows = []
