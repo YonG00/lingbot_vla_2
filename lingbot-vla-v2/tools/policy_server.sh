@@ -44,6 +44,51 @@
 # =============================================================================
 set -euo pipefail
 
+# === 本机适配层（ROCm / cpu1）—— 2026-10-11 新增；整体删除即回到 AutoDL 默认 ===
+# 原脚本写死 AutoDL 路径（/data/code、/data/models、miniconda、/data/eval_results），
+# 且一律 `conda activate`；本机**没有 conda**，只有 venv（/opt/robotwin-env）。
+# 规则：AutoDL 路径存在 ⇒ 完全按原行为；不存在 ⇒ 用下面的本机默认值。
+#       任何**已 export 的环境变量仍然优先**（`: "${VAR:=...}"` 语义）。
+# =============================================================================
+_ROCm_VENV=${ROCM_VENV:-/opt/robotwin-env}
+_ROCm_OVERLAY=${ROCM_OVERLAY:-/models/robotwin-persistent}
+if [ ! -d /data/miniconda3 ]; then
+    : "${REPO:=/workspace/lingbot_vla_2/lingbot-vla-v2}"
+    : "${ROBOTWIN_DIR:=/RoboTwin}"
+    : "${QWEN3VL:=/workspace/models/Qwen3-VL-4B-Instruct-config-tokenizer}"
+    : "${EVAL_RESULTS_ROOT:=$_ROCm_OVERLAY/eval_results}"
+    : "${PRECISION:=bf16}"                # bf16 训练的 HF 导出是 bf16；fp32 服务不了它
+    : "${AITER_USE_SYSTEM_TRITON:=1}"      # aiter 要求 triton>=3.6（镜像是 3.5.1）⇒ 不设则模型 import 直接 RuntimeError
+    export AITER_USE_SYSTEM_TRITON
+fi
+#: conda 兼容层：有 conda.sh 就照旧 activate；没有就直接用 venv（设 PATH/PYTHONPATH/VIRTUAL_ENV）
+run_env() {
+    if [ -f "${CONDA_SH:-/nonexistent}" ]; then
+        # shellcheck disable=SC1090
+        source "$CONDA_SH" && conda activate "$1"
+    else
+        export VIRTUAL_ENV="$_ROCm_VENV"
+        export PATH="$_ROCm_VENV/bin:$PATH"
+        local _sp
+        _sp=$("$_ROCm_VENV/bin/python" -c 'import site;print(site.getsitepackages()[0])' 2>/dev/null || true)
+        [ -n "$_sp" ] && export PYTHONPATH="${_sp}${PYTHONPATH:+:$PYTHONPATH}"
+    fi
+    return 0
+}
+# ========================= 适配层结束 =========================
+
+# 参数区用的是 `${VAR:-<AutoDL 默认>}` ⇒ 未 export 时会填成 AutoDL 路径；
+# 这里在**参数区之前**把它们改成本机默认（显式 export 的值不动）。
+if [ ! -d /data/miniconda3 ]; then
+    [ "${REPO:-}" = "/data/code/lingbot-vla-v2" ]              && REPO=/workspace/lingbot_vla_2/lingbot-vla-v2
+    [ "${ROBOTWIN_DIR:-}" = "/data/code/RoboTwin-lingbot" ]    && ROBOTWIN_DIR=/RoboTwin
+    [ "${QWEN3VL:-}" = "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct" ] \
+        && QWEN3VL=/workspace/models/Qwen3-VL-4B-Instruct-config-tokenizer
+    [ -z "${PRECISION:-}" ]  && PRECISION=bf16
+    export REPO ROBOTWIN_DIR QWEN3VL PRECISION
+fi
+export _ROCm_VENV _ROCm_OVERLAY
+
 REPO=${REPO:-/data/code/lingbot-vla-v2}
 TASK=${TASK:-click_bell}
 CKPT_ROOT=${CKPT_ROOT:-/data/outputs/single/$TASK}
@@ -68,15 +113,26 @@ QWEN3VL=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
 CONDA_SH=${CONDA_SH:-/data/miniconda3/etc/profile.d/conda.sh}
 INFERENCE_ENV=${INFERENCE_ENV:-lingbotvla}
 WAIT=${WAIT:-420}
-LOG=${LOG:-/data/tmp/policy_server_${PORT}.log}
-PIDFILE=${PIDFILE:-/data/tmp/policy_server_${PORT}.pid}
+LOG=${LOG:-${_ROCm_OVERLAY}/tmp/policy_server_${PORT}.log}
+PIDFILE=${PIDFILE:-${_ROCm_OVERLAY}/tmp/policy_server_${PORT}.pid}
+
+# =============================================================================
+
 
 hr() { printf '%.0s─' {1..78}; echo; }
 die() { echo "❌ $*" >&2; exit 1; }
 
 CKPT="$CKPT_ROOT/checkpoints/global_step_${STEP}/hf_ckpt"
 
-gpu_mem() { nvidia-smi --query-gpu=memory.used --format=csv,noheader 2>/dev/null | head -1; }
+gpu_mem() {
+    # ROCm 上**没有 nvidia-smi** ⇒ 优先 rocm-smi；两者都不可用时安静返回，不阻断流程
+    if command -v rocm-smi >/dev/null 2>&1; then
+        rocm-smi --showmeminfo vram 2>/dev/null \
+            | awk '/Used Memory/{s+=$NF} END{if(s>0) printf "%.1f GB（显存合计）", s/1073741824}'
+        return 0
+    fi
+    nvidia-smi --query-gpu=memory.used --format=csv,noheader 2>/dev/null | head -1 || true
+}
 
 # 端口是否在监听。
 # ⚠️ 这个容器里**没有 `ss` 也没有 `netstat`**（实测 `ss: command not found`）⇒ 直接读
@@ -109,7 +165,7 @@ do_start() {
     [[ -f "$CKPT/model.safetensors.index.json" ]] \
         || die "ckpt 不完整或缺 index.json：$CKPT"
     [[ -d "$QWEN3VL" ]] || die "QWEN3VL 路径不存在：$QWEN3VL"
-    [[ -f "$CONDA_SH" ]] || die "找不到 $CONDA_SH"
+    { [ -f "$CONDA_SH" ] || [ -x "$_ROCm_VENV/bin/python" ]; } || die "既找不到 $CONDA_SH，也没有 venv：$_ROCm_VENV"
     cd "$REPO" || die "仓库目录不存在：$REPO"
 
     hr
@@ -128,7 +184,8 @@ EOF
 
     # 与 launcher 启动推理服务的命令**逐字一致**（见 start_robotwin_infer_and_eval.sh:343）
     export QWEN3VL_PATH="$QWEN3VL"
-    setsid bash -c "source ${CONDA_SH} && conda activate ${INFERENCE_ENV} && SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 python -m deploy.lingbot_vla_v2_policy \
+export -f run_env 2>/dev/null || true
+    setsid bash -c "run_env ${INFERENCE_ENV} && SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 python -m deploy.lingbot_vla_v2_policy \
         --model_path '${CKPT}' \
         --use_length '${USE_LENGTH}' \
         --use_bf16 $USE_BF16 \
