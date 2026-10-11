@@ -1,6 +1,6 @@
 """Auto Learning 的**总装**（Stage B1）。
 
-把真实组件串成一条链（见 `docs/stage_b1_integration_design.md` §4）：
+把真实组件串成一条链（见 `docs/auto_learning/stage_b1_integration_design.md` §4）：
 
     TaskCatalog(manifest) + SampleResolver(训练数据集)
         → attach_samples（回合 → dataset local_idx）

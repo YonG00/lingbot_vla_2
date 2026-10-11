@@ -390,7 +390,7 @@ def _eval_tensor_context():
             → RuntimeError（每个 rank 同时踩到；若只有一个 rank 先抛，
               另一个 rank 会永远等在集合通信里 ⇒ **表现为静默 hang**）
 
-    CPU 2 进程 gloo + 真 FSDP2 复现（`tools/al_bootstrap_order_fsdp2_repro.py`）::
+    CPU 2 进程 gloo + 真 FSDP2 复现（`tools/auto_learning_pipeline/al_bootstrap_order_fsdp2_repro.py`）::
 
         EVAL_MODE=inference  ⇒ RuntimeError；被污染的张量 =
                                blocks.0/blocks.1: fsdp_params[0].unsharded_param
@@ -2338,7 +2338,7 @@ class OpenLoopValidator:
                     except Exception:  # noqa: BLE001
                         pass
             # 诊断证据（默认关闭）：三类带身份的产物 + fail-closed 判定。
-            # 与 CPU 替身 `tools/eval_batch_cpu_diag.py` **共用同一实现**（同一份
+            # 与 CPU 替身 `tools/problem_reproduction/eval_batch_cpu_diag.py` **共用同一实现**（同一份
             # writer / detector），所以 CPU 上的验收结论对 GPU 路径同样成立。
             if _probe_on:
                 try:

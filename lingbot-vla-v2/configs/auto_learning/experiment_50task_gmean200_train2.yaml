@@ -1,5 +1,5 @@
 # EXPERIMENTAL: GMean 200x open-loop study. Not the formal NMSE configuration.
-# Never launch before tools/gmean50_preflight.py reports READY.
+# Never launch before tools/acceptance_checks/gmean50_preflight.py reports READY.
 # Historical Scout reuse is NOT enabled: provenance is not yet sufficient.
 # =============================================================================
 # 实验配置（独立）：50 任务池 → **当前累计 PASS 达到 4 个就收工**

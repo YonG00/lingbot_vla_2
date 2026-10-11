@@ -1,6 +1,6 @@
 """把多进程体检工具纳入测试套件（真起 2 进程 + gloo，抓"真死锁/真广播错"）。
 
-工具本身在 `tools/multigpu_eval_smoke.py`；这里只做"能不能跑通 + 是否返回 0"的守门。
+工具本身在 `tools/acceptance_checks/multigpu_eval_smoke.py`；这里只做"能不能跑通 + 是否返回 0"的守门。
 分布式代码的坑（pickle 不了、rank0 失败导致对端死等、事件流每 rank 各写一份）用 mock 测不出来，
 必须真跑进程；本测试超时即判失败。
 """
@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-TOOL = REPO / "tools/multigpu_eval_smoke.py"
+TOOL = REPO / "tools/acceptance_checks/multigpu_eval_smoke.py"
 
 
 @pytest.mark.parametrize("procs", [2, 4])

@@ -23,10 +23,10 @@ from safetensors.torch import load_file, save_file
 
 REPO = Path(__file__).resolve().parents[1]
 MU = REPO / "lingbotvla/models/module_utils.py"
-TOOL = REPO / "tools/make_bf16_ckpt.py"
+TOOL = REPO / "tools/checkpoint_convert_and_prune/make_bf16_ckpt.py"
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
-from tools import make_bf16_ckpt as mk  # noqa: E402
+from tools.checkpoint_convert_and_prune import make_bf16_ckpt as mk  # noqa: E402
 
 NAMES = {
     "SAFE_WEIGHTS_NAME": "model.safetensors",
@@ -222,7 +222,7 @@ def test_prewarm_invalid_threads_env_is_swallowed(tmp_path, monkeypatch):
 # D. 体检脚本自身的两个 bug（2026-10-09 训练机实测撞到）
 # ---------------------------------------------------------------------------
 def _smoke():
-    from tools import load_accel_smoke as sm
+    from tools.acceptance_checks import load_accel_smoke as sm
     return sm
 
 
@@ -242,7 +242,7 @@ def test_smoke_prefers_package_import(monkeypatch):
     monkeypatch.setitem(sys.modules, "lingbotvla.models", pkg)
     monkeypatch.setitem(sys.modules, "lingbotvla.models.module_utils", fake)
     assert sm._import_loader().MARKER == "package"
-    src = (REPO / "tools/load_accel_smoke.py").read_text(encoding="utf-8")
+    src = (REPO / "tools/acceptance_checks/load_accel_smoke.py").read_text(encoding="utf-8")
     # 用**代码级**锚点（docstring 里也会提到 spec_from_file_location，不能用裸子串）
     assert src.index("from lingbotvla.models import module_utils as mu") < src.index(
         'spec_from_file_location("loader_under_test"')

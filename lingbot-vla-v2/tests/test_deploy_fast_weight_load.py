@@ -211,7 +211,7 @@ def test_deploy_probe_plan_never_opens_checkpoint_or_writes_files(tmp_path):
     import subprocess
     import sys
 
-    script = Path(__file__).resolve().parents[1] / 'tools' / 'deploy_load_probe.py'
+    script = Path(__file__).resolve().parents[1] / 'tools' / 'problem_reproduction' / 'deploy_load_probe.py'
     output = tmp_path / 'uncreated' / 'result.json'
     result = subprocess.run(
         [sys.executable, str(script), '--checkpoint', '/nonexistent/checkpoint',

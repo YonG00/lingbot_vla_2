@@ -316,7 +316,7 @@ def test_hardness_per_sample_noise_invariant_to_grouping():
 
 def test_preflight_default_is_read_only_and_missing_sources_blocked(tmp_path):
     import importlib.util
-    file=Path(__file__).parents[1]/'tools/scan_accel_preflight.py'
+    file=Path(__file__).parents[1]/'tools/acceptance_checks/scan_accel_preflight.py'
     spec=importlib.util.spec_from_file_location('scan_accel_preflight',file)
     m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
     a=SimpleNamespace(verify=False,checkpoint=None,eval_mode='serial',hardness_mode='fixed',cache_root=None)

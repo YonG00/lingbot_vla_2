@@ -2,7 +2,7 @@
 # =============================================================================
 # 标准启动脚本：50 任务 Auto Learning（8 卡，ROCm / cpu1）
 #
-# 与文档配套：`docs/auto_learning_launch_guide_zh.md` §0.2「标准启动命令」。
+# 与文档配套：`docs/auto_learning/auto_learning_launch_guide_zh.md` §0.2「标准启动命令」。
 # 本脚本只是把那条命令固化成可复现入口；**不含任何训练逻辑**。
 #
 # 用法：

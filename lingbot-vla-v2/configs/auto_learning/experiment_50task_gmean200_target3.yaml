@@ -1,7 +1,7 @@
 # DERIVED from experiment_50task_gmean200_train2.yaml（唯一差别：target_total_passed_tasks 4→3）
 # 由用户 2026-10-09 指定：GBS=24（micro 24 × gas 1）、96G 单卡、目标 3 个 PASS。
 # EXPERIMENTAL: GMean 200x open-loop study. Not the formal NMSE configuration.
-# Never launch before tools/gmean50_preflight.py reports READY.
+# Never launch before tools/acceptance_checks/gmean50_preflight.py reports READY.
 # Historical Scout reuse is NOT enabled: provenance is not yet sufficient.
 # =============================================================================
 # 实验配置（独立，2026-10-09 用户定）：50 任务池 → **当前累计 PASS 达到 3 个就收工**

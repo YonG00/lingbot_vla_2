@@ -323,7 +323,7 @@ def main():
         f"  --task_list_file {out_dir}/phase1_eval.txt \\",
         "  --task_config demo_clean \\",
         "  --model_path <hf_ckpt> --num_gpus 4 --num_per_gpu 1 \\",
-        "  --eval_workdir /data/code/RoboTwin-lingbot \\",
+        "  --eval_workdir <RoboTwin 工作目录> \\",
         "  --output_base /data/eval_results/run1",
         "```",
         "",

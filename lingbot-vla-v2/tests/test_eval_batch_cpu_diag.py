@@ -18,7 +18,7 @@ if str(REPO) not in sys.path:
 
 import torch  # noqa: E402
 
-from tools import eval_batch_cpu_diag as diag  # noqa: E402
+from tools.problem_reproduction import eval_batch_cpu_diag as diag  # noqa: E402
 
 
 def _real_path_available() -> bool:

@@ -3,7 +3,7 @@
 # 注意：config.py 会校验 min_steps_before_defer / defer_retry_steps 必须是 eval_interval_steps 的整数倍。
 # 其它一切（GMean200 阈值、target=4、新增 PASS 下限 2、尝试上限 6、批大小、存档策略）与 train2 完全一致。
 # EXPERIMENTAL: GMean 200x open-loop study. Not the formal NMSE configuration.
-# Never launch before tools/gmean50_preflight.py reports READY.
+# Never launch before tools/acceptance_checks/gmean50_preflight.py reports READY.
 # Historical Scout reuse is NOT enabled: provenance is not yet sufficient.
 # =============================================================================
 # 实验配置（独立）：50 任务池 → **当前累计 PASS 达到 4 个就收工**

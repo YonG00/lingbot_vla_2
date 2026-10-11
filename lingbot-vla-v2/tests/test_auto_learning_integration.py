@@ -8,7 +8,7 @@
   §40  Loss / Label sanity fail-fast
 
 （§7–§10 的 Legacy Dataset 对拍需要真实 torch/lerobot + 参考 checkout ⇒ 见
-  `tools/al_legacy_parity.py`，不在这里。）
+  `tools/auto_learning_pipeline/al_legacy_parity.py`，不在这里。）
 
     python -m pytest tests/test_auto_learning_integration.py -q
 """

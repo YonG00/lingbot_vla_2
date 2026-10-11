@@ -36,6 +36,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "experiment" / "robotwin"))
+sys.path.insert(0, str(REPO_ROOT / "tools/acceptance_checks"))
+sys.path.insert(0, str(REPO_ROOT / "tools/auto_learning_pipeline"))
+sys.path.insert(0, str(REPO_ROOT / "tools/checkpoint_convert_and_prune"))
+sys.path.insert(0, str(REPO_ROOT / "tools/misc"))
+sys.path.insert(0, str(REPO_ROOT / "tools/problem_reproduction"))
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 import robotwin_multi_ckpt_eval as mce                       # noqa: E402

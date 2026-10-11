@@ -5,7 +5,7 @@
 * **不自行重新编码 sample id**。Stage A Demo 那套
   `task_index*1e6 + traj*1e3 + frame` **不带进正式代码**。
   这里的 ``sample_id`` 就是**数据集 local_idx**（稳定全量索引空间里的位置，
-  见 `docs/stage_b1_integration_design.md` §3）。
+  见 `docs/auto_learning/stage_b1_integration_design.md` §3）。
 * **不重新实现** local-index → absolute-index 逻辑：只**读**
   `hf_dataset['index']` / `hf_dataset['episode_index']` 两列 ——
   与 `base_dataset.py::LeRobotDataset.__getitem__` 里

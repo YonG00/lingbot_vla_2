@@ -3,7 +3,7 @@ import importlib.util
 from pathlib import Path
 import pytest
 
-SPEC=importlib.util.spec_from_file_location('offline_verify',Path(__file__).resolve().parents[1]/'tools/replay_offline_verify.py')
+SPEC=importlib.util.spec_from_file_location('offline_verify',Path(__file__).resolve().parents[1]/'tools/problem_reproduction/replay_offline_verify.py')
 mod=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(mod)
 
 

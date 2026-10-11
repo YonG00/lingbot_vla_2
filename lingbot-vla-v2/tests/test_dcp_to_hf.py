@@ -1,4 +1,4 @@
-"""`tools/dcp_to_hf.py` 的 CPU 测试（**不需要 GPU / 分布式**）。
+"""`tools/checkpoint_convert_and_prune/dcp_to_hf.py` 的 CPU 测试（**不需要 GPU / 分布式**）。
 
 为什么需要这个工具：50 任务那轮训练只落了 DCP，而闭环评测要求 HF 目录 ⇒ 之前**没有**转换脚本。
 本测试用**合成 DCP** + **替身 save_model_weights**（真实的那个本地导不进来：transformers 版本差异）
@@ -25,7 +25,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from tools import dcp_to_hf  # noqa: E402
+from tools.checkpoint_convert_and_prune import dcp_to_hf  # noqa: E402
 
 
 def _fake_save_model_weights(output_dir, state_dict, global_rank=None, save_dtype="bfloat16",

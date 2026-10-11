@@ -38,7 +38,7 @@
 **失败绝不挡加载**（只记一条 `[prewarm] ⚠️ 并行预读跳过（…）`），因为它是纯加速手段。
 日志形如：`[prewarm] 并行预读 6 片 / 24.0 GiB / 21.3 s（6 线程 ⇒ 随后的顺序读命中页缓存）`。
 
-## 3. 手段二：BF16 权重副本（`tools/make_bf16_ckpt.py`）
+## 3. 手段二：BF16 权重副本（`tools/checkpoint_convert_and_prune/make_bf16_ckpt.py`）
 
 思路：**只读一半体积**。该 ckpt 是 F32（24 GB），加载后一律转 BF16（12 GB）用
 （`torch_dtype=bfloat16` 时 `copy_` 会做转换）⇒ 准备一份 BF16 副本，读盘量近似减半，并省掉 CPU 转换。
@@ -49,9 +49,9 @@ SRC=/data/outputs/single/click_bell/checkpoints/global_step_500/hf_ckpt
 DST=/data/outputs/single/click_bell/checkpoints/global_step_500/hf_ckpt_bf16
 
 # ① 先看计划（不写盘）
-$PY tools/make_bf16_ckpt.py --src $SRC --dst $DST --dry-run
+$PY tools/checkpoint_convert_and_prune/make_bf16_ckpt.py --src $SRC --dst $DST --dry-run
 # ② 转换（默认**逐张量全量校验**：浮点断言 dst == src.to(bf16) 逐位相等；非浮点原样）
-$PY tools/make_bf16_ckpt.py --src $SRC --dst $DST --verify full
+$PY tools/checkpoint_convert_and_prune/make_bf16_ckpt.py --src $SRC --dst $DST --verify full
 # ③ 用它启动（只改 model_path）
 ... MODEL_PATH=$DST ...
 ```
@@ -119,7 +119,7 @@ time (for f in $CK/*.safetensors; do cat $f > /dev/null & done; wait)     # ③ 
 | 路径 | 作用 |
 |---|---|
 | `lingbotvla/models/module_utils.py` | `_resolve_weight_files()` / `_parallel_prewarm_shards()` + 接线 |
-| `tools/make_bf16_ckpt.py` | BF16 副本工具（含逐张量校验、fail-closed） |
+| `tools/checkpoint_convert_and_prune/make_bf16_ckpt.py` | BF16 副本工具（含逐张量校验、fail-closed） |
 | `tests/test_shard_prewarm.py` | 预读 6 项 CPU 测试（开关/线程/失败不阻塞/接线） |
 | `tests/test_make_bf16_ckpt.py` | 副本 6 项 CPU 测试（转换正确/篡改必被抓/拒绝覆盖） |
 
@@ -127,9 +127,9 @@ time (for f in $CK/*.safetensors; do cat $f > /dev/null & done; wait)     # ③ 
 
 ```bash
 PY=/data/miniconda3/envs/lingbotvla/bin/python
-$PY tools/load_accel_smoke.py                                   # A) 合成端到端（秒级、无副作用）
-$PY tools/load_accel_smoke.py --ckpt <hf_ckpt 目录>              # B) 真机实测（只读原目录）
-$PY tools/load_accel_smoke.py --ckpt <hf_ckpt> --write-copy <新目录>   # B+) 顺带生成 BF16 副本
+$PY tools/acceptance_checks/load_accel_smoke.py                                   # A) 合成端到端（秒级、无副作用）
+$PY tools/acceptance_checks/load_accel_smoke.py --ckpt <hf_ckpt 目录>              # B) 真机实测（只读原目录）
+$PY tools/acceptance_checks/load_accel_smoke.py --ckpt <hf_ckpt> --write-copy <新目录>   # B+) 顺带生成 BF16 副本
 ```
 
 **A 模式**（全部用仓库真实实现，不是替身）：

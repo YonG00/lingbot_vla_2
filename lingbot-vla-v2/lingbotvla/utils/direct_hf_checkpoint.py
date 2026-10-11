@@ -196,7 +196,7 @@ def export_model_hf_direct(model, *, global_step: int, checkpoint_root: str,
 
     ``snapshot``：可选，**直接给已经收集好的全量 CPU state_dict**（键与 HF 权重键一致）⇒
     跳过 `collect_full_model_on_cpu(model)`（此时 ``model`` 可为 ``None``）。
-    用途：**离线 DCP → HF 转换**（`tools/dcp_to_hf.py`）—— 不需要实例化 6B 模型、
+    用途：**离线 DCP → HF 转换**（`tools/checkpoint_convert_and_prune/dcp_to_hf.py`）—— 不需要实例化 6B 模型、
     不需要 GPU、也不需要 torch.distributed。写出/索引/资源复制/校验/原子发布**全部复用**本函数。
     """
     provided = snapshot is not None

@@ -34,7 +34,7 @@
    走**逐 rank 的 stderr + 独立轨迹文件**（真机 rank4 一行都没有 = 该机制不成立），
    且「▶ 进入评测」一定写在进窗口之前；
 5. 端到端（真 2 进程 gloo + 真 FSDP2 + **真 `OpenLoopValidator`**，
-   `tools/al_eval_multirank_preflight_repro.py`）：
+   `tools/auto_learning_pipeline/al_eval_multirank_preflight_repro.py`）：
    * 健康路径全绿、各 rank 集合通信次数一致、各 rank 恰好预热 1 次、无副作用审计通过；
    * 注入「某 rank 准备阶段失败」/「某 rank 预热报告失败」/「某 rank **不进**预热窗口」
      ⇒ **快速一起失败**（不是死锁），且都**在 unshard 之前**被点名；
@@ -60,7 +60,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[1]
 SRC = REPO / "lingbotvla/utils/open_loop_validation.py"
-TOOL = REPO / "tools/al_eval_multirank_preflight_repro.py"
+TOOL = REPO / "tools/auto_learning_pipeline/al_eval_multirank_preflight_repro.py"
 
 _WANTED_FUNCS = (
     "_multirank_eval_payload",

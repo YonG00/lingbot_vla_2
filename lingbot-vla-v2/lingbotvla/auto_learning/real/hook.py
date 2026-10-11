@@ -1,6 +1,6 @@
 """训练循环接线（Stage B1）。
 
-职责（见 `docs/stage_b1_integration_design.md` §1 / §10）
+职责（见 `docs/auto_learning/stage_b1_integration_design.md` §1 / §10）
 ------------------------------------------------------
 * `build_hook(cfg, ...)` —— `enabled=false` 时返回 **None**，且**一个对象都不创建**。
 * `AutoLearnLoopHook` —— 训练循环在三个位置调它：

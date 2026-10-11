@@ -1,4 +1,4 @@
-"""`tools/make_bf16_ckpt.py` 的 CPU 测试：转换正确性 + **校验必须能抓出篡改** + 拒绝覆盖。"""
+"""`tools/checkpoint_convert_and_prune/make_bf16_ckpt.py` 的 CPU 测试：转换正确性 + **校验必须能抓出篡改** + 拒绝覆盖。"""
 from __future__ import annotations
 
 import json
@@ -13,7 +13,7 @@ REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from tools import make_bf16_ckpt as mk  # noqa: E402
+from tools.checkpoint_convert_and_prune import make_bf16_ckpt as mk  # noqa: E402
 
 
 def _make_ckpt(root: Path, *, shards: int = 2) -> Path:

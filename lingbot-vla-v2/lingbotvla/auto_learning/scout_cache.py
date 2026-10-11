@@ -15,7 +15,7 @@ Hashing rules（2026-10-10 起）
   （用于「语义没变但必须失效」的极少数场景）。
 
 ⚠️ 算法本身的变更会让**所有**旧指纹失效 ⇒ 存量缓存请用
-``tools/al_scout_cache_migrate.py`` 过户（见该工具的安全核对）。
+``tools/auto_learning_pipeline/al_scout_cache_migrate.py`` 过户（见该工具的安全核对）。
 
 ``VERSION`` 保持 1：它进 manifest 的是**记录 schema**（``BootstrapScoutCache`` 读盘时
 校验），哈希算法变更不需要动它 —— 指纹本身已经把算法变更体现出来了。
@@ -141,7 +141,7 @@ def source_sha256(path: str | Path) -> str:
 def normalize_dtype(value: Any) -> str:
     """把 dtype 写法归一化（``bf16`` / ``bfloat16`` / ``torch.bfloat16`` → ``bfloat16``）。
 
-    🔴 必要性：``tools/scan_accel_preflight.py --dtype bfloat16`` 与
+    🔴 必要性：``tools/acceptance_checks/scan_accel_preflight.py --dtype bfloat16`` 与
     ``AL_SCOUT_CACHE_DTYPE=bf16`` 指的是**同一个**推理精度，若原样进 options
     就会算出两个不同指纹 ⇒ 预检认证过的缓存运行时读不到（静默重扫）。
     """

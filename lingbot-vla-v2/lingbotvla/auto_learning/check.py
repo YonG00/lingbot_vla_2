@@ -7,7 +7,7 @@
 `cpu_test_report.json`（含 git commit / config / 环境 / 每条检查的结果）。
 
 ⚠️ 真实数据/模型的检查（规范 §7–§10 Legacy 对拍、§26–§40 GPU）**不在这里** ——
-   它们分别属于 `tools/al_legacy_parity.py` 与 `tests/test_auto_learning_real_model.py`。
+   它们分别属于 `tools/auto_learning_pipeline/al_legacy_parity.py` 与 `tests/test_auto_learning_real_model.py`。
    本模块只负责「跑得动、能出报告」的那一层，并把**未跑**的项显式标成 skipped，
    免得报告看起来比实际更全。
 """
@@ -393,7 +393,7 @@ def _checks_cpu(rep: CheckReport) -> None:
 
     # ---- 需要真实数据/模型的项：显式标 skipped（别让报告看起来更全）----
     for name, why in (
-        ("legacy_dataset_item_parity", "需真实 torch/lerobot + 参考 checkout ⇒ tools/al_legacy_parity.py"),
+        ("legacy_dataset_item_parity", "需真实 torch/lerobot + 参考 checkout ⇒ tools/auto_learning_pipeline/al_legacy_parity.py"),
         ("label_mask_padding_parity", "同上"),
         ("norm_stats_parity", "同上"),
         ("dataloader_collator_disabled_parity", "同上"),

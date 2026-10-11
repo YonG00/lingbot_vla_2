@@ -135,10 +135,10 @@ launcher 会依次做：**缓存寻址 → 覆盖检查 → （缺则）扫描 �
 ### 4.3 监控（一条命令）
 
 ```bash
-python3 tools/al_panel.py                 # 自动选最新 run
-python3 tools/al_panel.py my_run          # 指定 run
-python3 tools/al_panel.py my_run --all    # 列出全部 50 个任务（默认只列最接近通关的 4 个）
-watch -n 30 python3 tools/al_panel.py     # 每 30 秒刷新
+python3 tools/auto_learning_pipeline/al_panel.py                 # 自动选最新 run
+python3 tools/auto_learning_pipeline/al_panel.py my_run          # 指定 run
+python3 tools/auto_learning_pipeline/al_panel.py my_run --all    # 列出全部 50 个任务（默认只列最接近通关的 4 个）
+watch -n 30 python3 tools/auto_learning_pipeline/al_panel.py     # 每 30 秒刷新
 ```
 
 输出：rank 数/卡数 · Step · 稳态 s/it · **通关 x/15 还差几个** · 已通关任务 ·
@@ -256,12 +256,12 @@ train.sh → tasks/vla/train_lingbotvla.py
 
 | 症状 | 先看 |
 |---|---|
-| 覆盖率恒 `0/50`、退出码 3 | `docs/auto_learning_pitfalls_zh.md` §2.2（模型标识分裂）/ §2.3（迁移未触发） |
+| 覆盖率恒 `0/50`、退出码 3 | `docs/auto_learning/auto_learning_pitfalls_zh.md` §2.2（模型标识分裂）/ §2.3（迁移未触发） |
 | 训练不启动、`运行模式：unknown` | 同上 §2.1（覆盖检查被跳过） |
 | 预扫跑了几小时 | 同上 §2.5（预扫把 hardness 也扫了）；确认 `AL_SCAN_SKIP_HARDNESS=1` 只注入 worker |
 | hardness 很慢（15–20 分钟/任务） | 同上 §2.6（是否多卡同进程组；单卡会退回全量） |
 | "指标过线"但通关数不涨 | 本文 §3.1：过线 ≠ 通关；正式通关在 unit 末尾 REVIEW |
-| 面板显示不全 / 数字口径疑问 | `tools/al_panel.py` 顶部 docstring（rank 数判据、通关数口径、s/it 口径） |
+| 面板显示不全 / 数字口径疑问 | `tools/auto_learning_pipeline/al_panel.py` 顶部 docstring（rank 数判据、通关数口径、s/it 口径） |
 
 ---
 
@@ -269,15 +269,15 @@ train.sh → tasks/vla/train_lingbotvla.py
 
 | 文档 | 内容 |
 |---|---|
-| `docs/auto_learning_overview_zh.md` | 总览（概念/流水线/术语表，**先读这篇**） |
-| `docs/auto_learning_launch_guide_zh.md` | 启动与参数、缓存寻址、扫描模式、监控（§8） |
-| `docs/auto_learning_pitfalls_zh.md` | **易错文档**：8 条自查表 + 6 个核心坑 |
-| `docs/GMEAN_PASSLINE_GUIDE.md` | 通过线（GMean × 倍率）标定 |
-| `docs/auto_learning_multigpu_guide.md` | 多卡行为 |
-| `docs/auto_learning_multirank_eval_diagnosis.md` | 多 rank 评测诊断 |
+| `docs/auto_learning/auto_learning_overview_zh.md` | 总览（概念/流水线/术语表，**先读这篇**） |
+| `docs/auto_learning/auto_learning_launch_guide_zh.md` | 启动与参数、缓存寻址、扫描模式、监控（§8） |
+| `docs/auto_learning/auto_learning_pitfalls_zh.md` | **易错文档**：8 条自查表 + 6 个核心坑 |
+| `docs/auto_learning/GMEAN_PASSLINE_GUIDE.md` | 通过线（GMean × 倍率）标定 |
+| `docs/auto_learning/auto_learning_multigpu_guide.md` | 多卡行为 |
+| `docs/auto_learning/auto_learning_multirank_eval_diagnosis.md` | 多 rank 评测诊断 |
 | `docs/open_loop_guide.md` 等 | 开环评测本身 |
-| `docs/scan_accel_gmean200_zh.md` | 扫描加速（实验，默认关） |
-| `tools/al_panel.py` | 监控面板 |
+| `docs/auto_learning/scan_accel_gmean200_zh.md` | 扫描加速（实验，默认关） |
+| `tools/auto_learning_pipeline/al_panel.py` | 监控面板 |
 
 ---
 

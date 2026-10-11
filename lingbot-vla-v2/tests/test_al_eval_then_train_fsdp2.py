@@ -6,7 +6,7 @@
 进程存活、显存不释放、`Step` 停在 0。而那次评测之后紧接着跑的就是
 `HardnessScanner.scan()`（`orchestration/scheduler.py:644`）—— 它跑在**任何训练前向之前**。
 
-根因（CPU 2 进程 gloo + 真 FSDP2 逐字复现，见 `tools/al_bootstrap_order_fsdp2_repro.py`）
+根因（CPU 2 进程 gloo + 真 FSDP2 逐字复现，见 `tools/auto_learning_pipeline/al_bootstrap_order_fsdp2_repro.py`）
 --------------------------------------------------------------------------------------
 * 评测体包在 `torch.inference_mode()` 里（旧代码 `open_loop_validation.py` 的
   `_run()` / `_evaluate_run()`）；
@@ -46,7 +46,7 @@ torch = pytest.importorskip("torch", reason="本测试需要 torch")
 
 REPO = Path(__file__).resolve().parents[1]
 SRC = REPO / "lingbotvla/utils/open_loop_validation.py"
-TOOL = REPO / "tools/al_bootstrap_order_fsdp2_repro.py"
+TOOL = REPO / "tools/auto_learning_pipeline/al_bootstrap_order_fsdp2_repro.py"
 
 
 # --------------------------------------------------------------------------- #

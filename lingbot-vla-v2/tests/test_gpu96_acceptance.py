@@ -7,7 +7,7 @@ import math
 from pathlib import Path
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[1] / 'tools/gpu96_acceptance.py'
+SCRIPT = Path(__file__).resolve().parents[1] / 'tools/acceptance_checks/gpu96_acceptance.py'
 spec = importlib.util.spec_from_file_location('gpu96_acceptance', SCRIPT)
 assert spec and spec.loader
 accept = importlib.util.module_from_spec(spec)
@@ -344,7 +344,7 @@ def test_hf_smoke_config_tolerates_null_task_names():
 
 def test_hf_command_satisfies_every_trainer_precondition():
     """镜像训练器 hf_pass_interval 的启动校验：任一条件不满足即启动 ValueError（曾因此零步失败）。"""
-    cmd = ['python', 'tools/hf_direct_export_acceptance.py', '--train.save_steps', '0',
+    cmd = ['python', 'tools/acceptance_checks/hf_direct_export_acceptance.py', '--train.save_steps', '0',
            '--train.hf_pass_interval', '0', '--train.smoke_no_checkpoint', 'true']
     accept.apply_hf_trainer_overrides(cmd)
     for flag, ok in accept.HF_REQUIRED_FLAGS.items():

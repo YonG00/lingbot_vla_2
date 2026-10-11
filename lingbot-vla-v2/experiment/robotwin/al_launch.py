@@ -49,7 +49,7 @@
     /opt/robotwin-env/bin/python experiment/robotwin/al_launch.py --no-cache
     /opt/robotwin-env/bin/python experiment/robotwin/al_launch.py --selfcheck
 
-完整说明见 ``docs/auto_learning_launch_guide_zh.md``。
+完整说明见 ``docs/auto_learning/auto_learning_launch_guide_zh.md``。
 """
 
 from __future__ import annotations

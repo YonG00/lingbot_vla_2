@@ -1,6 +1,6 @@
 """用**真实组件**组装 `ports.Backend`（Stage B1）。
 
-关键约定（见 `docs/stage_b1_integration_design.md` §3）
+关键约定（见 `docs/auto_learning/stage_b1_integration_design.md` §3）
 ----------------------------------------------------
 * 训练数据集**只建一次**，白名单 = 所有参与任务的 **train 回合并集**
   ⇒ 索引空间全程不变；`sample_id` == dataset local_idx

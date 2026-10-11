@@ -208,7 +208,7 @@ def test_overall_blocks_when_numeric_fails():
 # GPU 验收入口：PLAN ONLY / 阈值读取（都不碰 GPU）
 # ---------------------------------------------------------------------------
 def _tool():
-    from tools import eval_batch_stochastic_acceptance as tool
+    from tools.acceptance_checks import eval_batch_stochastic_acceptance as tool
     return tool
 
 
@@ -273,7 +273,7 @@ def test_plan_documents_warmup_before_counting(tmp_path, capsys):
 
 def test_tool_runs_a_discarded_warmup_before_measured_reps():
     """热身前向必须存在且不计入统计（run g 实测：首条腿与后续差 0.17，是 autotune/惰性初始化）。"""
-    src = (REPO / "tools/eval_batch_stochastic_acceptance.py").read_text(encoding="utf-8")
+    src = (REPO / "tools/acceptance_checks/eval_batch_stochastic_acceptance.py").read_text(encoding="utf-8")
     assert "热身" in src and "不计入统计" in src
     assert "warmup_seconds" in src
 
@@ -527,5 +527,5 @@ def test_runtime_no_longer_gates_on_numeric_judgment():
     for gone in ("_stochastic_gate_ok", "verified_shapes", "batch_acceptance(",
                  "env_noise_settings", "gate_signature", "_batch_ok_global"):
         assert gone not in src, f"运行时不应再有 {gone}"
-    tool = (REPO / "tools/eval_batch_stochastic_acceptance.py").read_text(encoding="utf-8")
+    tool = (REPO / "tools/acceptance_checks/eval_batch_stochastic_acceptance.py").read_text(encoding="utf-8")
     assert "stochastic_parity" in tool, "离线验收工具仍使用纯判据"

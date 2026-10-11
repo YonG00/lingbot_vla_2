@@ -375,7 +375,7 @@ def test_eval_source_keys_are_unique():
 def test_build_py_uses_shared_source_manifest():
     """回归：``real/build.py`` 的 scout 块必须用**同一份**清单，不得再自己手写一份。
 
-    手写清单一旦与 ``EVAL_SOURCES`` 分叉，``tools/scan_accel_preflight.py`` 认证过的
+    手写清单一旦与 ``EVAL_SOURCES`` 分叉，``tools/acceptance_checks/scan_accel_preflight.py`` 认证过的
     指纹就不再等于运行时真正用的指纹（静默重扫），而补进去的文件也可能被下一个人删掉。
     """
     src = (REPO_ROOT / 'lingbotvla/auto_learning/real/build.py').read_text(encoding='utf-8')
@@ -391,7 +391,7 @@ def test_build_py_uses_shared_source_manifest():
 # ④ 迁移工具
 # ---------------------------------------------------------------------------
 def _load_migrate_module():
-    path = REPO_ROOT / 'tools' / 'al_scout_cache_migrate.py'
+    path = REPO_ROOT / 'tools' / 'auto_learning_pipeline' / 'al_scout_cache_migrate.py'
     spec = importlib.util.spec_from_file_location('al_scout_cache_migrate_under_test', path)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)

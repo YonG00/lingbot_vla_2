@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from tools.gmean50_preflight import audit_thresholds, inventory_scout_events, main
+from tools.acceptance_checks.gmean50_preflight import audit_thresholds, inventory_scout_events, main
 
 
 def _inputs(tmp_path):

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[1] / "tools/scan_accel_gpu_acceptance.py"
+SCRIPT = Path(__file__).resolve().parents[1] / "tools/acceptance_checks/scan_accel_gpu_acceptance.py"
 spec = importlib.util.spec_from_file_location("scan_accel_gpu_acceptance", SCRIPT)
 assert spec and spec.loader
 acc = importlib.util.module_from_spec(spec)
@@ -94,7 +94,7 @@ def test_reports_written_by_append_json_record_are_readable(tmp_path):
 
 
 def test_preflight_report_mentions_zero_step_risk():
-    doc = (Path(__file__).resolve().parents[1] / "tools/gmean50_preflight.py").read_text(encoding="utf-8")
+    doc = (Path(__file__).resolve().parents[1] / "tools/acceptance_checks/gmean50_preflight.py").read_text(encoding="utf-8")
     assert "zero_step_risk" in doc and "零训练步" in doc and "target" in doc
 
 

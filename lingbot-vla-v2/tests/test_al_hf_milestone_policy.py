@@ -189,7 +189,7 @@ def test_closed_loop_script_has_precision_switch():
 def test_policy_server_has_precision_switch():
     """常驻推理服务同样不能写死 fp32（两阶段流程的**阶段 1**）。"""
     from pathlib import Path
-    script = (Path(__file__).resolve().parents[1] / "tools/policy_server.sh").read_text(
+    script = (Path(__file__).resolve().parents[1] / "tools/misc/policy_server.sh").read_text(
         encoding="utf-8")
     assert 'PRECISION=${PRECISION:-fp32}' in script
     assert 'USE_BF16=true; USE_FP32=false' in script
@@ -202,8 +202,8 @@ def test_two_stage_closed_loop_scripts_exist():
     这是用户 2026-10-10 指定的用法（"先服务，后面可以换task"）。"""
     from pathlib import Path
     root = Path(__file__).resolve().parents[1] / "tools"
-    server = (root / "policy_server.sh").read_text(encoding="utf-8")
-    tasks = (root / "eval_tasks.sh").read_text(encoding="utf-8")
+    server = (root / "misc/policy_server.sh").read_text(encoding="utf-8")
+    tasks = (root / "misc/eval_tasks.sh").read_text(encoding="utf-8")
     assert "start" in server and "stop" in server and "status" in server
     assert "常驻" in server and "模型不重载" in server
     assert "TASKS        必填" in tasks and "只跑 sim 侧" in tasks
@@ -219,7 +219,7 @@ def test_closed_loop_accel_knobs_wired():
     """
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]
-    srv = (root / "tools/policy_server.sh").read_text(encoding="utf-8")
+    srv = (root / "tools/misc/policy_server.sh").read_text(encoding="utf-8")
     clo = (root / "tools/closed_loop_eval.sh").read_text(encoding="utf-8")
     dep = (root / "deploy/lingbot_vla_v2_policy.py").read_text(encoding="utf-8")
 

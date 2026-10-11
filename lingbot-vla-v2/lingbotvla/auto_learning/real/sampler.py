@@ -1,6 +1,6 @@
 """`AutoLearnSampler` —— 把 Stage A 的 `BatchSampler` 接到真实 DataLoader 上。
 
-设计（见 `docs/stage_b1_integration_design.md` §2 / §4）
+设计（见 `docs/auto_learning/stage_b1_integration_design.md` §2 / §4）
 -----------------------------------------------------
 * 真实循环里 **一次 `next(data_iterator)` = 一个 optimizer step**。
   ⚠️ 注意**不要**写成「单卡下 `num_micro_batch` 都为 1」（review v0.2 #3 已纠正）：

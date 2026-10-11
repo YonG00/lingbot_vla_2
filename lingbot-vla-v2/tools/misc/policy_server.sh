@@ -1,0 +1,292 @@
+#!/usr/bin/env bash
+# =============================================================================
+# 常驻推理服务（websocket policy server）—— 只负责「把模型加载好并一直在线」。
+#
+# 为什么需要它
+# ------------
+# `start_robotwin_infer_and_eval.sh`（launcher）把「起服务 + 排队跑任务」焊在一个
+# 脚本里 ⇒ **每加一批任务都要整套重来 = 重新加载模型**（本机 CPU 初始化阶段约
+# 2.5–3 分钟，其间显存不涨、看着像卡死）。而且它的 `task_queue` 是启动时**一次性**
+# 读入的（`mapfile < task_list_file`）⇒ 无法热追加任务。
+#
+# 本脚本把「起服务」单独拆出来常驻；之后用 `tools/misc/eval_tasks.sh` 跑任务即可：
+# **想加就加、模型不重载**。
+#
+# ⚠️ 代价（必须知道）
+#   服务常驻 = 显存一直被占（约 28–35 GB）⇒ **单卡上不能同时训练**。
+#   要开训练前，先 `bash tools/misc/policy_server.sh stop`。
+#
+# 用法（在 /data/code/lingbot-vla-v2 下）：
+#   CKPT_ROOT=/data/outputs/single/click_bell STEP=500 bash tools/misc/policy_server.sh start
+#   bash tools/misc/policy_server.sh status
+#   bash tools/misc/policy_server.sh stop
+#
+# 环境变量：
+#   CKPT_ROOT      训练输出目录（默认 /data/outputs/single/${TASK}）
+#   TASK           仅用于推导默认 CKPT_ROOT
+#   STEP           评哪一步 ckpt（默认 500）
+#   PORT           端口（默认 9330）
+#   FAST_LOAD      1 = 启用部署侧 **fast 权重加载**（`LINGBOT_DEPLOY_FAST_LOAD=1`）：
+#                  直接在 CUDA 上以 bf16 构建模型 + 逐张量流式拷入 ⇒ 省掉 ~49 s 的 CPU 初始化
+#                  与 12 GB 的 CPU 合并 dict。**要求 PRECISION=bf16**（脚本会前置校验）。
+#                  **默认与精度绑定**：PRECISION=bf16 ⇒ 1（自动走 fast）；fp32 ⇒ 0（fast 要求 bf16）。
+#                  显式 FAST_LOAD=0 可强制回退 legacy。
+#   USE_COMPILE    true/false（默认 false）：开启服务端 torch.compile —— 注意它会同时编译
+#                  **内层** `predict_velocity`（`_use_compile_predict_velocity`）与**外层**
+#                  `qwenvl_with_expert` / `sample_actions` 两层。首编译有成本，需 A/B。
+#   PRECISION      推理精度：fp32（默认，与历史一致）| bf16
+#                  （bf16 权重要用 bf16 服务；本项目 bf16 训练的 HF 导出默认就是 bf16）
+#   USE_LENGTH     action chunk 长度（默认 50）
+#   QWEN3VL        Qwen3-VL backbone（默认 /data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct）
+#   REPO / CONDA_SH / INFERENCE_ENV
+#   WAIT           start 后最多等多少秒就绪（默认 420；0 = 不等，立刻返回）
+#   LOG / PIDFILE  默认 /data/tmp/policy_server_${PORT}.{log,pid}
+# =============================================================================
+set -euo pipefail
+
+# === 本机适配层（ROCm / cpu1）—— 2026-10-11 新增；整体删除即回到 AutoDL 默认 ===
+# 原脚本写死 AutoDL 路径（/data/code、/data/models、miniconda、/data/eval_results），
+# 且一律 `conda activate`；本机**没有 conda**，只有 venv（/opt/robotwin-env）。
+# 规则：AutoDL 路径存在 ⇒ 完全按原行为；不存在 ⇒ 用下面的本机默认值。
+#       任何**已 export 的环境变量仍然优先**（`: "${VAR:=...}"` 语义）。
+# =============================================================================
+_ROCm_VENV=${ROCM_VENV:-/opt/robotwin-env}
+_ROCm_OVERLAY=${ROCM_OVERLAY:-/models/robotwin-persistent}
+# 🔴 2026-10-11：仓库路径改为**按本脚本位置推导**（`tools/misc/` 往上两级 = 仓库根），
+#    不再硬编码某台机器的绝对路径 —— 目录改名/换机器都不受影响。
+_SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+_REPO_DERIVED=$(cd "$_SCRIPT_DIR/../.." && pwd)
+if [ ! -d /data/miniconda3 ]; then
+    : "${REPO:=$_REPO_DERIVED}"
+    : "${ROBOTWIN_DIR:=/RoboTwin}"
+    : "${QWEN3VL:=/workspace/models/Qwen3-VL-4B-Instruct-config-tokenizer}"
+    : "${EVAL_RESULTS_ROOT:=$_ROCm_OVERLAY/eval_results}"
+    : "${PRECISION:=bf16}"                # bf16 训练的 HF 导出是 bf16；fp32 服务不了它
+    : "${AITER_USE_SYSTEM_TRITON:=1}"      # aiter 要求 triton>=3.6（镜像是 3.5.1）⇒ 不设则模型 import 直接 RuntimeError
+    export AITER_USE_SYSTEM_TRITON
+fi
+#: conda 兼容层：有 conda.sh 就照旧 activate；没有就直接用 venv（设 PATH/PYTHONPATH/VIRTUAL_ENV）
+run_env() {
+    if [ -f "${CONDA_SH:-/nonexistent}" ]; then
+        # shellcheck disable=SC1090
+        source "$CONDA_SH" && conda activate "$1"
+    else
+        export VIRTUAL_ENV="$_ROCm_VENV"
+        export PATH="$_ROCm_VENV/bin:$PATH"
+        local _sp
+        _sp=$("$_ROCm_VENV/bin/python" -c 'import site;print(site.getsitepackages()[0])' 2>/dev/null || true)
+        [ -n "$_sp" ] && export PYTHONPATH="${_sp}${PYTHONPATH:+:$PYTHONPATH}"
+    fi
+    return 0
+}
+# ========================= 适配层结束 =========================
+
+# 参数区用的是 `${VAR:-<AutoDL 默认>}` ⇒ 未 export 时会填成 AutoDL 路径；
+# 这里在**参数区之前**把它们改成本机默认（显式 export 的值不动）。
+if [ ! -d /data/miniconda3 ]; then
+    [ "${REPO:-}" = "/data/code/lingbot-vla-v2" ]              && REPO=/workspace/lingbot_vla_2/lingbot-vla-v2
+    [ "${QWEN3VL:-}" = "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct" ] \
+        && QWEN3VL=/workspace/models/Qwen3-VL-4B-Instruct-config-tokenizer
+    [ -z "${PRECISION:-}" ]  && PRECISION=bf16
+    export REPO ROBOTWIN_DIR QWEN3VL PRECISION
+fi
+export _ROCm_VENV _ROCm_OVERLAY
+
+REPO=${REPO:-$_REPO_DERIVED}
+TASK=${TASK:-click_bell}
+CKPT_ROOT=${CKPT_ROOT:-/data/outputs/single/$TASK}
+STEP=${STEP:-500}
+PRECISION=${PRECISION:-fp32}
+FAST_LOAD=${FAST_LOAD:-$([ "$PRECISION" = "bf16" ] && echo 1 || echo 0)}
+USE_COMPILE=${USE_COMPILE:-false}
+[[ "$PRECISION" == "bf16" || "$PRECISION" == "fp32" ]] \
+    || { echo "❌ PRECISION 只支持 fp32|bf16，收到 $PRECISION" >&2; exit 1; }
+if [[ "$PRECISION" == "bf16" ]]; then USE_BF16=true; USE_FP32=false; else USE_BF16=false; USE_FP32=true; fi
+[[ "$FAST_LOAD" == "0" || "$FAST_LOAD" == "1" ]] \
+    || { echo "❌ FAST_LOAD 只支持 0|1，收到 $FAST_LOAD" >&2; exit 1; }
+if [[ "$FAST_LOAD" == "1" && "$PRECISION" != "bf16" ]]; then
+    echo "❌ FAST_LOAD=1 要求 PRECISION=bf16（部署侧 fast 路径会在 CUDA 上直接建 bf16 模型）" >&2; exit 1
+fi
+[[ "$USE_COMPILE" == "true" || "$USE_COMPILE" == "false" ]] \
+    || { echo "❌ USE_COMPILE 只支持 true|false，收到 $USE_COMPILE" >&2; exit 1; }
+export LINGBOT_DEPLOY_FAST_LOAD=$FAST_LOAD
+PORT=${PORT:-9330}
+USE_LENGTH=${USE_LENGTH:-50}
+QWEN3VL=${QWEN3VL:-/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct}
+CONDA_SH=${CONDA_SH:-/data/miniconda3/etc/profile.d/conda.sh}
+INFERENCE_ENV=${INFERENCE_ENV:-lingbotvla}
+WAIT=${WAIT:-420}
+LOG=${LOG:-${_ROCm_OVERLAY}/tmp/policy_server_${PORT}.log}
+PIDFILE=${PIDFILE:-${_ROCm_OVERLAY}/tmp/policy_server_${PORT}.pid}
+
+# =============================================================================
+
+
+hr() { printf '%.0s─' {1..78}; echo; }
+die() { echo "❌ $*" >&2; exit 1; }
+
+CKPT="$CKPT_ROOT/checkpoints/global_step_${STEP}/hf_ckpt"
+
+gpu_mem() {
+    # ROCm 上**没有 nvidia-smi** ⇒ 优先 rocm-smi；两者都不可用时安静返回，不阻断流程
+    if command -v rocm-smi >/dev/null 2>&1; then
+        rocm-smi --showmeminfo vram 2>/dev/null \
+            | awk '/Used Memory/{s+=$NF} END{if(s>0) printf "%.1f GB（显存合计）", s/1073741824}'
+        return 0
+    fi
+    nvidia-smi --query-gpu=memory.used --format=csv,noheader 2>/dev/null | head -1 || true
+}
+
+# 端口是否在监听。
+# ⚠️ 这个容器里**没有 `ss` 也没有 `netstat`**（实测 `ss: command not found`）⇒ 直接读
+#    /proc/net/tcp{,6} 的 LISTEN(0A) 表项。零依赖、且**不会向 server 发起连接**。
+port_listening() {
+    local hex; hex=$(printf '%04X' "$PORT")
+    awk -v h=":${hex}" '$4=="0A" && substr($2, length($2)-4) == h { f=1 } END { exit !f }' \
+        /proc/net/tcp /proc/net/tcp6 2>/dev/null
+}
+
+pid_alive() {
+    [[ -f "$PIDFILE" ]] || return 1
+    local p; p=$(cat "$PIDFILE" 2>/dev/null || echo "")
+    [[ -n "$p" ]] && kill -0 "$p" 2>/dev/null
+}
+
+# ---- start ------------------------------------------------------------------
+do_start() {
+    if pid_alive; then
+        echo "ℹ️  服务已在运行（PID=$(cat "$PIDFILE")，端口 $PORT）"
+        port_listening && echo "   端口已在监听 ✅" || echo "   端口尚未监听（可能仍在 CPU 初始化阶段）"
+        exit 0
+    fi
+    if port_listening; then
+        die "端口 $PORT 已被别的进程占用（可能是另一个 launcher / 服务）。
+   先确认：grep -i 2472 /proc/net/tcp        # 9330 = 0x2472，状态 0A = LISTEN
+   或者换端口：PORT=9331 ... bash tools/misc/policy_server.sh start"
+    fi
+
+    [[ -f "$CKPT/model.safetensors.index.json" ]] \
+        || die "ckpt 不完整或缺 index.json：$CKPT"
+    [[ -d "$QWEN3VL" ]] || die "QWEN3VL 路径不存在：$QWEN3VL"
+    { [ -f "$CONDA_SH" ] || [ -x "$_ROCm_VENV/bin/python" ]; } || die "既找不到 $CONDA_SH，也没有 venv：$_ROCm_VENV"
+    cd "$REPO" || die "仓库目录不存在：$REPO"
+
+    hr
+    cat <<EOF
+  模式        : 常驻推理服务（只起服务，不跑任务）
+  ckpt        : $CKPT
+  端口        : $PORT
+  chunk       : $USE_LENGTH
+  精度        : $PRECISION（use_bf16=$USE_BF16, use_fp32=$USE_FP32, use_compile=$USE_COMPILE）
+  fast 加载   : $FAST_LOAD（LINGBOT_DEPLOY_FAST_LOAD；1 = CUDA 上建模型 + 流式拷权重）
+  QWEN3VL_PATH: $QWEN3VL
+  日志        : $LOG
+  PID 文件    : $PIDFILE
+EOF
+    hr
+
+    # 与 launcher 启动推理服务的命令**逐字一致**（见 start_robotwin_infer_and_eval.sh:343）
+    export QWEN3VL_PATH="$QWEN3VL"
+export -f run_env 2>/dev/null || true
+    setsid bash -c "run_env ${INFERENCE_ENV} && SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 python -m deploy.lingbot_vla_v2_policy \
+        --model_path '${CKPT}' \
+        --use_length '${USE_LENGTH}' \
+        --use_bf16 $USE_BF16 \
+        --use_fp32 $USE_FP32 \
+        --use_compile $USE_COMPILE \
+        --port '${PORT}'" > "$LOG" 2>&1 < /dev/null &
+
+    local pid=$!
+    echo "$pid" > "$PIDFILE"
+    echo "🚀 已启动（PID=$pid，进程组同号 ⇒ stop 会整组结束）"
+
+    if [[ "${WAIT}" -le 0 ]]; then
+        echo "（WAIT=0 ⇒ 不等待就绪，用 status 查看）"
+        exit 0
+    fi
+
+    # 等端口监听就绪；期间每 15 秒报一次，好看清进度
+    local t0=$SECONDS
+    while (( SECONDS - t0 < WAIT )); do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            echo "❌ 服务进程已退出，日志尾部："
+            tail -n 20 "$LOG" || true
+            rm -f "$PIDFILE"
+            exit 1
+        fi
+        if port_listening; then
+            hr
+            echo "✅ 服务就绪：端口 $PORT 已监听（耗时 $((SECONDS - t0))s）"
+            echo "   显存占用 : $(gpu_mem)"
+            echo "   下一步   : TASKS=\"<任务>\" EPISODES=5 bash tools/misc/eval_tasks.sh"
+            hr
+            exit 0
+        fi
+        printf '   …等待就绪 %3ds / %ds（显存 %s，仍可能在 CPU 初始化）\n' \
+               $((SECONDS - t0)) "$WAIT" "$(gpu_mem)"
+        sleep 15
+    done
+    echo "⚠️  等满 ${WAIT}s 端口仍未监听。用 status 继续观察（本机 CPU 阶段可能较慢）。"
+}
+
+# ---- status -----------------------------------------------------------------
+do_status() {
+    hr
+    echo "  端口        : $PORT"
+    if pid_alive; then
+        echo "  进程        : 运行中（PID=$(cat "$PIDFILE")）"
+    else
+        echo "  进程        : 未运行（无有效 PID 文件）"
+    fi
+    if port_listening; then
+        echo "  监听        : ✅ 已在监听"
+    else
+        echo "  监听        : ❌ 未监听"
+    fi
+    echo "  显存占用    : $(gpu_mem)"
+    echo "  实际进程    : $(pgrep -fc 'lingbot_vla_v2_polic[y]' || echo 0) 个"
+    echo "  日志        : $LOG"
+    echo "  ---- 日志尾部 ----"
+    tail -n 6 "$LOG" 2>/dev/null || echo "  （无日志）"
+    hr
+}
+
+# ---- stop -------------------------------------------------------------------
+do_stop() {
+    if ! pid_alive; then
+        # 兜底：按进程名清理
+        local n; n=$(pgrep -fc 'lingbot_vla_v2_polic[y]' || true)
+        if [[ "${n:-0}" -gt 0 ]]; then
+            echo "⚠️  PID 文件无效，但发现 $n 个推理进程 ⇒ 按进程名结束"
+            pkill -f 'lingbot_vla_v2_polic[y]' || true
+            sleep 2
+            port_listening && echo "  端口仍在监听（可能已被别的服务接管）" || echo "  端口已释放 ✅"
+        else
+            echo "ℹ️  没有在运行的服务"
+        fi
+        rm -f "$PIDFILE"
+        exit 0
+    fi
+    local pid; pid=$(cat "$PIDFILE")
+    echo "🛑 结束服务（PID 组 $pid）…"
+    kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
+    for _ in $(seq 1 15); do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 1
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+        echo "  仍在 ⇒ SIGKILL"
+        kill -9 "-$pid" 2>/dev/null || kill -9 "$pid" 2>/dev/null || true
+        sleep 2
+    fi
+    rm -f "$PIDFILE"
+    echo "  显存占用 : $(gpu_mem)"
+    port_listening && echo "  ⚠️  端口仍在监听" || echo "  ✅ 端口已释放"
+}
+
+case "${1:-}" in
+    start)  do_start  ;;
+    status) do_status ;;
+    stop)   do_stop   ;;
+    *) echo "用法：bash tools/misc/policy_server.sh {start|status|stop}"; exit 2 ;;
+esac

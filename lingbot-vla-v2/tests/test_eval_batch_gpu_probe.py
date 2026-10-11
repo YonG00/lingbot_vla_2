@@ -22,7 +22,7 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from lingbotvla.utils import eval_batch_probe as ebp  # noqa: E402
-from tools import eval_batch_gpu_probe as probe  # noqa: E402
+from tools.problem_reproduction import eval_batch_gpu_probe as probe  # noqa: E402
 
 
 EXPECTED = [
