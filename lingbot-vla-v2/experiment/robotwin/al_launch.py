@@ -501,15 +501,14 @@ class Coverage:
 
     def __init__(self, cache_file: Path, model: str,
                  checkpoint: str | Path | None = None) -> None:
-        # 🔴 按模型分名：与训练侧**同模块同函数**解析（见 scout_cache_file_for）。
-        #    模型名也在这里被解析（显式名优先，否则取 checkpoint 路径尾部 4 段），
-        #    保证"预检读的文件"与"训练写的文件"完全一致。
-        self.cache_file, self.model = scout_cache_file_for(
-            cache_file, model, checkpoint)
-        if str(model or '').strip() and self.model != str(model):
-            # 显式给了名字 ⇒ resolve 会原样返回；走到这里说明解析结果不同，打印出来便于核对
-            print(f'[cache] 模型标识按 checkpoint 解析：{model!r} -> {self.model!r}',
-                  file=sys.stderr)
+        # 🔴 按模型分名：这里只做**幂等**的路径 scoping，**不重新解析模型名**。
+        #    调用方（`check_coverage` 的 caller）传进来的已经是 `scout_cache_file_for`
+        #    解析好的模型名；若这里再解析一次，`resolve_model_name()` 会把
+        #    "train_al_v37/checkpoints/global_step_500/hf_ckpt" 当成**路径**再取尾部 4 段
+        #    ⇒ 退化（真机实测：模型名解析成 ''，于是与缓存里 'robbyant_lingbot-vla-v2-6b-bf16'
+        #    全不匹配、launcher 以退出码 3 拒绝启动）。
+        self.cache_file = Path(cache_file)
+        self.model = str(model)
         self.rows: Dict[str, Tuple[bool, str]] = {}
         # 整份文件只读一次（单文件语义；坏文件/不存在 ⇒ 全部未覆盖）
         self._raw: dict | None = None

@@ -169,3 +169,55 @@ def test_launcher_uses_same_path_as_cache_class(tmp_path):
     base = tmp_path / 'scout.json'
     c = BootstrapScoutCache(base, model=TRAIN_MODEL, write_enabled=True)
     assert c.path == scoped_cache_path(base, TRAIN_MODEL)
+
+
+# --------------------------------------------------------------------------- #
+# launcher 侧解析（真机踩过的坑：解析后的模型名被**二次解析** ⇒ 退化成空串）
+# --------------------------------------------------------------------------- #
+def _load_launcher():
+    import importlib.util
+    root = Path(__file__).resolve().parents[1]
+    spec = importlib.util.spec_from_file_location(
+        '_al_launch_probe', root / 'experiment/robotwin/al_launch.py')
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_launcher_resolves_model_and_scopes_file():
+    """`scout_cache_file_for` 必须一次算出【模型名 + scoped 文件】，两者同源。"""
+    al = _load_launcher()
+    base = '/workspace/al/scout_cache/scout.json'
+    ckpt = ('/models/robotwin-persistent/al_runs/train_al_v37/'
+            'checkpoints/global_step_500/hf_ckpt')
+    path, model = al.scout_cache_file_for(base, '', ckpt)
+    assert model == 'train_al_v37/checkpoints/global_step_500/hf_ckpt'
+    assert model_slug(model) in path.name
+
+
+def test_launcher_model_name_not_reparsed_by_coverage():
+    """**核心回归**：把已解析的模型名交回 launcher 的 `Coverage`，不得再次解析。
+
+    真机事故：`Coverage.__init__` 里对"已解析好的模型名"又调了一次
+    `resolve_model_name()`，而它会把这串当成**路径**再取尾部 4 段
+    ⇒ 模型名退化成 `''` ⇒ 与缓存里的模型全不匹配 ⇒ launcher 退出码 3。
+    """
+    al = _load_launcher()
+    base = '/workspace/al/scout_cache/scout.json'
+    ckpt = ('/models/robotwin-persistent/al_runs/train_al_v37/'
+            'checkpoints/global_step_500/hf_ckpt')
+    path, model = al.scout_cache_file_for(base, '', ckpt)
+
+    cov = al.Coverage(path, model)          # ← 传"已解析"的值
+    assert cov.model == model, f'模型名被二次解析：{cov.model!r} != {model!r}'
+    assert cov.model, '模型名不得为空串'
+    assert cov.cache_file == path, 'scoped 路径必须是幂等的（不得再拼一层）'
+
+
+def test_launcher_coverage_accepts_checkpoint_kwarg():
+    """`check_coverage`/`Coverage` 仍可接受 checkpoint（供一次性解析的调用方使用）。"""
+    al = _load_launcher()
+    cov = al.check_coverage(Path('/workspace/al/scout_cache/scout.json'),
+                            'my-explicit-model', {'task_a': [1, 2]})
+    assert cov.model == 'my-explicit-model'
+    assert cov.missing == ['task_a'], '文件不存在 ⇒ 未覆盖'
