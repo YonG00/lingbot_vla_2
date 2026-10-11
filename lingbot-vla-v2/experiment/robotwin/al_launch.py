@@ -1213,6 +1213,12 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
     for k, v in os.environ.items():
         if k.startswith('AL_') and k not in extra:
             extra[k] = v
+    # 🔴 2026-10-11：`AL_SCAN_SKIP_HARDNESS` **禁止自动透传**。
+    #    它只由 `_scan_round()` 注入扫描 worker；若从父进程 shell 漏进来，训练进程会
+    #    跳过 hardness（bootstrap 一空就收工）⇒ 训练评测口径被破坏。
+    #    实测（单测）父进程带 =1 时，下面返回字典里的 '0' 会被这里"已存在"的逻辑挡住，
+    #    所以必须**在透传阶段就摘掉**，让下面的显式 '0' 生效。
+    extra.pop('AL_SCAN_SKIP_HARDNESS', None)
     # 🔴 hardness 缓存：**显式文件**（2026-10-10 起不再用指纹目录）。
     # 兼容旧 `--hardness-cache <目录>`：落成该目录下的固定文件名。
     _hc_file = str(getattr(args, 'hardness_cache_file', '') or '')
@@ -1269,6 +1275,9 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
         'AL_SCOUT_CACHE_BASELINE': str(baseline),
         'AL_SCOUT_CACHE_NORM': str(norm),
         'AL_SCOUT_CACHE_DTYPE': str(dtype),
+        # 🔴 扫描模式开关**绝不透传给训练**：它只由 `_scan_round()` 注入扫描 worker。
+        #    父进程里若误带同名 `AL_*`（会被上面的自动透传捡到），训练就会跳过 hardness。
+        'AL_SCAN_SKIP_HARDNESS': '0',
         'AL_EVAL_PREFLIGHT': '1',
         'AL_EVAL_WARMUP': '1',
         'AL_EVAL_PHASE_LOG': '1',
@@ -1559,6 +1568,13 @@ def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script
                          master_port=free_port(62510 + i * 10),
                          smoke_no_checkpoint=not args.worker_checkpoint)
         env['AL_CFG'] = str(cfg)
+        # 🔴 2026-10-11：扫描 worker 处于"**只补 scout**"模式（`AL_SCAN_SKIP_HARDNESS=1`）。
+        #    理由：启动门控**只看 scout 覆盖**，而预扫 worker 原本会继续走到 `_select()`
+        #    ⇒ 给挑中的任务算 hardness（单卡实测 15–20 分钟/任务，占预扫耗时 99%，
+        #    且门控根本不看它）。此开关让 bootstrap 一空即收工，hardness 回归训练循环
+        #    按需扫（那时是 6 卡同进程组 ⇒ `AL_HARDNESS_SHARD=1` 才真正生效）。
+        #    ⚠️ 只给 **worker** 注入，训练进程不带（训练要算 hardness）。
+        env['AL_SCAN_SKIP_HARDNESS'] = '1'
         pid = spawn_background(script=launch_script, env=env, log_path=wlog, cwd=repo,
                                shell_env=shell_env_for_launch(python), log=log)
         time.sleep(0.4)

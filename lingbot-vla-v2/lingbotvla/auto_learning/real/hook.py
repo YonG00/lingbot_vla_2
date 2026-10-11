@@ -21,12 +21,22 @@
 
 from __future__ import annotations
 
+import os
 import random
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from ..ports import TrainResult
 from .sampler import UnitStats
+
+#: 扫描模式开关：`=1` ⇒ 只补 scout，bootstrap 一结束就收工（不算 hardness）。
+#: 由 launcher 仅注入**扫描 worker**（`_scan_round`），绝不注入训练进程。
+SCAN_SKIP_HARDNESS_ENV = 'AL_SCAN_SKIP_HARDNESS'
+
+
+def _scan_skip_hardness() -> bool:
+    """是否处于"只扫 scout"的扫描模式（见 `_open_next_unit` 的说明）。"""
+    return str(os.environ.get(SCAN_SKIP_HARDNESS_ENV, '')).strip() in ('1', 'true', 'True', 'yes')
 
 
 @dataclass
@@ -97,9 +107,22 @@ class AutoLearnLoopHook:
         副作用：`_unit_steps` / `_step_in_unit` / `_unit_losses` 复位，并把 request
         交给 sampler —— 🔴 **必须在重建 `iter(train_dataloader)` 之前**完成，
         否则 sampler 的 `__iter__` 会因「还没收到 TrainRequest」直接报错。
+
+        🔴 `AL_SCAN_SKIP_HARDNESS=1`（2026-10-11 用户定）：**扫描模式**。
+        预扫 worker 的任务只是"把 scout 缓存补齐"（launcher 的启动门控**只看 scout**），
+        而推进循环原本会继续走到 `_select()` —— 那里会给挑中的任务算 **hardness**
+        （单卡实测 15–20 分钟/任务，是预扫耗时 99% 的来源，且门控根本不看它）。
+        因此本模式下：**bootstrap 队列一空就收工**，把 hardness 留给训练循环按需多卡扫。
         """
         while self.scheduler.next_action() != "train_unit":
             if self.scheduler.state.finished:
+                return None
+            # scan 模式：scout 全扫完（bootstrap 队列排空）⇒ 立即收工，不进入 _select/训练
+            if _scan_skip_hardness() and not self.scheduler.state.bootstrap_queue:
+                self.scheduler._finish("scan_only_scout_done")
+                self._record({"action": "finish", "stop_reason": "scan_only_scout_done",
+                              "note": "AL_SCAN_SKIP_HARDNESS=1：扫描模式只补 scout，"
+                                      "hardness 交由训练循环按需扫"})
                 return None
             self._record(self.scheduler.advance())
 
