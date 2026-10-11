@@ -304,25 +304,19 @@ def main() -> int:
     passed = reg_passed if reg_passed is not None else len(derived_passed)
     newly = last.get('curriculum/newly_passed_count')
     boot = last.get('curriculum/bootstrap_pass_count')
-    print('=' * 78)
-    print(f' AL 仪表盘  run={run}   目标 PASS={target}')
-    _th = Path(str(cfg['thresholds'] or '?')).name
-    _iv = f'；每 {cfg["interval"]} 步判定一次' if cfg['interval'] else ''
-    print(f' 门槛: {_th.replace("pass_thresholds_", "")}（{len(thresholds)} 任务）{_iv}')
-    st_line = (f' 状态: 训练中（{nrank} rank/{nrank} 卡）'
-               if nrank else ' 状态: 未在训练')
-    if step is not None:
-        st_line += f' | Step {step}'
-    if sit:
-        st_line += f' | {sit:.1f}s/it'
     pct = (100.0 * passed / target) if target else 0.0
     _extra = ''
-    if isinstance(newly, (int, float)):
-        _extra += f' | 新增 {int(newly)}'
+    if isinstance(newly, (int, float)) and newly:
+        _extra += f' 新增{int(newly)}'
     if isinstance(boot, (int, float)) and boot:
-        _extra += f' | Bootstrap {int(boot)}'
-    print(st_line)
-    print(f' 通关: {passed}/{target}（{pct:.0f}%）还差 {max(0, target - passed)}{_extra}')
+        _extra += f' Bootstrap{int(boot)}'
+    _th = Path(str(cfg['thresholds'] or '?')).name.replace('pass_thresholds_', '')
+    _iv = f'；每 {cfg["interval"]} 步判定' if cfg['interval'] else ''
+    _st = (f'{nrank}卡 {sit:.1f}s/it' if (nrank and sit)
+           else (f'{nrank}卡' if nrank else '未在训练'))
+    print(f'[AL] {run} | Step {step if step is not None else "?"} | {_st} | '
+          f'通关 {passed}/{target}（{pct:.0f}%）差 {max(0, target - passed)}{_extra}')
+    print(f' 门槛 {_th}（{len(thresholds)} 任务）{_iv}')
     if derived_passed:
         _tail = ''
         if reg_passed is not None and len(derived_passed) < reg_passed:
@@ -332,7 +326,7 @@ def main() -> int:
         print(f' 已通关: {_names}{_more}{_tail}')
     if cfg['interval'] and step is not None:
         _rem = int(cfg['interval']) - (step % int(cfg['interval']))
-        print(f' 下一次判定: 再过 {_rem} 步（Step {step + _rem}）')
+        print(f' 下次判定: {_rem} 步后（Step {step + _rem}）')
 
     # 逐任务：以**阈值表**为准（50 个全有），指标取已评测到的最新值
     rows = []
