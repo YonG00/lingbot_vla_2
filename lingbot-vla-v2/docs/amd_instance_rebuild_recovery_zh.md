@@ -279,6 +279,68 @@ hardness 为 `{"version":2,"noise_semantic_version":1,"model":"…","tasks":{…
 
 ---
 
+## 7.2 ★★ 外部存档机（2026-10-11 建立）：**重建后照搬数据即可**
+
+> 动机：本机 `/models/robotwin-persistent` 是 overlay（重建即丢），`/workspace` 虽为持久卷但
+> **本次重建也被清空过** ⇒ 需要一个**第三台、与实例生命周期无关**的存档点。
+
+| 项 | 值 |
+|---|---|
+| 存档机 | `ssh -p 15570 root@jq1.9gpu.com`（主机名 `gpu-kvm`；Ubuntu 22.04；`/data` 49 G + `/` 59 G） |
+| 免密 | 开发机 ↔ 存档机 ✅；**存档机 ↔ cpu1** ✅（`gpu-kvm-archive` 公钥在 cpu1 `~/.ssh/authorized_keys`） |
+| 传输方向 | 存档机 **pull** cpu1（**不经开发机中转**：直连实测 8.9–21 MB/s，中转仅 0.58 MB/s） |
+| 体积 | 全部必需件约 **71 G**（存档机可用 80 G） |
+| 幂等 | 全部 `rsync -a --partial`，中断重跑即续传 |
+
+### 存档内容与落位
+
+| 存档路径（存档机上） | 体积 | 对应训练机路径 |
+|---|---|---|
+| `/data/lingbot_archive/demo_clean` | 32.7 G | `/models/robotwin-persistent/data/demo_clean` |
+| `/data/lingbot_archive/assets` | 9 G | `…/assets` |
+| `/data/lingbot_archive/Qwen3-VL-4B-Instruct` | 8.3 G | `…/models/Qwen3-VL-4B-Instruct` |
+| `/data/lingbot_archive/lerobot` | 4.7 G | `…/data/lerobot`（50 个 `<task>_joint_v30`） |
+| `/root/lingbot_archive/robbyant_lingbot-vla-v2-6b-bf16` | 12 G | `/workspace/models/…-bf16`（**训练起点**） |
+| `/root/lingbot_archive/{depth,dino_video}` | 3.1 G | `…/models/robbyant_lingbot-vla-v2-6b/{depth,dino_video}` |
+| `/root/lingbot_archive/moge-2-vitb-normal` | 0.4 G | `…/models/moge-2-vitb-normal` |
+| `/root/lingbot_archive/{al,eval_results,al_runs,al_cache}` | ~13 G | `/workspace/al` · `/workspace/eval_results` · `…/al_runs` · `…/al_cache` |
+| `/root/lingbot_archive/ws/` | 108 M | **`/workspace` 全量镜像**（含代码工作树 `.git`、`refs/`、`RoboTwin-lingbot`、bundle、runtime） |
+| `/root/lingbot_archive/extras/` | 0.85 M | 工作区根参考件（`refs/robotwin-*`、`.workbuddy` 记忆）+ 未入库仓库文件 |
+
+**有意未存档**：`6b-robotwin`(5.8 G，不用) · `agg_lerobot_v30`(3.9 G，可由 zip 解) ·
+`RoboTwin_lerobot_v30.zip`(3.9 G，ctrl 有) · `demo_clean.tar.xz`(0 字节残片) · `/models/rw`(7.5 G 残片) ·
+base fp32(27 G，ctrl 有；训练用 bf16) · `.ssh` 私钥。
+
+### 恢复（一条命令）
+
+```bash
+# 在存档机上执行；自动 rsync 13 项回目标机 + 重建 5 条软链 + 打印后续 3 步
+bash /root/archive_restore.sh root@<新机IP> <端口> /root/.ssh/id_ed25519
+```
+
+脚本会自动重建：`/RoboTwin/{data,assets}` 软链 · bf16 的 `depth`/`dino_video` 软链 ·
+`/workspace/models/Qwen3-VL-4B-Instruct-config-tokenizer` 软链。
+
+### 「对齐」操作口径（用户 2026-10-11 定：**直接按文件对照，不管 git**）
+
+> **有什么传什么**；不比 commit、不要求提交；以**文件内容**为准。
+
+用户说一句「对齐」⇒ ① `rsync -navc --delete` 逐文件对照（`-c` 按内容校验，避免时钟差异误判）
+② 打印差异清单（新增/修改/删除+体积）给他过目 ③ 点头后去掉 `-n` 只传差异 ④ 报结果。
+优先对照 4 处：`/workspace/lingbot_vla_2`（代码）· `/workspace/al`（派生产物）·
+`/workspace/eval_results`（阈值表）· `…/al_runs`（训练产物）。
+
+### 存档机上的三个脚本 + 说明
+
+| 文件 | 用途 |
+|---|---|
+| `/root/archive_pull_mk2.sh` | 13 项大件+小件拉取（修正落位：/data 与 /root 分池，避免溢出） |
+| `/root/archive_pull_ws.sh` | `/workspace` 全量镜像（直接文件对照，排除 models/、_spd.bin、lost+found） |
+| `/root/archive_restore.sh` | **一条命令推回新机 + 重建软链** |
+| `/root/ARCHIVE_README.md` | 完整说明（内容/落位/未存档项/恢复三步/对齐契约/通讯录） |
+
+---
+
 ## 8. 运维红线（本次踩过，代价真实）
 
 1. **清理/杀进程一律按显式 PID 列表**；`pkill -f "<子串>"` 会匹配到**执行它的那条命令/父链**，
