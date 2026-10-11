@@ -127,6 +127,10 @@ tritongpu-coalesce
 
 工具：`tools/rocm/repro_triton_ttgir_failure.py`（本次新增；纯标准库 + triton，已在真机验证）
 
+> ⚠️ **2026-10-11 核对**：该脚本**当前不在仓库里**（`tools/rocm/` 只有 `fix_aiter_gluon_triton.sh`、
+> `make_official_scaffold.sh`；本机工作副本、机器工作副本、原目录均无此文件）⇒ 下面的命令**暂时不可直接执行**。
+> 保留本节是因为它记录了当时的复现方法与真机输出；若还要用，需先把脚本补回仓库（或改写成不依赖它的 `triton.compile` 片段）。
+
 ```bash
 CACHE=/models/robotwin-persistent/al_cache/triton
 
@@ -163,6 +167,9 @@ note: Pipeline failed while executing [`TritonAMDGPUOptimizeDotOperands` on 'bui
 ### 7.2 判定「这台机器能不能用 flex 反向」的冒烟（不跑训练，几分钟）
 
 工具：`tools/rocm/flex_attention_backward_smoke.py`（本次新增）
+
+> ⚠️ **2026-10-11 核对**：该脚本**当前不在仓库里**（同 §7.1 的情况）⇒ 下面命令**暂时不可直接执行**。
+> 判据与退出码一节仍可作参考规格使用。
 
 ```bash
 /opt/robotwin-env/bin/python tools/rocm/flex_attention_backward_smoke.py

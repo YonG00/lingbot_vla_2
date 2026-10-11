@@ -12,7 +12,7 @@
 | 目录 | 装什么 | 文件数 |
 |---|---|---|
 | `docs/`（顶层） | **官方原有文档**（16 个 md + `config/`） | 17 |
-| `auto_learning/` | AutoLearning 流程：总览、启动、易错、门槛/倍率、TB 对照、多卡、设计稿 | 15 |
+| `auto_learning/` | AutoLearning 流程：总览、启动、易错、门槛/倍率、TB 对照、多卡、设计稿、**实测记录** | 16 |
 | `rocm/` | AMD/ROCm 平台：实例重建恢复、使用指南、编译失败与 Triton 崩溃排查 | 4 |
 | `acceptance/` | 验收与评测口径：96G bf16 验收、闭环单卡、Eval 批处理闸门、编译调优 | 4 |
 | `archive/audit/` | **历史审计快照**（按日期打包的证据包，只读，勿当现行文档） | 61 |
@@ -24,6 +24,7 @@
 | 第一次跑通 AutoLearning | `auto_learning/auto_learning_overview_zh.md` |
 | 启动训练（完整命令与参数） | `auto_learning/auto_learning_launch_guide_zh.md` |
 | **避开已知的坑**（8 项预检 + 6 类核心坑） | `auto_learning/auto_learning_pitfalls_zh.md` |
+| **要实测数字**（步时/扫描耗时/`--env` 传法/故障判定） | `auto_learning/AL_MEASUREMENTS_AMD_2026-10-11.md` |
 | 看懂"倍率/门槛/PASS"口径 | `auto_learning/GMEAN_PASSLINE_GUIDE.md` |
 | 多卡怎么用、扫描怎么分摊 | `auto_learning/auto_learning_multigpu_guide.md` |
 | 多 rank 评测预检失败怎么查 | `auto_learning/auto_learning_multirank_eval_diagnosis.md` |

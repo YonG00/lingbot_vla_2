@@ -54,7 +54,8 @@ CLIENT_FLAVOR=official DEVICE_ID=0 INSTRUCTION_TYPE=seen \
 | 10 | curobo 路径自愈（必跑） | 无 conda 时**跳过**，改由 `ROBOTWIN_DISABLE_CUROBO=1 ROBOTWIN_EE_PLANNER=mplib` 走 mplib | 本机没装 curobo；官方脚本同款做法 |
 | 11 | 无头渲染 | 显式 `PYOPENGL_PLATFORM=egl` | 服务器无 X11 |
 
-> 原文件已备份为 `tools/policy_server.sh.orig_autodl`、`tools/eval_tasks.sh.orig_autodl`；
+> 原文件已备份为 `tools/misc/policy_server.sh.orig_autodl`、`tools/misc/eval_tasks.sh.orig_autodl`；
+> （2026-10-11 目录整理后：`policy_server.sh` / `eval_tasks.sh` 在 **`tools/misc/`**）
 > 想完全回到 AutoDL 行为：删掉适配层，或 `cp` 回备份。
 
 ---

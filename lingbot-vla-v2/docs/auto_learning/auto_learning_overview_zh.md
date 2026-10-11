@@ -8,7 +8,12 @@
 ## 1. 一句话
 
 **Auto Learning 让模型自己决定"接下来练哪个任务"** —— 把 50 个任务的集合交给它，
-它在训练循环里持续做「评测 → 挑任务 → 训练 → 判定」，直到**累计通关 N 个任务**（当前配置 `N=15`）自动收工。
+它在训练循环里持续做「评测 → 挑任务 → 训练 → 判定」，直到**累计通关 N 个任务**自动收工。
+
+> ⚠️ `N` 由配置 `target_total_passed_tasks` 决定，**不同配置不同值**：早期实验用 `N=15`，
+> 当前生产配置（`configs/auto_learning/al_eval2_target15_m60.yaml`）已改为
+> **`N=50`（满池"学到完为止"）+ `max_new_tasks_attempted_this_run: 51`（池子共 50 ⇒ 名额不设限）**。
+> 读配置时以文件里的实际数值为准，不要把某个历史数值当成"当前配置"。
 
 没有 AL 时：任务列表是人工定死的一条流水线，跑完就停。
 有 AL 时：每个 learning unit（默认 50 步）末尾都会重新评估"谁最该学、谁已经学会、谁的进步停滞"。
@@ -71,7 +76,8 @@ PASS  ⇔  metric_value ≤ 该任务的阈值线
           阈值线 = 参考模型的逐轨迹 GMean × calibration.multiplier
 ```
 
-* 阈值表由 `tools/build_gmean_thresholds.py` 生成（纯统计，见 `docs/auto_learning/GMEAN_PASSLINE_GUIDE.md`）；
+* 阈值表由 `lingbotvla/auto_learning/tools/build_gmean_thresholds.py` 生成
+  （纯统计、无卡、秒级；见 `docs/auto_learning/GMEAN_PASSLINE_GUIDE.md`）；
 * 事件流里有现成的比值 `task/<task>/val_to_pass_threshold`，**≤1 即过线**；
 * ⚠️ 判定是**开环**的：它只说明"这组轨迹上的动作误差够小"，不代表闭环任务成功。
 
@@ -89,10 +95,21 @@ PASS  ⇔  metric_value ≤ 该任务的阈值线
 
 | 阶段 | 并行单位 |
 |---|---|
-| 训练 | **数据并行**（6 卡同进程组，FSDP2） |
+| 训练 | **数据并行**（N 卡同进程组，FSDP2；卡数由 `--gpus` 决定，见启动指南） |
 | 评测 | **按 rank 分片**（每 rank 评一部分轨迹/样本，逐条推理） |
-| hardness 扫描 | **样本级分片**：`ids[rank::world]` + `all_gather_object` 汇总（单任务墙钟 ÷卡数） |
+| hardness 扫描 | **样本级分片**：`ids[rank::world]` + `all_gather_object` 汇总（单任务墙钟 ÷卡数）<br>🔴 **需要 `--env AL_HARDNESS_SHARD=1` 才开启**（`real/backend.py`） |
 | 启动前预扫 | 每个 worker 一组任务、**只补 scout**（`AL_SCAN_SKIP_HARDNESS=1`） |
+
+> 💥 **实测坑（2026-10-11）**：`AL_HARDNESS_SHARD` 只能由 **`--env AL_HARDNESS_SHARD=1`** 注入。
+> launcher 给子进程的环境**只自动透传 `AL_` 前缀**的变量 —— 这个变量虽是 `AL_` 开头，但
+> **不写在命令行 `--env` 里也不会来自父 shell**；一旦没传，`_shard_on=False` ⇒
+> **每个 rank 各算全量样本**（实测 8 卡时 `本 rank 271/271 样本`、零加速、白烧 8× 算力）。
+> 传对后同一任务变成 `本 rank ~34/271 样本`、墙钟 **~21 分钟 → 178 秒（≈7×）**。
+> ⇒ 看日志里 `[hardness] rank0/N 打分完成：… 本 rank X/Y 个样本` 来确认分片是否真的生效。
+
+> ⚠️ **训练侧的非 `AL_` 参数**：`SAVE_EVERY` / `HF_PASS_INTERVAL` 是训练脚本读的（不带 `AL_` 前缀），
+> 2026-10-11 起已加入 launcher 白名单；此前**只写在 shell 里会静默失效**（实测存档仍是默认 1000 步）。
+> 最稳的写法仍是显式 `--env SAVE_EVERY=400 --env HF_PASS_INTERVAL=0`。
 
 ---
 
@@ -105,7 +122,7 @@ PASS  ⇔  metric_value ≤ 该任务的阈值线
 | **收工** | `target_total_passed_tasks` / `max_new_tasks_passed_this_run` / `min_new_tasks_passed_this_run` | "通关几个就停"；后两个是兼容/下限门控 |
 | **任务池** | `task_names`（null=全部）/ `max_attempts_per_task` / `max_reopens_per_task` | 池子与预算 |
 | **评测节奏** | `eval_interval_steps`（=unit 长度）/ `min_steps_before_defer` / `defer_retry_steps` | ⚠️ 后两者必须是 unit 长度的整数倍（config 强制校验） |
-| **评测规模** | `global_scout_val_trajs` / `scout_confirm_enabled` / `active_{train,val}_probe_trajs` | scout 2 轨迹 + confirm 4 轨迹；active 4+4 |
+| **评测规模** | `global_scout_val_trajs` / `scout_confirm_enabled` / `active_{train,val}_probe_trajs` | scout 2 轨迹 + confirm 4 轨迹；active 4+4（⚠️ confirm 用 `val_ids[:4]`，与 scout 的 `val_ids[:2]` **是超集关系**） |
 | **判定口径** | `pass_metric` / `pass_thresholds_file` / `pass_nmse`（兼容占位） | 当前 = `gmean_mse` + `pass_thresholds_gmean60_warn.json` |
 | **候选池** | `pool_filter_by_gmean_ratio` / `pool_ratio_pass` / `pool_ratio_skip` | 太易/太难的任务不进池（ratio=倍率） |
 | **批组成** | `batch_size` / `new_slots` / `replay_slots` / `new_ratio` | GBS 里 NEW 与 Replay 的比例 |
@@ -147,6 +164,7 @@ real/         backend.py / build.py / hook.py / sampler.py / determinism.py / sa
 obs/          logger.py / report.py     ← 事件流与指标输出
 tools/        build_gmean_thresholds.py / compute_task_baseline.py / calibrate_pass_line.py
               / recheck_thresholds.py / sweep_params.py / tb_from_jsonl.py
+              ↑ 注意：这一组在 `lingbotvla/auto_learning/tools/`（**不是**仓库根的 `tools/`）
 ```
 
 **启动侧**：`experiment/robotwin/al_launch.py`（统一启动程序：扫描 → 就绪检查 → 起训练）。
@@ -206,7 +224,7 @@ train.sh → tasks/vla/train_lingbotvla.py
 | `unit` / `learning unit` | 一个训练单元 = `eval_interval_steps` 个 optimizer step（默认 50） |
 | `attempt` | 对某任务的一次"选中→训练→判定"循环 |
 | `scout` | 选课用的轻量评测（`global_scout_val_trajs=2`） |
-| `confirm` | scout 过线后的 4 轨迹复评（`scout_confirm_enabled`） |
+| `confirm` | scout 过线后的复核评测（`scout_confirm_enabled`）。轨迹数 = `val_ids[:max(scout, active_val)]`，默认 `[:4]` ⇒ **是 scout 那 2 条的 4 条超集**（原 2 条重跑 + 新增 2 条），不是独立样本；每任务的 10 条 val 够用，若要让复核真正独立应改成不重叠切片 |
 | `active_train` / `active_val` | attempt 基线与判定用的 4+4 轨迹评测 |
 | `hardness` | 逐样本难度（loss），用于采样加权 |
 | `NEW` / `Replay` | 本任务样本 / 已 PASS 任务的回放样本 |
