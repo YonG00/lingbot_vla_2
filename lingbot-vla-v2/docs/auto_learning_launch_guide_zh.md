@@ -713,3 +713,87 @@ checkpoint 做的端到端 `provenance` 比对。**任何一项不一致都会�
    `ast.dump` 行为不同（大版本差异），脚本会**自动改用 `--python` 指到的解释器**做一次
    子进程指纹计算，并在日志里注明来源（`[fingerprint] 来源=subprocess(…)`）。
 5. **`--no-cache` 不删数据**：旧缓存文件只是改名成 `scout.json.bak-<时间戳>`，确认无误后可自行删除。
+
+---
+
+## 8. 缓存寻址 / 扫描模式 / 多卡分摊（2026-10-11 定稿）
+
+> 症状级的排查清单见 `docs/auto_learning_pitfalls_zh.md`（易错文档）。本段记**当前生效的机制**。
+
+### 8.1 模型标识 = 缓存有效性的唯一键
+
+| 来源 | 规则 |
+|---|---|
+| 显式 `--model-name` | **优先**，原样使用 |
+| 未传时 | 取 `--checkpoint` 路径的**尾部 4 段** |
+| 示例 | `…/al_runs/train_al_v37/checkpoints/global_step_500/hf_ckpt` → `train_al_v37/checkpoints/global_step_500/hf_ckpt` |
+
+⇒ **从 base 权重起训**与**从某个 run 的第 N 步起训**会得到**不同标识** ⇒ 缓存自动隔离（也正是"换权重就该重扫"的语义）。
+
+⚠️ **不要手工传一个固定串**（如 `--model-name robbyant_lingbot-vla-v2-6b-bf16`）去"复用缓存"：
+那会让 base 权重与训练后权重共用同一份 scout/hardness 指标。
+
+### 8.2 缓存文件按模型分名
+
+```
+/workspace/al/scout_cache/
+  scout.json                                                    ← 旧的无后缀文件（保留）
+  scout.workspace_models_robbyant_lingbot-vla-v2-6b-bf16.json    ← base 权重用这份
+  scout.train_al_v37_checkpoints_global_step_500_hf_ckpt.json   ← 从 500 步起训用这份
+```
+* 首次使用 scoped 名时，把**旧的无后缀文件复制**过去（只复制、不删除）⇒ 迁移不丢缓存；
+* slug：`/` 等字符合法化为 `_`，超 80 字符截断 + 8 位 hash；
+* `AL_CACHE_SHARED=1` ⇒ 回退"所有模型共用一个文件"的旧行为（排障用）；
+* 文件内 `model` 字段校验**仍然保留**（防手工拷错文件、防迁移后字段过期）。
+
+### 8.3 启动门控：只看 scout
+
+* 覆盖检查逐条校验：`version` / **`model`** / 该任务记录存在 / `task` / `episode_ids` / `metrics` / `per_traj_mse` 键集 / 值为有限数；
+* 三种模式：`reuse`（全命中 ⇒ 不扫描）/ `incremental`（只扫缺失）/ `full-scan`（`--no-cache`）；
+* 缺失清单非空 ⇒ 打印缺失任务名 + **退出码 3**（不启动训练、不伪造覆盖数）；
+* **hardness 不在门控里**（它在训练里按需扫）。
+
+### 8.4 扫描模式：`AL_SCAN_SKIP_HARDNESS=1`（launcher 自动注入给扫描 worker）
+
+* 扫描 worker 的 bootstrap 队列一空即收工（`stop_reason=scan_only_scout_done`）⇒ **只补 scout**、不算 hardness；
+* 训练进程**显式 `0`**，且该变量**禁止从父进程透传**（否则训练会静默跳过 hardness）；
+* 效果：预扫从"scout 4 分钟 + hardness 2–3 小时"降到 **≈4 分钟**。
+
+### 8.5 hardness 何时扫、扫多少、多卡怎么分摊
+
+| 项 | 说明 |
+|---|---|
+| 触发时机 | **训练循环按需**：挑中任务 → 扫它的 hardness（`scheduler._select()`），不是启动前扫全部 |
+| 抽样 | `hardness_probe_fraction`（默认 0.05）抽轨迹 + `hardness_max_frames_per_traj`（默认 300）压帧 |
+| 多卡分摊 | `ids[rank::world]` 交错切片 + `all_gather_object` 汇总（重复/缺失即报错）；**要求 6 卡同进程组** |
+| 实测 | 单卡 ≈21 分钟/任务 ⇔ **6 卡 ≈4 分钟/任务**（255 样本，每卡 42–43） |
+| 缓存 | 按 **sample_id** 粒度 ⇒ 同任务二次进入只补缺失样本 |
+
+⚠️ **只有训练循环满足"同进程组"**：预扫 worker 是单卡（`N_GPU=1`）⇒ `AL_HARDNESS_SHARD=1` 静默失效、退回全量。
+
+### 8.6 监控：一条命令看进度 / 通关 / 门槛
+
+机器上 `/workspace/runtime/al_panel.py`：
+```bash
+python3 /workspace/runtime/al_panel.py                 # 自动选最新 run
+python3 /workspace/runtime/al_panel.py al_v41          # 指定 run
+python3 /workspace/runtime/al_panel.py al_v41 --all    # 全部 50 个任务
+watch -n 30 python3 /workspace/runtime/al_panel.py     # 每 30 秒刷新
+```
+输出含：**rank 数/卡数**（按"父进程是 torchrun"精确统计）· Step 与**稳态 s/it 中位数** ·
+**通关 x/15 还差几个** · 门槛表与任务数 · **逐任务 `GMean` vs 门槛 vs 倍数 vs 判定**。
+
+判定口径：`PASS ⇔ active_val_gmean_mse ≤ pass_threshold_gmean_mse`
+（事件流里现成的比值是 `val_to_pass_threshold`，≤1 即 PASS）。
+
+### 8.7 倍率（`calibration.multiplier`）怎么改
+
+```bash
+python -m lingbotvla.auto_learning.tools.build_gmean_thresholds \
+  --ref-per-traj /workspace/eval_results/open_loop/ref50k/ref_per_traj.jsonl \
+  --baseline   /workspace/al/task_splits_50/task_baseline.json \
+  --reference global_step_50000 --multiplier 60 --high-cv-policy warn \
+  -o /workspace/eval_results/open_loop/ref50k/pass_thresholds_gmean60_warn.json
+```
+⇒ 每个任务的判定线 = `gmean × multiplier`；把 AL 配置里的 `pass_thresholds_file` 指过去即可。
+实测：100 → 60 使判定线整体 **×0.6**（`place_dual_shoes` 0.0887→0.0532、`shake_bottle` 0.0856→0.0513）。
