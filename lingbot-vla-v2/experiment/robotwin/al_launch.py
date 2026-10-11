@@ -16,7 +16,7 @@
   ① 分片并集必须等于任务全集（无重复、无遗漏）；
   ② worker 启动 30 秒后核对「进程数」与「已就绪：N 任务」，不符立刻报错退出；
   ③ 运行中按分片打印进度，**进度以缓存条目数为准**（事件文件可能有残留数据）；
-  ④ 收尾只统计目标指纹目录，缺失清单非空 ⇒ 非零退出码 + 打印缺失任务名（绝不
+  ④ 收尾只统计目标缓存文件，缺失清单非空 ⇒ 非零退出码 + 打印缺失任务名（绝不
      打印假的「50/50」）；
   ⑤ 清场只按**精确 PID**（`/proc/<pid>/cmdline` 核对身份），绝不 `pkill -f`。
 
@@ -35,7 +35,7 @@
 ===  ==================================================
 0    成功（dry-run 预演完成，或训练已后台启动）
 2    前置检查失败（参数/路径/AL 配置/机器被占用）
-3    扫描未完成（目标指纹目录里仍有缺失任务）
+3    扫描未完成（目标缓存文件里仍有缺失任务）
 4    worker 未就绪或提前退出（进程数 / 「已就绪：N 任务」不符）
 5    扫描超时
 6    内部错误（未预期异常）
@@ -94,11 +94,11 @@ DEFAULT_EVAL_CONFIG = 'configs/auto_learning/al_eval2.yaml'
 DEFAULT_PYTHON = '/opt/robotwin-env/bin/python'
 
 DEFAULT_CACHE_ROOT = '/workspace/al/scout_cache'
-#: scout 缓存**文件**（2026-10-10 起：由入参显式指定，路径不参与指纹推导）
+#: scout 缓存**文件**（2026-10-10 起：由入参显式指定；2026-10-11 起按模型分名）
 DEFAULT_SCOUT_CACHE_FILE = '/workspace/al/scout_cache/scout.json'
 #: hardness 逐样本缓存根（持久卷：体积小、跨实例重建仍可复用）
 DEFAULT_HARDNESS_CACHE_ROOT = '/workspace/al/hardness_cache'
-#: hardness 缓存**文件**（2026-10-10 起：由入参显式指定，路径不参与指纹推导）
+#: hardness 缓存**文件**（2026-10-10 起：由入参显式指定；2026-10-11 起按模型分名）
 DEFAULT_HARDNESS_CACHE_FILE = '/workspace/al/hardness_cache/hardness.json'
 DEFAULT_CHECKPOINT = '/workspace/models/robbyant_lingbot-vla-v2-6b-bf16'
 DEFAULT_SPLIT_DIR = '/workspace/al/task_splits_50'
@@ -145,7 +145,6 @@ FATAL_SUBSTRINGS = (
     'HSA_STATUS_ERROR',
     'hipErrorNoBinaryForGpu',
     'EADDRINUSE',
-    'invalid provenance fingerprint',
     'Scout cache checkpoint must exactly equal',
     'Scout cache dtype mismatch',
 )
@@ -354,40 +353,6 @@ def scout_key(task: str, episode_ids: Sequence[int]) -> str:
     if not task or not ids or len(set(ids)) != len(ids):
         raise ValueError('invalid task/episode ID set')
     return hashlib.sha256(json.dumps([task, ids], separators=(',', ':')).encode()).hexdigest()
-
-
-def compute_fingerprint(*, repo_root: Path, checkpoint: Path, manifest: Path, norm: Path,
-                        baseline: Path, thresholds: Path, dtype: str, scout_trajs: int,
-                        image_augment: bool) -> Tuple[str, Dict[str, Any]]:
-    """复刻 `real/build.py` 的指纹构造（含 `src_extra` 六个数据/配置文件）。"""
-    shards = sorted(checkpoint.glob('*.safetensors'))
-    if not shards:
-        raise LaunchError(f'checkpoint 目录下没有 *.safetensors：{checkpoint}'
-                          '（--checkpoint 指到 HF 权重目录，不是训练输出目录）')
-    extra: Dict[str, Any] = {
-        'manifest': manifest,
-        'norm': norm,
-        'thresholds': thresholds,
-        'baseline': baseline,
-        'checkpoint_config': checkpoint / 'config.json',
-        'checkpoint_tokenizer': checkpoint / 'tokenizer.json',
-    }
-    sources, missing = source_manifest(repo_root, extra)
-    options = {
-        'inference_dtype': normalize_dtype(dtype),
-        'noise_seed': 1234,
-        'scout_trajs': int(scout_trajs),
-        'stride': 'per_episode',
-        'image_augment': bool(image_augment),
-    }
-    fp = provenance(weight_files=shards, sources=sources, options=options)
-    return fp, {
-        'sources_included': len(sources),
-        'sources_missing': [{'key': k, 'reason': r} for k, r in missing],
-        'weight_shards': [p.name for p in shards],
-        'weight_bytes': sum(p.stat().st_size for p in shards),
-        'options': options,
-    }
 
 
 # --------------------------------------------------------------------------- #
@@ -1081,7 +1046,7 @@ def build_parser() -> argparse.ArgumentParser:
         description='Auto Learning 统一启动程序：缓存检查 → 并行补齐扫描 → 启动训练。')
     mode = ap.add_argument_group('模式')
     mode.add_argument('--no-cache', action='store_true',
-                      help='忽略现有缓存：全量并行扫描全部任务后再启动训练（旧指纹目录会被'
+                      help='忽略现有缓存：全量并行扫描全部任务后再启动训练（旧缓存文件会被'
                            '改名备份，不删除）')
     mode.add_argument('--dry-run', action='store_true',
                       help='只打印步骤计划与将用到的环境变量，不启动任何进程（无 GPU 也能跑）')
@@ -1115,12 +1080,6 @@ def build_parser() -> argparse.ArgumentParser:
     core.add_argument('--model-name', default=None,
                         help='模型标识（写入缓存用于判定可用性；默认取权重目录名）。'
                              '换模型 ⇒ 缓存自动失效重扫')
-
-    core.add_argument('--fingerprint', default=None,
-                      help='(已弃用) 显式指定 64 位指纹；**不再用于缓存寻址**，仅作记录/复现')
-    core.add_argument('--compute-fingerprint', action='store_true',
-                      help='计算并打印 provenance 指纹。默认**关闭**：缓存已改为「显式文件 + 模型名」，'
-                           '指纹不再参与寻址，而计算它要读 11.9 GiB 权重分片（实测每轮多花 1–3 分钟 I/O）')
 
     paths = ap.add_argument_group('路径')
     paths.add_argument('--repo', default=None, help='仓库根（默认取本脚本的上一级目录）')
@@ -1176,7 +1135,7 @@ def build_parser() -> argparse.ArgumentParser:
     runtime.add_argument('--scout-trajs', type=int, default=None,
                          help='每任务 scout 回合数；默认取 AL 配置的 global_scout_val_trajs')
     runtime.add_argument('--image-augment', action='store_true',
-                         help='image_augment=true（默认 false，必须与启动脚本一致，否则指纹不同）')
+                         help='image_augment=true（默认 false，必须与启动脚本一致，否则评测口径不同）')
     runtime.add_argument('--tb-port', type=int, default=6006, help='TensorBoard 端口，默认 6006')
     runtime.add_argument('--no-tb', action='store_true', help='训练不开 TensorBoard')
     runtime.add_argument('--workers', type=int, default=None,
@@ -1207,8 +1166,6 @@ def build_parser() -> argparse.ArgumentParser:
                         help='本工具日志文件（默认 <worker-out-root>/logs/al_launch_<时间戳>.log）')
 
     hidden = ap.add_argument_group('内部')
-    hidden.add_argument('--_print-fingerprint', dest='_print_fingerprint', action='store_true',
-                        help=argparse.SUPPRESS)
     hidden.add_argument('--al-config', dest='al_config_internal', default=None,
                         help=argparse.SUPPRESS)
     return ap
@@ -1299,7 +1256,7 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
 
 
 def worker_env(common: Dict[str, str], *, gpu: str, train_out: Path, max_steps: int,
-               fingerprint: str, master_port: int, smoke_no_checkpoint: bool) -> Dict[str, str]:
+               master_port: int, smoke_no_checkpoint: bool) -> Dict[str, str]:
     env = dict(common)
     env.update({
         'CUDA_VISIBLE_DEVICES': str(gpu),
@@ -1318,7 +1275,7 @@ def worker_env(common: Dict[str, str], *, gpu: str, train_out: Path, max_steps: 
 
 
 def train_env(common: Dict[str, str], *, gpus: str, n_gpu: int, train_out: Path,
-              max_steps: int, fingerprint: str, master_port: int, tb_port: int,
+              max_steps: int, master_port: int, tb_port: int,
               tb: bool) -> Dict[str, str]:
     env = dict(common)
     env.update({
@@ -1429,27 +1386,6 @@ def interpreter_version(python: Path) -> Optional[Tuple[int, int]]:
 # --------------------------------------------------------------------------- #
 # 主流程
 # --------------------------------------------------------------------------- #
-def _print_fingerprint_mode(args: argparse.Namespace) -> int:
-    """内部模式：用指定解释器算一次指纹并把 JSON 打到 stdout。"""
-    repo = Path(args.repo or Path(__file__).resolve().parents[2]).resolve()
-    try:
-        fp, info = compute_fingerprint(
-            repo_root=repo,
-            checkpoint=Path(args.checkpoint).expanduser(),
-            manifest=Path(args.manifest).expanduser(),
-            norm=Path(args.norm).expanduser(),
-            baseline=Path(args.baseline).expanduser(),
-            thresholds=Path(args.thresholds).expanduser(),
-            dtype=args.dtype, scout_trajs=int(args.scout_trajs or 2),
-            image_augment=bool(args.image_augment))
-    except (LaunchError, ValueError, OSError) as exc:
-        print(json.dumps({'ok': False, 'error': str(exc)}, ensure_ascii=False))
-        return 1
-    print(json.dumps({'ok': True, 'fingerprint': fp, 'info': info, 'python': sys.executable},
-                     ensure_ascii=False))
-    return 0
-
-
 def _selfcheck(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     """与仓库 `scout_cache.py` 对拍：semantic_sha256 / normalize_dtype / scout_key / provenance。"""
     import importlib.util
@@ -1536,7 +1472,7 @@ def _selfcheck(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> in
 
 def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script: Path,
                 python: Path, common: Dict[str, str], al_body: Dict[str, Any],
-                al_cfg: Path, fingerprint: str, cache_file: Path, scout_ids: Dict[str, List[int]],
+                al_cfg: Path, cache_file: Path, scout_ids: Dict[str, List[int]],
                 run_root: Path, round_shards: List[List[str]], round_gpus: List[str],
                 round_idx: int, tmpdir: Path, worker_out_root: Path) -> List[Dict[str, Any]]:
     """跑一轮并行扫描：生成分片配置 → 启动 worker → 就绪检查 → 逐分片进度 → 精确清场。
@@ -1595,7 +1531,7 @@ def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script
         wdir.mkdir(parents=True, exist_ok=True)
         wlog = wdir / f'worker_shard{i}_gpu{gpu}.log'
         env = worker_env(common, gpu=gpu, train_out=wdir, max_steps=args.worker_max_steps,
-                         fingerprint=str(fingerprint), master_port=free_port(62510 + i * 10),
+                         master_port=free_port(62510 + i * 10),
                          smoke_no_checkpoint=not args.worker_checkpoint)
         env['AL_CFG'] = str(cfg)
         pid = spawn_background(script=launch_script, env=env, log_path=wlog, cwd=repo,
@@ -1779,12 +1715,6 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     dtype = normalize_dtype(args.dtype)
     if dtype not in ('bfloat16', 'float16', 'float32'):
         raise LaunchError(f'--dtype 只支持 bfloat16/float16/float32，收到 {args.dtype!r}')
-    if args.fingerprint is not None:
-        fp_given = args.fingerprint.strip().lower()
-        if len(fp_given) != 64 or any(c not in '0123456789abcdef' for c in fp_given):
-            raise LaunchError('--fingerprint 必须是 64 位小写 hex（传前缀会被 '
-                              'BootstrapScoutCache 拒绝：invalid provenance fingerprint）')
-        args.fingerprint = fp_given
     plan.step('静态校验',
               f'卡 {",".join(gpus)}（{len(gpus)} 张）；steps={args.steps}；'
               f'micro={args.micro} gas={args.gas} ⇒ GBS={args.micro * args.gas * len(gpus)}')
@@ -1989,106 +1919,25 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
               f'TMPDIR={tmpdir}；TRITON_CACHE_DIR={args.triton_cache}；'
               f'TORCHINDUCTOR_CACHE_DIR={args.torchinductor_cache}')
 
-    # ---------------- 步骤 7：指纹 ----------------
-    # 🔴 2026-10-10：缓存改为「显式文件 + 模型名」后，**指纹不再参与缓存寻址**。
-    #    因此默认**不计算**——计算它要读全部权重分片（11.9 GiB，实测每轮多花 1–3 分钟 I/O）。
-    #    需要记录/复现时用 `--compute-fingerprint` 显式打开（或 `--fingerprint <hex>` 直接给值）。
-    fingerprint = args.fingerprint
-    _want_fp = (bool(getattr(args, 'compute_fingerprint', False))
-                or bool(getattr(args, '_print_fingerprint', False))   # 子进程专用：只算并打印
-                or fingerprint is not None)
-    fp_info: Dict[str, Any] = {'source': 'explicit' if fingerprint else ('computed' if _want_fp else 'skipped')}
-    if fingerprint is not None:
-        pass
-    elif not _want_fp:
-        log('[fingerprint] 跳过计算（缓存已改为显式文件 + 模型名；'
-            '如需记录请加 --compute-fingerprint）')
-    if fingerprint is None and _want_fp:
-        can_compute = checkpoint.is_dir() and manifest.is_file() and baseline.is_file() \
-            and norm.is_file() and thresholds is not None and thresholds.is_file()
-        if not can_compute:
-            if dry:
-                plan.warnings.append('指纹跳过：checkpoint/数据文件不齐（dry-run 不阻塞）')
-                log('[dry-run] 指纹跳过：checkpoint/数据文件不齐。'
-                    '真正运行前用 --fingerprint <64位hex> 跳过计算，或补齐路径。')
-                fingerprint = None
-            else:
-                raise LaunchError('无法计算指纹：checkpoint/manifest/baseline/norm/阈值表 有缺失；'
-                                  '可用 --fingerprint <64位hex> 显式指定')
-        else:
-            target_py = interpreter_version(python)
-            mine_py = (sys.version_info.major, sys.version_info.minor)
-            if target_py is not None and target_py != mine_py:
-                log(f'[fingerprint] 本脚本 Python {mine_py[0]}.{mine_py[1]} 与训练解释器 '
-                    f'{target_py[0]}.{target_py[1]} 不一致 ⇒ 改用训练解释器子进程计算'
-                    '（ast.dump 输出与版本相关，必须同版本）')
-                inner = [str(python), str(Path(__file__).resolve()), '--_print-fingerprint',
-                         '--repo', str(repo), '--checkpoint', str(checkpoint),
-                         '--manifest', str(manifest), '--norm', str(norm),
-                         '--baseline', str(baseline), '--thresholds', str(thresholds),
-                         '--dtype', dtype, '--scout-trajs', str(scout_trajs)]
-                if args.image_augment:
-                    inner.append('--image-augment')
-                proc = subprocess.run(inner, capture_output=True, text=True, timeout=3600)
-                payload: Dict[str, Any] = {}
-                for line in reversed(proc.stdout.strip().splitlines()):
-                    try:
-                        payload = json.loads(line)
-                        break
-                    except ValueError:
-                        continue
-                if proc.returncode != 0 or not payload.get('ok'):
-                    raise LaunchError('用训练解释器计算指纹失败：'
-                                      + (payload.get('error') or proc.stderr[-1500:]))
-                fingerprint = str(payload['fingerprint'])
-                fp_info.update(payload.get('info') or {})
-                fp_info['source'] = f'subprocess({python})'
-            else:
-                shards = sorted(checkpoint.glob('*.safetensors'))
-                total_bytes = sum(p.stat().st_size for p in shards)
-                log(f'[fingerprint] 正在哈希 {len(shards)} 个权重分片（约 '
-                    f'{total_bytes / 1024 ** 3:.1f} GiB，只读）+ 评测链源码/数据文件…')
-                fingerprint, info = compute_fingerprint(
-                    repo_root=repo, checkpoint=checkpoint, manifest=manifest, norm=norm,
-                    baseline=baseline, thresholds=thresholds, dtype=dtype,
-                    scout_trajs=scout_trajs, image_augment=bool(args.image_augment))
-                fp_info.update(info)
-                fp_info['source'] = f'inprocess(Python {mine_py[0]}.{mine_py[1]})'
-    if fingerprint is not None:
-        report['fingerprint'] = fingerprint
-        report['fingerprint_info'] = fp_info
-        included = fp_info.get('sources_included')
-        log(f'[fingerprint] {fingerprint}')
-        log(f'[fingerprint] 来源={fp_info.get("source")}'
-            + (f'；纳入 source {included} 个' if included else '')
-            + (f'；权重分片 {len(fp_info.get("weight_shards", []))} 个'
-               if fp_info.get('weight_shards') else ''))
-        for item in fp_info.get('sources_missing', []) or []:
-            log(f'[fingerprint][warn] source 未纳入：{item.get("key")}（{item.get("reason")}）')
-        plan.step('指纹',
-                  f'{fingerprint[:16]}…（{fp_info.get("source")}；'
-                  f'纳入 source {included if included is not None else "?"} 个）')
-    else:
-        plan.step('指纹', '跳过（dry-run 且路径不全）')
-
-    # 🔴 2026-10-10：scout 缓存改为「**显式文件 + 模型名**」，不再由指纹派生路径。
-    #    指纹仍会计算并打印（供人工核对/复现），但**不再参与缓存寻址**。
-    # 🔴 2026-10-11：模型标识与缓存文件都走**与训练侧同源**的解析（尾部 4 段 + 按模型分名）。
+    # ---------------- 步骤 7：缓存寻址（模型标识 + 按模型分名的缓存文件）----------------
+    # 🔴 2026-10-11：缓存**不再用指纹寻址**（用户明确要求删掉指纹）。寻址只由
+    #    「模型标识 + 显式缓存文件」决定，模型标识默认取 `--checkpoint` 路径的尾部 4 段
+    #    （`--model-name` 显式给了才覆盖），缓存文件名按模型分名（`scout.<model-slug>.json`）。
+    #    注意：**必须走 `ensure_scoped_cache_file()`**（带旧文件迁移），否则会指向一个
+    #    尚不存在的 scoped 文件 ⇒ 覆盖检查读到 0 条 ⇒ 误判覆盖不完整、退出码 3（真机踩过）。
     cache_file, _scout_model = scout_cache_file_for(
         args.scout_cache_file, getattr(args, 'model_name', '') or '', checkpoint)
     report['cache_file'] = str(cache_file)
     report['cache_model'] = _scout_model
-    report['tasks'] = {'total': len(tasks), 'source': args.task_source,
-                       'names': list(tasks) if len(tasks) <= 60 else list(tasks)[:60]}
 
     # ---------------- 步骤 8：覆盖检查 ⇒ 决定扫描范围 ----------------
     scan_target: List[str] = []
     mode = 'unknown'
     cov_before: Optional[Coverage] = None
-    if fingerprint is None:
+    if dry:
         mode = 'unknown'
         scan_target = []
-        plan.step('缓存覆盖检查', '跳过（没有指纹，dry-run 模式）')
+        plan.step('缓存覆盖检查', '跳过（dry-run 不启动进程）')
     else:
         cov_before = check_coverage(cache_file, _scout_model, scout_ids, checkpoint=checkpoint)
         report['coverage_before'] = cov_before.as_dict()
@@ -2157,16 +2006,15 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
                       train_config=train_config, split_dir=split_dir, phases=phases,
                       checkpoint=checkpoint, manifest=manifest, baseline=baseline, norm=norm,
                       dtype=dtype)
-    fp_for_env = fingerprint or '<指纹：dry-run 未计算>'
     # 即使本次不需要扫描（缓存命中）或任务未知，也把 worker 的环境变量模板完整打印出来，
     # 让 --dry-run 的「环境变量清单」永远是完整的。
     example_worker_env = worker_env(
         common, gpu=(shard_gpus[0] if shard_gpus else gpus[0]),
         train_out=run_root / 'scan_shard0', max_steps=args.worker_max_steps,
-        fingerprint=fp_for_env, master_port=free_port(62510),
+        master_port=free_port(62510),
         smoke_no_checkpoint=not args.worker_checkpoint)
     train_env_vars = train_env(common, gpus=','.join(gpus), n_gpu=len(gpus), train_out=train_out,
-                              max_steps=args.steps, fingerprint=fp_for_env,
+                              max_steps=args.steps,
                               master_port=free_port(62500), tb_port=args.tb_port,
                               tb=not args.no_tb)
     report['env'] = {
@@ -2279,7 +2127,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         check_union(round_target, round_shards)
         all_workers_rows.extend(_scan_round(
             args=args, log=log, repo=repo, launch_script=launch_script, python=python,
-            common=common, al_body=al_body, al_cfg=al_cfg, fingerprint=str(fingerprint),
+            common=common, al_body=al_body, al_cfg=al_cfg,
             cache_file=cache_file, scout_ids=scout_ids, run_root=run_root,
             round_shards=round_shards, round_gpus=round_gpus, round_idx=round_idx,
             tmpdir=tmpdir, worker_out_root=worker_out_root))
@@ -2333,7 +2181,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     log('=' * 78)
     port = free_port(62500)
     tenv = train_env(common, gpus=','.join(gpus), n_gpu=len(gpus), train_out=train_out,
-                     max_steps=args.steps, fingerprint=str(fingerprint), master_port=port,
+                     max_steps=args.steps, master_port=port,
                      tb_port=args.tb_port, tb=not args.no_tb)
     train_pid = spawn_background(script=launch_script, env=tenv, log_path=train_log, cwd=repo,
                                  shell_env=shell_env_for_launch(python), log=log)
@@ -2369,9 +2217,6 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-
-    if args._print_fingerprint:
-        return _print_fingerprint_mode(args)
 
     report: Dict[str, Any] = {
         'tool': 'experiment/robotwin/al_launch.py', 'utc': _now_utc(), 'ok': False,

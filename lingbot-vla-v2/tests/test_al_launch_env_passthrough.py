@@ -107,28 +107,6 @@ def test_hardness_cache_default_is_persistent_volume():
     assert '/workspace/al/hardness_cache' in blob, blob[-1200:]
 
 
-# --------------------------------------------------------------------------- #
-# 指纹计算默认必须**关闭**（2026-10-10：缓存改为显式文件 + 模型名后，指纹不再参与寻址）
-# --------------------------------------------------------------------------- #
-@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
-def test_fingerprint_computation_is_skipped_by_default():
-    """默认不得去哈希 11.9 GiB 权重分片：dry-run 应打印「跳过计算」且不出现「正在哈希」。"""
-    proc = _dry_run(['--min-free-gb', '0'])
-    blob = proc.stdout + proc.stderr
-    assert '正在哈希' not in blob, (
-        '默认仍在哈希权重分片（11.9 GiB，每轮多花 1–3 分钟 I/O）——'
-        '指纹已不参与缓存寻址，应改为 --compute-fingerprint 显式开启')
-    assert 'fingerprint] 跳过计算' in blob or '跳过计算' in blob, blob[-1200:]
-
-
-@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
-def test_explicit_compute_fingerprint_flag_is_accepted():
-    """显式开关必须被接受（不报 argparse 错）——dry-run 下因路径不齐会跳过，但不得崩。"""
-    proc = _dry_run(['--compute-fingerprint', '--min-free-gb', '0'])
-    blob = proc.stdout + proc.stderr
-    assert 'unrecognized arguments' not in blob, blob[-800:]
-    assert '--compute-fingerprint' not in blob or 'error' not in blob.lower()
-
 
 @pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
 def test_deprecated_fingerprint_env_is_not_exported():
@@ -295,3 +273,35 @@ def test_per_rank_compile_cache_isolation(tmp_path):
     out3 = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True,
                           env=env_norank, timeout=60)
     assert out3.stdout.strip() == '/base/ti', f'无 LOCAL_RANK 时不应改动：{out3.stdout}'
+
+
+# --------------------------------------------------------------------------- #
+# 指纹已删除（用户 2026-10-11 决定）：覆盖检查/扫描决策**不得**再依赖指纹
+# --------------------------------------------------------------------------- #
+@pytest.mark.skipif(not LAUNCHER.is_file(), reason='缺 al_launch.py')
+def test_fingerprint_flags_are_removed():
+    """`--fingerprint` / `--compute-fingerprint` 必须已删除（argparse 应拒绝）。"""
+    proc = _dry_run(['--compute-fingerprint', '--min-free-gb', '0'])
+    blob = proc.stdout + proc.stderr
+    assert 'unrecognized arguments' in blob, (
+        '--compute-fingerprint 应已被删除；若仍接受，说明指纹代码没删干净')
+    proc2 = _dry_run(['--fingerprint', 'a' * 64, '--min-free-gb', '0'])
+    assert 'unrecognized arguments' in (proc2.stdout + proc2.stderr)
+
+
+def test_coverage_gate_does_not_depend_on_fingerprint():
+    """**核心回归**：launcher 源码里覆盖检查/扫描决策的判据**不得**再出现 `fingerprint`。
+
+    真机事故：`if fingerprint is None:` 把「要不要做覆盖检查/扫描」和「指纹算没算出来」
+    绑在一起（默认不算 ⇒ 恒为 None）⇒ 覆盖检查与扫描决策在正常运行时**是死代码**
+    ⇒ 收尾统计报"覆盖不完整"、必然退出码 3。
+    """
+    blob = LAUNCHER.read_text(encoding='utf-8')
+    # 覆盖检查那一段的判据必须是 dry-run，而不是 fingerprint
+    assert "if dry:\n        mode = 'unknown'" in blob, '覆盖检查判据不是 dry-run'
+    assert "if fingerprint is None:" not in blob, (
+        '仍有 `if fingerprint is None:` ⇒ 覆盖检查/扫描决策可能又变成死代码')
+    # 整个文件里不该再有 fingerprint 变量（常量 NO_SEMANTIC_HASH_MARKER 除外）
+    bad = [ln for ln in blob.splitlines()
+           if 'fingerprint' in ln.lower() and 'scout-fingerprint: no-semantic-hash' not in ln]
+    assert not bad, f'仍残留 fingerprint 引用：{bad[:3]}'
