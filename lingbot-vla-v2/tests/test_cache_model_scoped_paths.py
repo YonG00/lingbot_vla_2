@@ -240,3 +240,55 @@ def test_launcher_migrates_legacy_file_before_coverage(tmp_path):
     assert legacy.is_file(), '旧文件必须保留'
     cov = al.Coverage(path, model)
     assert cov.record_count() == 1, '预检必须能看到旧文件的记录（不是 0）'
+
+
+def test_base_env_model_name_matches_cache_ident():
+    """**核心回归**（真机踩过，训练永远起不来）：`AL_MODEL_NAME` 必须与缓存路径同源。
+
+    真机事故：`base_env()` 用旧口径（`Path(checkpoint).name` ⇒ `hf_ckpt`）写 `AL_MODEL_NAME`，
+    而 launcher 自己算缓存路径用新口径（路径尾部 4 段）⇒
+      launcher 读/等  scout.train_al_v37_checkpoints_global_step_500/hf_ckpt.json
+      worker  写      scout.hf_ckpt.json
+    ⇒ 覆盖率恒 0/50、训练永不启动（白等 14+ 分钟、6 卡空转）。
+    """
+    al = _load_launcher()
+    ckpt = ('/models/robotwin-persistent/al_runs/train_al_v37/'
+            'checkpoints/global_step_500/hf_ckpt')
+    base = '/workspace/al/scout_cache/scout.json'
+    # 缓存路径侧（launcher 门控读它）
+    gate_path, gate_model = al.scout_cache_file_for(base, '', ckpt)
+    # 环境变量侧（worker 写它）
+    args = al.build_parser().parse_args([
+        '--checkpoint', ckpt, '--scout-cache-file', base, '--min-free-gb', '0'])
+    env = al.base_env(args=args, repo=Path('/tmp/repo'), python=Path('/tmp/py'),
+                      al_cfg=Path('/tmp/al.yaml'), train_config=Path('/tmp/c.yaml'),
+                      split_dir=Path('/tmp/split'), phases=Path('/tmp/phases'),
+                      checkpoint=Path(ckpt), manifest=Path('/tmp/m.json'),
+                      baseline=Path('/tmp/b.json'), norm=Path('/tmp/n.json'),
+                      dtype='bfloat16')
+    assert env['AL_MODEL_NAME'] == gate_model, (
+        f"AL_MODEL_NAME={env['AL_MODEL_NAME']!r} 与门控标识 {gate_model!r} 不一致 ⇒ "
+        'worker 会写到另一个文件、门控永远看不到')
+    assert env['AL_MODEL_NAME'] != 'hf_ckpt', '不得退回 basename 口径'
+    # worker 侧按 AL_MODEL_NAME 算出的路径必须与门控路径一致
+    worker_path = scoped_cache_path(base, env['AL_MODEL_NAME'])
+    assert worker_path == gate_path, f'worker 写 {worker_path} ≠ 门控读 {gate_path}'
+
+
+def test_explicit_model_name_still_wins_in_env():
+    """显式 `--model-name` 仍优先（且两边一致）。"""
+    al = _load_launcher()
+    base = '/workspace/al/scout_cache/scout.json'
+    ckpt = '/any/where/hf_ckpt'
+    gate_path, gate_model = al.scout_cache_file_for(base, 'my-model', ckpt)
+    assert gate_model == 'my-model'
+    args = al.build_parser().parse_args([
+        '--checkpoint', ckpt, '--scout-cache-file', base,
+        '--model-name', 'my-model', '--min-free-gb', '0'])
+    env = al.base_env(args=args, repo=Path('/tmp/repo'), python=Path('/tmp/py'),
+                      al_cfg=Path('/tmp/al.yaml'), train_config=Path('/tmp/c.yaml'),
+                      split_dir=Path('/tmp/split'), phases=Path('/tmp/phases'),
+                      checkpoint=Path(ckpt), manifest=Path('/tmp/m.json'),
+                      baseline=Path('/tmp/b.json'), norm=Path('/tmp/n.json'),
+                      dtype='bfloat16')
+    assert env['AL_MODEL_NAME'] == 'my-model' == gate_model

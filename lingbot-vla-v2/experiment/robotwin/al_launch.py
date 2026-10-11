@@ -400,9 +400,27 @@ def scout_cache_file_for(argv_file: str | Path, model: str = '',
     if scoped_cache_path is None:
         print(f'[cache] ⚠️ 无法导入 cache_paths，按原路径处理：{argv_file}', file=sys.stderr)
         return Path(str(argv_file)).expanduser(), str(model or '')
-    resolved = resolve_model_name(model or None,
-                                  checkpoint_dir=str(checkpoint) if checkpoint else None)
+    # 模型标识统一走 `resolve_cache_model()`（与 `base_env()` 的 AL_MODEL_NAME 同源）
+    resolved = resolve_cache_model(model, checkpoint)
     return ensure_scoped(argv_file, resolved, write_enabled=True), resolved
+
+
+def resolve_cache_model(argv_model: str = '',
+                        checkpoint: str | Path | None = None) -> str:
+    """解析「缓存模型标识」——**只算标识，不碰文件**。
+
+    供 `base_env()` 写 `AL_MODEL_NAME` 用，保证与 `scout_cache_file_for()` 的路径解析**同源**
+    （同一个 `resolve_model_name()`）。真机踩坑见 `base_env` 里那段注释。
+    模块不可用时退回 basename（旧口径），并打印告警——只为不在缺失依赖时崩掉启动器。
+    """
+    _, resolve_model_name, _ = _cache_support()
+    if resolve_model_name is None:
+        print('[cache] ⚠️ 无法导入 resolve_model_name，模型标识退回 basename',
+              file=sys.stderr)
+        return str(argv_model or '') or (
+            Path(str(checkpoint)).expanduser().name if checkpoint else 'unknown')
+    return resolve_model_name(str(argv_model or '') or None,
+                              checkpoint_dir=str(checkpoint) if checkpoint else None)
 
 
 def entry_is_hit(path: Path, *, model: str, task: str, ids: Sequence[int],
@@ -1201,9 +1219,16 @@ def base_env(*, args: argparse.Namespace, repo: Path, python: Path, al_cfg: Path
     _hc_legacy = str(getattr(args, 'hardness_cache', '') or '')
     if not _hc_file and _hc_legacy:
         _hc_file = str(Path(_hc_legacy) / 'hardness.json')
-    # 模型标识：显式 --model-name，否则取权重目录名（换模型 ⇒ 缓存自动失效）
-    _model_name = (str(getattr(args, 'model_name', '') or '')
-                   or Path(str(checkpoint)).expanduser().name or 'unknown')
+    # 🔴 模型标识：**必须与 `scout_cache_file_for()` / 训练侧 `resolve_model_name()` 同源**。
+    #    2026-10-11 真机踩坑：这里原先是旧口径（`Path(checkpoint).name` ⇒ `hf_ckpt`），
+    #    而 launcher 自己算缓存路径用新口径（checkpoint 路径尾部 4 段）⇒ **同一 run 出现两套标识**：
+    #      launcher 读/等  scout.train_al_v37_checkpoints_global_step_500_hf_ckpt.json
+    #      worker  写      scout.hf_ckpt.json
+    #    ⇒ 覆盖率永远 0/50、训练永远不启动（实测白等 14+ 分钟、6 卡空转）。
+    #    修法：两边走**同一个函数**（含"显式 --model-name 优先"的语义）。
+    _model_name = resolve_cache_model(getattr(args, 'model_name', '') or '', checkpoint)
+    if not _model_name:
+        _model_name = Path(str(checkpoint)).expanduser().name or 'unknown'
     # scout 缓存文件：显式入参优先；兼容旧 `--cache-root <目录>`
     _scout_file = str(getattr(args, 'scout_cache_file', '') or '')
     if not _scout_file and getattr(args, 'cache_root', None):
