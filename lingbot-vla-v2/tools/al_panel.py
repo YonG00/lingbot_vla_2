@@ -255,18 +255,23 @@ def step_progress(log: Path, interval: Optional[int]) -> Tuple[Optional[int], Op
     """返回 (最新 step, 稳态 s/it 中位数, 采样到的步数)。"""
     if not log.is_file():
         return None, None, 0
+    # 🔴 必须扫**整个文件**（真机踩过）：日志到 1.5 MB 后，尾部 400 KB 可能被
+    #    评测/进度输出占满 ⇒ 里面**一个 `Step: ... s/it` 都没有** ⇒ 面板显示 `Step ?`。
+    #    实测：`tail 里 "s/it" 出现次数: 0`。
     try:
-        tail = log.read_text(encoding='utf-8', errors='replace')[-400_000:]
+        text = log.read_text(encoding='utf-8', errors='replace')
     except OSError:
         return None, None, 0
-    hits = re.findall(r'Step:\s*(\d+)/\d+\s*\[[^]]*?([\d.]+)s/it', tail)
-    if not hits:
-        m = re.findall(r'Step:\s*(\d+)/', tail)
-        return (int(m[-1]) if m else None), None, 0
-    steps = [int(a) for a, _ in hits]
-    rates = [float(b) for _, b in hits]
+    rates: List[float] = []
+    last_step: Optional[int] = None
+    for m in re.finditer(r'Step:\s*(\d+)/\d+(\s*\[[^]]*?([\d.]+)s/it)?', text):
+        last_step = int(m.group(1))
+        if m.group(3):
+            rates.append(float(m.group(3)))
+    if last_step is None:
+        return None, None, 0
     steady = rates[-10:] if len(rates) >= 3 else rates
-    return steps[-1], statistics.median(steady), len(hits)
+    return last_step, (statistics.median(steady) if steady else None), len(rates)
 
 
 # --------------------------------------------------------------------------- #
@@ -304,6 +309,13 @@ def main() -> int:
     passed = reg_passed if reg_passed is not None else len(derived_passed)
     newly = last.get('curriculum/newly_passed_count')
     boot = last.get('curriculum/bootstrap_pass_count')
+    # 兜底：日志里读不到 step（被轮转/占满）时，用 `units_completed × unit 步数` 估算
+    step_src = ''
+    if step is None:
+        units = last.get('curriculum/units_completed')
+        if isinstance(units, (int, float)) and cfg['interval']:
+            step = int(units) * int(cfg['interval'])
+            step_src = '~'
     pct = (100.0 * passed / target) if target else 0.0
     _extra = ''
     if isinstance(newly, (int, float)) and newly:
@@ -314,7 +326,7 @@ def main() -> int:
     _iv = f'；每 {cfg["interval"]} 步判定' if cfg['interval'] else ''
     _st = (f'{nrank}卡 {sit:.1f}s/it' if (nrank and sit)
            else (f'{nrank}卡' if nrank else '未在训练'))
-    print(f'[AL] {run} | Step {step if step is not None else "?"} | {_st} | '
+    print(f'[AL] {run} | Step {step_src}{step if step is not None else "?"} | {_st} | '
           f'通关 {passed}/{target}（{pct:.0f}%）差 {max(0, target - passed)}{_extra}')
     print(f' 门槛 {_th}（{len(thresholds)} 任务）{_iv}')
     if derived_passed:
