@@ -40,22 +40,43 @@ def test_roundtrip_single_file(tmp_path):
     assert c.last_miss_reason == 'missing'
 
     c.store('click_bell', [51, 52], _metrics())
-    assert f.is_file(), '必须写成**单个**文件（不是目录里多条 JSON）'
+    # 2026-10-11 起缓存文件**按模型分名**（scout.<slug>.json），断言用实例的真实路径
+    assert c.path.is_file(), '必须写成**单个**文件（不是目录里多条 JSON）'
 
     m = _cache(f).load('click_bell', [51, 52])
     assert m is not None and m['mse'] == 0.5
-    doc = json.loads(f.read_text(encoding='utf-8'))
+    doc = json.loads(c.path.read_text(encoding='utf-8'))
     assert doc['version'] == VERSION and doc['model'] == MODEL
     assert list(doc['records']) == [scout_key('click_bell', [51, 52])]
 
 
 def test_model_mismatch_is_a_miss(tmp_path):
+    """**文件级**守卫仍生效：文件里的 `model` 与当前不符 ⇒ 判未命中。
+
+    （2026-10-11 起不同模型本来就会落到不同文件；这条防的是"手工拷错文件"与
+      "旧文件迁移后 model 字段仍是旧值"这两种情况。）
+    """
     f = tmp_path / 'scout.json'
-    _cache(f, model='model_A').store('click_bell', [51, 52], _metrics())
-    other = _cache(f, model='model_B')
-    assert other.load('click_bell', [51, 52]) is None, '模型不同不得复用'
-    assert other.last_miss_reason == 'model_mismatch'
-    assert other.record_count() == 0
+    ca = _cache(f, model='model_A')
+    ca.store('click_bell', [51, 52], _metrics())
+    doc = json.loads(ca.path.read_text(encoding='utf-8'))
+    doc['model'] = 'model_B'                      # 手工标成别的模型
+    ca.path.write_text(json.dumps(doc), encoding='utf-8')
+    miss = _cache(f, model='model_A')
+    assert miss.load('click_bell', [51, 52]) is None, '文件级 model 不符不得复用'
+    assert miss.last_miss_reason == 'model_mismatch'
+
+
+def test_model_change_uses_separate_file(tmp_path):
+    """换模型 ⇒ 各用一份文件（互不覆盖，旧缓存保留）。"""
+    f = tmp_path / 'scout.json'
+    ca = _cache(f, model='model_A')
+    ca.store('click_bell', [51, 52], _metrics())
+    cb = _cache(f, model='model_B')
+    assert cb.path != ca.path
+    assert cb.load('click_bell', [51, 52]) is None
+    assert cb.record_count() == 0
+    assert ca.record_count() == 1, 'A 的缓存必须还在'
 
 
 def test_same_model_across_code_change_reuses(tmp_path):
@@ -76,13 +97,15 @@ def test_store_merges_without_clobbering_other_records(tmp_path):
     assert _cache(f).load('t2', [2]) is not None
 
 
-def test_model_switch_rebuilds_file(tmp_path):
+def test_model_switch_keeps_both_files(tmp_path):
     f = tmp_path / 'scout.json'
-    _cache(f, model='model_A').store('t', [1], _metrics(task='t', ids=(1,)))
-    _cache(f, model='model_B').store('t2', [2], _metrics(task='t2', ids=(2,)))
-    doc = json.loads(f.read_text(encoding='utf-8'))
-    assert doc['model'] == 'model_B'
-    assert list(doc['records']) == [scout_key('t2', [2])], '换模型后应按新模型重建'
+    ca = _cache(f, model='model_A'); ca.store('t', [1], _metrics(task='t', ids=(1,)))
+    cb = _cache(f, model='model_B'); cb.store('t2', [2], _metrics(task='t2', ids=(2,)))
+    da = json.loads(ca.path.read_text(encoding='utf-8'))
+    db = json.loads(cb.path.read_text(encoding='utf-8'))
+    assert ca.path != cb.path
+    assert da['model'] == 'model_A' and list(da['records']) == [scout_key('t', [1])]
+    assert db['model'] == 'model_B' and list(db['records']) == [scout_key('t2', [2])]
 
 
 def test_readonly_rank_does_not_write(tmp_path):
@@ -113,11 +136,12 @@ def test_invalid_metrics_are_rejected(tmp_path):
 
 def test_corrupt_or_oversized_file_tolerated(tmp_path):
     f = tmp_path / 'scout.json'
-    f.write_text('{not json', encoding='utf-8')
     c = _cache(f)
+    c.path.parent.mkdir(parents=True, exist_ok=True)
+    c.path.write_text('{not json', encoding='utf-8')
     assert c.load('t', [1]) is None and c.last_miss_reason == 'unreadable'
 
-    f.write_text('x' * (MAX_JSON_BYTES + 10), encoding='utf-8')
+    c.path.write_text('x' * (MAX_JSON_BYTES + 10), encoding='utf-8')
     c2 = _cache(f)
     assert c2.load('t', [1]) is None and c2.last_miss_reason == 'too_large'
 

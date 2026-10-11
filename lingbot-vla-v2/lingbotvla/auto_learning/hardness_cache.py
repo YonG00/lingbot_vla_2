@@ -75,7 +75,12 @@ class HardnessSampleCache:
         self.enabled = bool(enabled)
         self.write_enabled = bool(write_enabled) and self.enabled
         self.model = str(model)
-        self.path = Path(file).expanduser()
+        # 🔴 2026-10-11：缓存文件**按模型分名**（`hardness.<model-slug>.json`）。
+        #   否则换模型时 store() 会覆盖同一个固定文件名 ⇒ 上一份缓存被静默丢掉、无自动存档。
+        #   旧的无后缀文件存在时会被**复制**成 scoped 文件（不删除，见 cache_paths）。
+        from .cache_paths import ensure_scoped_cache_file
+        self.path = ensure_scoped_cache_file(file, self.model,
+                                             write_enabled=self.write_enabled)
         self.logger = logger
         self.noise_seed = None if noise_seed is None else int(noise_seed)
         self.loss_type = None if loss_type is None else str(loss_type)

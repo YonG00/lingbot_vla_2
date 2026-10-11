@@ -393,6 +393,47 @@ def compute_fingerprint(*, repo_root: Path, checkpoint: Path, manifest: Path, no
 # --------------------------------------------------------------------------- #
 # 缓存覆盖检查（复刻 BootstrapScoutCache.load 的校验 ⇒ 「真会命中」才算覆盖）
 # --------------------------------------------------------------------------- #
+def _cache_support():
+    """延迟导入 `lingbotvla.auto_learning` 的缓存工具；不可用 ⇒ `(None, None)`。
+
+    允许 launcher 在"没有仓库包"的环境里独立运行（退回原路径 + 打印告警）。
+    """
+    def _import():
+        from lingbotvla.auto_learning.cache_paths import scoped_cache_path
+        from lingbotvla.auto_learning.hardness_cache import resolve_model_name
+        return scoped_cache_path, resolve_model_name
+    try:
+        return _import()
+    except Exception:  # noqa: BLE001
+        try:
+            _repo = Path(__file__).resolve().parents[2]
+            if str(_repo) not in sys.path:
+                sys.path.insert(0, str(_repo))
+            return _import()
+        except Exception:  # noqa: BLE001
+            return None, None
+
+
+def scout_cache_file_for(argv_file: str | Path, model: str = '',
+                         checkpoint: str | Path | None = None) -> Tuple[Path, str]:
+    """把「用户给的缓存文件路径」解析成**训练侧真正会读写**的那个文件，并返回解析后的模型名。
+
+    🔴 2026-10-11：缓存文件按模型分名（`scout.<model-slug>.json`，见
+    `lingbotvla/auto_learning/cache_paths.py`）。本工具（预检/覆盖率检查）**必须**用
+    同一个模块、同一个 `resolve_model_name()` 算**路径与模型名**，否则会出现
+    「预检说 50/50 覆盖、训练却写另一个文件」的不一致。
+
+    返回值：`(scoped_file, resolved_model)`；模块不可用时返回 `(原路径, 入参模型名)` 并告警。
+    """
+    scoped_cache_path, resolve_model_name = _cache_support()
+    if scoped_cache_path is None:
+        print(f'[cache] ⚠️ 无法导入 cache_paths，按原路径处理：{argv_file}', file=sys.stderr)
+        return Path(str(argv_file)).expanduser(), str(model or '')
+    resolved = resolve_model_name(model or None,
+                                  checkpoint_dir=str(checkpoint) if checkpoint else None)
+    return scoped_cache_path(argv_file, resolved), resolved
+
+
 def entry_is_hit(path: Path, *, model: str, task: str, ids: Sequence[int],
                  raw: dict | None = None) -> Tuple[bool, str]:
     """缓存文件里**这条记录**会不会被 `BootstrapScoutCache.load()` 当成命中返回。
@@ -458,9 +499,17 @@ def entry_is_hit(path: Path, *, model: str, task: str, ids: Sequence[int],
 class Coverage:
     """**单文件** scout 缓存对一组任务的覆盖情况（2026-10-10 改）。"""
 
-    def __init__(self, cache_file: Path, model: str) -> None:
-        self.cache_file = Path(cache_file)
-        self.model = str(model)
+    def __init__(self, cache_file: Path, model: str,
+                 checkpoint: str | Path | None = None) -> None:
+        # 🔴 按模型分名：与训练侧**同模块同函数**解析（见 scout_cache_file_for）。
+        #    模型名也在这里被解析（显式名优先，否则取 checkpoint 路径尾部 4 段），
+        #    保证"预检读的文件"与"训练写的文件"完全一致。
+        self.cache_file, self.model = scout_cache_file_for(
+            cache_file, model, checkpoint)
+        if str(model or '').strip() and self.model != str(model):
+            # 显式给了名字 ⇒ resolve 会原样返回；走到这里说明解析结果不同，打印出来便于核对
+            print(f'[cache] 模型标识按 checkpoint 解析：{model!r} -> {self.model!r}',
+                  file=sys.stderr)
         self.rows: Dict[str, Tuple[bool, str]] = {}
         # 整份文件只读一次（单文件语义；坏文件/不存在 ⇒ 全部未覆盖）
         self._raw: dict | None = None
@@ -522,8 +571,9 @@ class Coverage:
 
 
 def check_coverage(cache_file: Path, model: str,
-                   task_ids: Dict[str, List[int]]) -> Coverage:
-    cov = Coverage(cache_file, model)
+                   task_ids: Dict[str, List[int]],
+                   checkpoint: str | Path | None = None) -> Coverage:
+    cov = Coverage(cache_file, model, checkpoint=checkpoint)
     for task, ids in task_ids.items():
         cov.add(task, ids)
     return cov
@@ -1494,9 +1544,9 @@ def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script
     cfg_prefix = 'al_shard' if round_idx == 0 else f'al_retry{round_idx}_shard'
     # 🔴 `cache_file` / `_scout_model` 必须在本函数内**定义**（早前只在 run() 里定义，
     #    而本函数用到它们 ⇒ 真机 `NameError` / pyflakes `undefined name`）。
-    cache_file = Path(args.scout_cache_file)
-    _scout_model = (str(getattr(args, 'model_name', '') or '')
-                    or Path(str(args.checkpoint)).expanduser().name or 'unknown')
+    # 🔴 2026-10-11：两者都由**与训练侧同源的**解析得到（模型标识 + 按模型分名的缓存文件）。
+    cache_file, _scout_model = scout_cache_file_for(
+        args.scout_cache_file, getattr(args, 'model_name', '') or '', args.checkpoint)
     # ---------------- 步骤 11：--no-cache 备份旧目录 / 生成分片配置 ----------------
     if args.no_cache and cache_file.is_file():
         backup = cache_file.parent / (cache_file.name + '.bak-' + _stamp())
@@ -1645,7 +1695,8 @@ def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script
     last_line = ''
     timed_out = False
     while workers_rows:
-        cov_now = check_coverage(cache_file, _scout_model, scout_ids)
+        cov_now = check_coverage(cache_file, _scout_model, scout_ids,
+                                 checkpoint=args.checkpoint)
         parts: List[str] = []
         for row in workers_rows:
             done = sum(1 for t in row['tasks'] if t in cov_now.covered)
@@ -1673,7 +1724,8 @@ def _scan_round(*, args: argparse.Namespace, log: Tee, repo: Path, launch_script
     # 收尾：覆盖已完整但 worker 还在跑（可能在做 1 个训练步）⇒ 给宽限
     grace_deadline = time.time() + max(0.0, float(args.exit_grace))
     while time.time() < grace_deadline:
-        cov_now = check_coverage(cache_file, _scout_model, scout_ids)
+        cov_now = check_coverage(cache_file, _scout_model, scout_ids,
+                                 checkpoint=args.checkpoint)
         if len(cov_now.missing) == 0 and not any(proc_alive(int(r['pid'])) for r in workers_rows):
             break
         if not any(proc_alive(int(r['pid'])) for r in workers_rows):
@@ -2016,9 +2068,9 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
 
     # 🔴 2026-10-10：scout 缓存改为「**显式文件 + 模型名**」，不再由指纹派生路径。
     #    指纹仍会计算并打印（供人工核对/复现），但**不再参与缓存寻址**。
-    cache_file = Path(args.scout_cache_file)      # 已在上面解析（含旧 --cache-root 兼容）
-    _scout_model = (str(getattr(args, 'model_name', '') or '')
-                    or checkpoint.expanduser().name or 'unknown')
+    # 🔴 2026-10-11：模型标识与缓存文件都走**与训练侧同源**的解析（尾部 4 段 + 按模型分名）。
+    cache_file, _scout_model = scout_cache_file_for(
+        args.scout_cache_file, getattr(args, 'model_name', '') or '', checkpoint)
     report['cache_file'] = str(cache_file)
     report['cache_model'] = _scout_model
     report['tasks'] = {'total': len(tasks), 'source': args.task_source,
@@ -2033,7 +2085,7 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         scan_target = []
         plan.step('缓存覆盖检查', '跳过（没有指纹，dry-run 模式）')
     else:
-        cov_before = check_coverage(cache_file, _scout_model, scout_ids)
+        cov_before = check_coverage(cache_file, _scout_model, scout_ids, checkpoint=checkpoint)
         report['coverage_before'] = cov_before.as_dict()
         log(f'[cache] 文件 {cache_file}')
         log(f'[cache] 该缓存文件内 {cov_before.record_count()} 条记录；'
@@ -2207,7 +2259,8 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
         if round_idx == 0:
             round_target = list(scan_target)
         else:
-            cov_now = check_coverage(cache_file, _scout_model, scout_ids)
+            cov_now = check_coverage(cache_file, _scout_model, scout_ids,
+                                 checkpoint=args.checkpoint)
             round_target = [t for t in scan_target if t not in cov_now.covered]
             if not round_target:
                 log('[retry] 目标范围已完整，无需补扫')
@@ -2228,8 +2281,8 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     workers_rows = all_workers_rows
 
     # ---------------- 步骤 15：收尾统计（只看目标指纹目录）----------------
-    final_cov = check_coverage(cache_file, _scout_model, scout_ids)
-    target_cov = Coverage(cache_file, _scout_model)
+    final_cov = check_coverage(cache_file, _scout_model, scout_ids, checkpoint=checkpoint)
+    target_cov = Coverage(cache_file, _scout_model, checkpoint=checkpoint)
     for task in scan_target:
         if task in final_cov.rows:
             target_cov.rows[task] = final_cov.rows[task]

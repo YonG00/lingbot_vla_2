@@ -25,6 +25,21 @@
 > 因此 base 权重与"训练 500 步后的权重"**自动区分**，不会互相误用缓存。
 > 指纹仍可算，但**默认不计算**（`--compute-fingerprint` 才开）——计算它要读 11.9 GiB 权重分片。
 
+> 🆕 **2026-10-11：缓存文件按模型分名**（`scout.<model-slug>.json` / `hardness.<model-slug>.json`）。
+> 以前文件名固定（`scout.json` / `hardness.json`）、文件里只有一个 `model` 槽位 ⇒ 换模型时
+> `store()` 会重建并**覆盖同一个文件**（上一份缓存静默丢失、没有自动存档）。
+> 现在**每个模型一份文件**，互不覆盖、旧文件自然留档：
+> ```
+> /workspace/al/scout_cache/
+>   scout.json                                        ← 旧的无后缀文件（首次会自动复制一份到 scoped 名，原文件保留）
+>   scout.train_al_v37_checkpoints_global_step_500_hf_ckpt.json   ← 从 500 步 hf_ckpt 起训用这份
+>   scout.workspace_models_robbyant_lingbot-vla-v2-6b-bf16.json   ← base 权重用这份
+> ```
+> slug 生成规则：模型标识里的 `/` 等字符合法化为 `_`；过长时截断 + 附 8 位 hash 防撞。
+> 逃生开关：`AL_CACHE_SHARED=1` ⇒ 回到单文件行为（排障用）。
+> ⚠️ 文件名只是**寻址方式**；"文件内 `model` 字段必须与当前模型一致"这条判据**仍然保留**
+> （防手工拷错文件 / 旧文件迁移后 model 字段过期）。
+
 ---
 
 ## 0.1 跑通训练的最小启动清单（2026-10-10 实测）
@@ -226,8 +241,8 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
 | `--eval-config` | `configs/auto_learning/al_eval2.yaml` | AL 配置（相对仓库根） | 默认文件不存在，或想换配方（如 `al_50task_gmean100_rocm.yaml`）时 |
 | `--steps` | `200` | 训练 `MAX_STEPS` | 换训练预算时（正式长跑一般给很大的值） |
 | `--micro` / `--gas` | 拉起训练时的实测值 **`5` / `1`**（GBS 35） | 传给启动脚本的 `MICRO` / `GAS`；脚本自算 `GBS = MICRO*GAS*N_GPU` | 显存不够或要改全局批大小时。**AL 要求 `micro*gas == AL 配置的 batch_size`**，否则启动即报错。⚠️ 本机把 micro 从 12 一路降到 5 的实测经验：**降 micro 几乎省不下显存**（峰值 49.1→48.9 GiB），省下的主要是每步时间（14.1→11.0 s/it） |
-| `--scout-cache-file` | `/workspace/al/scout_cache/scout.json` | **scout 缓存文件**（单文件，含 `model` 字段） | 缓存换盘/换位置时 |
-| `--hardness-cache-file` | `/workspace/al/hardness_cache/hardness.json` | **hardness（样本难度）缓存文件** | 同上 |
+| `--scout-cache-file` | `/workspace/al/scout_cache/scout.json` | **scout 缓存文件**（单文件，含 `model` 字段）。实际读写的是**按模型分名**的 `scout.<model-slug>.json`（见 §0 说明） | 缓存换盘/换位置时 |
+| `--hardness-cache-file` | `/workspace/al/hardness_cache/hardness.json` | **hardness（样本难度）缓存文件**。同样按模型分名为 `hardness.<model-slug>.json` | 同上 |
 | `--model-name` | **空**（不传则从 `--checkpoint` 自动推导） | **缓存有效性判据**：与缓存文件里的 `model` 逐字比较，不一致即全部未命中。**不传时**取 checkpoint 路径**尾部 4 段**（`train_al_v37/checkpoints/global_step_500/hf_ckpt`）⇒ 与 run/步数绑定 | 想强制复用某份缓存时（显式给名字）；⚠️ 显式给了就用它，**不再看实际权重** |
 | `--cache-root` | 空（兼容保留） | 旧参数：等价于 `<目录>/scout.json` | 只有沿用旧命令时才需要 |
 | `--fingerprint` | 空 | (已弃用) 显式 64 位指纹；**不再用于缓存寻址**，仅作记录 | 需要复现某次运行的记录时 |

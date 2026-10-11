@@ -74,7 +74,7 @@ def test_store_preserves_other_task_written_elsewhere(tmp_path):
     a.load('taskA', [1])                 # a 读到空文件（触发 _data 缓存）
     b.store('taskB', {7: 0.7})           # b 先写 taskB
     a.store('taskA', {1: 0.1})           # a 后写 —— 不得把 taskB 抹掉
-    raw = json.loads(f.read_text(encoding='utf-8'))
+    raw = json.loads(a.path.read_text(encoding='utf-8'))   # 缓存文件按模型分名，读实例的真实路径
     assert set(raw['tasks']) == {'taskA', 'taskB'}, f'任务被覆盖：{sorted(raw["tasks"])}'
     assert raw['tasks']['taskB']['losses'] == {'7': 0.7}
 
@@ -82,15 +82,19 @@ def test_store_preserves_other_task_written_elsewhere(tmp_path):
 # --------------------------------------------------------------------------- #
 # 模型名（核心新语义）
 # --------------------------------------------------------------------------- #
-def test_model_mismatch_is_a_miss_and_logged(tmp_path):
+def test_model_change_uses_separate_file(tmp_path):
+    """换模型 ⇒ **各用一份文件**（2026-10-11 起），不再靠"未命中后覆盖同一文件"。"""
     f = tmp_path / 'hardness.json'
-    _cache(f, model='model_A').store('t', {1: 1.0})
+    a = _cache(f, model='model_A')
+    a.store('t', {1: 1.0})
 
     other = _cache(f, model='model_B')
+    assert other.path != a.path, '不同模型必须落到不同文件'
     hits, miss = other.load('t', [1])
     assert hits == {} and miss == [1], '模型不同不得复用'
-    assert other.last_miss_reason == 'model_mismatch'
     assert other.cached_count('t') == 0
+    # A 的数据仍在自己的文件里，未被 B 影响
+    assert json.loads(a.path.read_text(encoding='utf-8'))['tasks']['t']['losses'] == {'1': 1.0}
 
 
 def test_same_model_across_code_change_reuses(tmp_path):
@@ -101,14 +105,16 @@ def test_same_model_across_code_change_reuses(tmp_path):
     assert miss == [] and len(hits) == 2
 
 
-def test_model_mismatch_rebuilds_file_with_new_model(tmp_path):
-    """换模型后写入：文件应以新模型名重建（旧模型数据不残留）。"""
+def test_model_switch_keeps_both_files(tmp_path):
+    """换模型后写入：**两份文件并存**（旧模型数据保留，可作为历史缓存）。"""
     f = tmp_path / 'hardness.json'
-    _cache(f, model='model_A').store('t', {1: 1.0})
-    _cache(f, model='model_B').store('t', {2: 2.0})
-    raw = json.loads(f.read_text(encoding='utf-8'))
-    assert raw['model'] == 'model_B'
-    assert raw['tasks']['t']['losses'] == {'2': 2.0}
+    ca = _cache(f, model='model_A'); ca.store('t', {1: 1.0})
+    cb = _cache(f, model='model_B'); cb.store('t', {2: 2.0})
+    assert ca.path != cb.path
+    ra = json.loads(ca.path.read_text(encoding='utf-8'))
+    rb = json.loads(cb.path.read_text(encoding='utf-8'))
+    assert ra['model'] == 'model_A' and ra['tasks']['t']['losses'] == {'1': 1.0}
+    assert rb['model'] == 'model_B' and rb['tasks']['t']['losses'] == {'2': 2.0}
 
 
 @pytest.mark.parametrize('explicit,ckpt,expect', [
@@ -179,13 +185,27 @@ def test_model_name_never_used_as_path(tmp_path):
     f = tmp_path / 'hardness.json'
     c = HardnessSampleCache(f, model=model)
     c.store('t', {1: 0.5})
-    raw = json.loads(f.read_text(encoding='utf-8'))
-    assert raw['model'] == model                      # 原样保存
-    assert (tmp_path / 'hardness.json').is_file()     # 缓存路径不受标识影响
-    # 标识不同 ⇒ 读取判未命中
+    raw = json.loads(c.path.read_text(encoding='utf-8'))
+    assert raw['model'] == model                       # 原样保存（不做路径拼接）
+    # 文件路径由 `base + slug` 决定（slug 把 `/` 换成 `_`），不存在以标识为子目录的情况
+    assert c.path.parent == tmp_path and '/' not in c.path.name
+    # 标识不同 ⇒ 落到**另一个文件**（互不干扰）
     other = HardnessSampleCache(f, model='train_al_v38/checkpoints/global_step_500/hf_ckpt')
+    assert other.path != c.path
     assert other.load('t', [1])[0] == {}
-    assert other.last_miss_reason == 'model_mismatch'
+
+
+def test_file_level_model_guard_still_works(tmp_path):
+    """文件里的 `model` 与当前不符时仍判未命中（防手工拷错/旧迁移带来的混用）。"""
+    f = tmp_path / 'hardness.json'
+    c = _cache(f, model='model_A')
+    c.store('t', {1: 1.0})
+    raw = json.loads(c.path.read_text(encoding='utf-8'))
+    raw['model'] = 'model_B'                      # 手工把文件标成别的模型
+    c.path.write_text(json.dumps(raw), encoding='utf-8')
+    hits, miss = _cache(f, model='model_A').load('t', [1])
+    assert hits == {} and miss == [1]
+    assert _cache(f, model='model_A').load('t', [1])[0] == {}
 
 
 def test_empty_model_is_rejected(tmp_path):
@@ -198,10 +218,10 @@ def test_empty_model_is_rejected(tmp_path):
 # --------------------------------------------------------------------------- #
 def test_noise_semantic_version_mismatch_is_a_miss(tmp_path):
     f = tmp_path / 'hardness.json'
-    _cache(f).store('t', {1: 1.0})
-    raw = json.loads(f.read_text(encoding='utf-8'))
+    c0 = _cache(f); c0.store('t', {1: 1.0})
+    raw = json.loads(c0.path.read_text(encoding='utf-8'))
     raw['noise_semantic_version'] = NOISE_SEMANTIC_VERSION + 1
-    f.write_text(json.dumps(raw), encoding='utf-8')
+    c0.path.write_text(json.dumps(raw), encoding='utf-8')
     hits, miss = _cache(f).load('t', [1])
     assert hits == {} and miss == [1], '噪声语义版本变了必须重扫'
 

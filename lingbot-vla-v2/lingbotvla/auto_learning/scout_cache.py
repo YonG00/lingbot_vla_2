@@ -292,12 +292,17 @@ class BootstrapScoutCache:
                  write_enabled: bool | None = None):
         if not str(model).strip():
             raise ValueError('model 不能为空（缓存以模型名判定是否可用）')
-        self.path = Path(file).expanduser()
         self.model = str(model)
         # 🔴 多卡：**只有 rank0 写缓存**（所有 rank 都跑调度器；都写会有并发写/撕裂）。
         if write_enabled is None:
             write_enabled = _is_rank0()
         self.write_enabled = bool(write_enabled)
+        # 🔴 2026-10-11：缓存文件**按模型分名**（`scout.<model-slug>.json`）。
+        #   否则换模型时 store() 会覆盖同一个固定文件名 ⇒ 上一份缓存被静默丢掉、无自动存档。
+        #   旧的无后缀文件存在时会被**复制**成 scoped 文件（不删除，见 cache_paths）。
+        from .cache_paths import ensure_scoped_cache_file
+        self.path = ensure_scoped_cache_file(file, self.model,
+                                             write_enabled=self.write_enabled)
         self.last_miss_reason: str | None = None
 
     # -- 内部 ---------------------------------------------------------------
