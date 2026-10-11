@@ -32,16 +32,19 @@
 # 0) 先确认没有残留训练进程（否则 launcher 会以退出码 2 拒绝启动，这是自锁保护）
 ps -eo args | grep "[t]rain_lingbotvla.py /workspace"     # 必须为空
 
-# 1) 起训练（7 卡；GPU[4] 是坏卡必须排除）
+# 1) 起训练（**标准命令**见 §0.2；2026-10-11 起 8 卡全开 —— GPU[4] 实测已恢复正常）
 /opt/robotwin-env/bin/python -u experiment/robotwin/al_launch.py \
-  --run-name al_v35 --steps 5000 --micro 5 --gas 1 \
+  --run-name al_v36 --steps 5000 --micro 5 --gas 1 \
+  --gpus 0,1,2,3,4,5,6,7 \
+  --worker-out-root     /models/robotwin-persistent/al_runs \
   --hardness-cache-file /workspace/al/hardness_cache/hardness.json \
   --scout-cache-file    /workspace/al/scout_cache/scout.json \
   --model-name          robbyant_lingbot-vla-v2-6b-bf16 \
   --triton-cache        /models/robotwin-persistent/al_cache/triton \
   --torchinductor-cache /models/robotwin-persistent/al_cache/torchinductor \
-  --env CUDA_VISIBLE_DEVICES=0,1,2,3,5,6,7 \
-  --env HIP_VISIBLE_DEVICES=0,1,2,3,5,6,7
+  --env AITER_USE_SYSTEM_TRITON=1 \
+  --env AL_HARDNESS_SHARD=1 \
+  --workers 1
 ```
 
 **四条前置条件（缺一不可）**：
@@ -50,8 +53,10 @@ ps -eo args | grep "[t]rain_lingbotvla.py /workspace"     # 必须为空
 |---|---|---|
 | 1 | `configs/rocm/robotwin_official_paths_rocm.yaml` 里 **`train.use_compile: false`** | 开编译在本机三连坑：flex 反向 kernel 崩溃、多 rank 共享缓存死锁、**图断裂导致 7 rank 集合通信错序 ⇒ 首步永久卡死**（GPU 0%、CPU 空转、日志静默）。官方 recipe 本来也是 `false` |
 | 2 | `--model-name` 与缓存文件里的 `model` 字段**一致** | 不一致 ⇒ 缓存全部判为未命中（会真扫一遍） |
-| 3 | 排除坏卡：`CUDA_VISIBLE_DEVICES=0,1,2,3,5,6,7` | GPU[4] 不可用；用 7 张卡 |
+| 3 | 卡：`--gpus 0,1,2,3,4,5,6,7`（8 卡） | 2026-10-11 复测：**GPU[4] 已恢复正常**（矩阵乘 0.13 s、显存 47.7 GiB 可用）。若某卡异常 ⇒ 从 `--gpus` 里去掉它 |
 | 4 | 运行前无残留训练进程 | launcher 自锁（退出码 2），避免两个 run 抢卡 |
+| 5 | **`AITER_USE_SYSTEM_TRITON=1`**（必须 `--env` 显式传，**不能只 export**） | 镜像 triton 3.5.1 < aiter 要求的 3.6.0 ⇒ 不设则 `aiter` 导入失败 ⇒ 模型模块注册失败（`Unrecognized configuration class`）。⚠️ launcher 给 worker 的环境**只透传 `AL_` 前缀**（`al_launch.py` 的 env 注入），所以父进程 export 到不了训练进程 ⇒ **必须 `--env AITER_USE_SYSTEM_TRITON=1`** |
+| 6 | **`$PHASES/datasets.txt` 必须是「单行聚合数据集」** | 训练侧 `--data.train_path` 指向它；而 `MultiVLADataset` + `resolver` **只支持单条目数据集**（回合号是聚合数据集的全局编号 0–2499）。给它 50 行分任务清单会报 `下钻不到 hf_dataset` |
 
 **实测基线（可用来判断"是否正常"）**：
 
@@ -64,6 +69,9 @@ ps -eo args | grep "[t]rain_lingbotvla.py /workspace"     # 必须为空
 | scout 缓存 | 50/50 命中，启动仅 ~1.5 分钟 | — |
 | hardness 缓存 | 命中时 **4.2–4.7 s**（首扫 208.5 s，**约 44×**） | 日志出现 `本次新增 0` 即证明未重算 |
 | 指纹计算 | 默认跳过（省 12 GiB 权重哈希 / 每轮 1–3 分钟） | 加 `--compute-fingerprint` 才计算 |
+| scout 首扫（50 任务 / 8 分片） | **4 分 44 秒** | 每任务 2 条 val 回合；缓存命中则秒级 |
+| hardness 单任务（**单卡**） | **1067 s / 184 样本**（≈0.17 样本/s） | 历史"1.25 样本/s"是 **7 卡合计**，单卡本来就是 ~0.18 样本/s |
+| hardness 单任务（**8 卡 rank 分片**） | 应约 **1/8 时间**（`ids[rank::8]`） | 需同时满足：`--workers 1`（1 片 ⇒ world_size=8）+ `--env AL_HARDNESS_SHARD=1` |
 
 **哪些日志行说明"一切正常"**：
 
@@ -76,6 +84,67 @@ Step: 1/5000 … Loss 0.4367                       ← 首步成功（此前的�
 
 ---
 
+
+
+## 0.2 标准启动命令（2026-10-11 定型，**统一用这一条**）
+
+```bash
+cd /workspace/lingbot_vla_2/lingbot-vla-v2
+/opt/robotwin-env/bin/python -u experiment/robotwin/al_launch.py \
+  --run-name al_v36 --steps 5000 --micro 5 --gas 1 \
+  --gpus 0,1,2,3,4,5,6,7 \
+  --worker-out-root     /models/robotwin-persistent/al_runs \
+  --triton-cache        /models/robotwin-persistent/al_cache/triton \
+  --torchinductor-cache /models/robotwin-persistent/al_cache/torchinductor \
+  --hardness-cache-file /workspace/al/hardness_cache/hardness.json \
+  --scout-cache-file    /workspace/al/scout_cache/scout.json \
+  --model-name          robbyant_lingbot-vla-v2-6b-bf16 \
+  --env PRUNE=1 \
+  --env AITER_USE_SYSTEM_TRITON=1 \
+  --env AL_HARDNESS_SHARD=1 \
+  --workers 1 --no-tb
+```
+
+### 每个参数为什么这么写（缺一个就会以某个退出码失败）
+
+| 参数 | 作用 / 不写的后果 |
+|---|---|
+| `--gpus 0..7` | 同时导出 `CUDA_/HIP_VISIBLE_DEVICES`；写错卡号 ⇒ 用错卡或起不来 |
+| `--worker-out-root` | **必须指到 overlay**（`/models/robotwin-persistent/…`）。默认在 `/workspace`（仅 98 G）⇒ 日志/checkpoint 会撑爆它 |
+| `--triton-cache` / `--torchinductor-cache` | 同上；且多 rank 共享同一编译缓存会死锁（本配方每 rank 独立子目录） |
+| `--env AITER_USE_SYSTEM_TRITON=1` | **重建后必加**。父进程 export 无效（worker 环境只透传 `AL_` 前缀）⇒ 不写则 aiter 导入失败、注册表为空、`Unrecognized configuration class` |
+| `--env AL_HARDNESS_SHARD=1` | 让 hardness 打分按 rank 切样本（`ids[rank::world_size]`）⇒ 单任务约 8× 加速 |
+| `--workers 1` | **1 片 = 8 卡同进程**（`world_size=8`）。⚠️ 与 `AL_HARDNESS_SHARD` 是**配套**的：分片数 >1 时每片 `N_GPU=1`，`world_size==1` 会让分片自动退回单卡全量 |
+| `--no-tb` / `--env PRUNE=1` | 关 TensorBoard（本机不启）、开权重裁剪 |
+| 缓存两件 | 显式文件；有效性只看 `--model-name`（换模型才失效，改代码不失效） |
+| 不写 `--no-cache` | **有缓存就复用、缺就补扫**；只有确实要全量重扫才加 `--no-cache` |
+
+### 三条规则（launcher 的缓存语义）
+
+1. **缓存覆盖完整 ⇒ 直接启动训练**（本次实测：`运行模式：reuse` ⇒ `退出码 0`，秒级）；
+2. **有缺失 ⇒ 只并行补扫缺失部分**（`运行模式：incremental`）；
+3. **`--no-cache` ⇒ 全量重扫**（`运行模式：full-scan`）。
+
+> 🔴 **扫描决策不看指纹**（2026-10-11 修复：此前 `fingerprint is None` 会把扫描范围清空，
+> 导致 `--no-cache` 也失效、以退出码 3 拒绝启动）。指纹只用于记录/复现。
+
+### 退出码速查
+
+| 码 | 含义 |
+|---|---|
+| 0 | 成功（dry-run 完成，或训练已后台启动） |
+| 2 | 前置检查失败（参数/路径/AL 配置/机器被占用/缺派生产物） |
+| 3 | 扫描未完成（缓存覆盖不全） |
+| 4 | worker 未就绪或提前退出（看各片 worker 日志的 Traceback） |
+| 5 / 6 / 7 | 扫描超时 / 内部错误 / 训练启动后立刻退出 |
+
+### 首次/重建后的三条派生产物（**先查有没有现成的，再决定是否重算**）
+
+| 产物 | 生成方式 | 备注 |
+|---|---|---|
+| `$SPLIT_DIR/manifest.json` | `tools/task_split.py --task all --dataset <聚合数据集> --out <split>` | 50 任务 + train/val 划分 |
+| `$SPLIT_DIR/task_baseline.json` | `python -m lingbotvla.auto_learning.tools.compute_task_baseline --manifest … --config …`（**CPU，~90 s/任务**） | ⚠️ **重建后先全盘找现成的**（历史机器上常有），指纹必须与阈值表一致 |
+| `$PHASES/datasets.txt` + 阈值表 `pass_thresholds_*.json` | 前者手写**单行**聚合数据集；后者 `build_gmean_thresholds.py` 生成 | 阈值表与 baseline **必须同指纹** |
 
 ## 1. 快速开始（三条命令）
 
