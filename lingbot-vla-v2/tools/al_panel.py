@@ -97,7 +97,7 @@ def pick_run(arg: Optional[str]) -> str:
             return cands[0][len('train_'):-len('.log')]
     except OSError:
         pass
-    return ''            # 找不到任何 run ⇒ 空（下面会提示怎么指定）
+    return ''            # 找不到任何 run ⇒ 空（下面给提示）
 
 
 def run_cfg(run: str) -> Dict[str, object]:
@@ -166,6 +166,54 @@ def read_events(events: Path) -> Tuple[Dict[str, object], Dict[str, Dict[str, fl
     return last, per_task
 
 
+def derive_status(events: Path) -> Tuple[Dict[str, str], List[str]]:
+    """从事件流**推导**每个任务的当前状态，返回 (task -> status, 当前 PASS 的任务列表)。
+
+    为什么需要它：`curriculum/passed_tasks` 这类**指标**只在 **unit 末尾**记录
+    （每 `eval_interval_steps` 步一次），而**状态变更**（bootstrap/select/review 的 result）
+    是**即时**的。真机踩过：bootstrap 阶段 3 个任务已判 `pass`（免费 PASS），
+    但指标还没写 ⇒ 面板显示"通关 0/15"，被误读成"扫描没过"。
+
+    状态来源（按时间顺序覆盖）：
+      * `bootstrap.result == 'pass'`  ⇒ PASS（bootstrap 免费 PASS，含 4-traj confirm 通过）
+      * `bootstrap.result == 'confirm_failed'` / `'candidate'` ⇒ CANDIDATE
+      * `review.outcomes[*].forgotten == true` ⇒ FORGOTTEN（PASS 被遗忘）
+      * `train_unit` / `select` 的 task ⇒ TRAINING
+    """
+    status: Dict[str, str] = {}
+    if not events.is_file():
+        return status, []
+    try:
+        with events.open(encoding='utf-8', errors='replace') as fh:
+            for line in fh:
+                if '"' not in line:
+                    continue
+                try:
+                    d = json.loads(line)
+                except Exception:
+                    continue
+                action = d.get('action')
+                task = d.get('task')
+                if action == 'bootstrap' and task:
+                    status[str(task)] = 'PASS' if d.get('result') == 'pass' else 'CANDIDATE'
+                elif action == 'review':
+                    for o in (d.get('outcomes') or []):
+                        t = o.get('task')
+                        if not t:
+                            continue
+                        if o.get('forgotten'):
+                            status[str(t)] = 'FORGOTTEN'
+                        elif o.get('confirmed'):
+                            status[str(t)] = 'PASS'
+                elif action in ('select', 'train_unit') and task:
+                    if status.get(str(task)) != 'PASS':
+                        status[str(task)] = 'TRAINING'
+    except OSError:
+        pass
+    passed = sorted(t for t, st in status.items() if st == 'PASS')
+    return status, passed
+
+
 def step_progress(log: Path, interval: Optional[int]) -> Tuple[Optional[int], Optional[float], int]:
     """返回 (最新 step, 稳态 s/it 中位数, 采样到的步数)。"""
     if not log.is_file():
@@ -202,11 +250,16 @@ def main() -> int:
     cfg = run_cfg(run)
     thresholds = load_thresholds(cfg['thresholds'])          # type: ignore[arg-type]
     target = int(cfg['target'] or 15)
-    last, per_task = read_events(ROOT / f'train_{run}' / 'auto_learning_events.jsonl')
+    ev_path = ROOT / f'train_{run}' / 'auto_learning_events.jsonl'
+    last, per_task = read_events(ev_path)
+    derived_status, derived_passed = derive_status(ev_path)
     nrank = rank_count()
     step, sit, nsamples = step_progress(ROOT / 'logs' / f'train_{run}.log', cfg['interval'])  # type: ignore[arg-type]
 
-    passed = int(last.get('curriculum/passed_tasks') or 0)     # type: ignore[arg-type]
+    # 🔴 "通关数"优先用**事件推导**（即时），registry 指标（unit 末尾才有）用于交叉校验
+    reg_passed = last.get('curriculum/passed_tasks')
+    reg_passed = int(reg_passed) if isinstance(reg_passed, (int, float)) else None
+    passed = len(derived_passed) if derived_passed else (reg_passed or 0)
     newly = last.get('curriculum/newly_passed_count')
     boot = last.get('curriculum/bootstrap_pass_count')
     print('=' * W)
@@ -228,6 +281,11 @@ def main() -> int:
     if isinstance(boot, (int, float)) and boot:
         extra += f' | Bootstrap {int(boot)}'
     print(f' 通关: {passed}/{target}（{pct:.0f}%）  还差 {max(0, target - passed)} 个{extra}')
+    if reg_passed is not None and reg_passed != passed:
+        print(f'  ⚠️ registry 指标 curriculum/passed_tasks={reg_passed} 与事件推导 {passed} 不同'
+              '（前者只在 unit 末尾记录，后者即时；unit 末应自动对齐）')
+    if derived_passed:
+        print(f' 已通关任务: {", ".join(derived_passed)}')
     # 下一次判定还有多少步（unit = eval_interval_steps；判定只在 unit 末尾发生）
     if cfg['interval'] and step is not None:
         rem = int(cfg['interval']) - (step % int(cfg['interval']))
