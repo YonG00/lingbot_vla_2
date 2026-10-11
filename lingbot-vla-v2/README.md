@@ -252,6 +252,23 @@ LingBot-VLA 2.0 is evaluated in a generalist setting on GM-100 bimanual manipula
 | Randomized | 76.76%  | 86.68% | **92.80%** |
 
 
+## Auto Learning
+
+Auto Learning is the curated-task-training loop under `lingbotvla/auto_learning/`: instead of a
+hand-fixed task order, the scheduler keeps evaluating / selecting / training / judging tasks and
+stops once **N tasks have passed** (see `docs/auto_learning_overview_zh.md`).
+
+Start here, then follow the topic-specific guides:
+
+| Document | What it covers |
+| :--- | :--- |
+| [`docs/auto_learning_overview_zh.md`](docs/auto_learning_overview_zh.md) | **What Auto Learning is, how it works, where the code lives** (start here) |
+| [`docs/auto_learning_launch_guide_zh.md`](docs/auto_learning_launch_guide_zh.md) | Launching it: launcher usage, parameters, cache addressing, scan modes, monitoring |
+| [`docs/auto_learning_pitfalls_zh.md`](docs/auto_learning_pitfalls_zh.md) | Pitfalls ledger: symptoms → root causes → fixes (read before debugging) |
+| [`docs/GMEAN_PASSLINE_GUIDE.md`](docs/GMEAN_PASSLINE_GUIDE.md) | How the pass line (GMean × multiplier) is calibrated |
+| [`docs/auto_learning_multigpu_guide.md`](docs/auto_learning_multigpu_guide.md) | Multi-GPU / multi-rank behavior |
+| [`tools/al_panel.py`](tools/al_panel.py) | One-command dashboard: progress, pass count, per-task margins, growth trend |
+
 ## Citation
 
 If you find our work useful in your research, please cite:
