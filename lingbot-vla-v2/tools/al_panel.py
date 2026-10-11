@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 ROOT = Path(os.environ.get('AL_ROOT', '/models/robotwin-persistent/al_runs'))
-W = 82
+W = 76          # 行宽：中文按 2 列算，76 + 中文行留余量
 
 
 # --------------------------------------------------------------------------- #
@@ -240,6 +240,8 @@ def derive_status(events: Path) -> Tuple[Dict[str, str], List[str]]:
                             status[str(t)] = 'FORGOTTEN'
                         elif o.get('confirmed'):
                             status[str(t)] = 'PASS'
+                elif action in ('pass', 'apply_pass') and task:
+                    status[str(task)] = 'PASS'
                 elif action in ('select', 'train_unit') and task:
                     if status.get(str(task)) != 'PASS':
                         status[str(task)] = 'TRAINING'
@@ -274,7 +276,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description='AL 训练仪表盘')
     ap.add_argument('run', nargs='?', default=None, help='run 名（默认自动选最新）')
     ap.add_argument('--all', action='store_true', help='列出全部任务（默认只列最接近通关的 15 个）')
-    ap.add_argument('--top', type=int, default=15, help='默认显示多少个任务（按倍数升序）')
+    ap.add_argument('--top', type=int, default=4,
+                    help='默认显示多少个任务（按倍数升序；默认 6 以便整屏可见；--all 看全部）')
     args = ap.parse_args()
 
     run = pick_run(args.run)
@@ -292,43 +295,44 @@ def main() -> int:
     nrank = rank_count()
     step, sit, nsamples = step_progress(ROOT / 'logs' / f'train_{run}.log', cfg['interval'])  # type: ignore[arg-type]
 
-    # 🔴 "通关数"优先用**事件推导**（即时），registry 指标（unit 末尾才有）用于交叉校验
+    # 🔴 通关数口径（真机纠错两次后的结论）：
+    #    * **registry 指标 `curriculum/passed_tasks` 是权威**（scheduler 自己算，含训练中新增 PASS）；
+    #    * 事件推导只覆盖 bootstrap/select 的 pass，**会漏掉训练中新增的 PASS** ⇒ 只作交叉校验，
+    #      且在它**更大**时以它为准（真机实测：step 200 时 registry=4、推导=3）。
     reg_passed = last.get('curriculum/passed_tasks')
     reg_passed = int(reg_passed) if isinstance(reg_passed, (int, float)) else None
-    passed = len(derived_passed) if derived_passed else (reg_passed or 0)
+    passed = reg_passed if reg_passed is not None else len(derived_passed)
     newly = last.get('curriculum/newly_passed_count')
     boot = last.get('curriculum/bootstrap_pass_count')
-    print('=' * W)
-    print(f' AL 仪表盘  run={run}   目标 PASS={target}   门槛={Path(str(cfg["thresholds"] or "?")).name}')
-    print('=' * W)
-    if nrank:
-        line = f' 状态: 训练中（{nrank} 个 rank / {nrank} 张卡）'
-        if step is not None:
-            line += f' | Step {step}'
-        if sit:
-            line += f' | 稳态 {sit:.1f}s/it（近 {min(nsamples, 10)} 次采样中位数）'
-        print(line)
-    else:
-        print(' 状态: 未在训练（无 rank 进程）')
+    print('=' * 78)
+    print(f' AL 仪表盘  run={run}   目标 PASS={target}')
+    _th = Path(str(cfg['thresholds'] or '?')).name
+    _iv = f'；每 {cfg["interval"]} 步判定一次' if cfg['interval'] else ''
+    print(f' 门槛: {_th.replace("pass_thresholds_", "")}（{len(thresholds)} 任务）{_iv}')
+    st_line = (f' 状态: 训练中（{nrank} rank/{nrank} 卡）'
+               if nrank else ' 状态: 未在训练')
+    if step is not None:
+        st_line += f' | Step {step}'
+    if sit:
+        st_line += f' | {sit:.1f}s/it'
     pct = (100.0 * passed / target) if target else 0.0
-    extra = ''
+    _extra = ''
     if isinstance(newly, (int, float)):
-        extra += f' | 本 run 新增 {int(newly)}'
+        _extra += f' | 新增 {int(newly)}'
     if isinstance(boot, (int, float)) and boot:
-        extra += f' | Bootstrap {int(boot)}'
-    print(f' 通关: {passed}/{target}（{pct:.0f}%）  还差 {max(0, target - passed)} 个{extra}')
-    if reg_passed is not None and reg_passed != passed:
-        print(f'  ⚠️ registry 指标 curriculum/passed_tasks={reg_passed} 与事件推导 {passed} 不同'
-              '（前者只在 unit 末尾记录，后者即时；unit 末应自动对齐）')
+        _extra += f' | Bootstrap {int(boot)}'
+    print(st_line)
+    print(f' 通关: {passed}/{target}（{pct:.0f}%）还差 {max(0, target - passed)}{_extra}')
     if derived_passed:
-        print(f' 已通关任务: {", ".join(derived_passed)}')
-    # 下一次判定还有多少步（unit = eval_interval_steps；判定只在 unit 末尾发生）
+        _tail = ''
+        if reg_passed is not None and len(derived_passed) < reg_passed:
+            _tail = f' +{reg_passed - len(derived_passed)} 个训练中新增'
+        _names = ', '.join(derived_passed[:2])
+        _more = f' 等{len(derived_passed)}个' if len(derived_passed) > 2 else ''
+        print(f' 已通关: {_names}{_more}{_tail}')
     if cfg['interval'] and step is not None:
-        rem = int(cfg['interval']) - (step % int(cfg['interval']))
-        print(f' 下一次判定: 再过 {rem} 步（Step {step + rem}；unit 末才 REVIEW）')
-    print(f' 门槛表: {cfg["thresholds"] or "（未找到）"}（{len(thresholds)} 个任务有门槛）')
-    if cfg['interval']:
-        print(f' 评测节奏: 每 {cfg["interval"]} 步一个 unit（unit 末尾才判定 PASS）')
+        _rem = int(cfg['interval']) - (step % int(cfg['interval']))
+        print(f' 下一次判定: 再过 {_rem} 步（Step {step + _rem}）')
 
     # 逐任务：以**阈值表**为准（50 个全有），指标取已评测到的最新值
     rows = []
@@ -361,15 +365,14 @@ def main() -> int:
             #    这里只表达"该指标是否已过线"，且必须标明数据来源（实测 / 估值）。
             verdict = '已过线' if g <= th else ('接近' if ratio <= 1.3 else '差距大')
             data = '实测' if src == 'val' else 'scout估值'
-            print(f' {task:<28}{g:>10.4f}{th:>10.4f}{ratio:>7.2f}x  {data:<6} {verdict}')
+            print(f' {task:<26}{g:>9.4f}{th:>9.4f}{ratio:>6.2f}x  {data:<6} {verdict}')
         if not args.all and len(rated) > len(shown):
             print(f' … 另有 {len(rated) - len(shown)} 个已评测任务未列出（--all 看全部）')
         n_pass = sum(1 for _, g, th, _ in rated if g <= th)
         n_val = sum(1 for _, _, _, s in rated if s == 'val')
         print('-' * W)
-        print(f' 表内 {len(rated)}/{len(rows)} 个任务有数（其中**实测** {n_val} 个，其余为 scout 估值）；')
-        print(f' 按门槛"已过线"的 {n_pass} 个 —— ⚠️ 这只是**指标过线**，不等于已通关；')
-        print(' 正式通关以 AL registry 为准（unit 末尾判定，见上面"通关"行）。')
+        print(f' 表内 {len(rated)}/{len(rows)} 有数（实测 {n_val}）｜"已过线" {n_pass} 个'
+              f'（仅指标，非通关）')
     else:
         print('-' * W)
         print(' 暂无逐任务评测数据（还没到第一次评测）')
@@ -390,8 +393,7 @@ def main() -> int:
         cur_task = max(cand2)[1] if cand2 else None
     named = last.get('curriculum/current_task_name')
     if isinstance(named, str) and named and named != cur_task:
-        print(f' 注: AL 当前正在训 {named}（本 unit 还没走完 ⇒ 无历史）；'
-              f'下面展示的是**最近走完 unit 的任务** {cur_task} 的历史')
+        print(f' 注: 在训 {named}（unit 未完）；轨迹={cur_task}')
     print('-' * W)
     if not cur_task:
         print(' 任务成长轨迹: 没有（事件流里还没有任何 active_val 指标）')
@@ -401,11 +403,11 @@ def main() -> int:
     th_map = dict((series.get('pass_threshold_gmean_mse') or {}).get(str(cur_task)) or [])
     ra_map = dict((series.get('val_to_pass_threshold') or {}).get(str(cur_task)) or [])
     lo_map = dict((series.get('unit_loss') or {}).get(str(cur_task)) or [])
-    print(f' 任务成长轨迹: {cur_task}（**只统计该任务自己的历史**；每 unit 一个点）')
+    print(f' 成长轨迹: {cur_task}（该任务自身历史，每 unit 一点）')
     if not val_seq:
         print('   没有（该任务还没有 active_val 记录）')
     else:
-        print(f'   {"step":>7}{"GMean(val)":>12}{"门槛":>11}{"倍率":>8}{"unit_loss":>11}  {"类型":<4} 相对上一次')
+        print(f'   {"step":>5}{"GMean":>9}{"门槛":>9}{"倍率":>7}{"loss":>9}  {"类型":<4}变化')
         prev_ratio = None
         shown = 0
         for st, g in val_seq:
@@ -425,13 +427,13 @@ def main() -> int:
                 else:
                     delta = '→ 持平'
             kind = '基线' if loss is None else '训后'
-            print(f'   {st:>7}{g:>12.4f}{(f"{th:.4f}" if th else "—"):>11}'
-                  f'{(f"{ratio:.2f}x" if ratio is not None else "—"):>8}'
-                  f'{(f"{loss:.4f}" if loss is not None else "—"):>11}  {kind}  {delta}')
+            print(f'   {st:>5}{g:>9.4f}{(f"{th:.4f}" if th else "—"):>9}'
+                  f'{(f"{ratio:.2f}x" if ratio is not None else "—"):>7}'
+                  f'{(f"{loss:.4f}" if loss is not None else "—"):>9}  {kind:<4}{delta}')
             prev_ratio = ratio if ratio is not None else prev_ratio
             shown += 1
-        print(f'   （该任务共 {shown} 次评测记录'
-              + ('；不足 3 次 ⇒ 上上上次/上上次显示"没有"' if shown < 3 else '') + '）')
+        if shown < 3:
+            print(f'   （仅 {shown} 次记录 ⇒ 缺的槽位显示"没有"）')
         # 明确列出"上上次/上上次/上上上次"三个槽位（用户口径）
         slots = []
         for k, label in ((1, '上一次'), (2, '上上次'), (3, '上上上次')):
@@ -443,13 +445,24 @@ def main() -> int:
                              else f'{label}=step {st} / 门槛缺失')
             else:
                 slots.append(f'{label}：没有')
-        print('   三次对照: ' + ' | '.join(slots))
+        print('   三次: ' + '｜'.join(v.replace('step ', '') for v in slots))
+        last_r = ra_map.get(val_seq[-1][0])
+        prev_r = ra_map.get(val_seq[-2][0]) if len(val_seq) >= 2 else None
+        trend = '—'
+        if last_r is not None and prev_r is not None:
+            trend = ('↓ 在改善' if last_r < prev_r - 0.005
+                     else ('↑ 在变差' if last_r > prev_r + 0.005 else '→ 停滞'))
+        # 合计（首点 → 末点的倍率变化）先算好，再一行摘要输出
+        gain_txt = ''
         if len(val_seq) >= 2:
             r0 = ra_map.get(val_seq[0][0])
             r1 = ra_map.get(val_seq[-1][0])
             if r0 and r1:
                 gain = (r0 - r1) / r0 * 100
-                print(f'   合计: {r0:.2f}x → {r1:.2f}x（{"改善" if gain > 0 else "变差"} {abs(gain):.1f}%）')
+                gain_txt = f' | {r0:.2f}x→{r1:.2f}x（{"改善" if gain > 0 else "变差"}{abs(gain):.0f}%）'
+        print('-' * W)
+        _r = f'{last_r:.2f}x' if last_r is not None else '—'
+        print(f' 摘要: 通关 {passed}/{target} | {_r} {trend}{gain_txt}')
 
     if unrated and args.all:
         print(f' 未评测: {", ".join(t for t, *_ in unrated[:20])}' +
