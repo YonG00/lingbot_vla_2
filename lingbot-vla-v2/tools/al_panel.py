@@ -28,7 +28,6 @@ import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-#: al_runs 根目录；换机器用 `AL_ROOT=<al_runs 路径>` 覆盖。
 ROOT = Path(os.environ.get('AL_ROOT', '/models/robotwin-persistent/al_runs'))
 W = 82
 
@@ -166,6 +165,42 @@ def read_events(events: Path) -> Tuple[Dict[str, object], Dict[str, Dict[str, fl
     return last, per_task
 
 
+def read_series(events: Path) -> Dict[str, Dict[str, List[Tuple[int, float]]]]:
+    """收集**带 step 的逐任务指标序列**：`{指标名: {task: [(step, value), ...]}}`。
+
+    用于画"成长轨迹"：`active_val_gmean_mse`（实测 val GMean）、
+    `pass_threshold_gmean_mse`（当时的门槛）、`val_to_pass_threshold`（现成倍率）。
+    """
+    out: Dict[str, Dict[str, List[Tuple[int, float]]]] = {}
+    if not events.is_file():
+        return out
+    try:
+        with events.open(encoding='utf-8', errors='replace') as fh:
+            for line in fh:
+                if '"' not in line:
+                    continue
+                try:
+                    d = json.loads(line)
+                except Exception:
+                    continue
+                name = d.get('name') or ''
+                step = d.get('step')
+                val = d.get('value')
+                if not name.startswith('task/') or step is None or not isinstance(val, (int, float)):
+                    continue
+                parts = name.split('/', 2)
+                if len(parts) != 3:
+                    continue
+                metric, task = parts[2], parts[1]
+                out.setdefault(metric, {}).setdefault(task, []).append((int(step), float(val)))
+    except OSError:
+        pass
+    for metric in out:
+        for task in out[metric]:
+            out[metric][task].sort()
+    return out
+
+
 def derive_status(events: Path) -> Tuple[Dict[str, str], List[str]]:
     """从事件流**推导**每个任务的当前状态，返回 (task -> status, 当前 PASS 的任务列表)。
 
@@ -253,6 +288,7 @@ def main() -> int:
     ev_path = ROOT / f'train_{run}' / 'auto_learning_events.jsonl'
     last, per_task = read_events(ev_path)
     derived_status, derived_passed = derive_status(ev_path)
+    series = read_series(ev_path)
     nrank = rank_count()
     step, sit, nsamples = step_progress(ROOT / 'logs' / f'train_{run}.log', cfg['interval'])  # type: ignore[arg-type]
 
@@ -337,6 +373,84 @@ def main() -> int:
     else:
         print('-' * W)
         print(' 暂无逐任务评测数据（还没到第一次评测）')
+    # ---- 当前任务的成长轨迹（**按任务绑定**；最近 3 次对照）----
+    # 🔴 用户要求：这三次历史必须**针对正在评测的那个任务**；任务切换后要看**新任务自己的**历史，
+    #    新任务若还没有历史 ⇒ 明确标"没有"（不要拿别的任务的数据顶上）。
+    val_all = series.get('active_val_gmean_mse') or {}
+    loss_all = series.get('unit_loss') or {}
+    # 🔴 选"被查看的任务"：**最近一次走完 unit 的任务** = `unit_loss` 出现过的最大 step 对应的任务。
+    #    为什么不用 `curriculum/current_task_name`：任务切换发生在 unit 边界，同一 step 里
+    #    它会被**写两次**（先旧任务、后新任务），取"最新值"会得到**刚被选中、还没历史**的新任务。
+    #    实测（step 150）：`pick_dual_bottles` 的 unit_loss 先写，随后
+    #    `current_task_name` 先= pick_dual_bottles 再= shake_bottle_horizontally。
+    cand = [(seq[-1][0], t) for t, seq in loss_all.items() if seq]
+    cur_task = max(cand)[1] if cand else None
+    if cur_task is None:      # 还没走完任何 unit ⇒ 退化为"有 val 数据的任务"
+        cand2 = [(seq[-1][0], t) for t, seq in val_all.items() if seq]
+        cur_task = max(cand2)[1] if cand2 else None
+    named = last.get('curriculum/current_task_name')
+    if isinstance(named, str) and named and named != cur_task:
+        print(f' 注: AL 当前正在训 {named}（本 unit 还没走完 ⇒ 无历史）；'
+              f'下面展示的是**最近走完 unit 的任务** {cur_task} 的历史')
+    print('-' * W)
+    if not cur_task:
+        print(' 任务成长轨迹: 没有（事件流里还没有任何 active_val 指标）')
+        print('=' * W)
+        return 0
+    val_seq = list(val_all.get(str(cur_task)) or [])
+    th_map = dict((series.get('pass_threshold_gmean_mse') or {}).get(str(cur_task)) or [])
+    ra_map = dict((series.get('val_to_pass_threshold') or {}).get(str(cur_task)) or [])
+    lo_map = dict((series.get('unit_loss') or {}).get(str(cur_task)) or [])
+    print(f' 任务成长轨迹: {cur_task}（**只统计该任务自己的历史**；每 unit 一个点）')
+    if not val_seq:
+        print('   没有（该任务还没有 active_val 记录）')
+    else:
+        print(f'   {"step":>7}{"GMean(val)":>12}{"门槛":>11}{"倍率":>8}{"unit_loss":>11}  {"类型":<4} 相对上一次')
+        prev_ratio = None
+        shown = 0
+        for st, g in val_seq:
+            th = th_map.get(st)
+            ratio = ra_map.get(st) or ((g / th) if th else None)
+            loss = lo_map.get(st)
+            if prev_ratio is None:
+                delta = '—（首次记录）'
+            else:
+                d = (ratio - prev_ratio) if ratio is not None else None
+                if d is None:
+                    delta = '—'
+                elif d < -0.005:
+                    delta = f'↓ 改善 {abs(d):.3f}'
+                elif d > 0.005:
+                    delta = f'↑ 变差 +{d:.3f}'
+                else:
+                    delta = '→ 持平'
+            kind = '基线' if loss is None else '训后'
+            print(f'   {st:>7}{g:>12.4f}{(f"{th:.4f}" if th else "—"):>11}'
+                  f'{(f"{ratio:.2f}x" if ratio is not None else "—"):>8}'
+                  f'{(f"{loss:.4f}" if loss is not None else "—"):>11}  {kind}  {delta}')
+            prev_ratio = ratio if ratio is not None else prev_ratio
+            shown += 1
+        print(f'   （该任务共 {shown} 次评测记录'
+              + ('；不足 3 次 ⇒ 上上上次/上上次显示"没有"' if shown < 3 else '') + '）')
+        # 明确列出"上上次/上上次/上上上次"三个槽位（用户口径）
+        slots = []
+        for k, label in ((1, '上一次'), (2, '上上次'), (3, '上上上次')):
+            if len(val_seq) >= k:
+                st, g = val_seq[-k]
+                th = th_map.get(st)
+                ratio = ra_map.get(st) or ((g / th) if th else None)
+                slots.append(f'{label}=step {st} / {ratio:.2f}x' if ratio is not None
+                             else f'{label}=step {st} / 门槛缺失')
+            else:
+                slots.append(f'{label}：没有')
+        print('   三次对照: ' + ' | '.join(slots))
+        if len(val_seq) >= 2:
+            r0 = ra_map.get(val_seq[0][0])
+            r1 = ra_map.get(val_seq[-1][0])
+            if r0 and r1:
+                gain = (r0 - r1) / r0 * 100
+                print(f'   合计: {r0:.2f}x → {r1:.2f}x（{"改善" if gain > 0 else "变差"} {abs(gain):.1f}%）')
+
     if unrated and args.all:
         print(f' 未评测: {", ".join(t for t, *_ in unrated[:20])}' +
               (' …' if len(unrated) > 20 else ''))
