@@ -275,9 +275,9 @@ def step_progress(log: Path, interval: Optional[int]) -> Tuple[Optional[int], Op
 def main() -> int:
     ap = argparse.ArgumentParser(description='AL 训练仪表盘')
     ap.add_argument('run', nargs='?', default=None, help='run 名（默认自动选最新）')
-    ap.add_argument('--all', action='store_true', help='列出全部任务（默认只列最接近通关的 15 个）')
+    ap.add_argument('--all', action='store_true', help='列出全部任务（默认只列最接近通关的若干）')
     ap.add_argument('--top', type=int, default=4,
-                    help='默认显示多少个任务（按倍数升序；默认 6 以便整屏可见；--all 看全部）')
+                    help='默认显示多少个任务（按倍数升序；默认 4 以便整屏可见；--all 看全部）')
     args = ap.parse_args()
 
     run = pick_run(args.run)

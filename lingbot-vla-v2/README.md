@@ -258,11 +258,16 @@ Auto Learning is the curated-task-training loop under `lingbotvla/auto_learning/
 hand-fixed task order, the scheduler keeps evaluating / selecting / training / judging tasks and
 stops once **N tasks have passed** (see `docs/auto_learning_overview_zh.md`).
 
-Start here, then follow the topic-specific guides:
+**Start with the dedicated README: [`README_AUTOLEARNING.md`](README_AUTOLEARNING.md)** —
+it covers what AL is, how one learning unit runs, how to launch/monitor it, the full code map
+(25 modules + 6 subpackages), config groups, exit codes, and a symptom→document triage table.
+
+Topic-specific guides:
 
 | Document | What it covers |
 | :--- | :--- |
-| [`docs/auto_learning_overview_zh.md`](docs/auto_learning_overview_zh.md) | **What Auto Learning is, how it works, where the code lives** (start here) |
+| [`README_AUTOLEARNING.md`](README_AUTOLEARNING.md) | **AL 专属 README：概念 / 上手 / 监控 / 代码地图 / 退出码 / 排查入口** (start here) |
+| [`docs/auto_learning_overview_zh.md`](docs/auto_learning_overview_zh.md) | 概念总览（流水线、术语表），与 AL README 互补 |
 | [`docs/auto_learning_launch_guide_zh.md`](docs/auto_learning_launch_guide_zh.md) | Launching it: launcher usage, parameters, cache addressing, scan modes, monitoring |
 | [`docs/auto_learning_pitfalls_zh.md`](docs/auto_learning_pitfalls_zh.md) | Pitfalls ledger: symptoms → root causes → fixes (read before debugging) |
 | [`docs/GMEAN_PASSLINE_GUIDE.md`](docs/GMEAN_PASSLINE_GUIDE.md) | How the pass line (GMean × multiplier) is calibrated |
