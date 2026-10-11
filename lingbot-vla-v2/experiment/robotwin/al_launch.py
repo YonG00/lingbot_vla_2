@@ -394,14 +394,15 @@ def compute_fingerprint(*, repo_root: Path, checkpoint: Path, manifest: Path, no
 # 缓存覆盖检查（复刻 BootstrapScoutCache.load 的校验 ⇒ 「真会命中」才算覆盖）
 # --------------------------------------------------------------------------- #
 def _cache_support():
-    """延迟导入 `lingbotvla.auto_learning` 的缓存工具；不可用 ⇒ `(None, None)`。
+    """延迟导入 `lingbotvla.auto_learning` 的缓存工具；不可用 ⇒ `(None, None, None)`。
 
     允许 launcher 在"没有仓库包"的环境里独立运行（退回原路径 + 打印告警）。
     """
     def _import():
-        from lingbotvla.auto_learning.cache_paths import scoped_cache_path
+        from lingbotvla.auto_learning.cache_paths import (
+            ensure_scoped_cache_file, scoped_cache_path)
         from lingbotvla.auto_learning.hardness_cache import resolve_model_name
-        return scoped_cache_path, resolve_model_name
+        return scoped_cache_path, resolve_model_name, ensure_scoped_cache_file
     try:
         return _import()
     except Exception:  # noqa: BLE001
@@ -411,7 +412,7 @@ def _cache_support():
                 sys.path.insert(0, str(_repo))
             return _import()
         except Exception:  # noqa: BLE001
-            return None, None
+            return None, None, None
 
 
 def scout_cache_file_for(argv_file: str | Path, model: str = '',
@@ -423,15 +424,20 @@ def scout_cache_file_for(argv_file: str | Path, model: str = '',
     同一个模块、同一个 `resolve_model_name()` 算**路径与模型名**，否则会出现
     「预检说 50/50 覆盖、训练却写另一个文件」的不一致。
 
+    ⚠️ 必须走 `ensure_scoped_cache_file()`（**不是**纯路径的 `scoped_cache_path()`）：
+    前者会把**旧的无后缀缓存文件复制**成 scoped 名。只用后者会指向一个不存在的文件
+    ⇒ 覆盖检查读到 0 条记录 ⇒ 误判"覆盖不完整"、以退出码 3 拒绝启动
+    （真机实测踩过：`全集覆盖: 0/50（该缓存文件内 0 条记录）`）。
+
     返回值：`(scoped_file, resolved_model)`；模块不可用时返回 `(原路径, 入参模型名)` 并告警。
     """
-    scoped_cache_path, resolve_model_name = _cache_support()
+    scoped_cache_path, resolve_model_name, ensure_scoped = _cache_support()
     if scoped_cache_path is None:
         print(f'[cache] ⚠️ 无法导入 cache_paths，按原路径处理：{argv_file}', file=sys.stderr)
         return Path(str(argv_file)).expanduser(), str(model or '')
     resolved = resolve_model_name(model or None,
                                   checkpoint_dir=str(checkpoint) if checkpoint else None)
-    return scoped_cache_path(argv_file, resolved), resolved
+    return ensure_scoped(argv_file, resolved, write_enabled=True), resolved
 
 
 def entry_is_hit(path: Path, *, model: str, task: str, ids: Sequence[int],

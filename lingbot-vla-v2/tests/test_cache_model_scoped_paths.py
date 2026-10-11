@@ -221,3 +221,22 @@ def test_launcher_coverage_accepts_checkpoint_kwarg():
                             'my-explicit-model', {'task_a': [1, 2]})
     assert cov.model == 'my-explicit-model'
     assert cov.missing == ['task_a'], '文件不存在 ⇒ 未覆盖'
+
+
+def test_launcher_migrates_legacy_file_before_coverage(tmp_path):
+    """**核心回归**（真机踩过，退出码 3）：预检解析出的 scoped 文件必须**已含旧文件内容**。
+
+    旧实现这里用了纯路径的 `scoped_cache_path()` ⇒ 指向一个**不存在**的文件
+    ⇒ 覆盖检查读到 `0 条记录` ⇒ 误判"覆盖不完整"、以退出码 3 拒绝启动。
+    正确实现走 `ensure_scoped_cache_file()`：先把旧的无后缀文件**复制**成 scoped 名再检查。
+    """
+    al = _load_launcher()
+    legacy = tmp_path / 'scout.json'
+    legacy.write_text(json.dumps({'version': 2, 'model': BASE_MODEL,
+                                  'records': {'k': {'task': 't'}}}), encoding='utf-8')
+    path, model = al.scout_cache_file_for(legacy, '', '/ckpt/train_al_v37/checkpoints/global_step_500/hf_ckpt')
+    assert path != legacy and path.is_file(), '必须已把旧文件迁移成 scoped 名'
+    assert json.loads(path.read_text(encoding='utf-8'))['records'] == {'k': {'task': 't'}}
+    assert legacy.is_file(), '旧文件必须保留'
+    cov = al.Coverage(path, model)
+    assert cov.record_count() == 1, '预检必须能看到旧文件的记录（不是 0）'
