@@ -1,0 +1,1 @@
+robotwin /models/robotwin-persistent/data/agg_lerobot_v30/RoboTwin_lerobot_v30

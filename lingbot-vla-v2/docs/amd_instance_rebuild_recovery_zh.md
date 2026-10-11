@@ -228,16 +228,54 @@ ps -eo args | grep "[t]rain_lingbotvla.py /workspace"      # 必须为空
 
 ---
 
-## 7. 缓存重建（重建后缓存全丢，需重扫）
+## 7. ★ 派生产物：**先查现成的，再决定要不要重算**（2026-10-11 血的教训）
+
+重建后**缺的往往不是源码，而是"由数据集算出来的派生数据"**。它们算起来很贵，
+而且**换台机器/换个目录就找不到**了。**默认动作 = 先找，找不到再算。**
+
+| 派生产物 | 落位 | 重算代价 | 能否重算 |
+|---|---|---|---|
+| `task_splits_50/manifest.json` + 104 个 `*_ids.json` | `/workspace/al/task_splits_50/` | 秒级（需聚合数据集） | ✅ |
+| **`task_baseline.json`**（每任务训练前 MSE） | 同上 | **~90 s/任务 × 50 ≈ 75 分钟（纯 CPU）** | ✅ |
+| **`scout_cache/scout.json`**（50/50） | `/workspace/al/scout_cache/` | **4 分 44 秒**（8 分片首扫） | ✅ |
+| **`hardness_cache/hardness.json`** | `/workspace/al/hardness_cache/` | **单卡 ~1000 s/任务**（8 卡 rank 分片 ~1/8） | ✅ |
+| `phases_al/datasets.txt` | `/workspace/al/phases_al/` | 秒级（**但必须知道"要单行聚合数据集"**） | ✅ |
+| **`pass_thresholds_gmean100_warn.json`** | `/workspace/eval_results/open_loop/ref50k/` | 秒级 | ✅（需下一行的参考数据） |
+| **`ref_per_traj.jsonl`（50k 参考逐轨迹 MSE）** | 同上 | — | ❌ **不可再生**（需 50k 参考模型） |
+
+### 恢复方式（已入库，一条命令）
+
+```bash
+# 包内 109 个文件 / 约 216 KB，带 sha256 清单与恢复脚本
+# 仓库根即 lingbot-vla-v2（内含 refs/al_artifacts/）
+bash refs/al_artifacts/restore.sh --local
+# 或从开发机推：
+bash refs/al_artifacts/restore.sh root@<host> <port> <本机私钥路径>
+```
+
+脚本会落位 + `sha256sum -c` 校验 + 打印**关键不变量**（见下）。详见 `refs/al_artifacts/README.md`。
+
+### 三条必须先核对的不变量（否则**静默错判**，程序不报错）
+
+| # | 不变量 | 违反后果 |
+|---|---|---|
+| 1 | `task_baseline.json` 与 `pass_thresholds_*.json` 的 **`config_fingerprint` 必须相同** | baseline 与通过线错位 ⇒ PASS/FAIL 判错且无告警 |
+| 2 | 缓存的 **`model` 字段 = `--model-name`** | 不一致 ⇒ 缓存全部判未命中（白扫一遍） |
+| 3 | `datasets.txt` **必须单行**（聚合数据集） | 多行 ⇒ `resolver` 报 `下钻不到 hf_dataset`（训练起不来） |
+
+**缓存文件格式**：单文件 JSON；scout 为 `{"version":2,"model":"…","records":{…}}`，
+hardness 为 `{"version":2,"noise_semantic_version":1,"model":"…","tasks":{…}}`；
+**可用性只由 `model`（+hardness 的噪声语义版本）决定**（改代码不会失效）。
+
+---
+
+## 7.1 历史缓存代价（供对比）
 
 | 缓存 | 首扫代价 | 命中代价 |
 |---|---|---|
 | scout（50 任务预检） | ~5 分钟（并行） | 秒级 |
-| hardness（按任务） | **~208 s/任务**（`place_dual_shoes` 259 样本为例） | **4.2 s（约 44×）** |
+| hardness（按任务） | 历史：**~208 s/任务**（259 样本，**7 卡合计口径**）；单卡实测 ~0.17 样本/s | 命中 **4.2 s** |
 | 编译缓存 | 已弃用（`use_compile: false`） | — |
-
-**缓存文件格式**：单文件 JSON，`{"version":2,"model":"…","records":{…}}`；
-**可用性只由 `model` 字段决定**（改代码不会失效）。
 
 ---
 

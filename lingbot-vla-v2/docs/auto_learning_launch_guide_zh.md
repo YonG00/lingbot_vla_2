@@ -146,6 +146,17 @@ cd /workspace/lingbot_vla_2/lingbot-vla-v2
 | `$SPLIT_DIR/task_baseline.json` | `python -m lingbotvla.auto_learning.tools.compute_task_baseline --manifest … --config …`（**CPU，~90 s/任务**） | ⚠️ **重建后先全盘找现成的**（历史机器上常有），指纹必须与阈值表一致 |
 | `$PHASES/datasets.txt` + 阈值表 `pass_thresholds_*.json` | 前者手写**单行**聚合数据集；后者 `build_gmean_thresholds.py` 生成 | 阈值表与 baseline **必须同指纹** |
 
+> 🔴 **以上产物已随仓库提供「离线复现包」**：`refs/al_artifacts/`（109 个文件 / 约 216 KB，
+> 含 `SHA256SUMS`、`MANIFEST_sha256.md`、`restore.sh`）。重建后**先恢复，不要重算**：
+>
+> ```bash
+> bash refs/al_artifacts/restore.sh --local            # 已在训练机上
+> bash refs/al_artifacts/restore.sh root@<host> <port> <私钥>   # 从开发机推
+> ```
+>
+> 包内含**不可再生资产** `ref_per_traj.jsonl`（50k 参考模型逐轨迹 MSE，阈值表的唯一输入）
+> 与 `task_baseline.json`（重算需 ~75 分钟）。详见 `refs/al_artifacts/README.md`。
+
 ## 1. 快速开始（三条命令）
 
 ```bash
