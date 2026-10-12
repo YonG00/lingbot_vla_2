@@ -992,6 +992,71 @@ def main():
         #    若将来需要在"不写 HF"的配置里也导出，把这一行上移到函数最前面即可。
         _export_pool_state_here(checkpoint_path, step)
 
+    def _save_hf_direct_best_effort(checkpoint_path: str, step: int) -> Optional[str]:
+        """从**内存权重**直出一份 HF 到 `<checkpoint_path>/hf_ckpt`，**绝不读写 DCP**。
+
+        为什么要它（2026-10-12 真机 al_v72 实测）：`dcp_save_mode=final_only` 时**周期存档
+        不写 DCP**，而旧的 HF 路径 `save_hf_checkpoint_best_effort` →
+        `async_hf_checkpoint` → `ckpt_to_state_dict` → **`dcp_to_torch_state_dict`** 必须读
+        `<ckpt>/model` 的 DCP ⇒ DCP 不存在 ⇒
+        `state_dict_loader.py:250 assert metadata is not None` ⇒ **AssertionError 直接杀训练**
+        （step 2600 崩，已训的 44 分钟与池子全丢）。
+
+        ⇒ 本函数用既有的 `direct_hf_checkpoint.export_model_hf_direct()`（单测 + 真机验收齐备：
+        `tests/test_al_hf_milestone_policy.py` / `tests/test_hf_export_dtype.py` /
+        `tools/acceptance_checks/hf_direct_export_acceptance.py` 逐张量比对 max_abs_diff==0），
+        它把各 rank 的权重收成**全量 CPU state_dict** 后由 rank0 原子发布，**不依赖任何 DCP**。
+
+        语义与口径：
+          * **best-effort**：失败只 `warning`，**绝不中断训练**（存档不该杀训练）；
+          * 输出目录**与旧路径同一位置**（`<ckpt>/global_step_N/hf_ckpt`）：传
+            `checkpoint_root=os.path.dirname(checkpoint_path)` ⇒ 下游工具零改动；
+          * 精度由 `--train.hf_export_dtype` 决定（本批 run = `bf16`）⇒ **与 `enable_fp32` 脱钩**：
+            即使训练用 fp32 主参数，HF 存档仍是 bf16（用户 2026-10-12 明确要求）。
+          * `export_model_hf_direct` 用 `os.path.lexists(candidate)` 防覆盖 ⇒ 若该 step 的
+            `hf_ckpt` 已被占位（例如旧异步路径写过），它会落成 `global_step_N_retry_001`
+            ⇒ 路径与下游约定不一致。故先把旧占位挪到 `.stale.<pid>`，成功后删除、失败则还原。
+        """
+        from lingbotvla.utils.direct_hf_checkpoint import export_model_hf_direct
+
+        final_hf = os.path.join(checkpoint_path, "hf_ckpt")
+        stash: Optional[str] = None
+        if os.path.lexists(final_hf):
+            stash = f"{final_hf}.stale.{os.getpid()}"
+            try:
+                if os.path.lexists(stash):
+                    shutil.rmtree(stash, ignore_errors=True)
+                os.replace(final_hf, stash)
+            except OSError as exc:  # noqa: BLE001 —— 挪不动就让 export 自己落 _retry_N
+                logger.warning(
+                    f"[ckpt] ⚠️ 旧 hf_ckpt 占位挪走失败（{exc}）⇒ 本次可能落 _retry_N 目录")
+                stash = None
+        out: Optional[str] = None
+        try:
+            out = export_model_hf_direct(
+                model,
+                global_step=step,
+                checkpoint_root=os.path.dirname(checkpoint_path),
+                model_assets=model_assets if args.train.global_rank == 0 else None,
+                export_dtype=args.train.hf_export_dtype,
+                logger=logger,
+            )
+        except Exception as exc:  # noqa: BLE001 —— 存档失败绝不杀训练
+            logger.warning(
+                f"[ckpt] ⚠️ HF 直出失败（不影响训练）：{type(exc).__name__}: {str(exc)[:200]}")
+        finally:
+            if stash is not None:
+                if out and os.path.lexists(stash):
+                    shutil.rmtree(stash, ignore_errors=True)     # 新档已发布 ⇒ 删备份
+                elif not out and not os.path.lexists(final_hf) and os.path.lexists(stash):
+                    try:                                         # 失败 ⇒ 还原旧占位
+                        os.replace(stash, final_hf)
+                    except OSError:  # noqa: BLE001
+                        pass
+        if out:
+            logger.info_rank0(f"[ckpt] HF 直出完成（不写 DCP）：{out}")
+        return out
+
     def _export_pool_state_here(ckpt_dir: str, step: int) -> None:
         """[pool_state] 存档时**顺带**导出池子（2026-10-12 用户要求）。
 
@@ -1768,6 +1833,27 @@ def main():
 
             # ---- [Stage B1] 存档触发（review v0.2 #2：只在 **unit 边界** 落盘）----
             # `_save_due`：本步正好是 save_steps 的整数倍，或之前欠下的一次存档到期。
+            # 🔴 2026-10-12（用户「如果我不在边界存档呢？」⇒ 选方案 B）：**HF 直出与 DCP 解耦**。
+            #   为什么可以解耦：下面那条"必须落在 unit 边界"的推迟，是为 **DCP** 设计的 ——
+            #   中途存档会写下 `extra_state['at_boundary']=False`，恢复时框架 fail-fast 拒绝
+            #   静默重跑。而 **HF 直出**（`final_only` + `save_hf_weights=true`）**不做 resume**、
+            #   也不写 DCP ⇒ 该约束对它不成立 ⇒ 可以在**任意步**落盘，`save_steps` 即真实间隔。
+            #   ⚠️ 仍然只在 `final_only` 下启用：`always` 模式的 HF 走 DCP 转档（那条路要求
+            #   与 DCP 同步，必须继续遵守边界约束）。
+            if (args.train.save_hf_weights
+                    and args.train.dcp_save_mode == "final_only"
+                    and not args.train.smoke_no_checkpoint
+                    and args.train.save_steps
+                    and global_step % args.train.save_steps == 0):
+                _hf_direct_path = os.path.join(
+                    args.train.save_checkpoint_path, f"global_step_{global_step}")
+                os.makedirs(_hf_direct_path, exist_ok=True)
+                logger.info_rank0(
+                    f"[ckpt] step {global_step}（{args.train.save_steps} 的整数倍）"
+                    f"⇒ HF 直出（不写 DCP、不受 unit 边界约束），路径 {_hf_direct_path}/hf_ckpt")
+                _save_hf_direct_best_effort(_hf_direct_path, global_step)
+                _export_pool_state_here(_hf_direct_path, global_step)
+
             _save_due = bool(not args.train.smoke_no_checkpoint and
                              args.train.save_steps and global_step % args.train.save_steps == 0)
             if (_al_deferred_save and _al_hook is not None
@@ -1890,17 +1976,26 @@ def main():
                 else:
                     # hf_ckpt 要落在 <save_checkpoint_path>/hf_ckpt ⇒ 目录得先存在
                     os.makedirs(save_checkpoint_path, exist_ok=True)
-                    logger.info_rank0(
-                        f"[ckpt] dcp_save_mode=final_only ⇒ step {global_step} 只写 hf_ckpt"
-                        f"（不写完整 DCP），路径 {save_checkpoint_path}/hf_ckpt")
-                save_hf_checkpoint_best_effort(
-                    save_checkpoint_path,
-                    state,
-                    global_step,
-                    current_epoch_for_eval,
-                    current_epoch_step_for_eval,
-                    disk_avail_before_gb=_disk_avail_before_gb,
-                )
+                    # 🔴 2026-10-12 修（真机 al_v72 崩在 step 2600）：`final_only` 下周期存档
+                    #    **不写 DCP**，而旧的 `save_hf_checkpoint_best_effort` 转 HF 时必须读
+                    #    `<ckpt>/model` 的 DCP（`ckpt_to_state_dict → dcp_to_torch_state_dict`）
+                    #    ⇒ `assert metadata is not None` ⇒ AssertionError **杀训练**。
+                    #    ⇒ 本模式下改用**内存直出**（`_save_hf_direct_best_effort`，不碰 DCP）；
+                    #      `dcp_save_mode=always` 那条路**逐字不变**（通用训练脚本不受影响）。
+                    if args.train.save_hf_weights:
+                        logger.info_rank0(
+                            f"[ckpt] dcp_save_mode=final_only ⇒ step {global_step} "
+                            f"直出 HF（不写 DCP），路径 {save_checkpoint_path}/hf_ckpt")
+                        _save_hf_direct_best_effort(save_checkpoint_path, global_step)
+                        # [pool_state] 池子跟着这份 HF 一起导出。
+                        # 🔴 必须显式调：池子导出原先只挂在 `save_hf_checkpoint_best_effort` 里，
+                        #    本模式不再走那条路 ⇒ 不接过来会**静默不导出**（v65 停机后一个池子
+                        #    文件都没有的教训）。内部走 `export_pool_state_safely`，失败只告警。
+                        _export_pool_state_here(save_checkpoint_path, global_step)
+                    else:
+                        logger.info_rank0(
+                            f"[ckpt] dcp_save_mode=final_only 且 save_hf_weights=false ⇒ "
+                            f"step {global_step} 周期不写任何存档（仅建目录 {save_checkpoint_path}）")
                 _last_saved_step = global_step
 
             # --- 训练中原地 open-loop validation（不触发 checkpoint 保存）---

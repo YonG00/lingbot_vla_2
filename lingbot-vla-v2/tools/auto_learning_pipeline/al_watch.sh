@@ -56,10 +56,20 @@ for a in "$@"; do
 done
 
 # ---- run 名写错 ⇒ 给出候选（省一轮来回）----
-if [[ -n "$RUN" && ! -d "$AL_ROOT/train_$RUN" ]]; then
-  echo "  ✗ 找不到 run 目录：$AL_ROOT/train_$RUN" >&2
+# 🔴 两种目录布局都要认（2026-10-12 用户实测踩坑）：
+#   · 旧：`<root>/train_<run>/`   —— 启动器**不传 `--train-out`** 时（v65 及更早）
+#   · 新：`<root>/<run>/`         —— 启动器**显式传 `--train-out <root>/<run>`** 时（v69 起）
+#     两者内部结构相同（`lingbotvla_cli.yaml` / `auto_learning_events.jsonl` / `runs` / `checkpoints`）。
+#   只认旧布局 ⇒ 对新布局误报"找不到 run 目录"（v69 实测：run 在 /work_ov/al_runs/al_v69）。
+_rundir=""
+for _cand in "$AL_ROOT/train_$RUN" "$AL_ROOT/$RUN"; do
+  if [[ -n "$RUN" && -f "$_cand/lingbotvla_cli.yaml" ]]; then _rundir="$_cand"; break; fi
+done
+if [[ -n "$RUN" && -z "$_rundir" ]]; then
+  echo "  ✗ 找不到 run 目录：$AL_ROOT/train_$RUN（也不存在 $AL_ROOT/$RUN，或其中缺 lingbotvla_cli.yaml）" >&2
   echo "    现有 run（最近 8 个）：" >&2
-  ls -1dt "$AL_ROOT"/train_* 2>/dev/null | head -8 | sed 's|.*/train_|      |' >&2
+  ls -1dt "$AL_ROOT"/train_* "$AL_ROOT"/al_v* 2>/dev/null | head -8 \
+    | sed -E 's|.*/(train_)?|      |' >&2
   exit 3
 fi
 

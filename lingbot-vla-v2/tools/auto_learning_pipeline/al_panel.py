@@ -74,7 +74,16 @@ def discover_trainers() -> List[Dict[str, object]]:
         #    对整串做 `startswith('train_')` 恒为 False ⇒ 会掉进下面的回退正则，
         #    而回退正则会被 `al_eval2_*.yaml` 里的 `al_eval2` 命中 ⇒ 解析成错误的 `al_v2`。
         _base = Path(train_out).name
-        run = _base[len('train_'):] if _base.startswith('train_') else ''
+        # 🔴 2026-10-12 修：basename **不一定带 `train_` 前缀**。
+        #    旧布局（不传 `--train-out`）是 `train_al_v42`；新布局（显式 `--train-out …/al_v69`）
+        #    直接就是 `al_v69` ⇒ 旧代码只认带前缀的 ⇒ `run=''` ⇒ 回退正则匹配不上
+        #    ⇒ **进程在跑却显示"无进程!"**（v69 实测）。
+        if _base.startswith('train_'):
+            run = _base[len('train_'):]
+        elif re.fullmatch(r'al_[A-Za-z0-9_]+', _base):
+            run = _base
+        else:
+            run = ''
         al_cfg = env.get('AL_CFG', '')
         if not run and al_cfg:
             # 回退只认"**以 al_v<数字> 结尾**"的运行名目录，避免误吃 al_eval2 这类配置名
@@ -195,11 +204,34 @@ def pick_run(arg: Optional[str]) -> str:
     return ''            # 找不到任何 run ⇒ 空（下面给提示）
 
 
+def resolve_run_dir(run: str) -> Optional[Path]:
+    """把 run 名解析成**实际 run 目录**；找不到返回 None。
+
+    🔴 两种布局都要认（2026-10-12 用户实测踩坑：v69 面板报"未找到 run"）：
+      · 旧：`<ROOT>/train_<run>/` —— 启动器**不传 `--train-out`** 时（v65 及更早）
+      · 新：`<ROOT>/<run>/`       —— 启动器**显式传 `--train-out <ROOT>/<run>`** 时（v69 起）
+        两者内部结构相同（`lingbotvla_cli.yaml` / `auto_learning_events.jsonl` / `runs`）。
+    判据：`lingbotvla_cli.yaml` 存在（面板取 AL 配置/目标的唯一来源）；目录在但配置未写 ⇒ 也认
+    （好让面板能报"启动中"而不是"run 名写错"）。
+    """
+    if not run:
+        return None
+    cands = [ROOT / f'train_{run}', ROOT / run]
+    for c in cands:
+        if (c / 'lingbotvla_cli.yaml').is_file():
+            return c
+    for c in cands:
+        if c.is_dir():
+            return c
+    return None
+
+
 def run_cfg(run: str) -> Dict[str, object]:
     """从 run 目录的 CLI 配置里取：AL 配置路径 / 目标 PASS / 评测间隔。"""
     out: Dict[str, object] = {'al_cfg': None, 'target': None, 'interval': None,
                              'thresholds': None}
-    p = ROOT / f'train_{run}' / 'lingbotvla_cli.yaml'
+    rd = resolve_run_dir(run)
+    p = (rd if rd else ROOT / f'train_{run}') / 'lingbotvla_cli.yaml'
     if not p.is_file():
         return out
     txt = p.read_text(encoding='utf-8', errors='replace')
@@ -1113,7 +1145,7 @@ def main() -> int:
         return 0
 
     run = pick_run(args.run)
-    run_dir = (ROOT / f'train_{run}') if run else None
+    run_dir = resolve_run_dir(run)
     if not run or run_dir is None or not run_dir.is_dir():
         # 🔴 三种情况必须分开说（真机踩坑：新 run 在预扫阶段**目录尚未创建**，
         #    旧提示语一律说"未找到 run"，让人误以为 run 名写错）：
@@ -1121,7 +1153,11 @@ def main() -> int:
         #    ② 进程不在跑且目录没建 ⇒ 真的没有这个 run；
         #    ③ 目录在但事件流为空 ⇒ 刚起，还没走到第一个 unit。
         running = [t for t in discover_trainers() if t.get('run') == run]
-        existing = sorted(q.name[len('train_'):] for q in ROOT.glob('train_*') if q.is_dir())
+        # 候选 run 名：两种布局都列（旧 `train_<run>`、新 `<run>`）
+        existing = sorted({(q.name[len('train_'):] if q.name.startswith('train_') else q.name)
+                           for q in ROOT.glob('train_*')
+                           if q.is_dir()} |
+                          {q.name for q in ROOT.glob('al_v*') if q.is_dir()})
         print('=' * 78)
         print(f' AL 仪表盘  run={run or "(未指定)"}')
         print('=' * 78)
@@ -1153,7 +1189,7 @@ def main() -> int:
     cfg = run_cfg(run)
     thresholds = load_thresholds(cfg['thresholds'])          # type: ignore[arg-type]
     target = int(cfg['target'] or 15)
-    ev_path = ROOT / f'train_{run}' / 'auto_learning_events.jsonl'
+    ev_path = run_dir / 'auto_learning_events.jsonl'
     last, per_task = read_events(ev_path)
     derived_status, derived_passed = derive_status(ev_path)
     series = read_series(ev_path)
