@@ -44,6 +44,49 @@ def _traj_frames_for(entry: Any, episode_ids: Sequence[int]) -> Dict[int, int]:
     return frames_map
 
 
+def _dist_world_rank() -> tuple:
+    """取运行期 (world_size, rank)；无 torch.distributed / 未初始化 / world==1 ⇒ (1, 0)。"""
+    try:
+        import torch.distributed as _dist
+        if _dist.is_available() and _dist.is_initialized():
+            ws = int(_dist.get_world_size())
+            if ws > 1:
+                return ws, int(_dist.get_rank())
+    except Exception:  # noqa: BLE001 —— 单机单卡/未初始化都走这条路
+        pass
+    return 1, 0
+
+
+def _eval_shard_indices(*, n: int, world: int, rank: int) -> List[int]:
+    """每卡固定 `k = ceil(n/world)` 条的分片索引（不足处按 `% n` 回绕）。
+
+    🔴 为什么"固定 k 条"而不是"交错均分"：FSDP 的 all-gather 是集合通信，
+    各 rank 前向次数不一致 ⇒ 集合通信错配 ⇒ **静默死锁**（不是报错）。
+    固定 k 条保证了次数恒等；重复的那几条在汇总时按 episode id 去重，不影响数值。
+
+    n=4,W=7 ⇒ k=1 ⇒ rank0..3 各 1 条、rank4..6 也各 1 条（回绕重复，汇总去重）
+    n=8,W=8 ⇒ k=1 ⇒ 每卡 1 条，零冗余
+    n=8,W=7 ⇒ k=2 ⇒ 每卡 2 条（多算 6 条）
+    """
+    if n <= 0 or world <= 0:
+        return []
+    k = -(-int(n) // int(world))          # ceil(n/world)
+    return [int((rank * k + j) % n) for j in range(k)]
+
+
+def _all_gather_object(payload: Any) -> List[Any]:
+    """`all_gather_object` 的薄封装；不可用/失败时返回 `[payload]`（单卡语义）。"""
+    try:
+        import torch.distributed as _dist
+        if _dist.is_available() and _dist.is_initialized() and _dist.get_world_size() > 1:
+            out: List[Any] = [None] * int(_dist.get_world_size())
+            _dist.all_gather_object(out, payload)
+            return [x for x in out if x is not None]
+    except Exception:  # noqa: BLE001 —— 汇总失败不该让评测崩（退回本 rank 结果）
+        pass
+    return [payload]
+
+
 def _weighted_mse(parts: Sequence[TrajectoryMetrics], frames_map: Dict[int, int]) -> float:
     """把多组评测的 mse 合并：按各回合帧数加权；无帧数则等权；全空则 0.0。"""
     num = den = 0.0
@@ -63,7 +106,9 @@ def _weighted_mse(parts: Sequence[TrajectoryMetrics], frames_map: Dict[int, int]
 def merge_trajectory_metrics(base: TrajectoryMetrics, extra: TrajectoryMetrics, *,
                              split: Any, task: Optional[str] = None,
                              entry: Any = None,
-                             baseline_mse: Optional[float] = None) -> TrajectoryMetrics:
+                             baseline_mse: Optional[float] = None,
+                             metric_valid: Optional[bool] = None,
+                             note: Optional[str] = None) -> TrajectoryMetrics:
     """把两组开环评测合成一组（逐轨迹并集）—— confirm 复用 scout 值的核心。
 
     为什么可以合并（数值等价性）
@@ -99,8 +144,9 @@ def merge_trajectory_metrics(base: TrajectoryMetrics, extra: TrajectoryMetrics, 
     mse = _weighted_mse([base, extra], frames_map)
     base_line = baseline_mse if baseline_mse is not None else extra.baseline_mse
     nmse = (mse / float(base_line)) if base_line else None
-    # 有效性沿用"新算那条"的判据（scout 若无效根本不会走到 confirm）
-    valid = bool(extra.metric_valid)
+    # 有效性沿用"新算那条"的判据（scout 若无效根本不会走到 confirm）；
+    # 分片汇总时可显式传入（各 rank 的有效性取交集/或由调用方决定）
+    valid = bool(extra.metric_valid) if metric_valid is None else bool(metric_valid)
 
     return TrajectoryMetrics(
         task=task or base.task,
@@ -115,8 +161,9 @@ def merge_trajectory_metrics(base: TrajectoryMetrics, extra: TrajectoryMetrics, 
         n_trajs=len(per),
         wall_time_s=float(getattr(base, 'wall_time_s', 0.0))
         + float(getattr(extra, 'wall_time_s', 0.0)),
-        note=f"merged: reused {len(base.per_traj_mse or {})} + fresh "
-             f"{len(extra.per_traj_mse or {})} = {len(per)} trajs",
+        note=(note if note is not None else
+              f"merged: reused {len(base.per_traj_mse or {})} + fresh "
+              f"{len(extra.per_traj_mse or {})} = {len(per)} trajs"),
     )
 
 
@@ -169,9 +216,90 @@ class RealEvaluator:
 
         🔴 **不做 scout→confirm 的自动扩张**：Stage A 的 Scheduler 已经按
         `EvalSplit` 传了**它认为该评的回合集合**，这里只负责「评这个集合」。
+
+        ---- 轨迹分片（2026-10-11，**默认关闭**）----
+        背景：现状是"每个 rank 都把整批轨迹各跑一遍"（实测 v43 8 卡 / v44 7 卡：
+        每卡都跑 12/20 条），因为 FSDP 的 all-gather 是**集合通信**、必须全员参与。
+        但**轨迹之间互不依赖**、逐轨迹 MSE 与卡数无关（dp8 与 dp7 逐位相同）、
+        聚合是**几何平均（可分组）** ⇒ 可以把轨迹切给各卡、`all_gather_object` 汇总。
+
+        ⚠️ **安全前提（必须遵守，否则静默死锁）**：每卡**前向次数必须相同**。
+        本实现用 `k = ceil(n / W)`、每卡恒定 k 条（不足处按 `idx % n` 回绕重复，
+        汇总时**按 episode id 去重**）⇒ 次数恒等。这比"交错均分"（次数 2/1/1/…）
+        安全得多；代价是多算 `k*W - n` 条冗余前向（n=8,W=8 ⇒ 0 条；n=8,W=7 ⇒ 6 条）。
+
+        开启方式：环境变量 `AL_EVAL_SHARD=1`（默认 `0` ⇒ 与改造前**逐字一致**）。
+        为什么默认关：分片是否安全**只能真机验证**（CPU 单测测不出集合通信错配），
+        而当前有长跑训练占用显卡 ⇒ 先按"零行为变更"落地，验证后再考虑默认开。
         """
-        res = self.adapter.evaluate_task(task, _split_name(split), list(episode_ids))
-        return res.to_trajectory_metrics()
+        ids = [int(i) for i in episode_ids]
+        if not self._shard_enabled() or len(ids) <= 1:
+            res = self.adapter.evaluate_task(task, _split_name(split), ids)
+            return res.to_trajectory_metrics()
+
+        world, rank = _dist_world_rank()
+        my_idx = _eval_shard_indices(n=len(ids), world=world, rank=rank)
+        my_ids = [ids[i] for i in my_idx]
+        res = self.adapter.evaluate_task(task, _split_name(split), my_ids)
+        local = res.to_trajectory_metrics()
+        return self._gather_and_merge_shards(
+            task=task, split=split, ids=ids, world=world, rank=rank,
+            local=local, local_ids=my_ids)
+
+    # ---- 轨迹分片：辅助 -------------------------------------------------- #
+    @staticmethod
+    def _shard_enabled() -> bool:
+        """分片开关（默认关）。⚠️ 关掉时 `evaluate()` 与改造前逐字一致。"""
+        return os.environ.get('AL_EVAL_SHARD', '0').strip() == '1'
+
+    def _gather_and_merge_shards(self, *, task: str, split: str, ids: List[int],
+                                 world: int, rank: int, local: TrajectoryMetrics,
+                                 local_ids: List[int]) -> TrajectoryMetrics:
+        """把各 rank 的"自己那份"汇总成全集结果（按 episode id 去重）。
+
+        汇总只交换**标量**（逐轨迹 MSE / 帧数 / baseline / 有效性），体量可忽略；
+        合并后 `gmean_mse` 自动变回"全集 n 条的几何平均" ⇒ **判定口径不变**。
+        """
+        payload = {
+            'rank': int(rank),
+            'ids': [int(i) for i in local_ids],
+            'per_traj': {int(k): float(v) for k, v in (local.per_traj_mse or {}).items()},
+            'baseline_mse': float(local.baseline_mse or 0.0),
+            'metric_valid': bool(local.metric_valid),
+        }
+        gathered = _all_gather_object(payload)
+
+        per: Dict[int, float] = {}
+        for item in gathered:
+            per.update({int(k): float(v) for k, v in (item.get('per_traj') or {}).items()})
+        base_line = next((float(it.get('baseline_mse') or 0.0)
+                          for it in gathered if it.get('baseline_mse')), 0.0)
+        valid = all(bool(it.get('metric_valid')) for it in gathered)
+
+        # 组装"全集"度量：逐轨迹取并集、帧加权重算 mse、baseline/valid 取各 rank 共识
+        union_ids = sorted(per) or list(ids)
+        agg = TrajectoryMetrics(
+            task=task, split=str(split), episode_ids=union_ids,
+            per_traj_mse=dict(per), mse=0.0,
+            baseline_mse=base_line, nmse=None, r2=None,
+            metric_valid=valid, n_trajs=len(per))
+        # 借 merge 只做"帧加权 mse 重算"（base 为空 ⇒ 结果就是并集的帧加权 mse）
+        empty = TrajectoryMetrics(task=task, split=str(split), episode_ids=[],
+                                  per_traj_mse={}, mse=0.0,
+                                  baseline_mse=base_line, nmse=None, r2=None,
+                                  metric_valid=valid, n_trajs=0)
+        merged = merge_trajectory_metrics(
+            empty, agg, split=split, task=task,
+            entry=self.catalog.entry(task), baseline_mse=base_line,
+            metric_valid=valid,
+            note=f"sharded: world={world} local={len(local_ids)} merged={len(per)}/{len(ids)}")
+        # merge 只保证"并集"；这里把全集 id 顺序与条数显式写回（n_trajs 必须是全集条数）
+        merged.episode_ids = list(ids)
+        merged.n_trajs = len(per)
+        self._emit(
+            f"[open_loop][shard] task={task} split={split} 共 {len(ids)} 条 ⇒ world={world}、"
+            f"本 rank 处理 {len(local_ids)} 条（每卡固定 ceil(n/W)）、汇总去重后 {len(per)} 条")
+        return merged
 
     def evaluate_confirm_merged(self, task: str, scout_ids: Sequence[int],
                                 confirm_ids: Sequence[int], *, scout: Any = None,
