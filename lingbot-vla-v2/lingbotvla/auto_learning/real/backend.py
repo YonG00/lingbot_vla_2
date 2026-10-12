@@ -26,16 +26,126 @@ from .determinism import deterministic_sampling
 
 
 # --------------------------------------------------------------------------- #
+# 评测结果合并（confirm 去重复用；2026-10-11）
+# --------------------------------------------------------------------------- #
+def _traj_frames_for(entry: Any, episode_ids: Sequence[int]) -> Dict[int, int]:
+    """取"每条回合的帧数"（用于把 mse 合并成帧加权量）。
+
+    帧数来自 `TaskEntry.samples_by_traj`（= 该回合的 sample 数）。
+    取不到就返回空 dict —— 调用方退回等权平均，不报错（mse 不参与 PASS 判定）。
+    """
+    frames_map: Dict[int, int] = {}
+    try:
+        sbt = getattr(entry, 'samples_by_traj', None) or {}
+        for ep in episode_ids:
+            frames_map[int(ep)] = int(len(sbt.get(int(ep), ()) or ()))
+    except Exception:  # noqa: BLE001 —— 帧数只是显示口径，失败不该打断评测
+        return {}
+    return frames_map
+
+
+def _weighted_mse(parts: Sequence[TrajectoryMetrics], frames_map: Dict[int, int]) -> float:
+    """把多组评测的 mse 合并：按各回合帧数加权；无帧数则等权；全空则 0.0。"""
+    num = den = 0.0
+    for part in parts:
+        for ep, val in (part.per_traj_mse or {}).items():
+            w = frames_map.get(int(ep), 0)
+            if w <= 0:
+                continue
+            num += float(val) * w
+            den += w
+    if den > 0:
+        return num / den
+    vals = [float(v) for part in parts for v in (part.per_traj_mse or {}).values()]
+    return (sum(vals) / len(vals)) if vals else 0.0
+
+
+def merge_trajectory_metrics(base: TrajectoryMetrics, extra: TrajectoryMetrics, *,
+                             split: Any, task: Optional[str] = None,
+                             entry: Any = None,
+                             baseline_mse: Optional[float] = None) -> TrajectoryMetrics:
+    """把两组开环评测合成一组（逐轨迹并集）—— confirm 复用 scout 值的核心。
+
+    为什么可以合并（数值等价性）
+    ---------------------------
+    ``gmean_mse`` 是 ``per_traj_mse`` 的 property（逐轨迹 MSE 的等权几何平均），
+    而几何平均**对分组可结合**：``geomean(A ∪ B) == geomean([geomean(A), geomean(B)])``
+    ⇒ "合并两组"与"一次性评并集"结果一致。
+    前提是**逐轨迹结果与批大小/卡数无关**：实测 v43（dp8）与 v44（dp7）的
+    ``scout_nmse`` 逐位相同、相对差 ``0.00e+00``（2026-10-11 取证）。
+
+    冲突处理
+    --------
+    同一 episode 出现在两组时**以 extra（新算的）为准** ⇒ 天然防止同一条被计两次，
+    也让"重复评测"不可能污染判决值。
+
+    口径说明（消歧义）
+    -----------------
+    * ``gmean_mse``：合并后自动变成"并集条数"的几何平均 ⇒ **判定口径**；
+    * ``mse``：帧加权量，合并时按各回合帧数加权重算（取不到帧数则等权）；
+    * ``nmse``：``mse / baseline_mse``，ratio 模式下**只是 legacy 显示量**，
+      缺 baseline 时为 ``None``（判定不看它）。
+    """
+    per: Dict[int, float] = {int(k): float(v) for k, v in (base.per_traj_mse or {}).items()}
+    per.update({int(k): float(v) for k, v in (extra.per_traj_mse or {}).items()})
+    ids: List[int] = [int(i) for i in (base.episode_ids or [])]
+    _seen = set(ids)
+    for i in (extra.episode_ids or []):
+        if int(i) not in _seen:
+            ids.append(int(i))
+            _seen.add(int(i))
+
+    frames_map = _traj_frames_for(entry, ids) if entry is not None else {}
+    mse = _weighted_mse([base, extra], frames_map)
+    base_line = baseline_mse if baseline_mse is not None else extra.baseline_mse
+    nmse = (mse / float(base_line)) if base_line else None
+    # 有效性沿用"新算那条"的判据（scout 若无效根本不会走到 confirm）
+    valid = bool(extra.metric_valid)
+
+    return TrajectoryMetrics(
+        task=task or base.task,
+        split=str(getattr(split, 'value', split)),
+        episode_ids=ids,
+        per_traj_mse=per,
+        mse=float(mse),
+        baseline_mse=float(base_line or 0.0),
+        nmse=nmse,
+        r2=None,
+        metric_valid=valid,
+        n_trajs=len(per),
+        wall_time_s=float(getattr(base, 'wall_time_s', 0.0))
+        + float(getattr(extra, 'wall_time_s', 0.0)),
+        note=f"merged: reused {len(base.per_traj_mse or {})} + fresh "
+             f"{len(extra.per_traj_mse or {})} = {len(per)} trajs",
+    )
+
+
+# --------------------------------------------------------------------------- #
 # Evaluator
 # --------------------------------------------------------------------------- #
 class RealEvaluator:
     """把 `EvaluatorAdapter` 包成 `ports.Evaluator`（Scheduler 只认 `evaluate`）。"""
 
-    def __init__(self, adapter: Any, catalog: Any, baseline_store: Any = None, *, scout_cache=None):
+    def __init__(self, adapter: Any, catalog: Any, baseline_store: Any = None, *,
+                 scout_cache=None, logger: Any = None):
         self.adapter = adapter
         self.catalog = catalog
         self.baseline_store = baseline_store
         self.scout_cache = scout_cache
+        #: 仅用于"合并式 confirm"的可见性日志（`info_rank0`）；未注入则静默。
+        self.logger = logger
+
+    def _emit(self, msg: str) -> None:
+        """打一条 rank0 可见日志；logger 缺失/异常都不该打断评测。"""
+        for cand in (self.logger, getattr(self.adapter, 'logger', None)):
+            fn = getattr(cand, 'info_rank0', None)
+            if fn is None:
+                continue
+            try:
+                fn(msg)
+                return
+            except Exception:  # noqa: BLE001
+                continue
 
     def evaluate_bootstrap_scout(self, task: str, split: str, episode_ids: Sequence[int]):
         """Only Bootstrap may use a previous Step500 Scout. Rescan bypasses."""
@@ -62,6 +172,52 @@ class RealEvaluator:
         """
         res = self.adapter.evaluate_task(task, _split_name(split), list(episode_ids))
         return res.to_trajectory_metrics()
+
+    def evaluate_confirm_merged(self, task: str, scout_ids: Sequence[int],
+                                confirm_ids: Sequence[int], *, scout: Any = None,
+                                split: str = "confirm",
+                                baseline_mse: Optional[float] = None) -> TrajectoryMetrics:
+        """confirm 门：**复用 scout 已测的回合 + 只新评"scout 之外"的回合**，再合并。
+
+        2026-10-11 用户定（A 方案）。动机与依据：
+        * 现状 `confirm_val_ids = val_ids[:4]` 是 `scout_val_ids = val_ids[:2]` 的**超集**
+          ⇒ 那 2 条 scout 回合会被**重跑一遍**（白花 confirm 一半算力），
+          而且"复核"用了初筛看过的样本 ⇒ 复核不独立；
+        * 改后：scout 那部分直接复用（bootstrap 场景来自预扫缓存、rescan 场景来自当场评测），
+          只对剩余回合真推理，最后 `merge_trajectory_metrics` 合成并集判决值
+          ⇒ 判决仍建立在 4 条上（样本量不变、噪声不增），但**省掉 2 条推理**。
+
+        调用方必须保证 `scout` 与本次 confirm 处于**同一模型状态**（两个调用点都满足：
+        bootstrap 内 scout→confirm 相邻；rescan 内 scout 在同一个循环体里刚算完）。
+
+        日志：打印"复用几条 / 新评几条 / 合计几条判决"，便于从日志核对是否生效。
+        """
+        scout_metric = scout
+        if scout_metric is None:
+            # 兜底：没传 scout 就按 bootstrap 规则取（可能命中 scout 缓存）
+            scout_metric = self.evaluate_bootstrap_scout(task, "scout", list(scout_ids))
+        _scout_set = {int(i) for i in (scout_metric.episode_ids or scout_ids)}
+        fresh_ids = [int(i) for i in confirm_ids if int(i) not in _scout_set]
+        if not fresh_ids:
+            # 全部命中 scout（配置成重叠时才会发生）⇒ 无需新推理，直接用 scout 值
+            self._emit(f"[open_loop][confirm] task={task} 全部 {len(_scout_set)} 条已由 scout "
+                       f"测过 ⇒ 无需新推理（复用 scout 值作判决）")
+            return merge_trajectory_metrics(
+                scout_metric,
+                TrajectoryMetrics(task=task, split=str(split), episode_ids=[],
+                                  per_traj_mse={}, mse=0.0,
+                                  baseline_mse=float(baseline_mse or 0.0),
+                                  nmse=None, r2=None, metric_valid=True, n_trajs=0),
+                split=split, task=task, entry=self.catalog.entry(task),
+                baseline_mse=baseline_mse)
+        fresh = self.evaluate(task, split, fresh_ids)
+        merged = merge_trajectory_metrics(
+            scout_metric, fresh, split=split, task=task,
+            entry=self.catalog.entry(task), baseline_mse=baseline_mse)
+        self._emit(f"[open_loop][confirm] task={task} 复用 scout "
+                   f"{len(scout_metric.per_traj_mse or {})} 条 + 新评 {len(fresh_ids)} 条 "
+                   f"⇒ 判决用 {merged.n_trajs} 条（省 {len(scout_metric.per_traj_mse or {})} 条推理）")
+        return merged
 
     def baseline_mse(self, task: str) -> float:
         if self.baseline_store is None:

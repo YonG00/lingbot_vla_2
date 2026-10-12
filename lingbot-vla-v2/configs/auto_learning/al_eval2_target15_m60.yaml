@@ -5,7 +5,7 @@ pool_filter_by_gmean_ratio: true
 # DERIVED from experiment_50task_gmean200_train2.yaml（唯一差别：target_total_passed_tasks 4→3）
 # 由用户 2026-10-09 指定：GBS=24（micro 24 × gas 1）、96G 单卡、目标 3 个 PASS。
 # EXPERIMENTAL: GMean 200x open-loop study. Not the formal NMSE configuration.
-# Never launch before tools/acceptance_checks/gmean50_preflight.py reports READY.
+# Never launch before tools/gmean50_preflight.py reports READY.
 # Historical Scout reuse is NOT enabled: provenance is not yet sufficient.
 # =============================================================================
 # 实验配置（独立，2026-10-09 用户定）：50 任务池 → **当前累计 PASS 达到 3 个就收工**
@@ -29,11 +29,11 @@ task_names: null
 #: BOOTSTRAP、Rescan、训练 PASS 都算；REOPEN 后要从当前 PASS 数减掉。
 #: 不额外使用旧的 "本轮新增 PASS" 限额。
 max_new_tasks_passed_this_run: null
-target_total_passed_tasks: 15
+target_total_passed_tasks: 50        # 满池目标（"学到完为止"）
 
 #: 🚫 刻意**不设**：限制"主动尝试多少个新任务"只会妨碍"尽快凑够 4 个"这个目标。
 #: 池子本身有界（50 个任务 × `max_attempts_per_task=2`），不会无限打转。
-max_new_tasks_attempted_this_run: null
+max_new_tasks_attempted_this_run: 51   # 池子共 50 个任务 ⇒ 等于"不限"；终止交给 target_total_passed_tasks
 
 #: churn guard：同一任务最多「遗忘 → 回炉」几次（不占 attempt 预算）。
 max_reopens_per_task: 3
@@ -134,5 +134,4 @@ allow_missing_baseline: true
 # --- 训练版停止条件（2026-10-09）：至少训练出 2 个『新增（非 Bootstrap）PASS』才收工 ---
 # 与上限互补：max_new_tasks_passed_this_run 只限制'最多几个'，无法阻止 Bootstrap 全 PASS 时的零步结束。
 min_new_tasks_passed_this_run: 2
-# 资源上限（必须保留，避免无限训练）
-max_new_tasks_attempted_this_run: 6
+# （原此处重复定义了 max_new_tasks_attempted_this_run: 6，YAML 后者生效 ⇒ 已删除，统一用文件开头的 51）

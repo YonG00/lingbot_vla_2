@@ -366,6 +366,45 @@ class Scheduler:
                                         round(len(episode_ids) / max(elapsed, 1e-9), 5))
         return result
 
+    def _timed_confirm_merged(self, task: str, scout_metric, rec):
+        """合并式 confirm：复用 scout 已测回合 + 只新评其"之外"的回合。
+
+        2026-10-11 用户定（A 方案）。与 `_timed_eval` 并存的原因：
+        * 语义不同（要传 scout 结果做合并，不能只传 episode_ids）；
+        * 需要**保留耗时指标**（`*_eval_wall_seconds` / `*_eval_traj_per_second`），
+          否则 confirm 这一段会从观测里消失。
+
+        **后端能力差异（必要兜底）**：只有真实后端（`RealEvaluator`）实现
+        `evaluate_confirm_merged`；Stage A 的 `SimulatedEvaluator` 只有 `evaluate`
+        ⇒ 此时**退回原行为**（一次评完 `confirm_val_ids`），行为与改造前逐字一致
+        （回归测试 `test_gmean_pass_pipeline` / `test_robustness` 锁这一点）。
+
+        口径（消歧义）：返回值的 `gmean_mse` 是**并集条数**的几何平均（判定口径）；
+        `mse` 为帧加权；`nmse` 在 ratio 模式下只是 legacy 显示量。
+        """
+        started = time.perf_counter()
+        _merged_fn = getattr(self.evaluator, 'evaluate_confirm_merged', None)
+        if _merged_fn is not None:
+            merged = _merged_fn(
+                task, list(rec.scout_val_ids), list(rec.confirm_val_ids),
+                scout=scout_metric, split=EvalSplit.CONFIRM.value,
+                baseline_mse=float(rec.baseline_mse or 0.0))
+        else:
+            # 兜底：后端不支持合并 ⇒ 按原样一次评完（可能重跑 scout 那几条，但不改变口径）
+            merged = self.evaluator.evaluate(
+                task, EvalSplit.CONFIRM.value, list(rec.confirm_val_ids))
+        elapsed = time.perf_counter() - started
+        if self.defer_train and self.logger is not None:
+            _split = EvalSplit.CONFIRM.value
+            self.logger.log_metrics(self.state.global_step,
+                                    f"task/{task}/{_split}_eval_wall_seconds",
+                                    round(elapsed, 5))
+            if merged.n_trajs:
+                self.logger.log_metrics(self.state.global_step,
+                                        f"task/{task}/{_split}_eval_traj_per_second",
+                                        round(merged.n_trajs / max(elapsed, 1e-9), 5))
+        return merged
+
     # ================================================================ #
     # 原子动作
     # ================================================================ #
@@ -378,6 +417,13 @@ class Scheduler:
 
         scout = self._timed_eval(name, EvalSplit.SCOUT.value, rec.scout_val_ids,
                                  bootstrap_cache=True)
+        # 🔴 消歧义（2026-10-11）：这两个字段**不是同一把尺子**，也不是"二选一显示"：
+        #    * `scout_gmean_mse` = 逐轨迹 MSE 的**几何平均** ⇒ **当前判定口径**
+        #      （配置 `pass_metric: gmean_mse`；阈值表也是按它标定的）；
+        #    * `scout_nmse`     = `mse / baseline_mse`，**命名历史遗留**：ratio 模式下
+        #      （`pool_filter_by_gmean_ratio: true`）退化为 **legacy 显示量**，
+        #      缺 baseline 时恒为 None（`_nmse_is_required()` 返回 False）。
+        #    事件流字段名沿用历史（改名会让 v41–v44 的历史产物不可比），故只在定义处标注。
         rec.scout_nmse = scout.nmse
         rec.scout_gmean_mse = scout.gmean_mse
         rec.metric_valid = (scout.metric_valid and
@@ -433,10 +479,18 @@ class Scheduler:
         if is_pass(al, name, nmse=scout.nmse, mse=scout.mse, gmean_mse=scout.gmean_mse):
             accepted = scout
             if al.scout_confirm_enabled:
-                confirm = self._timed_eval(name, EvalSplit.CONFIRM.value, rec.confirm_val_ids)
+                # 🔴 2026-10-11：复用 scout 已测的回合，只新评 confirm 里"scout 之外"的回合
+                #    （原先 4 条全重跑 ⇒ 其中 2 条与 scout 完全重复、白花一半算力）
+                confirm = self._timed_confirm_merged(name, scout, rec)
                 self._record_eval(rec, confirm, kind="confirm")
+                # 同上的消歧义：判定看 `confirm` 的 gmean（经 apply_pass 存入
+                # `current_val_gmean_mse`），`confirm_nmse` 只是 legacy 显示量。
                 event["confirm_nmse"] = confirm.nmse
                 event["confirm_trajs"] = confirm.n_trajs
+                # 可核对性：分别记录"复用了几条 / 新评了几条"
+                event["confirm_reused_trajs"] = len(scout.per_traj_mse or {})
+                event["confirm_fresh_trajs"] = max(
+                    0, int(confirm.n_trajs) - int(event["confirm_reused_trajs"]))
                 # ratio 模式下 nmse 允许为 None（缺 baseline）；指标有效性由 GMean 把关
                 if not (confirm.metric_valid and (is_finite_metric(confirm.nmse) or not nmse_required)
                         and is_pass(al, name, nmse=confirm.nmse, mse=confirm.mse,
@@ -1074,11 +1128,13 @@ class Scheduler:
             ):
                 accepted = scout
                 if al.scout_confirm_enabled:
-                    confirm = self._timed_eval(
-                        rec.task_name, EvalSplit.CONFIRM.value, rec.confirm_val_ids
-                    )
+                    # 同上：复用本循环刚算出的 scout 值，只新评 confirm 里"scout 之外"的回合
+                    confirm = self._timed_confirm_merged(rec.task_name, scout, rec)
                     self._record_eval(rec, confirm, kind="rescan_confirm")
                     row["confirm_nmse"] = confirm.nmse
+                    row["confirm_reused_trajs"] = len(scout.per_traj_mse or {})
+                    row["confirm_fresh_trajs"] = max(
+                        0, int(confirm.n_trajs) - int(row["confirm_reused_trajs"]))
                     if not (confirm.metric_valid
                             and (is_finite_metric(confirm.nmse) or not nmse_required)
                             and is_pass(al, rec.task_name, nmse=confirm.nmse, mse=confirm.mse,
@@ -1131,6 +1187,9 @@ class Scheduler:
                 "mse": metrics.mse,
                 "gmean_mse": metrics.gmean_mse,
                 "baseline_mse": metrics.baseline_mse,
+                # 2026-10-11：合并式 confirm 会带"复用 N + 新评 M"说明 ⇒ 落进 eval_history
+                # 便于事后从 DCP 状态核对，不必翻日志（为空则不占空间）
+                **({"note": metrics.note} if getattr(metrics, "note", "") else {}),
             }
         )
         self.heatmap_rows.append(

@@ -229,19 +229,29 @@ class TaskRegistry:
             train_ids = list(entry.train_traj_ids)
             # 🔴 probe 数量不足必须 fail-fast（不能静默少用几条，
             # 否则「4-val PASS 判断」会悄悄退化成 2-val）
-            _require(
-                len(val_ids),
-                max(al.global_scout_val_trajs, al.active_val_probe_trajs),
-                f"{name} 的 val 轨迹数",
-            )
+            # 判定口径所需条数 = scout 条数与 confirm 条数的较大者（后者默认 4）。
+            # 🔴 消歧义（2026-10-11）：`active_val_probe_trajs` 这个**参数名是历史遗留**，
+            #    它实际决定的是 **confirm 的条数**（原代码 `confirm_val_ids = val_ids[:max(scout, active)]`）。
+            #    本文件下方 `active_val_ids` 又复用同一组 ⇒ 判定尺子与 confirm 是同一批轨迹。
+            #    改名会牵动配置键/存档指纹（`SEMANTIC_KEYS` 含该键），故只在此标注，不重命名。
+            _judge_n = max(al.global_scout_val_trajs, al.active_val_probe_trajs)
+            _require(len(val_ids), _judge_n, f"{name} 的 val 轨迹数")
             _require(len(train_ids), al.active_train_probe_trajs, f"{name} 的 train 轨迹数")
             records[name] = TaskRecord(
                 task_name=name,
                 train_traj_ids=train_ids,
                 val_traj_ids=val_ids,
                 scout_val_ids=val_ids[: al.global_scout_val_trajs],
-                confirm_val_ids=val_ids[: max(al.global_scout_val_trajs, al.active_val_probe_trajs)],
-                active_val_ids=val_ids[: al.active_val_probe_trajs],
+                confirm_val_ids=val_ids[:_judge_n],
+                # 🔴 2026-10-11：判定尺子**不再单独取切片** —— 直接复用 confirm 的那一组。
+                #    原因：原先 active_val_ids=val_ids[:4] 与 confirm_val_ids=val_ids[:4]
+                #    **完全同集** ⇒ 同一个 patch 上跑两套一模一样的评测，纯浪费；
+                #    且 confirm 的 4 条本就包含 scout 的 2 条，无需再引第三把尺子。
+                #    字段保留（不删）= 兼容已有 DCP/事件流，也不动 baselines.py 的对照组口径
+                #    （它读 rec.active_val_ids，值会随这里自动对齐）。
+                #    ⚠️ 若把 scout/confirm 改成"不重叠子集"，这里必须同步改成 confirm 的集合，
+                #       否则 scout 分数与判定分数来自不同 patch ⇒ 数值不可比。
+                active_val_ids=val_ids[:_judge_n],
                 train_monitor_ids=train_ids[: al.active_train_probe_trajs],
                 sample_ids=list(entry.train_sample_ids),
                 baseline_mse=entry.baseline_mse,

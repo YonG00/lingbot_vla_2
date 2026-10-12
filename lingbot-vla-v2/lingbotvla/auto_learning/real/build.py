@@ -513,6 +513,11 @@ def finish_auto_learning(
         log, writer=writer,
         event_path=os.path.join(getattr(args.train, "output_dir", "."),
                                 "auto_learning_events.jsonl"))
+    # 🔴 2026-10-11：把 SchedulerLoggerAdapter 交给 RealEvaluator，用于"合并式 confirm"的可见性
+    #    （打印"复用 scout N 条 / 新评 M 条 / 省 N 条推理"）。
+    #    ⚠️ 注入 adapter（而不是裸 repo logger）—— adapter 同时有 info_rank0 与 log_metrics，
+    #    日志与指标都不丢；且必须在 Scheduler 构造**之前**注入。
+    backend.evaluator.logger = al_logger
     scheduler = Scheduler(backend, cfg, seed=cfg.seed, logger=al_logger)
 
     # ---- Sampler（scheduler.rng 是唯一权威随机源）----
