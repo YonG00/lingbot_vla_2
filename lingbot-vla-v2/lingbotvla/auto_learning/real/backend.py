@@ -25,7 +25,11 @@ from ..ports import Backend, TrajectoryMetrics
 from .determinism import deterministic_sampling
 #: 分片切分规则的**唯一事实来源**（2026-10-12：原先本文件自己实现一份，
 #: 而多卡评测一致性预检看不到它 ⇒ 预检必然误报，真机 al_v47 实测）。
-from lingbotvla.utils.open_loop_validation import eval_shard_indices, set_eval_shard_context
+from lingbotvla.utils.open_loop_validation import (
+    eval_shard_indices,
+    set_eval_shard_context,
+    set_shard_merge_strategy as _set_shard_merge_strategy,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -245,9 +249,11 @@ class RealEvaluator:
         my_idx = _eval_shard_indices(n=len(ids), world=world, rank=rank)
         my_ids = [ids[i] for i in my_idx]
         # 🔴 2026-10-12：把**分片上下文**公告给下面的验证层（同进程、同一线程栈）。
-        #   为什么必须公告：`my_ids` 只是"本卡那份"，验证层看到的数据集也只有这几条轨迹
-        #   ⇒ 它既算不出"每条轨迹该有几个窗口"（需要全局 k），也判不出"并集是否覆盖全集"
-        #   （需要全局 n）。不公告就会出现真机实测的两个错判：
+        #   为什么必须公告：验证层在**框架协议内**按 rank 切片、并在广播前合并各卡结果，
+        #   它需要知道"全局 k / 全集 n / 本卡应跑多少次"才能：
+        #     · 逐回合反算 stride（每条轨迹恰好 k 个窗口 ⇒ 各卡推理次数结构上恒等）；
+        #     · 核对"实际次数 == 期望次数"、"并集是否覆盖全集"。
+        #   不公告就会出现真机实测的两个错判：
         #     · `_shard_k_for(本卡 ep_map)` 把 k 算成 1（全局 k=2）⇒ 抽帧步长偏大、欠采样；
         #     · `n_ids=len(ids)` 把全集当成 1 条 ⇒ 假报"分片并集 4 条 ≠ 全集 1 条（越界）"。
         _k = max(1, -(-len(ids) // max(1, int(world))))        # k = ceil(n/W)
@@ -260,11 +266,36 @@ class RealEvaluator:
             # （只比"各卡相等"防不住"大家一起少算"）。
             'expected_steps': _k * _my_n,
         })
-        res = self.adapter.evaluate_task(task, _split_name(split), my_ids)
-        local = res.to_trajectory_metrics()
-        return self._gather_and_merge_shards(
-            task=task, split=split, ids=ids, world=world, rank=rank,
-            local=local, local_ids=my_ids)
+        # 🔴 2026-10-12（B1 修复）：**把全集 ids 交给验证层**，并注入「分片归并策略」。
+        #   为什么要改成"传全集"：验证层现在负责①按 rank 切片 ②各卡只算切片
+        #   ③在**框架广播之前**把各卡结果合并成全集 ④返回全集（框架再广播全集给所有卡）。
+        #   旧写法（这里先切好 my_ids 再传）会让每卡只交出"自己那 1 条"，
+        #   而框架的广播语义是"只有 rank0 算数" ⇒ 人人的结果都只剩 1 条 ⇒
+        #   `gmean_mse` 的 fail-closed 不变量不成立 ⇒ 判定失效。真机 al_v50–v55 实测。
+        #   ⚠️ **策略注入后不清除**（真机 al_v56 实测的第二个坑）：
+        #   最初写成 `try: … finally: set_shard_merge_strategy(None)` —— 那是**错的**：
+        #   各卡返回时刻不同（同一 step 内先后完成），先返回的 rank 把策略清掉后，
+        #   仍在跑的 rank 就**读不到策略** ⇒ 不切片 ⇒ 各卡都跑全集 ⇒ 框架"只有 rank0
+        #   算数"退化成 rank0 那条 ⇒ 合并时 7 份全是同一个 episode id ⇒ 被
+        #   `_merge_ranks_callback` 的不完整断言拦下（真机日志实录：
+        #   `各卡 ids=[[1403], [1403], …×7]` ⇒ `归并后逐轨迹条数 1 ≠ 全集 4`）。
+        #   这同时是**集合通信错配**隐患（部分 rank 走归并分支、部分不走）。
+        #   ⇒ 只注入、不收回；策略是幂等的（k/n 由各卡用**同一个 ids** 独立算出，天然一致）。
+        _set_shard_merge_strategy({'my_ids': list(my_ids), 'n_ids': len(ids),
+                                   'k': _k, 'world': int(world), 'rank': int(rank)})
+        res = self.adapter.evaluate_task(task, _split_name(split), ids)
+        # 框架已把各卡切片合并成全集 ⇒ 这里直接用（不再需要外层 all_gather）
+        metrics = res.to_trajectory_metrics()
+        if len(metrics.per_traj_mse or {}) != len(ids):
+            self._emit(
+                f"[open_loop][shard] ⚠️ task={task} split={split} 合并后逐轨迹 "
+                f"{len(metrics.per_traj_mse or {})} 条 ≠ 全集 {len(ids)} 条 "
+                f"⇒ gmean 会 fail-closed 变成 None（判定失效）")
+        else:
+            self._emit(
+                f"[open_loop][shard] task={task} split={split} 共 {len(ids)} 条 ⇒ "
+                f"world={world}、本卡 {len(my_ids)} 条、框架内归并后 {len(ids)} 条")
+        return metrics
 
     # ---- 轨迹分片：辅助 -------------------------------------------------- #
     @staticmethod
@@ -272,54 +303,15 @@ class RealEvaluator:
         """分片开关（默认关）。⚠️ 关掉时 `evaluate()` 与改造前逐字一致。"""
         return os.environ.get('AL_EVAL_SHARD', '0').strip() == '1'
 
-    def _gather_and_merge_shards(self, *, task: str, split: str, ids: List[int],
-                                 world: int, rank: int, local: TrajectoryMetrics,
-                                 local_ids: List[int]) -> TrajectoryMetrics:
-        """把各 rank 的"自己那份"汇总成全集结果（按 episode id 去重）。
-
-        汇总只交换**标量**（逐轨迹 MSE / 帧数 / baseline / 有效性），体量可忽略；
-        合并后 `gmean_mse` 自动变回"全集 n 条的几何平均" ⇒ **判定口径不变**。
-        """
-        payload = {
-            'rank': int(rank),
-            'ids': [int(i) for i in local_ids],
-            'per_traj': {int(k): float(v) for k, v in (local.per_traj_mse or {}).items()},
-            'baseline_mse': float(local.baseline_mse or 0.0),
-            'metric_valid': bool(local.metric_valid),
-        }
-        gathered = _all_gather_object(payload)
-
-        per: Dict[int, float] = {}
-        for item in gathered:
-            per.update({int(k): float(v) for k, v in (item.get('per_traj') or {}).items()})
-        base_line = next((float(it.get('baseline_mse') or 0.0)
-                          for it in gathered if it.get('baseline_mse')), 0.0)
-        valid = all(bool(it.get('metric_valid')) for it in gathered)
-
-        # 组装"全集"度量：逐轨迹取并集、帧加权重算 mse、baseline/valid 取各 rank 共识
-        union_ids = sorted(per) or list(ids)
-        agg = TrajectoryMetrics(
-            task=task, split=str(split), episode_ids=union_ids,
-            per_traj_mse=dict(per), mse=0.0,
-            baseline_mse=base_line, nmse=None, r2=None,
-            metric_valid=valid, n_trajs=len(per))
-        # 借 merge 只做"帧加权 mse 重算"（base 为空 ⇒ 结果就是并集的帧加权 mse）
-        empty = TrajectoryMetrics(task=task, split=str(split), episode_ids=[],
-                                  per_traj_mse={}, mse=0.0,
-                                  baseline_mse=base_line, nmse=None, r2=None,
-                                  metric_valid=valid, n_trajs=0)
-        merged = merge_trajectory_metrics(
-            empty, agg, split=split, task=task,
-            entry=self.catalog.entry(task), baseline_mse=base_line,
-            metric_valid=valid,
-            note=f"sharded: world={world} local={len(local_ids)} merged={len(per)}/{len(ids)}")
-        # merge 只保证"并集"；这里把全集 id 顺序与条数显式写回（n_trajs 必须是全集条数）
-        merged.episode_ids = list(ids)
-        merged.n_trajs = len(per)
-        self._emit(
-            f"[open_loop][shard] task={task} split={split} 共 {len(ids)} 条 ⇒ world={world}、"
-            f"本 rank 处理 {len(local_ids)} 条（每卡固定 ceil(n/W)）、汇总去重后 {len(per)} 条")
-        return merged
+    # 🔴 2026-10-12（B1 重构）：**原 `_gather_and_merge_shards` 已删除**。
+    #    原因：它把分片切分放在「框架多卡协议**之上**」，而协议语义是
+    #    「各卡跑同一批 / 只有 rank0 结果算数 / 广播 rank0 的结果」⇒ 各卡交出的
+    #    只是「自己那 1 条」，回收到的 7 份全是 rank0 的复制 ⇒ 合并后 per_traj 只有
+    #    1 条而 episode_ids 是全集 ⇒ `gmean_mse` fail-closed 返回 None ⇒ 判定失效
+    #    （真机 al_v49/v50/v53/v55 实测：`active_val_gmean_mse=None`、0 个 PASS）。
+    #    现在：切分 + 归并都在**协议之内**完成
+    #    （`utils/open_loop_validation.py::_merge_ranks_callback`），
+    #    于是 rank0 在广播前就持有**全集** ⇒ 广播即"把全集同步给所有卡"。
 
     def evaluate_confirm_merged(self, task: str, scout_ids: Sequence[int],
                                 confirm_ids: Sequence[int], *, scout: Any = None,

@@ -467,11 +467,142 @@ def _broadcast_object(payload: List[Any], *, src: int = 0) -> None:
     dist.broadcast_object_list(payload, src=src)
 
 
+def _gather_rank_payloads(mine: Any, *, ws: int) -> List[Any]:
+    """把"本 rank 的 payload"收成**全部 rank** 的列表（分片归并用）。
+
+    * 可用 ⇒ ``all_gather_object``（**集合通信：所有 rank 必须都调到**）；
+    * 不可用/失败 ⇒ 退化为 ``[mine]``（单卡语义；调用方按"只有本卡"处理）。
+
+    ⚠️ 本函数会被 AST 注入式单测单独编译 ⇒ **不引用模块级常量**，只做懒 import。
+    """
+    try:
+        import torch.distributed as _dist
+        if _dist.is_available() and _dist.is_initialized() and int(_dist.get_world_size()) > 1:
+            out: List[Any] = [None] * int(_dist.get_world_size())
+            _dist.all_gather_object(out, mine)
+            return [x for x in out if x is not None]
+    except Exception:  # noqa: BLE001 —— 归并失败不该让评测崩（退化为本 rank 结果）
+        pass
+    return [mine]
+
+
+#: 分片归并策略用到的键：raw payload 里携带"逐轨迹 MSE"的字段名（与 adapter 一致）。
+_SHARD_PER_TRAJ_KEYS = ("per_traj_mse", "per_traj_ids", "per_traj_frames")
+#: 进程级归并策略（由 backend 在分片模式下临时注入；见 `shard_merge_strategy`）。
+_SHARD_MERGE_STRATEGY: Optional[Dict[str, Any]] = None
+
+
+def set_shard_merge_strategy(strategy: Optional[Dict[str, Any]]) -> None:
+    """注入/清除「分片结果归并策略」（`None` ⇒ 清除）。
+
+    🔴 用途（2026-10-12 B1）：`all_ranks_run=True` 原本的归并策略是"只有 rank0 结果算数"，
+    那是为**复制并行**写的；**轨迹分片**下各卡结果互补 ⇒ 必须在**广播之前**合并成全集。
+    策略里目前用两个键：
+      * ``my_ids``：本卡负责的 episode id 列表（用于把 raw payload 的逐轨迹项对齐成 dict）；
+      * ``n_ids``：全集轨迹条数（用于校验合并结果是否覆盖全集）。
+
+    ⚠️ 进程级可变状态 ⇒ 只允许 backend 在"调用评测前后"成对设置/清除（`try/finally`）。
+    """
+    global _SHARD_MERGE_STRATEGY
+    _SHARD_MERGE_STRATEGY = strategy
+
+
+def shard_merge_strategy() -> Optional[Dict[str, Any]]:
+    """读当前归并策略（未注入 ⇒ None ⇒ 协议退回旧语义）。"""
+    return _SHARD_MERGE_STRATEGY
+
+
+def _merge_shard_raw_payloads(results: List[Any], strategy: Dict[str, Any]) -> Dict[str, Any]:
+    """把各 rank 的 **evaluator raw payload** 合并成"全集"payload。
+
+    各 rank 的 raw 形如 ``{"mse":…, "n":…, "per_traj_mse":[…], "per_traj_ids":[…],
+    "per_traj_frames":[…], "n_chunks":…, "frames":…, …}``，其中逐轨迹三个字段与
+    ``my_ids`` 一一对应（按位置）。
+
+    合并规则（只做必要的事，不改口径）：
+      * 逐轨迹三字段按 episode id **并集**拼接（重复 id 以先出现者为准）；
+      * ``mse`` 按**帧数加权**重算（与单卡 pooled mse 同口径；缺帧数则退化为等权）；
+      * ``frames`` 求和；``n``/``n_chunks`` 取并集后的真实条数/块数；
+      * 其余标量字段（dims/mae/action_keys…）取**第一个非空**（各卡应一致）。
+    """
+    per_mse: Dict[int, float] = {}
+    per_frames: Dict[int, int] = {}
+    order: List[int] = []
+    scalars: Dict[str, Any] = {}
+    n_chunks = 0
+    for raw in results:
+        if not isinstance(raw, dict):
+            continue
+        ids = [int(i) for i in (raw.get("per_traj_ids") or [])]
+        mses = list(raw.get("per_traj_mse") or [])
+        frames = [int(f) for f in (raw.get("per_traj_frames") or [])]
+        for pos, eid in enumerate(ids):
+            if eid in per_mse:
+                continue                       # 回绕重复的轨迹：以先出现者为准（数值等价）
+            order.append(eid)
+            per_mse[eid] = float(mses[pos]) if pos < len(mses) else float("nan")
+            per_frames[eid] = int(frames[pos]) if pos < len(frames) else 0
+        n_chunks += int(raw.get("n_chunks") or 0)
+        for k, v in raw.items():
+            if k in _SHARD_PER_TRAJ_KEYS or k in ("mse", "n", "n_chunks", "frames"):
+                continue
+            if k not in scalars and v is not None:
+                scalars[k] = v
+    tot_f = sum(per_frames.values())
+    if tot_f > 0:
+        mse = sum(per_mse[e] * per_frames[e] for e in order) / float(tot_f)
+    else:
+        mse = (sum(per_mse.values()) / len(per_mse)) if per_mse else float("nan")
+    out: Dict[str, Any] = dict(scalars)
+    out.update({
+        "mse": float(mse),
+        "n": len(order),
+        "n_chunks": int(n_chunks),
+        "frames": int(tot_f),
+        "per_traj_mse": [per_mse[e] for e in order],
+        "per_traj_ids": list(order),
+        "per_traj_frames": [per_frames[e] for e in order],
+    })
+    return out
+
+
+def _merge_ranks_callback(results: List[Any]) -> Dict[str, Any]:
+    """协议用的 ``merge_ranks`` 回调：把各 rank 的 raw 结果合并成全集。
+
+    协议文档见 `_multirank_eval_payload`：返回值会被当作 payload 结果**广播给所有 rank**
+    ⇒ 每个 rank 都拿到同一份**全集**结果。
+    """
+    strat = _SHARD_MERGE_STRATEGY or {}
+    # 🔍 一次性事证（2026-10-12）：把回调**真正收到**的各 rank raw 摊开 —— 用于定位
+    #    "切片对但并集=1" 这类矛盾（不猜、直接看值）。定位完成后删除。
+    try:
+        import os as _os
+        if _os.environ.get("AL_SHARD_MERGE_TRACE", "0").strip() == "1":
+            _dbg = [(list((r or {}).get("per_traj_ids") or []),
+                     len((r or {}).get("per_traj_mse") or [])) for r in results]
+            import sys as _sys
+            print(f"[open_loop][shard][merge-in] n_results={len(list(results))} "
+                  f"(ids,len)={_dbg}", file=_sys.stderr, flush=True)
+    except Exception:  # noqa: BLE001
+        pass
+    merged = _merge_shard_raw_payloads(list(results), strat)
+    n_expect = int(strat.get("n_ids") or 0)
+    if n_expect and int(merged.get("n") or 0) != n_expect:
+        # 合并结果没覆盖全集 ⇒ **绝不静默**：这会让 gmean 的不变量（episode_ids 必须与
+        # per_traj_mse 键一致）不成立 ⇒ gmean=None ⇒ 判定失效（al_v49 的真机教训）。
+        raise RuntimeError(
+            f"[open_loop][shard] 归并后逐轨迹条数 {merged.get('n')} ≠ 全集 {n_expect}"
+            f"（各卡 ids={[list((r or {}).get('per_traj_ids') or []) for r in results]}）"
+            f" ⇒ 拒绝用不完整结果继续（否则 gmean 会 fail-closed 变成 None）")
+    return merged
+
+
 def _multirank_eval_payload(*, run: Callable[[], Dict[str, Any]], ws: int, rank: int,
                             broadcast: Callable[[List[Any]], None],
                             all_ranks_run: bool = False,
                             fail_fast: Optional[Callable[[BaseException], bool]] = None,
-                            on_broadcast: Optional[Callable[[], None]] = None
+                            on_broadcast: Optional[Callable[[], None]] = None,
+                            merge_ranks: Optional[Callable[[List[Any]], Any]] = None
                             ) -> Dict[str, Any]:
     """多卡评测的执行与同步协议 —— **纯函数，便于单测**。
 
@@ -502,11 +633,65 @@ def _multirank_eval_payload(*, run: Callable[[], Dict[str, Any]], ws: int, rank:
 
     ``on_broadcast``（可选）：**紧接在末尾广播之前**调用（逐 rank，用于阶段面包屑 ——
     卡在广播上时日志里最后一行就是「广播」，与卡在 all-gather 上可以区分）。
+
+    ``merge_ranks``（可选，2026-10-12 新增）：**分片模式的"结果归并策略"**。
+
+    🔴 为什么需要它（真机 al_v50–al_v55 实测）：
+    ``all_ranks_run=True`` 原本的语义是「**复制并行**（每卡算同一批）⇒ 只有 rank0 结果算数」。
+    但**轨迹分片**（每卡算不同切片）也走这条分支（因为要满足 FSDP 集合通信），
+    于是各卡**信息互补的结果被丢弃**：
+      · rank0 只算出自己那 1 条 ⇒ 广播出去的只有 1 条；
+      · 外层 `all_gather` 收回 7 份**相同的 rank0 结果**（实测 `per_dump` 7 份全是同一 key）；
+      · 合并后 `per_traj` 仅 1 条，而 `episode_ids` 是全集 4 条 ⇒
+        `geometric_mse` 的不变量不成立 ⇒ `gmean_mse=None` ⇒ **判定失效（0 个 PASS）**。
+
+    给 ``merge_ranks`` 后，本函数切换为「**先归并、再广播**」：
+      1. 每个 rank 都执行 ``run()``，结果（或失败标记）放进 payload；
+      2. **所有 rank 一起** `all_gather_object` 收集各卡 payload（集合通信，**失败也参与**，
+         避免"一卡崩、其余卡死等"）；
+      3. 任一卡失败 ⇒ **全卡一致地抛**（保留原协议"失败要人人可见"的语义）；
+      4. 都对 ⇒ 用 ``merge_ranks(results)`` 合成**全集**结果，人人拿到**同一份全集**；
+      5. 末尾照常广播（此时冗余，但**保留"各卡决策一致"这条不变量**，且不改变
+         prelude/预检/阶段面包屑的行为）。
+
+    ``merge_ranks`` 若为 None ⇒ 行为与改造前**逐字一致**（默认不变）。
     """
     if ws <= 1:
         return run()
     payload: List[Any] = [None]
-    if all_ranks_run:
+    if all_ranks_run and callable(merge_ranks):
+        # ---- 分片模式：各卡结果互补 ⇒ 先归并、再广播（见 docstring）----
+        try:
+            import os as _os2
+            import sys as _sys2
+            _res_mine = run()
+            if _os2.environ.get("AL_SHARD_MERGE_TRACE", "0").strip() == "1":
+                print(f"[open_loop][shard][run-out] rank={int(rank)} "
+                      f"per_traj_ids={list((_res_mine or {}).get('per_traj_ids') or [])} "
+                      f"n={( _res_mine or {}).get('n')}", file=_sys2.stderr, flush=True)
+            mine: Dict[str, Any] = {"ok": True, "result": _res_mine}
+        except BaseException as exc:  # noqa: BLE001 —— 失败也要参与集合通信，否则对端死等
+            import sys as _sys
+            import traceback as _tb
+            try:
+                _head = (f"[open_loop][multirank] ⚠️ rank{int(rank)}/{int(ws)} 在评测体内失败"
+                         f"（分片归并模式：仍参与 all_gather，随后全卡一致抛出）："
+                         f"{type(exc).__name__}: {exc}")
+                _stack = "".join(_tb.format_exception(type(exc), exc, exc.__traceback__))
+            except Exception:  # noqa: BLE001
+                _head, _stack = f"[open_loop][multirank] ⚠️ rank{rank} 评测失败: {exc!r}", ""
+            print(_head + "\n" + _stack, file=_sys.stderr, flush=True)
+            mine = {"ok": False, "error": f"rank{int(rank)}: {type(exc).__name__}: {exc}"}
+        #: 逐 rank 收集（`None` 占位；不可用/失败时退化为"只有本卡"）
+        gathered = _gather_rank_payloads(mine, ws=int(ws))
+        bad = next((it for it in gathered
+                    if not (isinstance(it, dict) and it.get("ok"))), None)
+        if bad is not None:
+            raise RuntimeError(
+                f"多卡评测（分片归并）在某 rank 失败：{bad.get('error') if isinstance(bad, dict) else bad}")
+        results = [it.get("result") for it in gathered]
+        payload[0] = {"ok": True, "result": merge_ranks(results)}
+    elif all_ranks_run:
         if rank == 0:
             try:
                 payload[0] = {"ok": True, "result": run()}
@@ -1996,7 +2181,16 @@ class OpenLoopValidator:
     def _episode_ids_file(self, ids: Sequence[int], tag: str) -> str:
         """把一组回合号落成临时白名单文件（build_vla_dataset 只认文件）。
 
-        🔴 **原子写**（2026-10-10）：多卡分片模式下**所有 rank 都会写同一个路径**
+        🔴 **每个 rank 写自己的文件**（2026-10-12 修）：文件名 = `<tag>_<本卡切片指纹>.json`。
+        为什么必须带切片指纹（真机 al_v61 实测）：本函数原先把文件名定为 `<tag>.json`
+        并假设"各 rank 内容完全相同（sorted(ids)）⇒ 谁赢都一样" —— 这个假设**只在复制
+        并行下成立**；**轨迹分片下各卡 ids 不同** ⇒ 7 个 rank 互相覆盖同一个文件，
+        而后到的 rank 又从 `_dataset(path)`（按路径缓存）读到**别人的切片**
+        ⇒ 实测 `rank2 run_ids=[1408]` 但 `run()` 返回 `per_traj_ids=[1403]`
+        ⇒ 归并时 7 份全同（`各卡 ids=[[1403]×7]`）⇒ 被不完整断言拦下。
+        加指纹后：各卡各写各读，互不干扰；跨 run 同名也不会串（tag 已含任务/split）。
+
+        🔴 **原子写**（2026-10-10）：同一路径可能被并发写（例如同一 rank 的重复调用），路径**
         （大家跑同一组 ids、同一个 tag），如果有人正写到一半、别的 rank 去读，
         就会读到截断的 JSON（`json.JSONDecodeError`）或空白名单。
         做法：先写本 rank 自己的临时文件，再 `os.replace`（POSIX 原子替换）。
@@ -2004,7 +2198,11 @@ class OpenLoopValidator:
         """
         out_dir = os.path.join(self.args.train.output_dir, "_open_loop_ids")
         os.makedirs(out_dir, exist_ok=True)
-        path = os.path.join(out_dir, f"{tag}.json")
+        #: 本卡切片指纹（与 evaluator 的 ids 指纹同源算法：排序后取哈希前 8 位）
+        import hashlib as _hl
+        _slice_fp = _hl.sha1((",".join(str(int(i)) for i in sorted(ids)))
+                             .encode("utf-8")).hexdigest()[:8]
+        path = os.path.join(out_dir, f"{tag}_{_slice_fp}.json")
         payload = json.dumps(sorted(int(i) for i in ids))
         tmp = f"{path}.rank{_global_rank()}.tmp"
         with open(tmp, "w") as f:
@@ -2733,7 +2931,27 @@ class OpenLoopValidator:
                 #    结构上恒等。否则窗口数 = ceil(帧数/50) ⇒ move_can_pot val 实测
                 #    n_starts=6/7 混杂 ⇒ 一致性预检 fail-closed 拦下（拦对了：真跑会卡死）。
                 #    详见 `adaptive_episode_starts` 的 docstring（含口径影响）。
-                starts = adaptive_episode_starts(ep_map, _shard_k_for(ep_map))
+                # 🔴 2026-10-12：**只有真多卡（world>1）才启用自适应窗口**。
+                #    为什么（真机 al_v63 扫描实测）：扫描 worker 是**单卡进程**，
+                #    但它也走分片开关 ⇒ 若无条件启用，`k=ceil(2/1)=2` 会把
+                #    "每 50 帧一个窗口"改成"每条轨迹只摊 2 个窗口" ⇒ **采样帧变了**
+                #    ⇒ 同一轨迹的 MSE 差 0.5–4.7 倍（实测：shake_bottle_horizontally
+                #    0.0170→0.0087、dump_bin_bigbin 0.147→0.684），
+                #    ⇒ 扫描结果与历史缓存不可比。
+                #    world<=1 时用 `per_episode_starts(stride=50)`，与改造前**逐字一致**。
+                _w_raw = os.environ.get('AL_EVAL_SHARD_CTX_W')
+                _multi = False
+                if _w_raw:
+                    try:
+                        _multi = int(_w_raw) > 1
+                    except (TypeError, ValueError):
+                        _multi = False
+                if _multi:
+                    starts = adaptive_episode_starts(ep_map, _shard_k_for(ep_map))
+                elif self.per_episode_stride and ep_map is not None:
+                    starts = per_episode_starts(ep_map, stride)
+                else:
+                    starts = list(range(0, len(ds), stride))
             elif self.per_episode_stride and ep_map is not None:
                 starts = per_episode_starts(ep_map, stride)
             else:
@@ -3322,7 +3540,21 @@ class OpenLoopValidator:
         if _eval_shard_enabled_or_context() and ep_map is not None:
             # 与 `_eval_prepare` **同口径**（分片时用自适应窗口）：
             # 基线（GT 分母）与实际评测必须取同一个窗口集合，否则"分子/分母不同源"。
-            starts = adaptive_episode_starts(ep_map, _shard_k_for(ep_map))
+            # 同 `_eval_prepare`：world<=1 时**不**用自适应窗口（保持 stride=50 口径，
+            # 否则分子/分母虽同源、却与历史扫描不可比）。
+            _w_raw2 = os.environ.get('AL_EVAL_SHARD_CTX_W')
+            _multi2 = False
+            if _w_raw2:
+                try:
+                    _multi2 = int(_w_raw2) > 1
+                except (TypeError, ValueError):
+                    _multi2 = False
+            if _multi2:
+                starts = adaptive_episode_starts(ep_map, _shard_k_for(ep_map))
+            elif self.per_episode_stride and ep_map is not None:
+                starts = per_episode_starts(ep_map, stride)
+            else:
+                starts = list(range(0, len(ds), stride))
         elif self.per_episode_stride and ep_map is not None:
             starts = per_episode_starts(ep_map, stride)
         else:
@@ -3376,21 +3608,63 @@ class OpenLoopValidator:
             phases.begin(tag)
         failed: Optional[BaseException] = None
         try:
+            # 🔴 分片（2026-10-12 B1）：**本卡只算自己那份切片**，且这次切片发生在
+            #    「框架多卡协议**之内**」—— 于是 `run()` 返回的是本卡切片，
+            #    协议用 `merge_ranks` 把各卡切片**合并成全集**后再广播给所有人。
+            #    为什么必须切在这里（真机 al_v50–al_v55 实测）：
+            #      切片若放在协议**外面**（旧实现：backend 传 my_ids 给 adapter），
+            #      各卡都只把"自己那 1 条"交给协议 ⇒ 协议按"只有 rank0 算数"广播
+            #      ⇒ 人人的结果都只有 1 条 ⇒ 外层再 all_gather 也只能收到 7 份相同的
+            #      rank0 结果 ⇒ `per_traj` 只有 1 条而 `episode_ids` 是全集 ⇒
+            #      `gmean_mse` 的 fail-closed 不变量不成立 ⇒ **判定失效（0 个 PASS）**。
+            _strat = _SHARD_MERGE_STRATEGY
+
+            def _slice_run_ids() -> List[int]:
+                """**在 run() 里现算**本卡切片（防"上游传错/变量被替换"）。
+
+                结构上只有这一个入口决定"本卡评哪几条"：
+                  策略存在 且 分片并行 且 world>1 ⇒ 按 `eval_shard_indices` 切；
+                  否则原样返回全集（非分片路径逐字不变）。
+                """
+                base = list(ids)
+                if not (_strat and _all_ranks_must_run_eval(self.args)):
+                    return base
+                _w = int((_strat or {}).get("world") or 0)
+                _r = int((_strat or {}).get("rank") or 0)
+                if _w <= 1:
+                    return base
+                return [base[i] for i in eval_shard_indices(n=len(base), world=_w, rank=_r)]
+
+            _run_ids = _slice_run_ids()
+            try:
+                import os as _os3
+                import sys as _sys3
+                if _os3.environ.get("AL_SHARD_MERGE_TRACE", "0").strip() == "1":
+                    print(f"[open_loop][shard][slice] rank={int(_global_rank())} "
+                          f"full_ids={list(ids)} run_ids={list(_run_ids)} "
+                          f"strat={_strat}", file=_sys3.stderr, flush=True)
+            except Exception:  # noqa: BLE001
+                pass
             # ① 窗口前阶段（本地准备 → 预检 A → 对称预热 → 预检 B）：**在 unshard 之前**，
             #    所有 rank 都走 ⇒ `unshard()` 这个真机出事的集合点也被预检/预热覆盖。
             #    非分片并行（ddp/单卡）不做：那时只有 rank0 真跑评测，没有集合通信错配风险。
-            prep = (self._eval_prelude(list(ids), tag)
+            #    ⚠️ 预检仍用**全集 n**（`n_ids=len(ids)` 由 `_eval_prelude` 从全局上下文读），
+            #       所以这里传切片不会让"并集覆盖全集"那条判据失效。
+            prep = (self._eval_prelude(list(_run_ids), tag)
                     if _all_ranks_must_run_eval(self.args) else None)
             with self._sharded_eval_context():
                 if phases is not None:
                     phases.phase("unshard（取全参数）完成")
                 return _multirank_eval_payload(
-                    run=lambda: self._evaluate_run(list(ids), tag, prep=prep),
+                    run=lambda: self._evaluate_run(list(_run_ids), tag, prep=prep),
                     ws=ws, rank=_global_rank(), broadcast=_broadcast_object,
                     all_ranks_run=_all_ranks_must_run_eval(self.args),
                     fail_fast=self._nonzero_failure_is_fatal,
                     on_broadcast=(None if phases is None
-                                  else lambda: phases.phase("广播（rank0 结果广播给所有 rank）")))
+                                  else lambda: phases.phase("广播（rank0 结果广播给所有 rank）")),
+                    # 🔴 分片归并（2026-10-12 B1）：**只有** backend 注入了策略才启用 ⇒
+                    #    非分片路径传入 None，行为与改造前**逐字一致**。
+                    merge_ranks=(_merge_ranks_callback if _strat else None))
         except BaseException as exc:  # noqa: BLE001
             failed = exc
             raise

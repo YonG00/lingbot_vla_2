@@ -64,6 +64,8 @@ TOOL = REPO / "tools/auto_learning_pipeline/al_eval_multirank_preflight_repro.py
 
 _WANTED_FUNCS = (
     "_multirank_eval_payload",
+    # 2026-10-12 B1：协议在"分片归并"分支里会调它 ⇒ 不注入就 NameError
+    "_gather_rank_payloads",
     "_env_flag", "_preflight_enabled", "_fail_fast_nonzero", "_stall_seconds",
     "_stall_poll_seconds", "_warmup_enabled",
     "_eval_rank_report", "_preflight_verdict", "_format_preflight_error",
