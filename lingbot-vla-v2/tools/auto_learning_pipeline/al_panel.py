@@ -27,7 +27,7 @@ import re
 import statistics
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 ROOT = Path(os.environ.get('AL_ROOT', '/models/robotwin-persistent/al_runs'))
 W = 76          # 行宽：中文按 2 列算，76 + 中文行留余量
@@ -302,6 +302,46 @@ def read_series(events: Path) -> Dict[str, Dict[str, List[Tuple[int, float]]]]:
 # --------------------------------------------------------------------------- #
 #: 注册表里的状态 → 展示顺序（越靠前越"需要关注"）
 _STATUS_ORDER = ('TRAINING', 'DEFER', 'PASS', 'CANDIDATE', 'EXHAUSTED', 'FORGOTTEN')
+
+
+def read_tb_latest(run_dir: Optional[Path]) -> Dict[str, Any]:
+    """读 TensorBoard 的**最新标量** → `{tag: (step, value)}`（面板的"全实时"来源）。
+
+    🔴 为什么加它（2026-10-12 用户要求"面板全部实时"）：
+      · `pool_state.json` / DCP `extra_state` **只在存档点导出**（`SAVE_EVERY`，本项目 400 步）
+        ⇒ 面板的"池子/在训"两行最长落后 400 步（真机 v65 实测：主循环已训
+        `place_object_basket`，面板仍显示 2400 快照里的 `click_bell`、`pass=8`，
+        而 TB 里 `skill_overview/pass_count` 已经是 14）；
+      · TB 是**每 unit 末（≈50 步）实时写**的，且**池子级计数齐全**：
+        `skill_overview/{pass,defer,exhausted,candidate}_count`、
+        `curriculum/{passed_tasks,newly_passed_count,bootstrap_pass_count,reopened_count,
+        forgotten_tasks,units_completed}`。
+    ⇒ 池子计数改从 TB 读 ⇒ 无需任何训练侧改动、也无需额外导出文件。
+
+    ⚠️ 只读**最新一个** event 文件（TB 会把超大文件轮转）；读不到 ⇒ 返回空 dict
+    （调用方退回旧路径：pool_state.json / DCP / 事件流推导），**绝不让面板失败**。
+    """
+    out: Dict[str, Any] = {}
+    if run_dir is None:
+        return out
+    try:
+        cands = sorted((run_dir / 'runs').glob('events.out.tfevents.*'),
+                       key=lambda f: f.stat().st_mtime)
+        if not cands:
+            return out
+        from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+        ea = EventAccumulator(str(cands[-1]), size_guidance={'scalars': 0})
+        ea.Reload()
+        for t in (ea.Tags().get('scalars') or []):
+            try:
+                vals = ea.Scalars(t)
+            except Exception:  # noqa: BLE001
+                continue
+            if vals:
+                out[t] = (int(vals[-1].step), vals[-1].value)
+    except Exception as exc:  # noqa: BLE001 —— 读 TB 失败不该让面板失败
+        print(f'  ⚠️ 读 TensorBoard 失败（{type(exc).__name__}: {str(exc)[:60]}）')
+    return out
 
 
 def latest_dcp(run_dir: Path) -> Optional[Path]:
@@ -839,7 +879,8 @@ def _fit(text: str, width: int) -> str:
 
 def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit, latest_sit,
                   elapsed_s, eta_s, trainer, trainers, records, thresholds, derived_status,
-                  per_task, series, dcp_name, dcp_step, wide_hint: bool = True) -> None:
+                  per_task, series, dcp_name, dcp_step, tb=None,
+                  wide_hint: bool = True) -> None:
     """紧凑视图 v5：**每行一个信息**、缩进统一两格、宽度自适应（窄终端不折行）。
 
     结构（约 15 行）：
@@ -906,15 +947,27 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
         t_bits.append(f'总计约 {_hms_h(elapsed_s + eta_est)}')
     if t_bits:
         row('用时', ' / '.join(t_bits) + ('（按稳态步速估）' if (sit and step) else ''))
-    # ---- 池子 ----
-    # 🔴 标注快照年龄（2026-10-12）：池子只在**存档点**导出 ⇒ 与实时步数会差几百步；
-    #    不标注会让人以为"池子不对"（实测：通关 9（实时）与池子 pass=8（快照）同屏并存）。
-    _pool_extra = ''
-    if step is not None and dcp_step is not None:
-        _age = int(step) - int(dcp_step)
-        if _age > 0:
-            _pool_extra = _c(f'   ⏸快照(step {int(dcp_step)}，落后 {_age} 步)', '90')
-    row('池子', _pool_line(records, derived_status) + _pool_extra)
+    # ---- 池子（**实时优先**：TensorBoard 的计数 vs 注册表快照）----
+    # 🔴 2026-10-12（用户要求"面板全部实时"）：池子计数改从 **TB** 读。
+    #   为什么：注册表只在存档点导出（`SAVE_EVERY`=400 步）⇒ 真机 v65 出现
+    #   "通关 14（实时）与池子 pass=8（2400 快照）同屏矛盾"。
+    #   TB 每 unit 末（≈50 步）实时写 `skill_overview/{pass,defer,exhausted,candidate}_count`。
+    _tb_counts = {}
+    for _key, _tag in (('PASS', 'skill_overview/pass_count'),
+                       ('DEFER', 'skill_overview/defer_count'),
+                       ('EXHAUSTED', 'skill_overview/exhausted_count'),
+                       ('CANDIDATE', 'skill_overview/candidate_count')):
+        _v = (tb or {}).get(_tag)
+        if _v is not None and isinstance(_v[1], (int, float)):
+            _tb_counts[_key] = int(_v[1])
+    _tb_step = (tb or {}).get('curriculum/units_completed')
+    if _tb_counts:
+        _order = ('PASS', 'DEFER', 'CANDIDATE', 'EXHAUSTED')
+        _body = '  '.join(f'{k.lower()}={_tb_counts[k]}'
+                          for k in _order if k in _tb_counts)
+        row('池子', f'{_body}   {_c("(实时·TB)", "32")}')
+    else:
+        row('池子', _pool_line(records, derived_status))
     if records:
         att = {t: r for t, r in records.items()
                if isinstance((r or {}).get('attempt_count'), (int, float))
@@ -959,23 +1012,32 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
     # 🔴 任务名以**实时**为准 ⇒ 状态/倍率也随之标注来源，避免"1 分钟前缓存的中间值"被当成当前值
     _stale = bool(_live and _reg_training and _reg_training != cur)
     if _stale:
-        st = f'实时(事件流)；快照仍停在 {_reg_training}'
+        st = f'实时(事件流)；注册表快照仍停在 {_reg_training}'
     elif not st or st == '?':
         st = '事件流（无注册表快照）' if _live else '?'
     r_now = _ratio(dict(rec, task_name=cur), thresholds) if rec else None
     r_best = _ratio(dict(rec, task_name=cur), thresholds, key='best_gmean_mse') if rec else None
     row('在训', f'{cur}   [{st}]')
+    # 🔴 若当前任务与注册表快照里的 TRAINING 任务**不是同一个** ⇒ 快照的
+    #   「本任务步数 / 倍率 / 进步」全是**别的任务的旧值** ⇒ 直接不显示（免得误读）。
+    #   （2026-10-12：v65 实测出现"倍率 当前 10.30x"其实是快照里 click_bell 的值，
+    #    而当前在训 place_object_basket ⇒ 用户会以为新任务倍率很差。）
+    if _stale:
+        row('本任务', _c('（快照未更新，暂无该任务的重建详情；倍率/进步见下方历史）', '90'))
+        _show_detail = False
+    else:
+        _show_detail = True
     # 「已训多少步」属于**进度**，不要混进「倍率」行（真机反馈：标签配错会误读）
-    if isinstance(rec.get('attempt_step'), (int, float)):
+    if _show_detail and isinstance(rec.get('attempt_step'), (int, float)):
         _lag = (int(step) - int(dcp_step)) if (step is not None and dcp_step is not None) else 0
         _t = f'{int(rec["attempt_step"])} 步'
         if _lag > 0:
             _t += _c(f'（注册表快照落后 {_lag} 步）', '90')
         row('本任务', _t)
     m_bits = []
-    if r_now is not None:
+    if _show_detail and r_now is not None:
         m_bits.append(f'当前 {_rstr(r_now)}')
-    if r_best is not None:
+    if _show_detail and r_best is not None:
         m_bits.append(f'best {_rstr(r_best)}')
     if m_bits:
         row('倍率', '  '.join(m_bits))
@@ -1111,6 +1173,8 @@ def main() -> int:
     boot = last.get('curriculum/bootstrap_pass_count')
     # ---- 池子（**权威 = DCP 注册表**；读不到就退回事件流并提示）----
     records, dcp_step, dcp_dir = load_registry(run_dir)
+    # ---- TensorBoard（**实时**；池子计数以它为准，避免 400 步的存档延迟）----
+    tb = read_tb_latest(run_dir)
     if not records:
         _st = Counter(derived_status.values()) if derived_status else {}
         if _st:
@@ -1124,7 +1188,7 @@ def main() -> int:
                    trainer=trainer, trainers=trainers, thresholds=thresholds,
                    derived_status=derived_status, per_task=per_task, series=series,
                    records=records, dcp_name=(dcp_dir.name if dcp_dir else None),
-                   dcp_step=dcp_step)
+                   dcp_step=dcp_step, tb=tb)
     if getattr(args, 'wide', False):
         return render_wide(args=args, cfg=cfg, **{k: v for k, v in _common.items()
                                                   if k not in ('dcp_name', 'dcp_step')},
