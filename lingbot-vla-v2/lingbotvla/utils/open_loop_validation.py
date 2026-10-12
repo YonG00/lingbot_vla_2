@@ -620,7 +620,7 @@ def _stall_poll_seconds(stall_sec: float) -> float:
 
 def _eval_rank_report(*, tag: str, ids: Sequence[int], rank: int,
                       n_starts: Optional[int] = None, len_ds: Optional[int] = None,
-                      warmup: Optional[bool] = None,
+                      warmup: Optional[bool] = None, n_ids: Optional[int] = None,
                       error: Optional[str] = None) -> Dict[str, Any]:
     """一个 rank 的「评测身份 + 本地失败」摘要（预检交换的就是它）。
 
@@ -632,6 +632,10 @@ def _eval_rank_report(*, tag: str, ids: Sequence[int], rank: int,
     🔴 必须逐 rank 一致：预热内含**自己的 FSDP 全参数窗口**（集合通信），
     若一个 rank 跳过、另一个 rank 进入 ⇒ 进入者永久等在 all-gather 上
     ⇒ 预检 A 就把这种不对称判成 ``problems`` 并让所有 rank 一起停（fail-closed）。
+
+    ``n_ids`` 是**全集轨迹条数**（各 rank 报同一个值）。分片模式下 `ids` 各卡不同，
+    无法再靠"ids 是否相同"判断完整性 ⇒ 用"各卡 ids 的并集是否等于 n_ids"来代替。
+    非分片模式不用它（可省 ⇒ None）。
     """
     return {
         "rank": int(rank),
@@ -640,13 +644,29 @@ def _eval_rank_report(*, tag: str, ids: Sequence[int], rank: int,
         "n_starts": (None if n_starts is None else int(n_starts)),
         "len_ds": (None if len_ds is None else int(len_ds)),
         "warmup": (None if warmup is None else bool(warmup)),
+        "n_ids": (None if n_ids is None else int(n_ids)),
         "error": (None if not error else str(error)),
     }
 
 
-def _preflight_verdict(ws: int, reports: Sequence[Optional[Dict[str, Any]]]
-                       ) -> Dict[str, Any]:
-    """纯函数：把各 rank 的报告判成 ``failures`` / ``problems``（便于单测）。"""
+def _preflight_verdict(ws: int, reports: Sequence[Optional[Dict[str, Any]]],
+                       *, n_ids: Optional[int] = None,
+                       sharded: Optional[bool] = None) -> Dict[str, Any]:
+    """纯函数：把各 rank 的报告判成 ``failures`` / ``problems``（便于单测）。
+
+    两种模式（2026-10-12：分片模式原判据必然误报，故分开）：
+
+    * **非分片（默认）**：要求 ``tag/ids/n_starts/len_ds/warmup`` **五者逐一相同**
+      —— 逐字保留旧行为（各 rank 干的是同一件事，代理指标理应一致）。
+    * **分片（``AL_EVAL_SHARD=1``，或显式 ``sharded=True``）**：``ids``/``len_ds``
+      **本就该不同**（这正是分片的设计）⇒ 不再比较；但**死守真正会导致卡死的量**：
+      ``n_starts``（= 集合通信次数）必须相等；并且**新增**"各 rank 的 ids 并集
+      必须恰好覆盖全集 ``n_ids``"（旧判据做不到这条：它只能发现"逐字段不等"，
+      发现不了"某几条轨迹谁都没评"）。
+
+    ``n_ids`` = 本次评测的**全集轨迹条数**；只在分片模式下用于覆盖性校验
+    （缺省 ``None`` ⇒ 跳过覆盖性校验，仅保留"``n_starts`` 相等"这条硬判据）。
+    """
     failures = [r for r in reports if isinstance(r, dict) and r.get("error")]
     ok = [r for r in reports if isinstance(r, dict) and not r.get("error")]
     problems: List[str] = []
@@ -655,14 +675,73 @@ def _preflight_verdict(ws: int, reports: Sequence[Optional[Dict[str, Any]]]
         problems.append(f"这些 rank 没有报回评测身份（未进入评测？）: {missing}")
     if len(ok) > 1:
         base = ok[0]
-        for r in ok[1:]:
-            for field in ("tag", "ids", "n_starts", "len_ds", "warmup"):
-                if r.get(field) != base.get(field):
-                    problems.append(
-                        f"rank{r['rank']} 与 rank{base['rank']} 的 {field} 不一致："
-                        f"{r.get(field)!r} vs {base.get(field)!r}")
+        # 🔴 分片判据：**内联读环境变量 + 上下文**，不调用 `_eval_shard_enabled()`
+        #    ——注入式测试（`tests/test_multirank_eval_preflight.py`）的命名空间里可能没有它，
+        #    真机回归实测会 `NameError`（那批失败就是这么来的）。
+        #    显式 `sharded=None` 时才走这条自动判定。
+        if sharded is None:
+            # 内联读（不调用任何辅助函数/模块级常量：注入式测试命名空间里可能没有）
+            sharded = (
+                os.environ.get('AL_EVAL_SHARD', '0').strip() == '1'
+                or bool(os.environ.get('AL_EVAL_SHARD_CTX_K'))
+            )
+        if sharded:
+            # 分片：`ids`/`len_ds`/`tag` **都允许不同**——三者本质是"本次评测身份"，
+            # 而分片的设计就是让各卡评不同的轨迹；`tag` 还带 ids 指纹
+            # （`evaluator.py`：ids 指纹进 tag，否则 scout/confirm 会共用同一份 episode_ids 文件）
+            # ⇒ 各卡 tag 必然不同。**唯一必须守的是"集合通信次数"**（= n_starts），
+            # 它不等才会真卡死（真机实测：3 vs 4）。
+            for r in ok[1:]:
+                for field in ("n_starts", "warmup"):
+                    if r.get(field) != base.get(field):
+                        problems.append(
+                            f"[shard] rank{r['rank']} 与 rank{base['rank']} 的 {field} 不一致："
+                            f"{r.get(field)!r} vs {base.get(field)!r}")
+            # 🔴 期望步数核对（2026-10-12 用户方案）：只比"各卡是否相等"防不住
+            #    「大家一起少算」——7 张卡步调一致地欠采样，预检会放行、指标静默变差。
+            #    上游把 `expected_steps` 公告下来 ⇒ 这里核对"实际 == 期望"。
+            _exp_raw = os.environ.get('AL_EVAL_SHARD_EXPECT_STEPS')
+            if _exp_raw:
+                try:
+                    _exp = int(_exp_raw)
+                except (TypeError, ValueError):
+                    _exp = None
+                if _exp is not None:
+                    for r in ok:
+                        if r.get("n_starts") != _exp:
+                            problems.append(
+                                f"[shard] rank{r['rank']} 实际步数 {r.get('n_starts')} "
+                                f"≠ 上游公告的期望步数 {_exp}（分片步调不一致/欠采样）")
+            # 并集覆盖性：用**上游公告的全局 n**（不是 len(本卡 ids)！）
+            _ctx_n = None
+            _raw_n = os.environ.get('AL_EVAL_SHARD_CTX_N')
+            if _raw_n:
+                try:
+                    _ctx_n = int(_raw_n)
+                except (TypeError, ValueError):
+                    _ctx_n = None
+            expected = int(n_ids) if n_ids is not None else (
+                int(_ctx_n) if _ctx_n else None)
+            union: set = set()
+            for r in ok:
+                for i in r.get("ids") or ():
+                    union.add(int(i))
+            if expected is not None and len(union) != expected:
+                problems.append(
+                    f"[shard] 分片并集 {len(union)} 条 ≠ 全集 {expected} 条"
+                    f"（{'漏评' if len(union) < expected else '越界'}）"
+                    f"：union={sorted(union)[:12]}…")
+            if len(union) == 0:
+                problems.append("[shard] 各 rank 都没有报回任何轨迹 id（并集为空）")
+        else:
+            for r in ok[1:]:
+                for field in ("tag", "ids", "n_starts", "len_ds", "warmup"):
+                    if r.get(field) != base.get(field):
+                        problems.append(
+                            f"rank{r['rank']} 与 rank{base['rank']} 的 {field} 不一致："
+                            f"{r.get(field)!r} vs {base.get(field)!r}")
     return {"reports": list(reports), "failures": failures, "problems": problems,
-            "ws": int(ws)}
+            "ws": int(ws), "sharded": bool(sharded) if sharded is not None else False}
 
 
 def _format_preflight_error(verdict: Dict[str, Any], *, tag: str) -> str:
@@ -723,7 +802,22 @@ def _multirank_eval_preflight(*, ws: int, rank: int, tag: str,
 
     reports: List[Any] = [None] * int(ws)
     gather(reports, local_report)
-    return _preflight_verdict(int(ws), reports)
+    #: 覆盖性校验需要的"全集轨迹条数"：分片模式下由 `_eval_rank_report(..., n_ids=len(ids))`
+    #: 带上（各 rank 报的是**同一个全集 n**）⇒ 这里从报告里取，缺省 None ⇒ 跳过覆盖性校验。
+    _n_ids = local_report.get("n_ids") if isinstance(local_report, dict) else None
+    # 分片模式：local_report 的 ids 只是"本卡那份"，`len(ids)` 不是全集 ⇒
+    # 以**上游公告的全局 n** 为准（没有公告时退回 None ⇒ 跳过覆盖性校验）。
+    # 🔴 分片时**以上游公告的全局 n 为准**：报告里的 `n_ids` 来自 `len(ids)`，
+    #    而分片后 `ids` 只是"本卡那份"（真机实测每卡 1 条、全集 4 条）⇒ 用它当全集会假报"越界"。
+    _raw_n = os.environ.get('AL_EVAL_SHARD_CTX_N')
+    if _raw_n:
+        try:
+            _n_ids = int(_raw_n)
+        except (TypeError, ValueError):
+            pass
+    elif _n_ids is None:
+        _n_ids = None
+    return _preflight_verdict(int(ws), reports, n_ids=_n_ids)
 
 
 class _EvalPhaseTracker:
@@ -1023,6 +1117,174 @@ def per_episode_starts(ep_map: np.ndarray, stride: int) -> List[int]:
         starts.extend(range(i, j, stride))
         i = j
     return starts
+
+
+#: 多卡评测分片开关（与 `real/backend.py` 的 `_shard_enabled` **同源**，见 `_eval_shard_enabled`）。
+EVAL_SHARD_ENV = 'AL_EVAL_SHARD'
+
+
+def _eval_shard_enabled() -> bool:
+    """多卡评测是否按轨迹分片（默认关）。
+
+    ⚠️ 与 `lingbotvla/auto_learning/real/backend.py::RealEvaluator._shard_enabled`
+    **必须读同一个环境变量**：分片在哪里切、预检按什么判，靠它对齐。
+    """
+    return os.environ.get(EVAL_SHARD_ENV, '0').strip() == '1'
+
+
+#: 分片上下文（**由上游 `RealEvaluator.evaluate` 在切分轨迹时公告**）。
+#:   `k` = 每条轨迹的窗口数；`n` = 全集轨迹条数；`world/rank` = 分片身份。
+#: 为什么需要它：验证层（本文件）只看得到"本卡那条子集"，靠自己是推不出全局 k 与 n 的。
+#:
+#: 🔴 2026-10-12：**用环境变量承载，而不是模块级全局变量**。
+#:   原因：`tests/test_multirank_eval_preflight.py` 用"注入式命名空间"加载本模块
+#:   （只把一批认识的名字 exec 进去）⇒ 模块级全局变量在那里**不存在** ⇒ `NameError`
+#:   （真机回归实测 8 个用例挂在这）。环境变量在两种加载方式下都可用，且语义上
+#:   "每次 evaluate 公告一次、本次评测内有效"，与 `AL_EVAL_SHARD` 等开关一致。
+#: 分片上下文的**扁平环境变量**（由上游 `RealEvaluator.evaluate` 公告）。
+#:   k = 每条轨迹窗口数；n = 全集轨迹条数；world/rank = 分片身份。
+#:
+#: 🔴 2026-10-12（两次真机/回归教训合并）：
+#:   ① 用**环境变量**而不是模块级全局变量 —— `tests/test_multirank_eval_preflight.py`
+#:      用"注入式命名空间"加载本模块（只 exec `_WANTED_FUNCS` 里的函数），
+#:      模块级变量与**新函数**在那里都不存在 ⇒ `NameError`（实测两次：`_SHARD_CONTEXT`、`eval_shard_context`）。
+#:   ② 因此本模块内**任何被判据函数用到的信息，都必须内联读 `os.environ`**，
+#:      不调用辅助函数、不用模块级常量。扁平键（而非 JSON 单键）也是为了少依赖一个模块。
+SHARD_CTX_K_ENV = 'AL_EVAL_SHARD_CTX_K'
+SHARD_CTX_N_ENV = 'AL_EVAL_SHARD_CTX_N'
+SHARD_CTX_W_ENV = 'AL_EVAL_SHARD_CTX_W'
+SHARD_CTX_R_ENV = 'AL_EVAL_SHARD_CTX_R'
+SHARD_CTX_EXPECT_ENV = 'AL_EVAL_SHARD_EXPECT_STEPS'
+
+
+def set_eval_shard_context(ctx: Optional[Dict[str, Any]]) -> None:
+    """公告/清除分片上下文（`None` ⇒ 清除、退回非分片语义）。
+
+    ``expected_steps`` = 本卡**应跑的推理次数**（= k × 本卡轨迹条数）。
+    由上游算出并公告 ⇒ 验证层可核对"实际是否等于期望"，拦住"大家一起少算"。
+    """
+    keys = (SHARD_CTX_K_ENV, SHARD_CTX_N_ENV, SHARD_CTX_W_ENV, SHARD_CTX_R_ENV,
+            SHARD_CTX_EXPECT_ENV)
+    if not ctx:
+        for k in keys:
+            os.environ.pop(k, None)
+        return
+    vals = (ctx.get('k'), ctx.get('n'), ctx.get('world'), ctx.get('rank'),
+            ctx.get('expected_steps'))
+    for k, v in zip(keys, vals):
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = str(int(v))
+
+
+def eval_shard_context() -> Optional[Dict[str, Any]]:
+    """读分片上下文（无 ⇒ None）。"""
+    raw = os.environ.get(SHARD_CTX_K_ENV)
+    if not raw:
+        return None
+    out: Dict[str, Any] = {}
+    for k, env in (('k', SHARD_CTX_K_ENV), ('n', SHARD_CTX_N_ENV),
+                   ('world', SHARD_CTX_W_ENV), ('rank', SHARD_CTX_R_ENV)):
+        try:
+            out[k] = int(os.environ[env])
+        except (KeyError, TypeError, ValueError):
+            pass
+    return out or None
+
+
+def _eval_shard_enabled_or_context() -> bool:
+    """是否处于分片评测（环境变量 **或** 上游公告的上下文任一成立）。
+
+    ⚠️ 不用 `_eval_shard_enabled()` 直接判，是为了**在注入式测试里也能工作**：
+    `tests/test_multirank_eval_preflight.py` 用自建命名空间加载本模块（只注入它认识的
+    名字），在那里 `_eval_shard_enabled` 可能不存在 ⇒ 会 `NameError`（真机回归实测）。
+    因此这里内联读环境变量，并加 `globals().get()` 兜底。
+    """
+    fn = globals().get('_eval_shard_enabled')
+    try:
+        if fn is not None and fn():
+            return True
+    except Exception:  # noqa: BLE001 —— 判据失败时退化为"看上下文"
+        pass
+    return bool(os.environ.get('AL_EVAL_SHARD_CTX_K'))
+
+
+def eval_shard_indices(*, n: int, world: int, rank: int) -> List[int]:
+    """分片：本 rank 负责的**下标**（每卡固定 ``k=ceil(n/world)`` 条，越界回绕）。
+
+    这是全仓**唯一**的分片切分实现（`real/backend.py` 改为调用本函数）。
+
+    ⚠️ 为什么必须"每卡条数相同"而不是"交错均分（2/1/1…）"：
+    分片并行下每卡都要走到 ``all_gather`` 汇总 ⇒ 集合通信**次数**必须相等；
+    条数不等 ⇒ 先到的 rank 永久等在集合通信里（真机表现 = NCCL 看门狗 600 s 后 abort）。
+    回绕重复的那几条在汇总时按 episode id 去重，不影响数值。
+
+    ``n=10, world=7`` ⇒ ``k=2``：rank0..4 各 2 条、rank5 拿到 (10,11)%10=(0,1)、rank6 拿到 (2,3)。
+    """
+    if n <= 0 or world <= 0:
+        return []
+    k = -(-int(n) // int(world))          # ceil(n/world)
+    return [int((rank * k + j) % n) for j in range(k)]
+
+
+def adaptive_episode_starts(ep_map: np.ndarray, k: int) -> List[int]:
+    """**每条回合恰好产出 k 个窗口起点** —— 让"每卡的推理次数"在结构上恒等。
+
+    为什么需要它（2026-10-12 真机实测，al_v47 崩点）：
+        分片保证了"每卡 k 条轨迹"，但没保证"每条轨迹几个窗口"。
+        `per_episode_starts(ep_map, stride=50)` 的窗口数 = ``ceil(帧数/50)``
+        ⇒ move_can_pot val 上：143 帧=3、151 帧=4 ⇒ 各卡 ``n_starts`` = 6/7 混杂
+        ⇒ 集合通信次数错配 ⇒ 一致性预检 fail-closed 拦下（拦对了：真跑会卡死）。
+
+        本函数改成"逐回合按自己的帧数反算 stride"：
+            ``stride_e = ceil(帧数_e / k)`` ⇒ 恰好 k 个起点。
+            143 帧 & k=2 ⇒ stride=72 ⇒ 起点 [0, 72]
+            151 帧 & k=2 ⇒ stride=76 ⇒ 起点 [0, 76]
+        ⇒ 每卡 ``n_starts = k × 本卡轨迹数``（回绕重复同理）⇒ 各卡恒等。
+
+    ⚠️ 口径影响：窗口起点与 `stride=50` 不同 ⇒ 实测 GMean **与历史 run 不可逐位比**，
+    也偏离按 stride=50 标定的 `pass_thresholds`；因此**分母（基线）与分子（评测）必须同口径**。
+    只在分片模式（``AL_EVAL_SHARD=1``）下使用；非分片路径继续走 `per_episode_starts`（逐字不变）。
+
+    ``ep_map`` 必须是**按 local_idx 递增**的回合号数组（`_episode_index_map` 的返回值）。
+    """
+    out: List[int] = []
+    kk = max(1, int(k))
+    i = 0
+    n = int(len(ep_map))
+    while i < n:
+        ep = ep_map[i]
+        j = i
+        while j < n and ep_map[j] == ep:
+            j += 1
+        frames = j - i
+        stride_e = max(1, -(-frames // kk))       # ceil(frames / k)
+        out.extend(range(i, j, stride_e))
+        i = j
+    return out
+
+
+def _shard_k_for(ep_map: np.ndarray) -> int:
+    """分片模式下"每条轨迹的窗口数" k（**优先用上游公告的全局 k**）。
+
+    🔴 2026-10-12 真机教训：**不能用本卡 ep_map 反推 k**。
+    上游（`RealEvaluator.evaluate`）已经把轨迹切给各卡了 ⇒ 验证层拿到的数据集只有
+    "本卡那几条轨迹"（实测每卡 1 条）。若在此按 `ceil(本卡条数/W)` 算，会得到 k=1，
+    而全局 k 可能是 2 ⇒ 抽帧步长偏大（143 而非 72）⇒ **欠采样**。
+
+    ⇒ 优先读 `set_eval_shard_context()` 公告的全局 k；没有公告（例如基线标定工具单跑）
+       才退回"按本卡 ep_map 估"这条近似路径。
+    """
+    # 内联读（不调用辅助函数：注入式测试命名空间里可能没有它）
+    _raw = os.environ.get('AL_EVAL_SHARD_CTX_K')
+    if _raw:
+        try:
+            return max(1, int(_raw))
+        except (TypeError, ValueError):
+            pass
+    n_total = len({int(x) for x in ep_map.tolist()})
+    return max(1, -(-int(n_total) // max(1, int(_world_size()))))
 
 
 def pick_action_keys(ft, gt_phys: Dict[str, Any], pred: Dict[str, Any]) -> List[str]:
@@ -2466,9 +2728,16 @@ class OpenLoopValidator:
             #      可训练好的模型会预测**运动延续**，在这些帧上反而可能更差。
             #      要量化请用 `tools/open_loop_eval_inprocess.py --flat-stride` 在同一 ckpt 上跑两遍。
             stride = max(1, int(getattr(self._model_config, "chunk_size", 50) or 50))
-            starts = (per_episode_starts(ep_map, stride)
-                      if self.per_episode_stride and ep_map is not None
-                      else list(range(0, len(ds), stride)))
+            if _eval_shard_enabled_or_context() and ep_map is not None:
+                # 🔴 分片：锁死"每条轨迹的窗口数 = k"，让各 rank 的推理次数（= 集合通信次数）
+                #    结构上恒等。否则窗口数 = ceil(帧数/50) ⇒ move_can_pot val 实测
+                #    n_starts=6/7 混杂 ⇒ 一致性预检 fail-closed 拦下（拦对了：真跑会卡死）。
+                #    详见 `adaptive_episode_starts` 的 docstring（含口径影响）。
+                starts = adaptive_episode_starts(ep_map, _shard_k_for(ep_map))
+            elif self.per_episode_stride and ep_map is not None:
+                starts = per_episode_starts(ep_map, stride)
+            else:
+                starts = list(range(0, len(ds), stride))
             prep.update(ds=ds, ft=ft, ep_map=ep_map, starts=starts, stride=stride)
             # 🔴 预热要用的那一条**也在这里读**（本地 I/O）：读失败必须发生在
             #    *任何集合通信之前*，否则失败 rank 会跳过预热的 all-gather、
@@ -2599,7 +2868,7 @@ class OpenLoopValidator:
         # 预热的「计划」也要逐 rank 一致（预热窗口是集合通信）：不一致 ⇒ 预检 A 就停
         warm_plan = self._eval_warmup_plan(prep)
         report = _eval_rank_report(
-            tag=tag, ids=ids, rank=_global_rank(),
+            tag=tag, ids=ids, rank=_global_rank(), n_ids=len(ids),
             n_starts=(None if prep["prep_error"] is not None else len(prep["starts"])),
             len_ds=(None if prep["prep_error"] is not None or prep["ds"] is None
                     else len(prep["ds"])),
@@ -2620,7 +2889,7 @@ class OpenLoopValidator:
         # ④ 预热后的复检：把预热失败/身份漂移变成**全 rank 一起抛**，而不是窗口里的挂死
         if _preflight_enabled() and _world_size() > 1 and _all_ranks_must_run_eval(self.args):
             report_b = _eval_rank_report(
-                tag=tag, ids=ids, rank=_global_rank(),
+                tag=tag, ids=ids, rank=_global_rank(), n_ids=len(ids),
                 n_starts=(None if prep["prep_error"] is not None else len(prep["starts"])),
                 len_ds=(None if prep["prep_error"] is not None or prep["ds"] is None
                         else len(prep["ds"])),
@@ -2679,7 +2948,7 @@ class OpenLoopValidator:
             # 直接调 `_evaluate_ids`（没走窗口前阶段）⇒ 在这里补一次集合点预检：
             # 分片并行下**所有 rank 都走这条**，所以仍然对称。
             local_report = _eval_rank_report(
-                tag=tag, ids=ids, rank=_global_rank(), n_starts=len(starts),
+                tag=tag, ids=ids, rank=_global_rank(), n_ids=len(ids), n_starts=len(starts),
                 len_ds=(None if ds is None else len(ds)), error=None)
             self._eval_preflight(tag=tag, ids=ids, local_report=local_report,
                                  stage="推理循环前（直接调用 `_evaluate_ids`）")
@@ -3050,7 +3319,11 @@ class OpenLoopValidator:
                     _msg + "\n  ⇒ strict=True 下拒绝继续：固定分母一旦退化就会被永久污染。")
             self.logger.warning(_msg)
         stride = max(1, int(getattr(self._model_config, "chunk_size", 50) or 50))
-        if self.per_episode_stride and ep_map is not None:
+        if _eval_shard_enabled_or_context() and ep_map is not None:
+            # 与 `_eval_prepare` **同口径**（分片时用自适应窗口）：
+            # 基线（GT 分母）与实际评测必须取同一个窗口集合，否则"分子/分母不同源"。
+            starts = adaptive_episode_starts(ep_map, _shard_k_for(ep_map))
+        elif self.per_episode_stride and ep_map is not None:
             starts = per_episode_starts(ep_map, stride)
         else:
             starts = list(range(0, len(ds), stride))

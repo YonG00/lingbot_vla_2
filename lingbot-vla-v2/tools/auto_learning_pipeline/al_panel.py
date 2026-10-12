@@ -315,33 +315,82 @@ def latest_dcp(run_dir: Path) -> Optional[Path]:
         return cks[-1]
 
 
-def load_registry(run_dir: Path) -> Tuple[Optional[Dict[str, dict]], Optional[int], Optional[Path]]:
-    """读 DCP `extra_state` 里的 AL 注册表 → (records, dcp_step, dcp_dir)。
+def latest_pool_state(run_dir: Path) -> Optional[Path]:
+    """取 `<run_dir>/checkpoints/global_step_*` 下**步数最大**的池子存档（没有则 None）。
 
-    🔴 为什么读 DCP 而不是从事件流推导（真机实测）：事件流推不出 `DEFER` / `EXHAUSTED`
+    🔴 为什么需要它（2026-10-12 真机）：`--train.dcp_save_mode=final_only` 时
+    **周期只写 HF、收尾才写 DCP** ⇒ 整个 run 期间 `checkpoints/global_step_N/`
+    里**没有 `extra_state`**，面板只能退化成"事件流推导"，于是把
+    `DEFER`/`PASS` 全当成 `CANDIDATE`（实测显示 `candidate=49`，真值 27）。
+
+    而**同一次存档**其实已经把权威注册表写在了 HF 旁边：
+      `<global_step_N>/pool_state.json` 或 `<global_step_N>/hf_ckpt/pool_state.json`
+      （由 `train_lingbotvla.py::_export_pool_state_here` 导出，格式与 DCP 同构）。
+    本函数就是为了让面板能找到它 —— 池子/在训/倍率不必等收尾写 DCP。
+    """
+    cks = [p for p in (run_dir / 'checkpoints').glob('global_step_*') if p.is_dir()]
+    if not cks:
+        return None
+    try:
+        cks = sorted(cks, key=lambda p: int(p.name.rsplit('_', 1)[-1]))
+    except (ValueError, IndexError):
+        pass
+    for d in reversed(cks):                       # 步数最大的优先
+        for cand in (d / 'pool_state.json', d / 'hf_ckpt' / 'pool_state.json'):
+            if cand.is_file():
+                return cand
+    return None
+
+
+def load_registry(run_dir: Path) -> Tuple[Optional[Dict[str, dict]], Optional[int], Optional[Path]]:
+    """读权威 AL 注册表 → (records, step, 来源路径)。
+
+    读取顺序（**三级回退**，2026-10-12 起）：
+      1. **DCP `extra_state`**（`checkpoints/global_step_N/extra_state/extra_state_rank_0.pt`）
+         —— 最完整；
+      2. **`pool_state.json`**（`global_step_N/pool_state.json` 或 `.../hf_ckpt/pool_state.json`）
+         —— `dcp_save_mode=final_only` 时**唯一**的权威来源（见 `latest_pool_state`）；
+      3. 都没有 ⇒ 返回 None，由调用方退回"事件流推导"并打警告。
+
+    🔴 为什么不用事件流推导当主源（真机实测）：事件流推不出 `DEFER` / `EXHAUSTED`
     （只有 PASS/CANDIDATE 两类），也读不到 `attempt_count` / `lp50` / `overfit` /
     `last_transition_reason`；且**重启后事件流叠加**会让推导错乱。
-    DCP 里 `auto_learning.registry.records[task]` 字段齐全，是唯一权威源。
+    注册表（无论来自 DCP 还是 pool_state.json）字段齐全，是唯一权威源。
 
     ⚠️ 只读 + `map_location='cpu'`：不占 GPU、不触碰正在跑的训练；
     取文件失败/半写状态一律**降级**（返回 None，由调用方退回事件流并提示）。
     """
     dcp = latest_dcp(run_dir)
-    if dcp is None:
-        return None, None, None
-    f = dcp / 'extra_state' / 'extra_state_rank_0.pt'
-    if not f.is_file():
-        return None, None, dcp
-    try:
-        import torch  # 惰性 import：只有真要读 DCP 时才需要
-        d = torch.load(f, map_location='cpu', weights_only=False)
-        al = (d or {}).get('auto_learning') or {}
-        reg = (al.get('registry') or {}).get('records') or {}
-        step = (al.get('scheduler') or {}).get('global_step')
-        return (reg or None), (int(step) if isinstance(step, (int, float)) else None), dcp
-    except Exception as exc:  # noqa: BLE001 —— 读不到不该让面板失败
-        print(f'  ⚠️ 读 DCP 注册表失败（{type(exc).__name__}: {str(exc)[:60]}）⇒ 池子改用事件流推导')
-        return None, None, dcp
+    f = (dcp / 'extra_state' / 'extra_state_rank_0.pt') if dcp is not None else None
+    if f is not None and f.is_file():
+        try:
+            import torch  # 惰性 import：只有真要读 DCP 时才需要
+            d = torch.load(f, map_location='cpu', weights_only=False)
+            al = (d or {}).get('auto_learning') or {}
+            reg = (al.get('registry') or {}).get('records') or {}
+            step = (al.get('scheduler') or {}).get('global_step')
+            return (reg or None), (int(step) if isinstance(step, (int, float)) else None), dcp
+        except Exception as exc:  # noqa: BLE001 —— 读不到不该让面板失败
+            print(f'  ⚠️ 读 DCP 注册表失败（{type(exc).__name__}: {str(exc)[:60]}）⇒ 尝试 pool_state.json')
+
+    # ---- 回退 2：pool_state.json（final_only 模式下的唯一权威源）----
+    pool = latest_pool_state(run_dir)
+    if pool is not None:
+        try:
+            import json
+            d = json.loads(pool.read_text(encoding='utf-8'))
+            al = (d or {}).get('auto_learning') or {}
+            reg = (al.get('registry') or {}).get('records') or {}
+            step = (al.get('scheduler') or {}).get('global_step') if al else None
+            # pool_state.json 顶层还有 global_step（导出时写入）⇒ 兜底
+            if not isinstance(step, (int, float)):
+                step = (d or {}).get('global_step')
+            if reg:
+                return (reg or None), (int(step) if isinstance(step, (int, float)) else None), pool
+        except Exception as exc:  # noqa: BLE001
+            print(f'  ⚠️ 读 pool_state.json 失败（{type(exc).__name__}: {str(exc)[:60]}）⇒ 退回事件流推导')
+
+    return None, None, dcp
 
 
 def pool_counts(records: Dict[str, dict]) -> Dict[str, int]:

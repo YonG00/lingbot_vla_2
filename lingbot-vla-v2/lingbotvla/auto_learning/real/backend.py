@@ -23,6 +23,9 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from ..ports import Backend, TrajectoryMetrics
 from .determinism import deterministic_sampling
+#: 分片切分规则的**唯一事实来源**（2026-10-12：原先本文件自己实现一份，
+#: 而多卡评测一致性预检看不到它 ⇒ 预检必然误报，真机 al_v47 实测）。
+from lingbotvla.utils.open_loop_validation import eval_shard_indices, set_eval_shard_context
 
 
 # --------------------------------------------------------------------------- #
@@ -60,18 +63,17 @@ def _dist_world_rank() -> tuple:
 def _eval_shard_indices(*, n: int, world: int, rank: int) -> List[int]:
     """每卡固定 `k = ceil(n/world)` 条的分片索引（不足处按 `% n` 回绕）。
 
-    🔴 为什么"固定 k 条"而不是"交错均分"：FSDP 的 all-gather 是集合通信，
-    各 rank 前向次数不一致 ⇒ 集合通信错配 ⇒ **静默死锁**（不是报错）。
-    固定 k 条保证了次数恒等；重复的那几条在汇总时按 episode id 去重，不影响数值。
+    🔴 2026-10-12：**实现已迁到 `lingbotvla/utils/open_loop_validation.py::eval_shard_indices`**
+    （唯一事实来源）。原先分片规则只在本文件里，而**多卡评测一致性预检**
+    （`open_loop_validation.py`）看不到它 ⇒ 预检拿"分片前"的 ids 比对，判成
+    "各 rank 不一致" 而 fail-closed 拒绝启动（真机 al_v47 实测：n_starts=6/7 混杂）。
+    此处保留同名薄包装只做转发，避免两处漂移。
 
-    n=4,W=7 ⇒ k=1 ⇒ rank0..3 各 1 条、rank4..6 也各 1 条（回绕重复，汇总去重）
-    n=8,W=8 ⇒ k=1 ⇒ 每卡 1 条，零冗余
-    n=8,W=7 ⇒ k=2 ⇒ 每卡 2 条（多算 6 条）
+    为什么必须"固定 k 条"而不是"交错均分"：集合通信次数必须逐 rank 相等，
+    否则先到的 rank 永久等在 all-gather 里（真机表现 = NCCL 看门狗 600 s 后 abort）。
+    回绕重复的那几条在汇总时按 episode id 去重，不影响数值。
     """
-    if n <= 0 or world <= 0:
-        return []
-    k = -(-int(n) // int(world))          # ceil(n/world)
-    return [int((rank * k + j) % n) for j in range(k)]
+    return eval_shard_indices(n=n, world=world, rank=rank)
 
 
 def _all_gather_object(payload: Any) -> List[Any]:
@@ -234,12 +236,30 @@ class RealEvaluator:
         """
         ids = [int(i) for i in episode_ids]
         if not self._shard_enabled() or len(ids) <= 1:
+            # 非分片：清掉可能残留的分片上下文（同一进程可能先后走两条路）
+            set_eval_shard_context(None)
             res = self.adapter.evaluate_task(task, _split_name(split), ids)
             return res.to_trajectory_metrics()
 
         world, rank = _dist_world_rank()
         my_idx = _eval_shard_indices(n=len(ids), world=world, rank=rank)
         my_ids = [ids[i] for i in my_idx]
+        # 🔴 2026-10-12：把**分片上下文**公告给下面的验证层（同进程、同一线程栈）。
+        #   为什么必须公告：`my_ids` 只是"本卡那份"，验证层看到的数据集也只有这几条轨迹
+        #   ⇒ 它既算不出"每条轨迹该有几个窗口"（需要全局 k），也判不出"并集是否覆盖全集"
+        #   （需要全局 n）。不公告就会出现真机实测的两个错判：
+        #     · `_shard_k_for(本卡 ep_map)` 把 k 算成 1（全局 k=2）⇒ 抽帧步长偏大、欠采样；
+        #     · `n_ids=len(ids)` 把全集当成 1 条 ⇒ 假报"分片并集 4 条 ≠ 全集 1 条（越界）"。
+        _k = max(1, -(-len(ids) // max(1, int(world))))        # k = ceil(n/W)
+        _my_n = len(my_ids)
+        set_eval_shard_context({
+            'k': _k,                                           # 每条轨迹的窗口数
+            'n': len(ids),                                     # 全集轨迹条数
+            'world': int(world), 'rank': int(rank),
+            # 本卡应跑的次数 = k × 本卡轨迹条数；验证层据此核对"实际 == 期望"
+            # （只比"各卡相等"防不住"大家一起少算"）。
+            'expected_steps': _k * _my_n,
+        })
         res = self.adapter.evaluate_task(task, _split_name(split), my_ids)
         local = res.to_trajectory_metrics()
         return self._gather_and_merge_shards(

@@ -33,6 +33,7 @@
 | 10 | 10-12 | `tasks/vla/train_lingbotvla.py`：未显式传 `--train.step_offset` 时，**自动从 `--model.model_path` 解析 `global_step_<N>`** 作为起始编号（只认 `global_step_<N>`，不认裸数字，避免把 `v41` 当 41） | v44 实测 `step_offset=0` ⇒ 从 `…/al_v41_step801_hf/global_step_801/hf_ckpt` 起新 run，但存档编号从 1 开始、与来源 801 脱节 | ① 日志出现 `[step_offset] 未显式指定 ⇒ 自动从模型路径推导 = 801…编号从 802 起`；② 存档仍落在 `save_steps` 整数倍（1200/1600）；③ 显式传值优先；④ DCP 成功加载时被 DCP 的 global_step 覆盖（原语义） | ⚠️ `max_steps` 是**绝对**目标 ⇒ LR 调度步数 = `max_steps - offset` 变短（既有语义）；独立 | `TODO_SHA` | 🧪 部分验证（py_compile + 正则 6/6 用例） |
 | 11 | 10-12 | 新增 `lingbotvla/auto_learning/state/pool_state.py`（池子独立存档读写）+ `tests/test_al_pool_state.py`（16 项） | Auto Learning 的池子（status/attempts/lp50/`sample_probs`）原本**只随 DCP** 的 `extra_state` 走；从 **HF 权重**起新 run 判 `fresh` ⇒ 池子从零 ⇒ 已 PASS 的被重训、刚 DEFER 的被立刻重试 | ① 导出→读回**逐字段相等**（含 `sample_probs`）；② 缺失/损坏 ⇒ `None` 不抛；③ 原子写不留 `.tmp`；④ 开关 `AL_POOL_STATE_EXPORT／NO_IMPORT／RESTORE_RNG／MIRROR／PRUNE／FILE`（**进程启动时读**）；⑤ `sampler_rng` **默认不恢复** | 独立；纯 stdlib（无 torch）；单份 ≈9.4 MB | `TODO_SHA` | 🧪 部分验证（单测 16 passed） |
 | 12 | 10-12 | `tasks/vla/train_lingbotvla.py`：导出挂在 `save_hf_checkpoint_best_effort()` 内（⇒ 周期/轮末/收尾**三个存档点全覆盖**），路径 `<global_step_N>/pool_state.json`，`final_only` 时另写 `<…>/hf_ckpt/pool_state.json`；`real/build.py`：`Scheduler` 之后**仅当不走 DCP** 时导入池子 | 需求 2 落地：HF 续训也能继承池子。DCP 路径由 `load_extra_state()` 自动恢复 ⇒ 必须**跳过**导入（否则日志把"预期跳过"误导成"丢状态"） | ① 日志出现 `[pool_state] 已导出池子：…（step=2400，9.4 MB）` 与池子计数；② HF 续训出现 `[pool_state] 已导入池子：…（step=2400）`；③ DCP 续训出现 `本次从 DCP 续训 ⇒ …跳过 pool_state.json 导入（这是预期行为，不是丢状态）`；④ 导出失败**只告警不中断**；⑤ 任务集合对不上 ⇒ 摊开三类差异（多出/缺少/共有），**不拦截** | ⚠️ **前置**：导出挂在 `save_hf_checkpoint_best_effort` 内 ⇒ `save_hf_weights=false` 时不导出（`final_only` 模式必开 HF ⇒ 满足）；与 #10 独立 | `TODO_SHA` | 🧪 部分验证（单测 16 passed + 静态接线断言） |
+| 13 | 10-12 | `lingbotvla/utils/open_loop_validation.py`：新增 `eval_shard_indices`（分片切分**唯一事实来源**）、`adaptive_episode_starts`（每条轨迹恰好 k 个窗口）、`_shard_k_for`；`_preflight_verdict` **分模式判定**（分片下不比 `ids/len_ds`，改守 `n_starts` 相等 + **并集覆盖完整**）；`_eval_rank_report(..., n_ids=)` + `_multirank_eval_preflight` 透传全集条数；`real/backend.py::_eval_shard_indices` 改为**转发**共享实现 | **真机 al_v47 崩点**（从 2400 HF 起跑 + `AL_EVAL_SHARD=1`）：首个 `active_val` 评测被多卡一致性预检拦下 —— `n_starts` 实测 rank0=3 / rank1=4（`len_ds` 143/151/148/157）。两个独立缺陷叠加：① 预检要求 `ids/len_ds/n_starts` 逐一相同，而分片的**设计**就是让 `ids` 不同 ⇒ 必然误报；② **推理次数真的不等**：分片只对齐了「轨迹条数 k」，没对齐「每条轨迹几个窗口」（窗口数 = `ceil(帧数/stride)`）⇒ 真跑下去会在 all-gather 上卡死（预检拦对了） | **改动本意（用户 2026-10-12 四问）**：<br>① **不变量**：分片模式下各 rank 的 `n_starts`（= 集合通信次数）**必须逐 rank 相等**；各 rank 的 `ids` 并集**必须恰好等于全集** `n_ids`（不漏不越界）；**非分片路径**（`AL_EVAL_SHARD=0`，默认）`_preflight_verdict` 与 `per_episode_starts` 行为**逐字不变**。<br>② **出错症状**：日志出现 `多卡评测一致性预检未通过` + `n_starts=3 vs 4` 之类 ⇒ 窗口数没锁死；出现 `[shard] 分片并集 N 条 ≠ 全集 M 条` ⇒ 漏评/越界；实测 GMean 与历史 run 不可逐位比（**预期**，见③）。<br>③ **快速回滚**：`AL_EVAL_SHARD=0`（**进程启动时读一次 ⇒ 必须重启**）；或 `git checkout <sha>~1 -- lingbotvla/utils/open_loop_validation.py lingbotvla/auto_learning/real/backend.py`。<br>④ **验证入口**：`PYTHONPATH=$PWD /opt/robotwin-env/bin/python -m pytest tests/test_al_eval_shard_preflight.py -q`（真机 24 passed）；真机看首轮评测是否出现 `[open_loop][shard]` 且不再报预检失败 | ⚠️ **口径**：窗口起点与 `stride=50` 不同 ⇒ 实测 GMean 偏离按 stride=50 标定的 `pass_thresholds` 与 `task_baseline`（**未重标定**，用户选 5b：先看偏差）；与 #6（分片本体）**强耦合**：本改动修的就是 #6 真机跑不通的问题 | `TODO_SHA` | 🧪 部分验证（新单测 24 passed 于真机 robotwin-env；**真机训练未验证**） |
 
 ## §1.5 改动本意速查（**debug 入口**；2026-10-12 用户要求）
 
@@ -62,6 +63,8 @@
 | **#8** 面板池子/进步 | 池子状态从**事件流推导**改为读 **DCP 注册表**（权威），且能看 DEFER 原因/进步/轨迹 | 面板显示的状态计数与 DCP `auto_learning.registry.records` **完全一致**；只读（不写 DCP、不占 GPU） | ① 面板出现 `⚠️ 读 DCP 注册表失败`；② 池子计数与 `--pool` 明细行数不符；③ 快照停在旧 `global_step`（正常：读的是最近一份存档） | 无开关；`git checkout 606c67a~1 -- tools/auto_learning_pipeline/al_panel.py` | `al_panel.py <run> --pool`（计数与 DCP 一致即可） |
 | **#3** v45 帧上限 200 | 单任务扫描量 600 → 400 帧（−33%），帧多的任务省时间 | 压缩是**均匀**的（日志给出 `A → B` 帧数）；**不影响判定口径**（hardness 只做采样权重） | ① 日志缺 `（帧数上限 200：… A → B 帧）`；② 扫描墙钟没降（说明配置没生效）；③ 硬度分布异常偏（压缩过度时看 p90） | 改回 `hardness_max_frames_per_traj: 300`（需重启）；**只对 v45 生效**，v44 不受影响 | 日志匹配 `帧数上限 200`；对比单任务扫描用时（v44 基线 275–466 s） |
 
+| **#13** 分片预检修复 | 让「每卡推理次数」**结构上恒等**，使多卡分片评测真机可跑（#6 才真正可用） | 分片下各 rank `n_starts` 相等；`ids` 并集 = 全集 `n_ids`；非分片路径逐字不变 | 日志 `多卡评测一致性预检未通过` + `n_starts=x vs y`；或 `[shard] 分片并集 N ≠ M` | `AL_EVAL_SHARD=0`（**需重启**）或 `git checkout <sha>~1 -- <两文件>` | `pytest tests/test_al_eval_shard_preflight.py -q`（真机 24 passed） |
+
 ## §2 已验证（可不再惦记）
 
 | # | 日期 | 内容 | 验证证据 |
@@ -79,6 +82,6 @@
 
 ---
 
-**当前待验证：12 条（#1–#12；存在两条编号 `9` —— 并行协作者各写一条，本 agent 未擅自改其编号）。下次上机（无训练在跑时）优先按编号顺序验证；**
+**当前待验证：13 条（#1–#13；存在两条编号 `9` —— 并行协作者各写一条，本 agent 未擅自改其编号）。下次上机（无训练在跑时）优先按编号顺序验证；**
 **排查入口：先看 §1.5（扰动本意/症状/回滚）与 `AL_*` 开关总表；**
 **#6（轨迹分片）需真机 7/8 卡 smoke：确认不死锁、指标与不分片逐位一致、墙钟下降。**
