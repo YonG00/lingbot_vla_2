@@ -554,6 +554,24 @@ def derive_status(events: Path) -> Tuple[Dict[str, str], List[str]]:
     return status, passed
 
 
+def _to_sec_any(hms: str) -> Optional[float]:
+    """`HH:MM:SS` / `MM:SS` / `SS` → 秒；失败返回 None。"""
+    try:
+        parts = [int(x) for x in str(hms).split(':')]
+    except (ValueError, AttributeError):
+        return None
+    while len(parts) < 3:
+        parts.insert(0, 0)
+    return float(parts[0] * 3600 + parts[1] * 60 + parts[2])
+
+
+def _hms_h(sec: Optional[float]) -> str:
+    """秒 → `X.Xh`（用户要求以 h 为单位）；None → `?`。"""
+    if not isinstance(sec, (int, float)) or sec <= 0:
+        return '?'
+    return f'{sec / 3600.0:.1f}h'
+
+
 def step_progress(log: Path, interval: Optional[int]) -> Tuple[Optional[int], Optional[float], int, Optional[float]]:
     """返回 (最新 step, **稳态** s/it 中位数, 采样步数, 最新一步的 s/it)。
 
@@ -566,27 +584,370 @@ def step_progress(log: Path, interval: Optional[int]) -> Tuple[Optional[int], Op
         "中位数"退化成单点。这里先把 `\\r` 归一成 `\\n` 再匹配，并把窗口放大到 2 MB。
     """
     if not log.is_file():
-        return None, None, 0, None
+        return None, None, 0, None, None, None
     try:
         tail = log.read_text(encoding='utf-8', errors='replace')[-2_000_000:]
     except OSError:
         return None, None, 0, None
     tail = tail.replace('\r', '\n')                       # 进度条分隔符归一
-    hits = re.findall(r'Step:\s*(\d+)/\d+\s*\[[^]]*?([\d.]+)s/it', tail)
+    # 取 (step, 该行 elapsed 秒, 累计均值 s/it)
+    hits = re.findall(r'Step:\s*(\d+)/\d+\s*\[([\d:]+)<[^]]*?([\d.]+)s/it', tail)
     if not hits:
         m = re.findall(r'Step:\s*(\d+)/', tail)
-        return (int(m[-1]) if m else None), None, 0, None
-    latest = float(hits[-1][1])
-    iv = int(interval) if interval else 50
-    steady_rates = [float(b) for a, b in hits if iv and int(a) % iv != 0]   # 剔掉边界步
-    if len(steady_rates) < 3:                            # 稳态样本太少 ⇒ 退回全部
-        steady_rates = [float(b) for _, b in hits]
-    return int(hits[-1][0]), statistics.median(steady_rates[-20:]), len(hits), latest
+        return (int(m[-1]) if m else None), None, 0, None, None, None
+    latest = float(hits[-1][2])
+    elapsed_s = _to_sec_any(hits[-1][1])
+    eta_s = None
+    _m_eta = re.findall(r'Step:\s*\d+/\d+\s*\[[\d:]+<([\d:]+)', tail)
+    if _m_eta:
+        eta_s = _to_sec_any(_m_eta[-1])
+
+    def _to_sec(hms: str):
+        try:
+            parts = [int(x) for x in hms.split(':')]
+        except ValueError:
+            return None
+        while len(parts) < 3:
+            parts.insert(0, 0)
+        return float(parts[0] * 3600 + parts[1] * 60 + parts[2])
+
+    # 🔴 稳态必须用**每步增量**（相邻两行 elapsed 之差）。为什么不能用累计均值：
+    #    unit 边界那一步含评测/扫描（实测评测 45s + hardness 466s），把**累计均值**抬高，
+    #    之后每步分母只 +1 ⇒ 要 ~50 步才回落（实测出现 258/184/132… 的虚高序列）
+    #    ⇒ 直接取"最近 20 个累计均值的中位数"会把稳态高估（真机 20.3 vs 真实 10.2–10.9）。
+    deltas = []
+    prev_step = prev_sec = None
+    for stp, hms, _cum in hits:
+        cur = _to_sec(hms)
+        if None not in (prev_sec, cur) and int(stp) - int(prev_step) == 1:
+            d = cur - prev_sec
+            if 0.0 < d < 3600.0:
+                deltas.append(d)
+        prev_step, prev_sec = int(stp), cur
+    if not deltas:
+        return int(hits[-1][0]), None, len(hits), latest, elapsed_s, eta_s
+    # 边界步**自动识别**：明显大于典型步（> max(3×中位, 25s)）的那些
+    med_all = statistics.median(deltas)
+    cutoff = max(3.0 * med_all, 25.0)
+    steady = [d for d in deltas if d <= cutoff] or deltas
+    return (int(hits[-1][0]), statistics.median(steady[-60:]), len(hits), latest,
+            elapsed_s, eta_s)
 
 
 # --------------------------------------------------------------------------- #
-# 主流程
+# 紧凑视图（默认输出；目标 ≤22 行，终端一屏可见）
 # --------------------------------------------------------------------------- #
+_CLR = {'TRAINING': '36', 'DEFER': '33', 'PASS': '32', 'CANDIDATE': '90', 'EXHAUSTED': '31'}
+_SPARK = '▁▂▃▄▅▆▇█'
+#: 池子分段用的**字符**（不靠颜色也能分辨）
+#: 池子分段字符 —— **只用 ASCII**（`+`/`=`/`-`/`.`）：
+#    框线与方块字符在部分终端（CJK 宽度判定不准）会错位成乱码，真机踩过。
+_POOL_CHAR = {'TRAINING': '+', 'DEFER': '=', 'PASS': '#', 'CANDIDATE': '-', 'EXHAUSTED': '!'}
+_POOL_TAG = {'TRAINING': 'T', 'DEFER': 'D', 'PASS': 'P', 'CANDIDATE': 'C', 'EXHAUSTED': 'E'}
+
+
+
+def _use_color() -> bool:
+    if os.environ.get('NO_COLOR'):
+        return False
+    try:
+        import sys
+        return bool(sys.stdout.isatty())
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _c(text: str, code: str) -> str:
+    return f'\033[{code}m{text}\033[0m' if _use_color() else text
+
+
+def _bar(frac: float, width: int = 18, fill: str = '█', empty: str = '░') -> str:
+    f = max(0.0, min(1.0, float(frac)))
+    n = int(round(f * width))
+    return fill * n + empty * (width - n)
+
+
+def _rstr(r, width: int = 6) -> str:
+    """倍率着色：≤1 绿 / ≤1.3 黄 / 其余红（无颜色时纯文本）。"""
+    if not isinstance(r, (int, float)):
+        return ' ' * width
+    txt = f'{r:.2f}x'
+    col = '32' if r <= 1.0 else ('33' if r <= 1.3 else '31')
+    return _c(txt.rjust(width), col)
+
+
+def _spark(vals) -> str:
+    vals = [float(v) for v in vals]
+    if not vals:
+        return ''
+    lo, hi = min(vals), max(vals)
+    if hi == lo:
+        return _SPARK[3] * len(vals)
+    return ''.join(_SPARK[int((v - lo) / (hi - lo) * 7)] for v in vals)
+
+
+def _progress_bit(att: dict) -> str:
+    """进步一行摘要：`训练过15  lp50>0 7 / ≤0 8  过拟合 6  最好 X(+0.200)`。"""
+    if not att:
+        return _c('（还没有被训练过的任务）', '33')
+    lp = [(r.get('lp50'), t) for t, r in att.items() if isinstance(r.get('lp50'), (int, float))]
+    pos = [x for x in lp if x[0] > 0]
+    of = [t for t, r in att.items() if r.get('overfit')]
+    best = max(lp) if lp else (None, None)
+    bt = f'  最好 {best[1]}({best[0]:+.3f})' if best[0] is not None else ''
+    return (f'训练过{len(att)}  lp50>0 {_c(str(len(pos)), "32")} / ≤0 {_c(str(len(lp) - len(pos)), "33")}'
+            f'  过拟合 {_c(str(len(of)), "31") if of else "0"}{bt}')
+
+
+def _pbar(frac: float, width: int = 16) -> str:
+    """纯 ASCII 比例条：`###....`（避免框线/方块字符在不支持 CJK-宽字符的终端里错位）。"""
+    f = max(0.0, min(1.0, float(frac)))
+    n = int(round(f * width))
+    return '#' * n + '.' * (width - n)
+
+
+def _pool_line(records: dict, derived_status: dict) -> str:
+    """池子一行：**`pass=7  defer=12  candidate=31` 形式**（用户 2026-10-12：不要条形）。
+
+    两处用户口径：
+      * 用**可读键名**（`D12` 这种单字母标签要对照才能读懂）；
+      * **`exhausted` 固定显示**（即使是 0）—— 它是"任务被判死"的信号，必须一眼可见；
+        其余状态为 0 时省略以省版面。
+    """
+    _NAME = {'TRAINING': 'training', 'DEFER': 'defer', 'PASS': 'pass',
+             'CANDIDATE': 'candidate', 'EXHAUSTED': 'exhausted'}
+    if records:
+        cnt = pool_counts(records)
+        order = [k for k in _STATUS_ORDER if cnt.get(k)] + [k for k in cnt if k not in _STATUS_ORDER]
+        if 'EXHAUSTED' not in order:
+            order.append('EXHAUSTED')
+        return '  '.join(_c(f'{_NAME.get(k, k.lower())}={cnt.get(k, 0)}', _CLR.get(k, '0'))
+                         for k in order)
+    st = Counter(derived_status.values()) if derived_status else {}
+    return ('  '.join(f'{k.lower()}={v}' for k, v in sorted(st.items()))
+            + _c('  (事件流推导，无 defer/exhausted 细分)', '33'))
+
+
+def _trace_lines(task: str, series: dict, rec: dict, n: int = 4) -> list:
+    """在训任务的**历史轨迹**：每 unit 一行 `step / GMean / 门槛 / 倍率 / loss / 相对上次`。"""
+    val = (series.get('active_val_gmean_mse') or {}).get(task) or []
+    thr = dict((series.get('pass_threshold_gmean_mse') or {}).get(task) or [])
+    rat = dict((series.get('val_to_pass_threshold') or {}).get(task) or [])
+    los = dict((series.get('unit_loss') or {}).get(task) or [])
+    if not val:
+        return [f'  {task}: 尚无实测记录（等第一个 unit 末的判定）']
+    out = []
+    prev = None
+    rows = val[-n:]
+    for st, g in rows:
+        r = rat.get(st) or ((g / thr[st]) if thr.get(st) else None)
+        d = ''
+        if prev is not None and r is not None:
+            diff = r - prev
+            d = ('↓改善 %.3f' % abs(diff)) if diff < -0.005 else (
+                ('↑变差 +%.3f' % diff) if diff > 0.005 else '→持平')
+        prev = r if r is not None else prev
+        th_txt = f'{thr[st]:.4f}' if isinstance(thr.get(st), (int, float)) else '  --  '
+        lo_txt = f'{los[st]:.4f}' if isinstance(los.get(st), (int, float)) else '  --  '
+        out.append(f'  {st:>5}  G {g:.4f}  门槛 {th_txt}  倍率 {_rstr(r)}  loss {lo_txt}  {d}')
+    if len(val) < n:
+        out.append(f'  （仅 {len(val)} 次记录；更早的没有）')
+    return out
+
+
+def _term_width(default: int = 64, cap: int = 100) -> int:
+    """当前终端可用列数。
+
+    🔴 真机踩过：写死 74 列时，窄终端会把 `GPU0,2,3,...` 这类长行**折行**，
+    看起来就是"缩进/换行全乱"。所以先探测（`COLUMNS` → `os.get_terminal_size`
+    → `shutil`），再取 min(探测值, cap)；非 TTY（重定向）用 default。
+    """
+    w = None
+    try:
+        env = int(os.environ.get('COLUMNS') or 0)
+        if env > 0:
+            w = env
+    except ValueError:
+        w = None
+    if w is None and _use_color():          # 只在真 TTY 上探测（重定向时探测值无意义）
+        try:
+            w = os.get_terminal_size().columns
+        except OSError:
+            try:
+                import shutil
+                w = shutil.get_terminal_size((default, 24)).columns
+            except Exception:  # noqa: BLE001
+                w = None
+    if not w or w <= 20:
+        w = default
+    return max(40, min(int(w), cap))
+
+
+def _fit(text: str, width: int) -> str:
+    """截断到 width（含省略号）。"""
+    return text if len(text) <= width else text[:max(1, width - 1)] + '…'
+
+
+def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit, latest_sit,
+                  elapsed_s, eta_s, trainer, trainers, records, thresholds, derived_status,
+                  per_task, series, dcp_name, dcp_step, wide_hint: bool = True) -> None:
+    """紧凑视图 v5：**每行一个信息**、缩进统一两格、宽度自适应（窄终端不折行）。
+
+    结构（约 15 行）：
+        AL <run>                     ← 标题行
+          通关    <bar>  7/50 (14%)  ← 每个指标一行，标签 4 字对齐
+          进度    Step 2152/20000
+          步时    11.0s/it（稳态）
+          用时    已训 11.3h / 剩余 189.6h / 总计 200.9h
+          池子    ====####----  D12 P7 C31
+          训练    15 个（lp50>0 7 / ≤0 8，过拟合 6）
+        -- 在训 stack_blocks_two
+          状态    CANDIDATE   已训 0 步
+          倍率    当前 1.64x   best 1.64x
+          历史    step 2150  G 0.0093  门槛 0.0062  1.50x  ↓改善
+    """
+    LBL = 6                                  # 标签列宽（`通关` + 两空格）
+    W = _term_width()
+
+    def row(label: str, text: str) -> None:
+        print('  ' + _fit(f'{label:<{LBL}}{text}', W))
+
+    # ---- 标题 ----
+    print('AL ' + _fit(f'{run}   目标 PASS {target}', W - 3))
+    # ---- 通关 ----
+    pct = (passed / target) if target else 0.0
+    extra = ''
+    if isinstance(newly, (int, float)):
+        extra += f'  新增{int(newly)}'
+    if isinstance(boot, (int, float)) and boot:
+        extra += f'  免费{int(boot)}'
+    # 用户要求：通关**不要条形**（`##....`），只要数字与百分比
+    row('通关', f'{passed}/{target} ({pct * 100:.0f}%){extra}')
+    # ---- 进度 + 步时（用户要求合并成一行）----
+    p_bits = []
+    if step is not None:
+        p_bits.append(f'Step {step}')          # 只给当前步，不写 /20000
+    if trainer:
+        p_bits.append(f'{int(trainer["ranks"])}卡')
+        if trainer.get('gpus'):
+            p_bits.append(f'GPU{trainer["gpus"]}')
+    else:
+        p_bits.append(_c('无进程!', '31'))
+    if sit:
+        p_bits.append(f'{sit:.1f}s/it')
+        if latest_sit is not None and sit and latest_sit > sit * 1.8:
+            p_bits.append(_c(f'当前步 {latest_sit:.0f}s(含评测/扫描)', '33'))
+    row('进度', '  '.join(p_bits))
+    # ---- 用时 ----
+    t_bits = []
+    total_steps = 20000
+    if elapsed_s:
+        t_bits.append(f'已训 {_hms_h(elapsed_s)}')
+    # ⚠️ 日志里的 `<ETA` 字段**不可靠**：它与累计均值同源，会被边界步（评测+扫描）抬高，
+    #    实测同一时刻连续读到 61:27 → 63:52 → 69:45（在涨）。所以**用稳态步速自己算**：
+    #    剩余 = (总步数 - 当前步) × 稳态 s/it —— 单调、可解释、不被单次边界步带偏。
+    eta_est = None
+    if sit and step is not None and step < total_steps:
+        eta_est = (total_steps - int(step)) * float(sit)
+    elif eta_s:
+        eta_est = eta_s
+    if eta_est:
+        t_bits.append(f'剩余约 {_hms_h(eta_est)}')
+    if elapsed_s and eta_est:
+        t_bits.append(f'总计约 {_hms_h(elapsed_s + eta_est)}')
+    if t_bits:
+        row('用时', ' / '.join(t_bits) + ('（按稳态步速估）' if (sit and step) else ''))
+    # ---- 池子 ----
+    row('池子', _pool_line(records, derived_status))
+    if records:
+        att = {t: r for t, r in records.items()
+               if isinstance((r or {}).get('attempt_count'), (int, float))
+               and int((r or {}).get('attempt_count')) >= 1}
+        lp = [(r.get('lp50'), t) for t, r in att.items() if isinstance(r.get('lp50'), (int, float))]
+        pos = [x for x in lp if x[0] > 0]
+        of = [t for t, r in att.items() if r.get('overfit')]
+        best = max(lp) if lp else (None, None)
+        row('训练', f'{len(att)} 个 (lp50>0 {len(pos)} / ≤0 {len(lp) - len(pos)}, '
+                    f'过拟合 {len(of)}'
+                    + (f', 最好 {best[1]}({best[0]:+.3f})' if best[0] is not None else '') + ')')
+    # ================= 在训任务（重点） =================
+    cur = ''
+    if records:
+        for t, r in records.items():
+            if str((r or {}).get('status')) == 'TRAINING':
+                cur = str(t)
+                break
+    if not cur:
+        loss_all = series.get('unit_loss') or {}
+        cand = [(seq[-1][0], t) for t, seq in loss_all.items() if seq]
+        cur = max(cand)[1] if cand else ''
+    print('-' * W)
+    if not cur:
+        row('在训', '（预扫/初始化阶段，还没有在训任务）')
+        print('=' * W)
+        return
+    rec = (records or {}).get(cur) or {}
+    st = str(rec.get('status') or '?')
+    r_now = _ratio(dict(rec, task_name=cur), thresholds) if rec else None
+    r_best = _ratio(dict(rec, task_name=cur), thresholds, key='best_gmean_mse') if rec else None
+    row('在训', f'{cur}   [{st}]')
+    # 「已训多少步」属于**进度**，不要混进「倍率」行（真机反馈：标签配错会误读）
+    if isinstance(rec.get('attempt_step'), (int, float)):
+        _lag = (int(step) - int(dcp_step)) if (step is not None and dcp_step is not None) else 0
+        _t = f'{int(rec["attempt_step"])} 步'
+        if _lag > 0:
+            _t += _c(f'（注册表快照落后 {_lag} 步）', '90')
+        row('本任务', _t)
+    m_bits = []
+    if r_now is not None:
+        m_bits.append(f'当前 {_rstr(r_now)}')
+    if r_best is not None:
+        m_bits.append(f'best {_rstr(r_best)}')
+    if m_bits:
+        row('倍率', '  '.join(m_bits))
+    lp50, lptr, gap = rec.get('lp50'), rec.get('lp_train'), rec.get('train_val_gap_ratio')
+    f_bits = []
+    if isinstance(lp50, (int, float)):
+        f_bits.append(f'lp50 {lp50:+.4f}')
+    if isinstance(lptr, (int, float)):
+        f_bits.append(f'lp_train {lptr:+.4f}')
+    if isinstance(gap, (int, float)):
+        f_bits.append(f'gap {gap:.2f}')
+    if f_bits:
+        row('进步', '  '.join(f_bits) + ('   过拟合' if rec.get('overfit') else '   未过拟合'))
+    # ---- 历史轨迹（每 unit 一行，字段对齐）----
+    val = (series.get('active_val_gmean_mse') or {}).get(cur) or []
+    thr = dict((series.get('pass_threshold_gmean_mse') or {}).get(cur) or [])
+    rat = dict((series.get('val_to_pass_threshold') or {}).get(cur) or {})
+    los = dict((series.get('unit_loss') or {}).get(cur) or {})
+    if not val:
+        row('历史', '尚无实测记录（等第一个 unit 末的判定）')
+    else:
+        # 用户口径：固定看**最近 3 个 unit**
+        row('历史', f'最近 {min(len(val), 3)} 个 unit（倍率 ≤1.0 过线）')
+        prev = None
+        for stp, g in val[-3:]:
+            r = rat.get(stp) or ((g / thr[stp]) if thr.get(stp) else None)
+            d = ''
+            if prev is not None and r is not None:
+                diff = r - prev
+                d = ('↓%.3f' % abs(diff)) if diff < -0.005 else (
+                    ('↑+%.3f' % diff) if diff > 0.005 else '→')
+            prev = r if r is not None else prev
+            th_txt = f'{thr[stp]:.4f}' if isinstance(thr.get(stp), (int, float)) else '--'
+            lo_txt = f'{los[stp]:.4f}' if isinstance(los.get(stp), (int, float)) else '--'
+            r_txt = f'{r:.2f}x' if isinstance(r, (int, float)) else '--'
+            print('  ' + _fit(f'  {stp:>5}  G {g:.4f}  门槛 {th_txt}  {r_txt:>6}  '
+                             f'loss {lo_txt}  {d}', W))
+    print('=' * W)
+    if trainers and len(trainers) > 1:
+        print(_c(f'  机上另有 {len(trainers) - 1} 个训练器在跑（--trainers 看全部）', '33'))
+    if wide_hint:
+        # 用户要求：参数提示用**逗号**分隔（`|` 在窄终端容易被读成折行符）
+        print(_c(_fit('  参数: --pool 明细, --progress 进步, --traces N 轨迹, '
+                      '--wide 表格, --watch S', W), '90'))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description='AL 训练仪表盘')
     ap.add_argument('run', nargs='?', default=None, help='run 名（默认自动选最新）')
@@ -595,6 +956,8 @@ def main() -> int:
                     help='只列出机上所有训练器（多 run 并存时用；每个一行）')
     ap.add_argument('--top', type=int, default=4,
                     help='默认显示多少个任务（按倍数升序；默认 4 以便整屏可见；--all 看全部）')
+    ap.add_argument('--wide', action='store_true',
+                    help='完整表格视图（任务明细 + 成长轨迹；默认是紧凑视图）')
     ap.add_argument('--pool', action='store_true',
                     help='池子明细（状态/attempts/已训步/倍率/进步/过拟合/DEFER 原因；来源 DCP 注册表）')
     ap.add_argument('--progress', action='store_true',
@@ -660,7 +1023,8 @@ def main() -> int:
     series = read_series(ev_path)
     trainers = discover_trainers()
     trainer = find_trainer(trainers, run)
-    step, sit, nsamples, latest_sit = step_progress(ROOT / 'logs' / f'train_{run}.log', cfg['interval'])  # type: ignore[arg-type]
+    step, sit, nsamples, latest_sit, elapsed_s, eta_s = step_progress(
+        ROOT / 'logs' / f'train_{run}.log', cfg['interval'])  # type: ignore[arg-type]
 
     # 🔴 通关数口径（真机纠错两次后的结论）：
     #    * **registry 指标 `curriculum/passed_tasks` 是权威**（scheduler 自己算，含训练中新增 PASS）；
@@ -671,6 +1035,42 @@ def main() -> int:
     passed = reg_passed if reg_passed is not None else len(derived_passed)
     newly = last.get('curriculum/newly_passed_count')
     boot = last.get('curriculum/bootstrap_pass_count')
+    # ---- 池子（**权威 = DCP 注册表**；读不到就退回事件流并提示）----
+    records, dcp_step, dcp_dir = load_registry(run_dir)
+    if not records:
+        _st = Counter(derived_status.values()) if derived_status else {}
+        if _st:
+            print(' 池子（事件流推导）: ' + ' | '.join(f'{k} {v}' for k, v in sorted(_st.items())))
+            print('   ⚠️ 事件流推不出 DEFER/EXHAUSTED 与 attempts；权威池子要等 run 落下第一份 DCP')
+
+    # ---- 输出：默认紧凑视图；`--wide` 走原完整表格 ----
+    _common = dict(run=run, target=target, passed=passed, newly=newly, boot=boot,
+                   step=step, sit=sit, latest_sit=latest_sit,
+                   elapsed_s=elapsed_s, eta_s=eta_s,
+                   trainer=trainer, trainers=trainers, thresholds=thresholds,
+                   derived_status=derived_status, per_task=per_task, series=series,
+                   records=records, dcp_name=(dcp_dir.name if dcp_dir else None),
+                   dcp_step=dcp_step)
+    if getattr(args, 'wide', False):
+        return render_wide(args=args, cfg=cfg, **{k: v for k, v in _common.items()
+                                                  if k not in ('dcp_name', 'dcp_step')},
+                           dcp_name=(dcp_dir.name if dcp_dir else None), dcp_step=dcp_step,
+                           derived_passed=derived_passed, reg_passed=reg_passed)
+    print_compact(**_common)
+    return 0
+
+
+
+def render_wide(*, run: str, args, cfg, thresholds, target, trainer, trainers,
+                passed, newly, boot, step, sit, latest_sit, per_task, series,
+                derived_status, records, dcp_name, dcp_step,
+                derived_passed, reg_passed) -> int:
+    """`--wide`：原来的**完整表格**视图（任务明细 + 成长轨迹 + 三次槽位 + 摘要）。
+
+    2026-10-12 起默认输出改为紧凑视图（终端只放得下一屏）；本函数保留全部细节，
+    供需要逐任务核对时使用。**代码是从原 main() 整段搬来的，逻辑一字未改。**
+    """
+    W = 76
     print('=' * 78)
     print(f' AL 仪表盘  run={run}   目标 PASS={target}')
     _th = Path(str(cfg['thresholds'] or '?')).name
@@ -722,24 +1122,6 @@ def main() -> int:
         print(f' 下一次判定: 再过 {_rem} 步（Step {step + _rem}）')
     if len(trainers) > 1 or (trainers and not trainer):
         print_trainers(trainers, run)
-
-    # ---- 池子（**权威来源 = DCP 注册表**；读不到则退回事件流并提示）----
-    records, dcp_step, dcp_dir = load_registry(run_dir)
-    if records:
-        print(f' 池子来源: DCP {dcp_dir.name if dcp_dir else "?"}'
-              + (f'（global_step {dcp_step}）' if dcp_step is not None else ''))
-        print_pool_summary(records, thresholds, target)
-        if getattr(args, 'pool', False):
-            print_pool_detail(records, thresholds)
-        if getattr(args, 'progress', False):
-            print_progress(records, thresholds)
-        if getattr(args, 'traces', None):
-            print_traces(records, thresholds, series, int(args.traces))
-    else:
-        _st = Counter(derived_status.values()) if derived_status else {}
-        if _st:
-            print(f' 池子（事件流推导）: ' + ' | '.join(f'{k} {v}' for k, v in sorted(_st.items())))
-            print('   ⚠️ 事件流推不出 DEFER/EXHAUSTED 与 attempts；要看权威池子请等 run 落下第一份 DCP')
 
     # 逐任务：以**阈值表**为准（50 个全有），指标取已评测到的最新值
     rows = []
