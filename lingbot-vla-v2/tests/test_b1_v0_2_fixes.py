@@ -378,7 +378,11 @@ def test_deterministic_sampling_disables_augment_and_restores_rng():
 
     before = random.getstate()
     with deterministic_sampling(ds) as rep:
-        assert rep == {"n_ft": 1, "n_disabled": 1}
+        # O1（10-12）后返回值多了 `rng_touched`（本轮是否真的做了 RNG 快照）。
+        # 这里**逐键断言**（原来是与两键 dict 精确相等）：有增强要关 ⇒ 必须快照 ⇒ True。
+        assert rep["n_ft"] == 1
+        assert rep["n_disabled"] == 1
+        assert rep["rng_touched"] is True, "有增强要关时必须做快照（安全底线不依赖开关）"
         assert ds.feature_transform.image_augment is False, "上下文内增强必须被关掉"
         random.random()          # 模拟「取 item 消耗了全局 RNG」
     assert ds.feature_transform.image_augment is True, "退出时必须还原"

@@ -24,13 +24,33 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import random
 from typing import Any, Dict, List, Optional, Tuple
 
 __all__ = [
     "collect_feature_transforms", "snapshot_rng", "restore_rng",
-    "deterministic_sampling",
+    "deterministic_sampling", "_clear_ft_cache", "_fast_fetch_enabled",
 ]
+
+
+#: O1 对照开关：**进程启动时读一次**（与其它 `AL_*` 开关一致，如 `AL_EVAL_SHARD`）。
+#:
+#: * `AL_HARDNESS_FORCE_SNAPSHOT=1` ⇒ **强制**每批都做 RNG 快照/还原（仅用于对照实验）；
+#: * 未设（默认）⇒ 只在"**确有增强被关**（`disabled` 非空）"时才快照。
+#:
+#: ⚠️ 语义说明（消除歧义）：`disabled` 为空时，取 item 期间**一个 RNG 都不消耗**
+#:    （随机增强全部 gate 在 `train=self.image_augment and not policy_eval`，而本 run
+#:    `image_augment=False`）⇒ 快照 + 还原是**恒等操作**，做与不做**结果完全相同**
+#:    ⇒ 没有任何开关能把它变成"有用的事"。要回退到旧行为只需删掉那一处早退。
+#:    之所以不每批读 `os.environ`：那会给每个 batch 再加一次字典查找 —— 本优化的目的正是
+#:    消除"每批的固定开销"，不能让开关自身变成新的每批开销。
+_FORCE_SNAPSHOT: bool = os.environ.get('AL_HARDNESS_FORCE_SNAPSHOT', '0') == '1'
+
+
+def _fast_fetch_enabled() -> bool:
+    """是否允许"没有增强要关时跳过快照"（= 未被强制快照）。"""
+    return not _FORCE_SNAPSHOT
 
 
 def _add_once(outs: List[Any], seen: set, ft: Any) -> None:
@@ -68,6 +88,46 @@ def collect_feature_transforms(dataset: Any) -> List[Any]:
                     for v in f2:
                         _add_once(outs, seen, v)
     return outs
+
+
+# --------------------------------------------------------------------------- #
+# 特征遍历缓存（O1：遍历结果在一次扫描内不变，没必要每批重算）
+# --------------------------------------------------------------------------- #
+#: ``id(dataset) -> (fts, disabled)``；只在 dataset 存活期间有效（weakref 不做，见下）。
+_FT_CACHE: Dict[int, Tuple[List[Any], List[Tuple[Any, Any]]]] = {}
+
+
+def _feature_transforms_cached(dataset: Any) -> Tuple[List[Any], List[Tuple[Any, Any]]]:
+    """返回 ``(fts, disabled)``，并按 ``id(dataset)`` 缓存。
+
+    🔴 为什么缓存是安全的：
+      * ``collect_feature_transforms`` 只做**浅层属性遍历**（不调 RNG、不改状态）；
+      * 一个 dataset 的 transform 结构在训练/扫描期间不变；
+      * key 用 ``id()`` + 持有 dataset 引用（``_FT_CACHE_HOLDER``）⇒ 避免 id 复用误命中。
+    调用方若担心 outdated，可调 ``_clear_ft_cache()``。
+    """
+    key = id(dataset)
+    hit = _FT_CACHE.get(key)
+    if hit is not None and _FT_CACHE_HOLDER.get(key) is dataset:
+        return hit
+    fts = collect_feature_transforms(dataset)
+    disabled: List[Tuple[Any, Any]] = []
+    for ft in fts:
+        if getattr(ft, "image_augment", False):
+            disabled.append((ft, ft.image_augment))
+    _FT_CACHE[key] = (fts, disabled)
+    _FT_CACHE_HOLDER[key] = dataset          # 强引用 ⇒ 防止 id 复用导致误命中
+    return fts, disabled
+
+
+#: 与 ``_FT_CACHE`` 同 key 的强引用（防 ``id()`` 复用）
+_FT_CACHE_HOLDER: Dict[int, Any] = {}
+
+
+def _clear_ft_cache() -> None:
+    """清空特征遍历缓存（测试 / 数据集被替换时用）。"""
+    _FT_CACHE.clear()
+    _FT_CACHE_HOLDER.clear()
 
 
 # --------------------------------------------------------------------------- #
@@ -134,21 +194,38 @@ def deterministic_sampling(dataset: Any, *, logger: Any = None):
 
     ``yield`` 出一个小报告::
 
-        {"n_ft": 找到几个 feature_transform, "n_disabled": 关掉了几个增强}
+        {"n_ft": 找到几个 feature_transform,
+         "n_disabled": 关掉了几个增强,
+         "rng_touched": 本轮是否真的做了 RNG 快照/还原}   # O1（10-12）新增
 
     调用方可据此判断「到底有没有生效」——``n_ft == 0`` 时说明没能定位到
     feature_transform，此时**必然没有关掉增强**，需要上层显式 fail-fast。
+
+    🔴 ``rng_touched`` 的口径（O1）：``n_disabled == 0`` 时跳过快照 ⇒ ``False``。
+    这不是"省掉了一次必要的保护"，而是"没有增强要关 ⇒ 取 item 不消耗 RNG ⇒
+    快照 + 还原是恒等操作"（见模块内 `_FORCE_SNAPSHOT` 的说明）。
+    ``AL_HARDNESS_FORCE_SNAPSHOT=1`` 可强制恢复旧行为（每批都快照）做对照。
     """
-    fts = collect_feature_transforms(dataset)
-    disabled: List[Tuple[Any, Any]] = []
-    for ft in fts:
-        if hasattr(ft, "image_augment") and ft.image_augment:
-            disabled.append((ft, ft.image_augment))
+    fts, disabled = _feature_transforms_cached(dataset)
+    # 🔴 O1（2026-10-12）：**没有任何增强被关** ⇒ 本次调用不含任何 RNG 动作
+    #    ⇒ "什么都不做" 与 "快照+还原" **效果完全相同** ⇒ 跳过快照。
+    #    依据（实测）：数据集的随机增强全部 gate 在 `train=self.image_augment and not policy_eval`
+    #    （`vla_data/utils.py`），而本 run 的 `image_augment=False`（dataset 默认 + 配置
+    #    `allow_image_augment: false`）⇒ 取 item 不消耗 RNG，快照属**恒等操作**、纯开销。
+    #    代价原状：每批一次 `torch.get_rng_state()` + CUDA `get_rng_state_all()` 及其还原
+    #    （同步调用），在 7 卡训练进程里每批都付。
+    # 安全前提：一旦真有增强被关（disabled 非空）⇒ **仍走原来的快照/还原路径**，行为不变。
+    # 对照开关：`AL_HARDNESS_FORCE_SNAPSHOT=1` ⇒ 强制每批都快照（仅 A/B 对照用）。
+    # 🔴 条件用 **and**（不是 or）：只有"**没有增强要关** 且 **未被强制快照**"时才早退。
+    #    写成 `or` 会让对照开关失效（强制快照也被吞掉），单测已锁这一条。
+    if not disabled and _fast_fetch_enabled():
+        yield {"n_ft": len(fts), "n_disabled": len(disabled), "rng_touched": False}
+        return
     st = snapshot_rng()
     try:
         for ft, _orig in disabled:
             ft.image_augment = False
-        yield {"n_ft": len(fts), "n_disabled": len(disabled)}
+        yield {"n_ft": len(fts), "n_disabled": len(disabled), "rng_touched": True}
     finally:
         for ft, orig in disabled:
             try:
