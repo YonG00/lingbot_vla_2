@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import os
 import re
@@ -296,6 +297,213 @@ def read_series(events: Path) -> Dict[str, Dict[str, List[Tuple[int, float]]]]:
     return out
 
 
+# --------------------------------------------------------------------------- #
+# DCP 注册表（池子状态的**权威**来源；2026-10-11 加）
+# --------------------------------------------------------------------------- #
+#: 注册表里的状态 → 展示顺序（越靠前越"需要关注"）
+_STATUS_ORDER = ('TRAINING', 'DEFER', 'PASS', 'CANDIDATE', 'EXHAUSTED', 'FORGOTTEN')
+
+
+def latest_dcp(run_dir: Path) -> Optional[Path]:
+    """取 `<run_dir>/checkpoints` 下**步数最大**的那份 DCP（没有则 None）。"""
+    cks = [p for p in (run_dir / 'checkpoints').glob('global_step_*') if p.is_dir()]
+    if not cks:
+        return None
+    try:
+        return sorted(cks, key=lambda p: int(p.name.rsplit('_', 1)[-1]))[-1]
+    except (ValueError, IndexError):
+        return cks[-1]
+
+
+def load_registry(run_dir: Path) -> Tuple[Optional[Dict[str, dict]], Optional[int], Optional[Path]]:
+    """读 DCP `extra_state` 里的 AL 注册表 → (records, dcp_step, dcp_dir)。
+
+    🔴 为什么读 DCP 而不是从事件流推导（真机实测）：事件流推不出 `DEFER` / `EXHAUSTED`
+    （只有 PASS/CANDIDATE 两类），也读不到 `attempt_count` / `lp50` / `overfit` /
+    `last_transition_reason`；且**重启后事件流叠加**会让推导错乱。
+    DCP 里 `auto_learning.registry.records[task]` 字段齐全，是唯一权威源。
+
+    ⚠️ 只读 + `map_location='cpu'`：不占 GPU、不触碰正在跑的训练；
+    取文件失败/半写状态一律**降级**（返回 None，由调用方退回事件流并提示）。
+    """
+    dcp = latest_dcp(run_dir)
+    if dcp is None:
+        return None, None, None
+    f = dcp / 'extra_state' / 'extra_state_rank_0.pt'
+    if not f.is_file():
+        return None, None, dcp
+    try:
+        import torch  # 惰性 import：只有真要读 DCP 时才需要
+        d = torch.load(f, map_location='cpu', weights_only=False)
+        al = (d or {}).get('auto_learning') or {}
+        reg = (al.get('registry') or {}).get('records') or {}
+        step = (al.get('scheduler') or {}).get('global_step')
+        return (reg or None), (int(step) if isinstance(step, (int, float)) else None), dcp
+    except Exception as exc:  # noqa: BLE001 —— 读不到不该让面板失败
+        print(f'  ⚠️ 读 DCP 注册表失败（{type(exc).__name__}: {str(exc)[:60]}）⇒ 池子改用事件流推导')
+        return None, None, dcp
+
+
+def pool_counts(records: Dict[str, dict]) -> Dict[str, int]:
+    """状态计数（只统计已知状态；未知状态归入原样 key）。"""
+    out: Dict[str, int] = {}
+    for rec in records.values():
+        st = str((rec or {}).get('status') or '?')
+        out[st] = out.get(st, 0) + 1
+    return out
+
+
+def _ratio(rec: dict, thresholds: Dict[str, float], *, key: str = 'current_val_gmean_mse') -> Optional[float]:
+    """倍率 = GMean / 门槛（越小越好；≤1 ⇒ 过线）。
+
+    🔴 字段口径（真机核对 DCP 后的结论）：
+      * `current_val_gmean_mse` = **最近一次实测** val GMean ⇒ 进行中任务也有值（首选）；
+      * `best_gmean_mse` = **历史最好**，但**只在判 PASS 后才会被填**（进行中为 None）；
+      * `scout_gmean_mse` = 初筛缓存值（未训过的任务可用）。
+    按 current → best → scout 依次回退 ⇒ 任何阶段都有可显示的数。
+    """
+    th = thresholds.get(str(rec.get('task_name') or ''))
+    if not th:
+        return None
+    for k in (key, 'best_gmean_mse', 'scout_gmean_mse'):
+        g = rec.get(k)
+        if isinstance(g, (int, float)) and g:
+            return float(g) / float(th)
+    return None
+
+
+def _cur_task_line(records: Dict[str, dict], thresholds: Dict[str, float]) -> str:
+    """`当前任务: X（attempt 1/2，已训 100 步，best 倍率 0.86x）`"""
+    for task, rec in records.items():
+        if str((rec or {}).get('status')) != 'TRAINING':
+            continue
+        att = rec.get('attempt_count')
+        steps = rec.get('attempt_step')
+        r = _ratio(dict(rec, task_name=task), thresholds)
+        bits = []
+        if att is not None:
+            # ⚠️ 注册表**不含** max_attempts_per_task（那是 config 项）⇒ 不写 `/2`，
+            #    改写"第 N 次尝试"，需要上限时看配置（默认 2）。
+            bits.append(f'第 {int(att)} 次尝试')
+        if steps is not None:
+            bits.append(f'已训 {int(steps)} 步')
+        if r is not None:
+            bits.append(f'当前倍率 {r:.2f}x')
+        if rec.get('overfit'):
+            bits.append('⚠️过拟合')
+        return f' 当前任务: {task}（{("，".join(bits)) if bits else "—"}）'
+    # 没有 TRAINING 记录（例如正处 transition 的瞬间）⇒ 退回 scheduler 的 current_task 提示
+    return ''
+
+
+def print_pool_summary(records: Dict[str, dict], thresholds: Dict[str, float],
+                       target: int) -> None:
+    """默认视图的 2 行池子摘要（**权威口径**：来自 DCP 注册表）。"""
+    cnt = pool_counts(records)
+    total = sum(cnt.values()) or 1
+    order = [st for st in _STATUS_ORDER if st in cnt] + [st for st in cnt if st not in _STATUS_ORDER]
+    parts = [f'{st} {cnt[st]}' for st in order]
+    print(f' 池子: {" | ".join(parts)}   （共 {total} 个任务）')
+    line = _cur_task_line(records, thresholds)
+    if line:
+        print(line)
+
+
+def print_pool_detail(records: Dict[str, dict], thresholds: Dict[str, float]) -> None:
+    """`--pool`：逐任务明细（状态 / attempts / 已训步 / best倍率 / 进步 / 过拟合 / DEFER原因）。"""
+    print('-' * 78)
+    print(' 池子明细（来源：DCP 注册表；倍率 = best_gmean_mse / 门槛，≤1 过线）')
+    print(f' {"任务":28}{"状态":10}{"att":>4}{"步":>6}{"当前":>8}{"best":>8}{"lp50":>8}{"lp_tr":>8}{"gap":>7}  过拟合/原因')
+    order = {st: i for i, st in enumerate(_STATUS_ORDER)}
+    rows = sorted(records.items(),
+                  key=lambda kv: (order.get(str((kv[1] or {}).get('status')), 99), kv[0]))
+    for task, rec in rows:
+        rec = rec or {}
+        st = str(rec.get('status') or '?')
+        att = rec.get('attempt_count')
+        steps = rec.get('attempt_step')
+        r = _ratio(dict(rec, task_name=task), thresholds)
+        rb = _ratio(dict(rec, task_name=task), thresholds, key='best_gmean_mse')
+        lp50 = rec.get('lp50')
+        lptr = rec.get('lp_train')
+        gap = rec.get('train_val_gap_ratio')
+        reason = str(rec.get('last_transition_reason') or '')
+        if len(reason) > 40:
+            reason = reason[:38] + '…'
+        print(f' {task:28}{st:10}'
+              f'{int(att) if isinstance(att, (int, float)) else "-":>4}'
+              f'{int(steps) if isinstance(steps, (int, float)) else "-":>6}'
+              f'{(f"{r:.2f}x" if r is not None else "-"):>8}'
+              f'{(f"{rb:.2f}x" if rb is not None else "-"):>8}'
+              f'{(f"{lp50:+.3f}" if isinstance(lp50, (int, float)) else "-"):>8}'
+              f'{(f"{lptr:+.3f}" if isinstance(lptr, (int, float)) else "-"):>8}'
+              f'{(f"{gap:.2f}" if isinstance(gap, (int, float)) else "-"):>7}'
+              f'  {"⚠️" if rec.get("overfit") else "  "} {reason}')
+
+
+def print_progress(records: Dict[str, dict], thresholds: Dict[str, float]) -> None:
+    """`--progress`：只列**被训练过**的任务（attempt ≥ 1），按 lp50 降序。"""
+    rows = [(t, r or {}) for t, r in records.items()
+            if isinstance((r or {}).get('attempt_count'), (int, float))
+            and int((r or {}).get('attempt_count')) >= 1]
+    rows.sort(key=lambda kv: (kv[1].get('lp50') if isinstance(kv[1].get('lp50'), (int, float))
+                              else -9e9), reverse=True)
+    print('-' * 78)
+    print(' 进步情况（只列被训练过的任务；lp50 = val 进步幅度，越大越好；gap = train/val 差距）')
+    print(f' {"任务":28}{"状态":10}{"步":>6}{"lp50":>9}{"lp_train":>10}{"gap":>7}  过拟合')
+    for task, rec in rows:
+        lp50 = rec.get('lp50')
+        lptr = rec.get('lp_train')
+        gap = rec.get('train_val_gap_ratio')
+        print(f' {task:28}{str(rec.get("status") or "?"):10}'
+              f'{int(rec.get("attempt_step") or 0):>6}'
+              f'{(f"{lp50:+.4f}" if isinstance(lp50, (int, float)) else "-"):>9}'
+              f'{(f"{lptr:+.4f}" if isinstance(lptr, (int, float)) else "-"):>10}'
+              f'{(f"{gap:.2f}" if isinstance(gap, (int, float)) else "-"):>7}'
+              f'  {"⚠️" if rec.get("overfit") else " "}')
+    if not rows:
+        print('  （还没有被训练过的任务）')
+
+
+def print_traces(records: Dict[str, dict], thresholds: Dict[str, float],
+                 series: Dict[str, Dict[str, List[Tuple[int, float]]]], n: int) -> None:
+    """`--traces N`：对**每个被训练过的任务**画最近 N 个 unit 的 GMean/倍率。"""
+    g = series.get('active_val_gmean_mse') or {}
+    ratio = series.get('val_to_pass_threshold') or {}
+    tasks = [t for t, r in records.items()
+             if isinstance((r or {}).get('attempt_count'), (int, float))
+             and int((r or {}).get('attempt_count')) >= 1]
+    print('-' * 78)
+    print(f' 多任务成长轨迹（最近 {n} 个 unit；倍率 ≤1 表示过线）')
+    if not tasks:
+        print('  （还没有被训练过的任务）')
+        return
+    for task in tasks:
+        pts = (g.get(task) or [])[-n:]
+        if not pts:
+            continue
+        st = str((records.get(task) or {}).get('status') or '?')
+        print(f'  {task}（{st}）')
+        rm = dict(ratio.get(task) or [])
+        for stp, val in pts:
+            r = rm.get(stp)
+            extra = f'  倍率 {r:.2f}x' if isinstance(r, (int, float)) else ''
+            print(f'    step {stp:>6}  GMean {val:.4f}{extra}')
+
+
+def watch_loop(seconds: int, fn) -> int:
+    """`--watch S`：每 S 秒重绘一次（只读；Ctrl-C 退出）。"""
+    import time as _t
+    try:
+        while True:
+            print('\033[2J\033[H', end='')      # 清屏 + 光标归位
+            fn()
+            _t.sleep(max(2, int(seconds)))
+    except KeyboardInterrupt:
+        print('（已退出 watch）')
+        return 0
+
+
 def derive_status(events: Path) -> Tuple[Dict[str, str], List[str]]:
     """从事件流**推导**每个任务的当前状态，返回 (task -> status, 当前 PASS 的任务列表)。
 
@@ -387,6 +595,14 @@ def main() -> int:
                     help='只列出机上所有训练器（多 run 并存时用；每个一行）')
     ap.add_argument('--top', type=int, default=4,
                     help='默认显示多少个任务（按倍数升序；默认 4 以便整屏可见；--all 看全部）')
+    ap.add_argument('--pool', action='store_true',
+                    help='池子明细（状态/attempts/已训步/倍率/进步/过拟合/DEFER 原因；来源 DCP 注册表）')
+    ap.add_argument('--progress', action='store_true',
+                    help='进步情况（只列被训练过的任务，按 lp50 降序）')
+    ap.add_argument('--traces', type=int, nargs='?', const=3, default=None,
+                    metavar='N', help='多任务成长轨迹（每个被训练过的任务最近 N 个 unit，默认 3）')
+    ap.add_argument('--watch', type=int, nargs='?', const=30, default=None, metavar='S',
+                    help='每 S 秒刷新一次（默认 30；Ctrl-C 退出）')
     args = ap.parse_args()
 
     if getattr(args, 'trainers', False):
@@ -506,6 +722,24 @@ def main() -> int:
         print(f' 下一次判定: 再过 {_rem} 步（Step {step + _rem}）')
     if len(trainers) > 1 or (trainers and not trainer):
         print_trainers(trainers, run)
+
+    # ---- 池子（**权威来源 = DCP 注册表**；读不到则退回事件流并提示）----
+    records, dcp_step, dcp_dir = load_registry(run_dir)
+    if records:
+        print(f' 池子来源: DCP {dcp_dir.name if dcp_dir else "?"}'
+              + (f'（global_step {dcp_step}）' if dcp_step is not None else ''))
+        print_pool_summary(records, thresholds, target)
+        if getattr(args, 'pool', False):
+            print_pool_detail(records, thresholds)
+        if getattr(args, 'progress', False):
+            print_progress(records, thresholds)
+        if getattr(args, 'traces', None):
+            print_traces(records, thresholds, series, int(args.traces))
+    else:
+        _st = Counter(derived_status.values()) if derived_status else {}
+        if _st:
+            print(f' 池子（事件流推导）: ' + ' | '.join(f'{k} {v}' for k, v in sorted(_st.items())))
+            print('   ⚠️ 事件流推不出 DEFER/EXHAUSTED 与 attempts；要看权威池子请等 run 落下第一份 DCP')
 
     # 逐任务：以**阈值表**为准（50 个全有），指标取已评测到的最新值
     rows = []
