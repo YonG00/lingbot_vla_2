@@ -37,6 +37,7 @@ from .backend import RealEvaluator, build_real_backend, build_real_hardness
 from ..hardness_cache import resolve_model_name
 from .hook import AutoLearnLoopHook
 from .sampler import AutoLearnSampler, LazyAutoLearnSampler
+from ..state import pool_state as pool_state_mod
 
 
 def _is_rank0() -> bool:
@@ -519,6 +520,64 @@ def finish_auto_learning(
     #    日志与指标都不丢；且必须在 Scheduler 构造**之前**注入。
     backend.evaluator.logger = al_logger
     scheduler = Scheduler(backend, cfg, seed=cfg.seed, logger=al_logger)
+
+    # ---- [pool_state] 池子导入（2026-10-12 用户要求；**只服务 HF 续训**）-----------
+    # 背景：池子原本只随 DCP 的 extra_state 走。从 **HF 权重**起新 run 时框架判为
+    #   `_al_resume_mode == "fresh"` ⇒ 池子从零 ⇒ 已 PASS 的被重训、刚 DEFER 的被立刻重试。
+    # 这里在**采样器构造之前**把池子灌回注册表 ⇒ 采样/选任务立刻按旧池子走。
+    #
+    # 🔴 为什么"走 DCP 时跳过"：DCP 的 AL 状态是在 `train_lingbotvla.py` 里
+    #   `_al_hook.load_extra_state(_al_state)`（在 parts 构建**之后**）才加载的，
+    #   它会**覆盖**这里灌进去的值 ⇒ 走 DCP 时这里做的是无用功，且日志会误导
+    #   （"未找到池子"让人以为丢状态）。所以按 `enable_resume` / `load_checkpoint_path`
+    #   预判（与框架判 `_al_resume_mode` 的口径一致），走 DCP 时直接跳过。
+    #
+    # 🔴 不中断启动：文件缺失/损坏 ⇒ 只打日志、照常从零开始（用户要求"读就是了"）。
+    _pool_note: Optional[str] = None
+    _will_restore_from_dcp = bool(
+        getattr(args.train, 'enable_resume', False) or getattr(args.train, 'load_checkpoint_path', None))
+    if _will_restore_from_dcp:
+        _pool_note = ('本次从 DCP 续训 ⇒ AL 状态由 DCP 的 extra_state 恢复，'
+                      '跳过 pool_state.json 导入（这是预期行为，不是丢状态）')
+    elif pool_state_mod.import_disabled():
+        _pool_note = (f'{pool_state_mod.NO_IMPORT_ENV}=1 ⇒ 跳过池子导入（池子从零）')
+    else:
+        try:
+            _pool_path = pool_state_mod.find_pool_state_file(
+                getattr(args.model, 'model_path', None),
+                run_dir=getattr(args.train, 'output_dir', None))
+            _pool = pool_state_mod.load_pool_state(_pool_path)
+            if _pool is None:
+                _pool_note = (f'未找到可用的池子文件（候选已查：model_path 同目录 / run 目录 / '
+                              f'{pool_state_mod.DEFAULT_MIRROR}）⇒ 池子从零开始（权重与编号不受影响）')
+            else:
+                _pool_al = _pool.get('auto_learning') or {}
+                scheduler.registry.load_state(_pool_al.get('registry') or {})
+                _sum = pool_state_mod.summarize_pool(_pool_al)
+                log.info_rank0(
+                    f'[pool_state] 已导入池子：{_pool_path}（step={_pool.get("global_step")}）'
+                    f' | {_sum["n_tasks"]} 任务 '
+                    + ' '.join(f'{k} {v}' for k, v in sorted(_sum['counts'].items()))
+                    + f' | sample_probs {_sum["n_sample_probs"]} 项')
+                # 采样器状态：`sampler_rng` **默认不恢复**（从 HF 起新 run 时旧骰子串无续训语义）；
+                # `sampler`（batch_size/ratio_layout/…）本身由 cfg 决定，无需灌。
+                if not pool_state_mod.restore_rng_enabled():
+                    _pool_note = (f'sampler_rng 未恢复（默认；要复现旧抽样序列设 '
+                                  f'{pool_state_mod.RESTORE_RNG_ENV}=1）')
+                # 任务集合差异：**只摊开告警、不拦截**（用户明确要求"读就是了"）
+                try:
+                    _msg = pool_state_mod.describe_task_set_mismatch(
+                        (scheduler.registry.records or {}).keys(), cat.names())
+                except Exception:  # noqa: BLE001
+                    _msg = None
+                if _msg:
+                    for _line in _msg.split('\n'):
+                        log.warning(_line)
+        except Exception as exc:  # noqa: BLE001 —— 池子导入失败绝不能拦住训练
+            _pool_note = (f'⚠️ 池子导入失败（不影响训练）：{type(exc).__name__}: '
+                          f'{str(exc)[:160]}')
+    if _pool_note:
+        log.info_rank0(f'[pool_state] {_pool_note}')
 
     # ---- Sampler（scheduler.rng 是唯一权威随机源）----
     batch_sampler = BatchSampler(cfg, parts.resolver, cat, scheduler.rng)

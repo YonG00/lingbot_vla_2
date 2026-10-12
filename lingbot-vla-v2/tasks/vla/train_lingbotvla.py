@@ -59,6 +59,10 @@ from lingbotvla.optim import build_lr_scheduler, build_muon_optimizer, build_opt
 from lingbotvla.optim import build_flex_shard_dist_muon_optimizer
 from lingbotvla.utils import helper
 from lingbotvla.utils.async_hf_checkpoint import AsyncHFCheckpointSaver
+from lingbotvla.auto_learning.state import pool_state as pool_state_mod
+from lingbotvla.auto_learning.state.pool_state import (
+    export_pool_state_safely as _export_pool_state_safely,
+)
 from lingbotvla.utils.checkpoint_guard import (
     dcp_save_or_abort as _dcp_save_or_abort,
     disk_guard_check as _disk_guard_check,
@@ -813,7 +817,27 @@ def main():
     # ---- [step_offset] global_step 的起始编号（0 = 从零计）----
     #  用途：接 hf_ckpt 起新 run 时让存档编号接着旧模型继续。
     #  若下面成功加载 DCP，`global_step` 会被 DCP 里的值覆盖（那才是真正的续训）。
+    #
+    # 🔴 2026-10-12 起：**未显式指定时自动从模型路径推导**（用户要求"默认启动"）。
+    #    为什么需要：实测 v44 从 `.../al_v41_step801_hf/global_step_801/hf_ckpt` 起新 run，
+    #    但 `--train.step_offset=0`（默认）⇒ 存档编号从 1 开始、与来源 801 脱节，
+    #    日后对着 `global_step_400/800/...` 无法判断"这是接在 801 后面的第几步"。
+    #    推导规则：**只认路径里的 `global_step_<N>`**（不认裸数字，避免把 `v41` 之类误当步数）；
+    #    显式传值优先；读不到 ⇒ 从 1 开始并打日志（不报错，保持原默认行为可用）。
+    #    ⚠️ 失败模式：DCP 成功加载时本值被 DCP 里的 global_step 覆盖（框架原有语义，未改）。
     _step_offset = max(0, int(getattr(args.train, "step_offset", 0) or 0))
+    if _step_offset == 0:
+        _so_mp = str(getattr(args.model, "model_path", "") or "")
+        _so_m = re.search(r"global_step_(\d+)", _so_mp)
+        if _so_m:
+            _step_offset = int(_so_m.group(1))
+            logger.info_rank0(
+                f"[step_offset] 未显式指定 ⇒ 自动从模型路径推导 = {_step_offset}"
+                f"（来源 {_so_mp}）⇒ 存档编号从 {_step_offset + 1} 起")
+        else:
+            logger.info_rank0(
+                f"[step_offset] 模型路径里没有 `global_step_<N>`（{_so_mp or '未设置'}）"
+                f"⇒ 存档编号从 1 开始；如需接续请显式传 --train.step_offset")
 
     total_train_steps = args.train.train_steps * args.train.num_train_epochs
     if args.train.max_steps is not None:
@@ -963,6 +987,55 @@ def main():
             epoch_step=epoch_step,
             disk_avail_before_gb=disk_avail_before_gb,
         )
+        # [pool_state] 顺带导出池子（挂在这里 ⇒ 周期/轮末/收尾三个存档点全覆盖）
+        # ⚠️ 本函数在 `save_hf_weights=false` 时会提前 return ⇒ 那种配置下不导出。
+        #    若将来需要在"不写 HF"的配置里也导出，把这一行上移到函数最前面即可。
+        _export_pool_state_here(checkpoint_path, step)
+
+    def _export_pool_state_here(ckpt_dir: str, step: int) -> None:
+        """[pool_state] 存档时**顺带**导出池子（2026-10-12 用户要求）。
+
+        为什么需要：池子（每任务 status/attempts/lp50/`sample_probs`）原本只随 **DCP** 的
+        `extra_state` 走；从 **HF 权重**起新 run 时（`_al_resume_mode == "fresh"`）池子会从零
+        ⇒ 已 PASS 的任务被重训、刚 DEFER 的被立刻重试，**白花算力**。
+        导出后：新 run 在**同目录**（`<model_path>/pool_state.json`）就能读到池子。
+
+        🔴 三条硬约束：
+          ① **绝不中断训练** —— 走 `export_pool_state_safely()`，任何异常只告警；
+          ② **只在 rank0 写**（多 rank 写同一文件会互相踩；JSON 是全局一致状态）；
+          ③ 导出 `_al_hook.extra_state()` 的**整块**（registry + sampler + sampler_rng）
+             ⇒ 权重采样 `sample_probs` 不丢（用户明确要求保留）。
+
+        `final_only` 模式下 HF 落在 `<ckpt>/hf_ckpt` ⇒ 那里也放一份副本，
+        这样"新 run 用 `--model.model_path` 指向该 hf_ckpt"时**同目录即可自动读到**。
+        """
+        if _al_hook is None or args.train.global_rank != 0:
+            return
+        _sub = 'hf_ckpt' if args.train.dcp_save_mode == 'final_only' else None
+        _al = _al_hook.extra_state()
+        _res = _export_pool_state_safely(
+            logger,
+            ckpt_dir=ckpt_dir,
+            al_state=_al,
+            step=int(step),
+            source_model_path=getattr(args.model, 'model_path', None),
+            source_checkpoint=ckpt_dir,
+            extra_dirs=[pool_state_mod.pool_filename(ckpt_dir, subdir=_sub)] if _sub else None,
+            prune_keep=int(getattr(args.train, 'dcp_keep_last', 2) or 0),
+        )
+        if 'error' in _res:
+            return                                   # 已在 safely 里告警，不重复刷屏
+        if _res.get('skipped'):
+            logger.info_rank0(f"[pool_state] 跳过导出（{_res['skipped']}）")
+            return
+        _sum = pool_state_mod.summarize_pool(_al)
+        logger.info_rank0(
+            f"[pool_state] 已导出池子：{_res['path']}（step={step}，"
+            f"{_res['bytes'] / 1024 / 1024:.1f} MB）"
+            f" | {_sum['n_tasks']} 任务 "
+            + ' '.join(f'{k} {v}' for k, v in sorted(_sum['counts'].items()))
+            + f" | sample_probs {_sum['n_sample_probs']} 项"
+            + (f" | 镜像 {len(_res['mirrors'])} 处" if _res.get('mirrors') else ''))
 
     def _auto_learning_extra_state() -> Dict[str, Any]:
         """[Stage B1] 要写进 `extra_state` 的 Auto Learning 字段。
