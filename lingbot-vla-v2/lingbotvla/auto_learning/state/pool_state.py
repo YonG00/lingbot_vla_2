@@ -133,6 +133,13 @@ def _atomic_write_json(path: Any, payload: Dict[str, Any]) -> int:
             fh.write(blob)
             fh.flush()
             os.fsync(fh.fileno())
+        # 🔴 `mkstemp` 建的文件是 **0600** ⇒ 若直接 replace，池子文件就变成"只有属主可读"。
+        #    真机踩到过：手工脚本写的 644、模块写的 600 混在一起 ⇒ 换个用户跑续训就**静默读不到**
+        #    （池子从零，正是本模块要避免的失败形态）。所以显式对齐常规文件权限（umask 语义）。
+        try:
+            os.chmod(tmp, 0o644)
+        except OSError:
+            pass
         os.replace(tmp, path)          # 同目录 rename ⇒ 原子
     except BaseException:
         try:

@@ -137,6 +137,23 @@ def test_export_is_atomic_and_leaves_no_tmp(tmp_path):
     assert (tmp_path / ps.POOL_FILENAME).is_file()
 
 
+def test_export_file_mode_is_readable_by_others(tmp_path):
+    """导出的池子必须是**常规可读权限**（不能是 mkstemp 的 0600）。
+
+    真机踩到过：模块用 `tempfile.mkstemp()` 建临时文件（默认 0600）⇒ `os.replace` 后池子只有
+    属主可读；换个用户跑 HF 续训就**静默读不到**（池子从零）。这里锁住"至少 group/other 可读"。
+    """
+    import stat as _stat
+
+    out = ps.export_pool_state(tmp_path, _al_state(), step=7)
+    mode = _stat.S_IMODE(Path(out['path']).stat().st_mode)
+    assert mode & 0o044, f'池子文件权限 {oct(mode)} 不可被其他用户读取 ⇒ 续训会静默读不到'
+    # 镜像文件同样要可读
+    for m in out.get('mirrors', []):
+        mm = _stat.S_IMODE(Path(m).stat().st_mode)
+        assert mm & 0o044, f'镜像 {m} 权限 {oct(mm)} 不可读'
+
+
 def test_export_safely_never_raises(monkeypatch, tmp_path):
     """`export_pool_state_safely` 在内部炸掉时**返回 error 而不抛**（存档路径硬要求）。"""
     def _boom(**kwargs):
