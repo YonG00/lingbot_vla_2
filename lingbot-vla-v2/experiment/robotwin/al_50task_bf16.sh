@@ -189,7 +189,7 @@ TRAIN_IDS="${TRAIN_IDS-$SPLIT_DIR/combined.train_ids.json}"
 BASELINE="$SPLIT_DIR/task_baseline.json"
 
 # ---- 从 AL 配置里读出真实收工条件（别在计划里写死）--------------------------
-read -r AL_PASS_CAP AL_ATT_CAP AL_MAXSTEPS AL_PASS_NMSE AL_TOTAL_CAP < <("$PY" - "$AL_CFG" <<'PYEOF'
+read -r AL_PASS_CAP AL_ATT_CAP AL_MAXSTEPS AL_PASS_NMSE AL_TOTAL_CAP AL_PASS_METRIC < <("$PY" - "$AL_CFG" <<'PYEOF'
 import sys, yaml
 raw = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
 b = raw.get("auto_learning", raw) or {}
@@ -197,7 +197,8 @@ def g(k):
     v = b.get(k)
     return "null" if v is None else str(v)
 print(g("max_new_tasks_passed_this_run"), g("max_new_tasks_attempted_this_run"),
-      g("max_global_steps"), g("pass_nmse"), g("target_total_passed_tasks"))
+      g("max_global_steps"), g("pass_nmse"), g("target_total_passed_tasks"),
+      g("pass_metric"))
 PYEOF
 )
 
@@ -231,7 +232,8 @@ cat <<EOF
                 新增 PASS 上限 ${AL_PASS_CAP}（旧配置 max_new_tasks_passed_this_run）
                 最多主动尝试 $AL_ATT_CAP 个任务（max_new_tasks_attempted_this_run）
                 总步数上限 ${AL_MAXSTEPS}（max_global_steps，兜底）
-  及格线      = pass_nmse=${AL_PASS_NMSE}（nmse ≤ 该值判 PASS）
+  判据        = ${AL_PASS_METRIC}（默认 gmean_mse：实测 gmean ≤ **该任务阈值表**的线）
+                 （pass_nmse=${AL_PASS_NMSE} 仅在 pass_metric=nmse 时才是判据；本 run 不用它）
 ================================================================================
 EOF
 

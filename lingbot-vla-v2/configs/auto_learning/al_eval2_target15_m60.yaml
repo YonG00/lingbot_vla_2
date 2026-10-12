@@ -49,7 +49,6 @@ active_val_probe_trajs: 4
 #: 注意：200× 是实验开环 PASS 线，不代表闭环成功率。
 pass_metric: gmean_mse
 pass_thresholds_file: /workspace/eval_results/open_loop/ref50k/pass_thresholds_gmean60_warn.json
-pass_nmse: 0.35  # 兼容占位；GMean 模式下不参与 PASS
 
 # ----- train / eval cadence（正式值）-----
 #: 一个 learning unit = `eval_interval_steps` 个 optimizer step，unit 末尾才做 REVIEW/判定。
