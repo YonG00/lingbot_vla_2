@@ -907,7 +907,14 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
     if t_bits:
         row('用时', ' / '.join(t_bits) + ('（按稳态步速估）' if (sit and step) else ''))
     # ---- 池子 ----
-    row('池子', _pool_line(records, derived_status))
+    # 🔴 标注快照年龄（2026-10-12）：池子只在**存档点**导出 ⇒ 与实时步数会差几百步；
+    #    不标注会让人以为"池子不对"（实测：通关 9（实时）与池子 pass=8（快照）同屏并存）。
+    _pool_extra = ''
+    if step is not None and dcp_step is not None:
+        _age = int(step) - int(dcp_step)
+        if _age > 0:
+            _pool_extra = _c(f'   ⏸快照(step {int(dcp_step)}，落后 {_age} 步)', '90')
+    row('池子', _pool_line(records, derived_status) + _pool_extra)
     if records:
         att = {t: r for t, r in records.items()
                if isinstance((r or {}).get('attempt_count'), (int, float))
@@ -920,16 +927,28 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
                     f'过拟合 {len(of)}'
                     + (f', 最好 {best[1]}({best[0]:+.3f})' if best[0] is not None else '') + ')')
     # ================= 在训任务（重点） =================
-    cur = ''
+    # 🔴 2026-10-12 修：**实时优先，快照只作兜底与详情**。
+    #   为什么（真机 v65 实测）：`pool_state.json` 只在**存档点**导出（每 SAVE_EVERY 步），
+    #   于是注册表里的 `status=TRAINING` 会长时间停在**上一个任务**（实测：主循环已在训
+    #   `stack_bowls_two`，面板却仍显示 `click_bell`）⇒ 用户看到"在训任务不对"。
+    #   而事件流的 `task/<任务>/unit_loss` 是**每 unit 末实时写**的 ⇒ 用它判"当前在训"。
+    _loss_all = series.get('unit_loss') or {}
+    _cand = [(seq[-1][0], str(t)) for t, seq in _loss_all.items() if seq]
+    cur = max(_cand)[1] if _cand else ''
+    _live = bool(cur)
+    if not cur:                                    # 事件流还没 unit ⇒ 只能用快照
+        if records:
+            for t, r in records.items():
+                if str((r or {}).get('status')) == 'TRAINING':
+                    cur = str(t)
+                    break
+    # 快照里 TRAINING 的那个任务（用于判断"cur 是否与快照一致"）
+    _reg_training = ''
     if records:
         for t, r in records.items():
             if str((r or {}).get('status')) == 'TRAINING':
-                cur = str(t)
+                _reg_training = str(t)
                 break
-    if not cur:
-        loss_all = series.get('unit_loss') or {}
-        cand = [(seq[-1][0], t) for t, seq in loss_all.items() if seq]
-        cur = max(cand)[1] if cand else ''
     print('-' * W)
     if not cur:
         row('在训', '（预扫/初始化阶段，还没有在训任务）')
@@ -937,6 +956,12 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
         return
     rec = (records or {}).get(cur) or {}
     st = str(rec.get('status') or '?')
+    # 🔴 任务名以**实时**为准 ⇒ 状态/倍率也随之标注来源，避免"1 分钟前缓存的中间值"被当成当前值
+    _stale = bool(_live and _reg_training and _reg_training != cur)
+    if _stale:
+        st = f'实时(事件流)；快照仍停在 {_reg_training}'
+    elif not st or st == '?':
+        st = '事件流（无注册表快照）' if _live else '?'
     r_now = _ratio(dict(rec, task_name=cur), thresholds) if rec else None
     r_best = _ratio(dict(rec, task_name=cur), thresholds, key='best_gmean_mse') if rec else None
     row('在训', f'{cur}   [{st}]')
