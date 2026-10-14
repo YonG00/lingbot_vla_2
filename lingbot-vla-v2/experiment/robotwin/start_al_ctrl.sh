@@ -36,7 +36,10 @@ RUN="${RUN:-al_v77}"
 ARCH="${ARCH:-/root/autodl-tmp/data/lingbot_archive/al_v76_step4050}"
 STEP_OFFSET="${STEP_OFFSET:-4050}"
 MAX_STEPS="${MAX_STEPS:-20000}"            # 绝对步号（= offset + 要跑的步数的上限）；AL 自己会按 max_rounds 收工
-SAVE_EVERY="${SAVE_EVERY:-150}"
+#: 220 与评测周期（eval_interval_steps=50）错开：220%50=20 ⇒ 每 5 次存档里 4 次落在 unit 内、
+#: 1 次（每 1100 步）与评测重合。落在 unit 内的好处：避开 `_save_due` 那条边界分支，
+#: 不会在同一步触发**两次** HF 直出（见 train_lingbotvla.py 里两处触发点的注释）。
+SAVE_EVERY="${SAVE_EVERY:-220}"
 GAS="${GAS:-1}"
 TB_PORT="${TB_PORT:-6007}"
 AL_CFG="${AL_CFG:-configs/auto_learning/al_eval2_target50_m60_step100_h400_noreview.yaml}"
