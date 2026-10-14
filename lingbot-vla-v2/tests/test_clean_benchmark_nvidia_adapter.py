@@ -44,6 +44,9 @@ class NvidiaAdapterTests(unittest.TestCase):
         self.assertEqual(command[command.index("--use_fp32") + 1], "False")
         self.assertIn("--enable_video", command)
         self.assertIn(str(benchmark.REPO_ROOT / "experiment/robotwin/start_robotwin_infer_and_eval.sh"), command)
+        workdir = command[command.index("--inference_workdir") + 1]
+        self.assertEqual(workdir, f"{benchmark.REPO_ROOT}/")
+        self.assertTrue((Path(workdir) / "experiment/robotwin/eval_policy_client_lingbotvla.py").is_file())
 
     def test_result_reader_uses_last_complete_client_rate(self):
         with tempfile.TemporaryDirectory() as tmp:

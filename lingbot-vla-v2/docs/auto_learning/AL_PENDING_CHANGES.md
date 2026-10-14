@@ -54,6 +54,7 @@
 | 24 | 10-14 | `configs/auto_learning/al_eval2_target50_m60_step100_h400_noreview.yaml::review_after_task_transitions`：10 → 20 | 用户要求恢复训练时降低 PASS 池复查频率 | **不变量**：仅每 20 次状态转变触发 PASS 池 review；0 才是关闭。**症状**：每 10 次 transition 就触发复查，或配置注释与行为不符。**回滚**：将该配置值恢复为 10。**验证入口**：启动计划应打印该 AL_CFG；加载后 `review_after_task_transitions == 20` | 仅恢复 HF 后新进程读取；当前进程不热改。transition 包含 PASS/DEFER/REOPEN，不等价于 20 个互不重复的任务；文件名 `noreview` 为历史遗留 | `6689237` | ⏳ 配置已改；启动前需核对训练计划及恢复存档 |
 
 | 25 | 10-14 | `experiment/robotwin/run_clean_benchmark.py` NVIDIA 单卡适配：复用仓库 launcher；官方任务列表、成功率解析、resume manifest；文档与 CPU 契约测试 | 用户要求训练完成后用该 benchmark 做 NVIDIA 单卡闭环评测，且不能影响当前训练 | 只启动1个 CUDA 推理服务和1个串行仿真槽；任务集合与顺序来自现有 launcher；仅满回合任务写 done；恢复时评测参数必须匹配 manifest | 仅本地代码；不部署/不启动GPU；expert 种子和上游口径不等价；GPU闭环待训练结束 | 本条提交（NVIDIA单卡适配）；原样迁入基线 `1d8bc31` | 🧪 纯CPU 6 passed；py_compile、--help、bash -n、diff检查通过；真实闭环未验证 |
+| 26 | 10-14 | `experiment/robotwin/run_clean_benchmark.py::_launcher_command` 与 `tests/test_clean_benchmark_nvidia_adapter.py`：传给 launcher 的 `--inference_workdir` 补尾随路径分隔符，并断言客户端文件可由该参数路径解析 | 首次启动在模型加载前报错，launcher 将仓库路径与 `experiment/...` 直接拼接，形成不存在的客户端路径 | **不变量**：`<inference_workdir>experiment/robotwin/eval_policy_client_lingbotvla.py` 必须存在；BF16、单推理槽/仿真槽参数不变 | 仅影响 benchmark launcher 路径；不影响训练流程；修复后需在 GPU 上确认客户端启动及显存加载 | 待本次提交 | 🧪 CPU契约6 passed；py_compile、bash -n、diff检查通过；GPU benchmark待启动；**四问**：症状=日志 `eval_policy_client_lingbotvla.py` 路径不存在且显存未加载；回滚=恢复 `_launcher_command` 的 `str(REPO_ROOT)` 并移除此契约断言；验证=`python3 tests/test_clean_benchmark_nvidia_adapter.py` + 远端确认模型进程与显存占用 |
 
 ## §1.5 改动本意速查（**debug 入口**；2026-10-12 用户要求）
 
@@ -78,6 +79,8 @@
 ### 逐条本意
 
 **#25 benchmark 单卡适配**：不变量是适配器只经 `start_robotwin_infer_and_eval.sh` 启动单 CUDA 服务/单仿真槽，任务只有日志确认跑满设定回合才写 done，resume 参数必须匹配 manifest。出错症状：命令含非1 GPU、日志无完整 `Success rate`、任务回合不足却出现在 summary/done，或恢复参数不匹配仍继续。快速回滚：恢复提交 `1d8bc31` 中的原始 `run_clean_benchmark.py` 及对应说明/测试。验证入口：`python3 tests/test_clean_benchmark_nvidia_adapter.py` 与 `python3 -m py_compile experiment/robotwin/run_clean_benchmark.py tests/test_clean_benchmark_nvidia_adapter.py`；GPU闭环需训练结束后验收。
+
+**#26 benchmark inference workdir 分隔符**：适配器传给 launcher 的工作目录以路径分隔符结尾，确保 launcher 拼出的 inference client 路径真实存在；症状是客户端文件不存在且模型未加载。快速回滚为恢复 `str(REPO_ROOT)` 并移除对应断言。验证入口：`python3 tests/test_clean_benchmark_nvidia_adapter.py`，以及 GPU 日志出现 inference client 启动并观察到模型显存占用。
 
 | 编号 | 意图（替我们保证什么） | 不变量（永远必须成立） | 出错症状（怎么认） | 快速回滚 | 验证入口 |
 |---|---|---|---|---|---|

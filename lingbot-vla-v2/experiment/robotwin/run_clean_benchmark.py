@@ -113,7 +113,7 @@ def _launcher_command(args: argparse.Namespace, run_dir: Path, config: str,
     use_bf16 = args.precision == "bf16"
     return [
         "bash", str(launcher),
-        "--inference_workdir", str(REPO_ROOT),
+        "--inference_workdir", f"{REPO_ROOT}{os.sep}",
         "--model_path", str(args.model_path.expanduser().resolve()),
         "--eval_workdir", str(args.robotwin_root.expanduser().resolve()),
         "--output_base", str(run_dir / "launcher_outputs" / config),
