@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter
 import json
+import math
 import os
 import re
 import statistics
@@ -50,7 +51,7 @@ def discover_trainers() -> List[Dict[str, object]]:
     旧实现把「所有 torchrun 的直接子进程」加在一起 ⇒ 显示 `8 rank`，对任何单个 run 都是错的。
 
     判据（全部来自 /proc 事实，不写死 run 名/卡数）：
-      * **组**   = 一个 `torch.distributed.run` 进程；
+      * **组**   = `torchrun` 可执行文件或 `python -m torch.distributed.run` 进程；
       * **ranks** = 该 torchrun 的**直接子进程**数（并与其 `WORLD_SIZE` 交叉校验）；
       * **run 名** = rank 子进程环境里 `TRAIN_OUT` 的 basename（如 `train_al_v42` ⇒ `al_v42`），
         缺失时退到 `AL_CFG` / cmdline 里的 CONFIG 路径；
@@ -63,7 +64,7 @@ def discover_trainers() -> List[Dict[str, object]]:
         parent[pid] = _ppid(pid)
     out: List[Dict[str, object]] = []
     for tp in pids:
-        if 'torch.distributed.run' not in _cmdline(tp):
+        if not _is_torchrun_cmdline(_cmdline(tp)):
             continue
         kids = [c for c in pids if parent.get(c) == tp]
         if not kids:
@@ -104,6 +105,16 @@ def discover_trainers() -> List[Dict[str, object]]:
         })
     out.sort(key=lambda t: -int(t['started']))          # 最新启动的排前面
     return out
+
+
+def _is_torchrun_cmdline(cmdline: str) -> bool:
+    """兼容 torchrun console script 与等价的 `python -m torch.distributed.run`。"""
+    argv = [arg for arg in cmdline.split('\0') if arg]
+    if not argv:
+        return False
+    if 'torch.distributed.run' in argv:
+        return True
+    return any(Path(arg).name in ('torchrun', 'torchrun.exe') for arg in argv[:2])
 
 
 def find_trainer(trainers: List[Dict[str, object]], run: str) -> Optional[Dict[str, object]]:
@@ -693,6 +704,42 @@ def _hms_h(sec: Optional[float]) -> str:
     return f'{sec / 3600.0:.1f}h'
 
 
+def train_log_path(run: str) -> Path:
+    """Use an explicit log override, then the common launcher log layouts."""
+    explicit = os.environ.get('AL_LOG_PATH')
+    if explicit:
+        explicit_path = Path(explicit).expanduser()
+        if explicit_path.is_file():
+            return explicit_path
+    log_root = Path(os.environ.get('AL_LOG_ROOT', '/data/tmp')).expanduser()
+    candidates = [ROOT / 'logs' / f'train_{run}.log',
+                  log_root / f'{run}.log']
+    existing = [path for path in candidates if path.is_file()]
+    if existing:
+        return max(existing, key=lambda path: path.stat().st_mtime)
+    return candidates[0]
+
+
+def prefer_tensorboard_progress(log_progress, tb: Dict[str, Any]):
+    """Prefer the newest TB scalar step, retaining parsed-log timing as fallback."""
+    step, sit, nsamples, latest_sit, elapsed_s, eta_s = log_progress
+    point = tb.get('training/loss')
+    tb_step = point[0] if isinstance(point, tuple) and len(point) == 2 else None
+    if isinstance(tb_step, (int, float)) and math.isfinite(tb_step):
+        tb_step = int(tb_step)
+        if step is None or tb_step >= step:
+            step = tb_step
+            tb_time = tb.get('steptime')
+            if (isinstance(tb_time, tuple) and len(tb_time) == 2
+                    and tb_time[0] == tb_step
+                    and isinstance(tb_time[1], (int, float))
+                    and math.isfinite(tb_time[1]) and tb_time[1] > 0):
+                latest_sit = float(tb_time[1])
+                if sit is None:
+                    sit = latest_sit
+    return step, sit, nsamples, latest_sit, elapsed_s, eta_s
+
+
 def step_progress(log: Path, interval: Optional[int]) -> Tuple[Optional[int], Optional[float], int, Optional[float]]:
     """返回 (最新 step, **稳态** s/it 中位数, 采样步数, 最新一步的 s/it)。
 
@@ -1195,8 +1242,10 @@ def main() -> int:
     series = read_series(ev_path)
     trainers = discover_trainers()
     trainer = find_trainer(trainers, run)
-    step, sit, nsamples, latest_sit, elapsed_s, eta_s = step_progress(
-        ROOT / 'logs' / f'train_{run}.log', cfg['interval'])  # type: ignore[arg-type]
+    tb = read_tb_latest(run_dir)
+    log_progress = step_progress(train_log_path(run), cfg['interval'])  # type: ignore[arg-type]
+    step, sit, nsamples, latest_sit, elapsed_s, eta_s = prefer_tensorboard_progress(
+        log_progress, tb)
 
     # 🔴 通关数口径（真机纠错两次后的结论）：
     #    * **registry 指标 `curriculum/passed_tasks` 是权威**（scheduler 自己算，含训练中新增 PASS）；
@@ -1209,8 +1258,7 @@ def main() -> int:
     boot = last.get('curriculum/bootstrap_pass_count')
     # ---- 池子（**权威 = DCP 注册表**；读不到就退回事件流并提示）----
     records, dcp_step, dcp_dir = load_registry(run_dir)
-    # ---- TensorBoard（**实时**；池子计数以它为准，避免 400 步的存档延迟）----
-    tb = read_tb_latest(run_dir)
+    # ---- TensorBoard（**实时**；进度优先读标量 step，池子计数避免存档延迟）----
     if not records:
         _st = Counter(derived_status.values()) if derived_status else {}
         if _st:

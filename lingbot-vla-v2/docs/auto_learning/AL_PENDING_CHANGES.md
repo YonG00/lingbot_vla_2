@@ -50,6 +50,7 @@
 | # | 日期 | 改什么（文件/函数） | 为什么 | 期望行为 | 依赖/冲突 | commit | 状态 |
 |---|---|---|---|---|---|---|---|
 | 22 | 10-14 | `utils/cuda_cache_policy.py::prepare_cuda_cache`；helper/评测/周期HF接线；`al_cache_profile.py`；CPU测试与A/B说明 | 用户要求落实缓存优化建议；当前清理成本与复用收益缺独立证据 | 默认clear保持原清理；可选reuse仅跳过eval_entry/periodic_hf的CUDA清理，GC保留；启动/DCP/收尾/OOM强制清理保留；可选trace记录耗时/显存；CPU报告对比同工作量日志 | 依赖 #21；环境启动读一次；默认参数/行为不变；不部署当前训练；GPU对照待空闲，不能用CPU契约宣称性能/数值等价 | 本条提交（周期HF去重与缓存观测） | 🧪 缓存8项+报告2项纯CPU通过；GPU A/B及复用收益未验证，说明见 `docs/acceptance/cuda_cache_ab_guide.md` |
+| 23 | 10-14 | `tools/auto_learning_pipeline/al_panel.py`：识别 `torchrun`/`python -m torch.distributed.run`；TensorBoard 与日志取较新有效步数、TensorBoard 同步步时；兼容常见日志目录；`tests/test_al_panel_live_progress.py` | `torchrun` 入口未被旧探测匹配，训练日志在 `/data/tmp` 时也没被读取，导致运行中的面板显示“无进程/无进度” | **不变量**：只按实际启动器和当前 run 取进程/进度；TB 缺失或落后时保留较新日志步数。**症状**：活跃 run 显示“无进程”或步数停滞。**回滚**：恢复本条涉及的面板和测试文件到改动前版本。**验证入口**：`python lingbot-vla-v2/tests/test_al_panel_live_progress.py` 与 `python -m py_compile lingbot-vla-v2/tools/auto_learning_pipeline/al_panel.py lingbot-vla-v2/tests/test_al_panel_live_progress.py` | 通用启动器匹配；优先使用存在的 `AL_LOG_PATH`，否则回退面板/`AL_LOG_ROOT` 常见路径；不触碰训练/GPU | 未提交 | 🧪 本地纯 CPU 验证；训练机仍运行旧代码，远端效果待用户安排部署后验证 |
 
 ## §1.5 改动本意速查（**debug 入口**；2026-10-12 用户要求）
 
