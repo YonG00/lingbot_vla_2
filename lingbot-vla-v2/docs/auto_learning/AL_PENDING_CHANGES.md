@@ -53,7 +53,7 @@
 | 23 | 10-14 | `tools/auto_learning_pipeline/al_panel.py`：识别 `torchrun`/`python -m torch.distributed.run`；TensorBoard 与日志取较新有效步数、TensorBoard 同步步时；兼容常见日志目录；`tests/test_al_panel_live_progress.py` | `torchrun` 入口未被旧探测匹配，训练日志在 `/data/tmp` 时也没被读取，导致运行中的面板显示“无进程/无进度” | **不变量**：只按实际启动器和当前 run 取进程/进度；TB 缺失或落后时保留较新日志步数。**症状**：活跃 run 显示“无进程”或步数停滞。**回滚**：恢复本条涉及的面板和测试文件到改动前版本。**验证入口**：`python lingbot-vla-v2/tests/test_al_panel_live_progress.py` 与 `python -m py_compile lingbot-vla-v2/tools/auto_learning_pipeline/al_panel.py lingbot-vla-v2/tests/test_al_panel_live_progress.py` | 通用启动器匹配；优先使用存在的 `AL_LOG_PATH`，否则回退面板/`AL_LOG_ROOT` 常见路径；不触碰训练/GPU | `75002ff` | 🧪 本地纯 CPU 10 passed；训练机仍运行旧代码，远端效果待同步后验证 |
 | 24 | 10-14 | `configs/auto_learning/al_eval2_target50_m60_step100_h400_noreview.yaml::review_after_task_transitions`：10 → 20 | 用户要求恢复训练时降低 PASS 池复查频率 | **不变量**：仅每 20 次状态转变触发 PASS 池 review；0 才是关闭。**症状**：每 10 次 transition 就触发复查，或配置注释与行为不符。**回滚**：将该配置值恢复为 10。**验证入口**：启动计划应打印该 AL_CFG；加载后 `review_after_task_transitions == 20` | 仅恢复 HF 后新进程读取；当前进程不热改。transition 包含 PASS/DEFER/REOPEN，不等价于 20 个互不重复的任务；文件名 `noreview` 为历史遗留 | `6689237` | ⏳ 配置已改；启动前需核对训练计划及恢复存档 |
 
-| 25 | 10-14 | `experiment/robotwin/run_clean_benchmark.py` 原样迁入；闭环接入说明与索引 | 用户要求训练完成后使用外部 benchmark 做闭环测评 | 保留上游50任务/回合/种子规则与动态队列，固定来源commit；明确AMD依赖与单卡NVIDIA差异 | 独立脚本，不接入训练；配套上游server/client未迁入，不能直接运行；适配与GPU冒烟待训练结束 | 本条提交（原样迁入 benchmark，单卡适配另行提交） | 🧪 cmp逐字一致、py_compile、隔离PyYAML环境的--help、diff检查通过；本机默认Python缺PyYAML；闭环未验证 |
+| 25 | 10-14 | `experiment/robotwin/run_clean_benchmark.py` NVIDIA 单卡适配：复用仓库 launcher；官方任务列表、成功率解析、resume manifest；文档与 CPU 契约测试 | 用户要求训练完成后用该 benchmark 做 NVIDIA 单卡闭环评测，且不能影响当前训练 | 只启动1个 CUDA 推理服务和1个串行仿真槽；任务集合与顺序来自现有 launcher；仅满回合任务写 done；恢复时评测参数必须匹配 manifest | 仅本地代码；不部署/不启动GPU；expert 种子和上游口径不等价；GPU闭环待训练结束 | 本条提交（NVIDIA单卡适配）；原样迁入基线 `1d8bc31` | 🧪 纯CPU 6 passed；py_compile、--help、bash -n、diff检查通过；真实闭环未验证 |
 
 ## §1.5 改动本意速查（**debug 入口**；2026-10-12 用户要求）
 
@@ -77,7 +77,7 @@
 
 ### 逐条本意
 
-**#25 benchmark 迁入**：不变量是脚本与上游固定 commit `27b2f6fcb6c715e2cbb6db4431381f87c94b86ed` 的源文件逐字一致，当前训练不调用它。出错症状：直接执行会遇到4/8卡限制、缺上游server/client或目录结构错误；这是接入未完成，不能当作模型评测失败。快速回滚：撤回本条新增脚本、接入说明和对应索引/台账，独立入口不影响现有训练。验证入口：`python -m py_compile experiment/robotwin/run_clean_benchmark.py`、`python experiment/robotwin/run_clean_benchmark.py --help`；后续单卡GPU闭环与expert种子等价性均未验证。
+**#25 benchmark 单卡适配**：不变量是适配器只经 `start_robotwin_infer_and_eval.sh` 启动单 CUDA 服务/单仿真槽，任务只有日志确认跑满设定回合才写 done，resume 参数必须匹配 manifest。出错症状：命令含非1 GPU、日志无完整 `Success rate`、任务回合不足却出现在 summary/done，或恢复参数不匹配仍继续。快速回滚：恢复提交 `1d8bc31` 中的原始 `run_clean_benchmark.py` 及对应说明/测试。验证入口：`python3 tests/test_clean_benchmark_nvidia_adapter.py` 与 `python3 -m py_compile experiment/robotwin/run_clean_benchmark.py tests/test_clean_benchmark_nvidia_adapter.py`；GPU闭环需训练结束后验收。
 
 | 编号 | 意图（替我们保证什么） | 不变量（永远必须成立） | 出错症状（怎么认） | 快速回滚 | 验证入口 |
 |---|---|---|---|---|---|

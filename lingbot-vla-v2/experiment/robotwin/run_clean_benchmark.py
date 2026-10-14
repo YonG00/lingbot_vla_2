@@ -1,377 +1,269 @@
 #!/usr/bin/env python3
-"""Run every RoboTwin task for one evaluation configuration."""
+"""Run the RoboTwin benchmark through this repository's NVIDIA launcher."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
-import queue
 import re
-import signal
+import shlex
 import subprocess
-import threading
-import time
-import urllib.request
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
-import yaml
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TASK_CONFIGS = ("demo_clean", "demo_randomized")
+SUCCESS_RE = re.compile(r"Success rate:\s*(\d+)\s*/\s*(\d+)\s*=>\s*([\d.]+)%")
+TASK_LIST_RE = re.compile(r"^task_list_all=\((.*)\)$", re.MULTILINE)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run all RoboTwin tasks with a dynamic multi-GPU queue."
+        description="Run the RoboTwin benchmark using one NVIDIA inference GPU."
     )
-    parser.add_argument("--gpu-count", type=int, default=4, choices=(4, 8))
+    parser.add_argument("--gpu-count", type=int, default=1, choices=(1,),
+                        help="This adapter uses one NVIDIA GPU (default: 1).")
     parser.add_argument("--episodes", type=int, default=10)
-    parser.add_argument(
-        "--task-config",
-        default="both",
-        choices=("both", "demo_clean", "demo_randomized"),
-    )
+    parser.add_argument("--num-tasks", type=int, default=50,
+                        help="Run the first N tasks from RoboTwin's official 50-task list.")
+    parser.add_argument("--task-config", default="both",
+                        choices=("both", *TASK_CONFIGS))
     parser.add_argument("--run-name", default=None)
-    parser.add_argument("--runtime-dir", type=Path, default=Path("/workspace/runtime"))
-    parser.add_argument("--robotwin-root", type=Path, default=Path("/RoboTwin"))
-    parser.add_argument("--python", default="/opt/robotwin-env/bin/python")
-    parser.add_argument(
-        "--model-path",
-        type=Path,
-        default=None,
-        help="Checkpoint directory; defaults to the official LingBot-VLA-v2 base checkpoint.",
-    )
-    parser.add_argument("--base-port", type=int, default=13400)
+    parser.add_argument("--runtime-dir", type=Path,
+                        default=Path("/data/eval_results/clean_benchmark"))
+    parser.add_argument("--robotwin-root", type=Path,
+                        default=Path("/data/code/RoboTwin-lingbot"))
+    parser.add_argument("--conda-sh", type=Path,
+                        default=Path("/data/miniconda3/etc/profile.d/conda.sh"))
+    parser.add_argument("--inference-env", default="lingbotvla")
+    parser.add_argument("--sim-env", default="RoboTwin")
+    parser.add_argument("--model-path", type=Path, required=True,
+                        help="HF checkpoint directory, e.g. global_step_N/hf_ckpt.")
+    parser.add_argument("--qwen3vl-path", type=Path,
+                        default=Path(os.environ.get("QWEN3VL_PATH", "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct")))
+    parser.add_argument("--base-port", type=int, default=9330)
+    parser.add_argument("--precision", choices=("fp32", "bf16"), default="fp32")
     parser.add_argument("--use-compile", action="store_true")
-    parser.add_argument(
-        "--expert-check",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Run the task's expert play_once() before every policy episode.",
-    )
-    parser.add_argument(
-        "--accept-expert-info-on-failure",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Keep a seed after play_once fails, using the rendered episode information.",
-    )
-    parser.add_argument(
-        "--video",
-        action=argparse.BooleanOptionalAction,
-        default=False,
-        help="Record episode MP4 videos; disabled by default to reduce evaluation overhead.",
-    )
+    parser.add_argument("--video", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--resume", action="store_true")
     return parser.parse_args()
 
 
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+def benchmark_configs(task_config: str) -> tuple[str, ...]:
+    return TASK_CONFIGS if task_config == "both" else (task_config,)
 
 
-def append_line(path: Path, value: str, lock: threading.Lock) -> None:
-    with lock, path.open("a", encoding="utf-8") as file:
-        file.write(value + "\n")
-
-
-def stop_process_group(process: subprocess.Popen[bytes]) -> None:
-    if process.poll() is not None:
-        return
-    try:
-        os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-        process.wait(timeout=30)
-    except ProcessLookupError:
-        return
-    except subprocess.TimeoutExpired:
-        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-        process.wait(timeout=10)
-
-
-def wait_for_server(process: subprocess.Popen[bytes], port: int, log_path: Path) -> None:
-    for _ in range(600):
-        if process.poll() is not None:
-            raise RuntimeError(
-                f"Model server on port {port} exited with code {process.returncode}; "
-                f"inspect {log_path}"
-            )
-        try:
-            urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=2).read()
-            return
-        except Exception:
-            time.sleep(2)
-    raise TimeoutError(f"Model server on port {port} did not become ready; inspect {log_path}")
+def load_tasks() -> list[str]:
+    launcher = REPO_ROOT / "experiment/robotwin/start_robotwin_infer_and_eval.sh"
+    text = launcher.read_text(encoding="utf-8")
+    match = TASK_LIST_RE.search(text)
+    if not match:
+        raise RuntimeError(f"Could not find the official task list in {launcher}")
+    tasks = shlex.split(match.group(1))
+    if len(tasks) != 50 or len(set(tasks)) != 50 or not all(isinstance(t, str) for t in tasks):
+        raise ValueError(f"Expected 50 unique task names in {launcher}")
+    return tasks
 
 
 def read_result(log_path: Path) -> tuple[int, int]:
-    pattern = re.compile(r"Final success rate:\s*(\d+)/(\d+)\s*=\s*([0-9.]+)%")
-    text = log_path.read_text(encoding="utf-8", errors="ignore").replace("\r", "\n")
-    matches = pattern.findall(text)
+    text = log_path.read_text(encoding="utf-8", errors="replace")
+    text = re.sub(r"\x1b\[[0-9;]*m", "", text).replace("\r", "\n")
+    matches = SUCCESS_RE.findall(text)
     if not matches:
-        raise RuntimeError(f"Missing final success rate in {log_path}")
-    task_successes, task_episodes, _ = matches[-1]
-    return int(task_successes), int(task_episodes)
+        raise RuntimeError(f"Missing success-rate line in {log_path}")
+    successes, episodes, _ = matches[-1]
+    return int(successes), int(episodes)
 
 
-def collect_results(work_items: list[tuple[str, str]], logs_dir: Path) -> tuple[int, int]:
-    successes = 0
-    episodes = 0
-    for task_config, task in work_items:
-        log_path = logs_dir / f"eval_{task_config}__{task}.log"
-        task_successes, task_episodes = read_result(log_path)
-        successes += task_successes
-        episodes += task_episodes
-    return successes, episodes
+def _atomic_json(path: Path, value: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temp_path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    temp_path.replace(path)
+
+
+def _manifest(args: argparse.Namespace, tasks: list[str]) -> dict[str, Any]:
+    model_path = args.model_path.expanduser().resolve()
+    index = model_path / "model.safetensors.index.json"
+    return {
+        "model_path": str(model_path),
+        "model_index_size": index.stat().st_size,
+        "model_index_mtime_ns": index.stat().st_mtime_ns,
+        "qwen3vl_path": str(args.qwen3vl_path.expanduser().resolve()),
+        "robotwin_root": str(args.robotwin_root.expanduser().resolve()),
+        "episodes": args.episodes,
+        "num_tasks": len(tasks),
+        "task_configs": list(benchmark_configs(args.task_config)),
+        "tasks": tasks,
+        "precision": args.precision,
+        "use_compile": args.use_compile,
+        "video": args.video,
+        "inference_env": args.inference_env,
+        "sim_env": args.sim_env,
+        "conda_sh": str(args.conda_sh.expanduser().resolve()),
+        "base_port": args.base_port,
+    }
+
+
+def _launcher_command(args: argparse.Namespace, run_dir: Path, config: str,
+                      tasks_file: Path) -> list[str]:
+    launcher = REPO_ROOT / "experiment/robotwin/start_robotwin_infer_and_eval.sh"
+    use_bf16 = args.precision == "bf16"
+    return [
+        "bash", str(launcher),
+        "--inference_workdir", str(REPO_ROOT),
+        "--model_path", str(args.model_path.expanduser().resolve()),
+        "--eval_workdir", str(args.robotwin_root.expanduser().resolve()),
+        "--output_base", str(run_dir / "launcher_outputs" / config),
+        "--start_port", str(args.base_port),
+        "--task_list_file", str(tasks_file),
+        "--test_num", str(args.episodes),
+        "--num_gpus", "1", "--num_per_gpu", "1",
+        "--use_bf16", str(use_bf16), "--use_fp32", str(not use_bf16),
+        "--use_compile", str(args.use_compile),
+        "--task_config", config,
+        "--inference_env", args.inference_env,
+        "--sim_env", args.sim_env,
+        "--conda_sh", str(args.conda_sh.expanduser().resolve()),
+        "--no_video" if not args.video else "--enable_video",
+    ]
+
+
+def _done_path(run_dir: Path, config: str, task: str) -> Path:
+    return run_dir / "done" / f"{config}__{task}.json"
+
+
+def _completed_tasks(run_dir: Path, config: str, tasks: list[str], episodes: int) -> set[str]:
+    completed: set[str] = set()
+    for path in (run_dir / "done").glob(f"{config}__*.json"):
+        row = json.loads(path.read_text(encoding="utf-8"))
+        task = path.stem.removeprefix(f"{config}__")
+        if (task not in tasks or row.get("task_config") != config or row.get("task") != task
+                or row.get("episodes") != episodes or not 0 <= row.get("successes", -1) <= episodes):
+            raise RuntimeError(f"Invalid or incompatible completion marker: {path}")
+        completed.add(task)
+    return completed
+
+
+def _record_task(run_dir: Path, config: str, task: str, episodes: int,
+                 launcher_run: Path) -> tuple[int, int] | None:
+    log_path = launcher_run / "eval_logs" / f"{task}.log"
+    try:
+        successes, completed = read_result(log_path)
+    except (OSError, RuntimeError):
+        return None
+    if completed != episodes:
+        return None
+    _atomic_json(_done_path(run_dir, config, task), {
+        "task_config": config,
+        "task": task,
+        "successes": successes,
+        "episodes": completed,
+        "log_path": str(log_path),
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return successes, completed
+
+
+def _find_new_launcher_run(output_base: Path, before: set[Path]) -> Path | None:
+    created = set(output_base.iterdir()) - before if output_base.is_dir() else set()
+    directories = [path for path in created if path.is_dir()]
+    if len(directories) > 1:
+        raise RuntimeError(f"Expected at most one new launcher output, found {directories}")
+    return directories[0] if directories else None
+
+
+def _run_config(args: argparse.Namespace, run_dir: Path, config: str,
+                pending: list[str]) -> None:
+    if not pending:
+        return
+    tasks_file = run_dir / f"{config}_pending_tasks.txt"
+    tasks_file.write_text("\n".join(pending) + "\n", encoding="utf-8")
+    output_base = run_dir / "launcher_outputs" / config
+    output_base.mkdir(parents=True, exist_ok=True)
+    before = set(output_base.iterdir())
+    launcher_log = run_dir / f"launcher_{config}.log"
+    command = _launcher_command(args, run_dir, config, tasks_file)
+    env = os.environ.copy()
+    env["QWEN3VL_PATH"] = str(args.qwen3vl_path.expanduser().resolve())
+    print(f"Starting {config}: {len(pending)} tasks, one NVIDIA GPU; log={launcher_log}", flush=True)
+    with launcher_log.open("ab") as log_stream:
+        result = subprocess.run(command, cwd=REPO_ROOT, env=env,
+                                stdout=log_stream, stderr=subprocess.STDOUT, check=False)
+    launcher_run = _find_new_launcher_run(output_base, before)
+    recorded: list[str] = []
+    if launcher_run is not None:
+        for task in pending:
+            if _record_task(run_dir, config, task, args.episodes, launcher_run) is not None:
+                recorded.append(task)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"NVIDIA launcher exited {result.returncode}; completed tasks saved={recorded}; "
+            f"inspect {launcher_log}"
+        )
+    missing = sorted(set(pending) - set(recorded))
+    if missing:
+        raise RuntimeError(
+            f"Launcher returned success but these tasks lack {args.episodes} completed episodes: "
+            f"{missing}; inspect {launcher_log}"
+        )
 
 
 def main() -> None:
     args = parse_args()
     if args.episodes <= 0:
         raise ValueError("--episodes must be positive")
+    if not 1 <= args.num_tasks <= 50:
+        raise ValueError("--num-tasks must be in [1, 50]")
+    if not 1 <= args.base_port <= 65535:
+        raise ValueError("--base-port must be in [1, 65535]")
 
-    root = args.robotwin_root.resolve()
-    default_run_size = "100" if args.task_config == "both" else "50"
-    run_name = args.run_name or f"{args.task_config}_{default_run_size}x{args.episodes}_{args.gpu_count}gpu"
-    run_dir = args.runtime_dir.resolve() / "outputs" / run_name
-    if not args.resume and run_dir.exists() and any(run_dir.iterdir()):
-        raise RuntimeError(f"{run_dir} is not empty; choose a new --run-name or pass --resume")
-    logs_dir = run_dir / "logs"
-    done_dir = run_dir / "done"
-    episode_info_dir = run_dir / "episode_info"
-    logs_dir.mkdir(parents=True, exist_ok=True)
-    done_dir.mkdir(parents=True, exist_ok=True)
-    episode_info_dir.mkdir(parents=True, exist_ok=True)
-
-    with (root / "env_cfg/eval/all_tasks.yml").open(encoding="utf-8") as file:
-        tasks = list(yaml.safe_load(file)["tasks"])
-    if len(tasks) != 50 or len(set(tasks)) != 50:
-        raise RuntimeError(f"Expected 50 unique tasks, got {len(tasks)}")
-    task_configs = (
-        ("demo_clean", "demo_randomized")
-        if args.task_config == "both"
-        else (args.task_config,)
+    root = args.robotwin_root.expanduser().resolve()
+    model = args.model_path.expanduser().resolve()
+    if not (model / "model.safetensors.index.json").is_file():
+        raise FileNotFoundError(f"Incomplete HF checkpoint: {model}")
+    if not args.qwen3vl_path.expanduser().is_dir():
+        raise FileNotFoundError(f"Qwen3-VL checkpoint not found: {args.qwen3vl_path}")
+    tasks = load_tasks()[:args.num_tasks]
+    run_name = args.run_name or (
+        f"{args.task_config}_{len(benchmark_configs(args.task_config)) * len(tasks)}x"
+        f"{args.episodes}_{model.parent.name}"
     )
-    work_items = [(task_config, task) for task_config in task_configs for task in tasks]
+    run_dir = args.runtime_dir.expanduser().resolve() / "outputs" / run_name
+    manifest = _manifest(args, tasks)
+    manifest_path = run_dir / "run_manifest.json"
+    if run_dir.exists() and any(run_dir.iterdir()):
+        if not args.resume:
+            raise RuntimeError(f"{run_dir} is not empty; choose a new --run-name or pass --resume")
+        if not manifest_path.is_file():
+            raise RuntimeError(f"Cannot resume without benchmark manifest: {manifest_path}")
+        saved_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if saved_manifest != manifest:
+            raise RuntimeError("Resume parameters differ from run_manifest.json; use a new --run-name")
+    else:
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "done").mkdir()
+        _atomic_json(manifest_path, manifest)
 
-    gpu_count = int(
-        subprocess.check_output(
-            [args.python, "-c", "import torch; print(torch.cuda.device_count())"], text=True
-        ).strip()
-    )
-    if gpu_count < args.gpu_count:
-        raise RuntimeError(f"Requested {args.gpu_count} GPUs, found {gpu_count}")
+    summaries: dict[str, dict[str, int]] = {}
+    for config in benchmark_configs(args.task_config):
+        completed = _completed_tasks(run_dir, config, tasks, args.episodes)
+        pending = [task for task in tasks if task not in completed]
+        print(f"{config}: completed={len(completed)} pending={len(pending)}")
+        _run_config(args, run_dir, config, pending)
+        rows = [json.loads(_done_path(run_dir, config, task).read_text(encoding="utf-8"))
+                for task in tasks]
+        summaries[config] = {
+            "successes": sum(row["successes"] for row in rows),
+            "episodes": sum(row["episodes"] for row in rows),
+        }
 
-    completed = {path.stem for path in done_dir.glob("*.done")}
-    expected_markers = {f"{task_config}__{task}" for task_config, task in work_items}
-    unknown_markers = completed - expected_markers
-    if unknown_markers:
-        raise RuntimeError(f"Unknown completion markers: {sorted(unknown_markers)}")
-    pending = [item for item in work_items if f"{item[0]}__{item[1]}" not in completed]
-    print(f"run={run_name} completed={len(completed)} pending={len(pending)}")
-
-    if not pending:
-        successes, episode_count = collect_results(work_items, logs_dir)
-        print(f"overall success: {successes}/{episode_count} = {100 * successes / episode_count:.2f}%")
-        print(f"results: {run_dir}")
-        return
-
-    timing_file = run_dir / "task_times.tsv"
-    events_file = run_dir / "events.log"
-    failures_file = run_dir / "failures.tsv"
-    if not (run_dir / "run_start_iso").exists():
-        (run_dir / "run_start_iso").write_text(utc_now().isoformat() + "\n", encoding="utf-8")
-
-    server_script = root / "experiments/lingbot_vla_v2_6b_robotwin/scripts/launch_official_server.sh"
-    model_path = (
-        args.model_path.expanduser().resolve()
-        if args.model_path is not None
-        else root
-        / "experiments/lingbot_vla_v2_6b_robotwin/models/"
-        "robbyant_lingbot-vla-v2-6b"
-    )
-    if not model_path.is_dir():
-        raise FileNotFoundError(f"Model directory not found: {model_path}")
-    server_processes: list[subprocess.Popen[bytes]] = []
-    server_handles = []
-    eval_processes: set[subprocess.Popen[bytes]] = set()
-    process_lock = threading.Lock()
-    write_lock = threading.Lock()
-    stop_event = threading.Event()
-
-    def cleanup() -> None:
-        stop_event.set()
-        with process_lock:
-            running_evals = list(eval_processes)
-        for process in running_evals:
-            stop_process_group(process)
-        for process in server_processes:
-            stop_process_group(process)
-        for handle in server_handles:
-            handle.close()
-
-    def evaluate(gpu_id: int, task_config: str, task: str) -> None:
-        port = args.base_port + gpu_id
-        started = utc_now()
-        item_name = f"{task_config}__{task}"
-        append_line(events_file, f"{started.isoformat()} gpu={gpu_id} config={task_config} task={task} start", write_lock)
-        log_path = logs_dir / f"eval_{item_name}.log"
-        command = [
-            args.python,
-            str(root / "scripts/eval_policy_xpolicylab.py"),
-            "--task_name",
-            task,
-            "--task_config",
-            task_config,
-            "--policy_name",
-            "LingBot-VLA-v2",
-            "--protocol",
-            "lingbot_vla_v2",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            str(port),
-            "--device_id",
-            "0",
-            "--seed",
-            "0",
-            "--test_num",
-            str(args.episodes),
-            "--expert_check",
-            str(args.expert_check).lower(),
-            "--accept_expert_info_on_failure",
-            str(args.accept_expert_info_on_failure).lower(),
-            "--episode_info_output",
-            str(episode_info_dir / f"{item_name}.jsonl"),
-            "--eval_batch",
-            "false",
-            "--additional_info",
-            f"eval_video_log={str(args.video).lower()}",
-        ]
-        env = os.environ.copy()
-        env.update(
-            HIP_VISIBLE_DEVICES=str(gpu_id),
-            ROBOTWIN_DISABLE_CUROBO="1",
-            ROBOTWIN_EE_PLANNER="mplib",
-            PYOPENGL_PLATFORM="egl",
-            PYTHONUNBUFFERED="1",
-        )
-        env.pop("ROCR_VISIBLE_DEVICES", None)
-        env.pop("CUDA_VISIBLE_DEVICES", None)
-        with log_path.open("wb") as log_handle:
-            process = subprocess.Popen(
-                command,
-                cwd=root,
-                env=env,
-                stdout=log_handle,
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-            )
-            with process_lock:
-                eval_processes.add(process)
-            status = process.wait()
-            with process_lock:
-                eval_processes.discard(process)
-
-        ended = utc_now()
-        elapsed = int((ended - started).total_seconds())
-        append_line(
-            events_file,
-            f"{ended.isoformat()} gpu={gpu_id} config={task_config} task={task} elapsed={elapsed}s status={status}",
-            write_lock,
-        )
-        if status != 0:
-            append_line(failures_file, f"{task_config}\t{task}\t{gpu_id}\t{elapsed}\t{status}", write_lock)
-            raise RuntimeError(f"{task} failed on GPU {gpu_id}; inspect {log_path}")
-        _, completed_episodes = read_result(log_path)
-        if completed_episodes != args.episodes:
-            raise RuntimeError(
-                f"{task} reported {completed_episodes} episodes, expected {args.episodes}"
-            )
-        append_line(
-            timing_file,
-            f"{task_config}\t{task}\t{gpu_id}\t{started.isoformat()}\t{ended.isoformat()}\t{elapsed}\t0",
-            write_lock,
-        )
-        (done_dir / f"{item_name}.done").touch()
-        print(f"[{len(list(done_dir.glob('*.done')))}/{len(work_items)}] {task_config}/{task}: {elapsed}s on GPU {gpu_id}")
-
-    task_queue: queue.Queue[tuple[str, str]] = queue.Queue()
-    for item in pending:
-        task_queue.put(item)
-
-    def worker(gpu_id: int) -> None:
-        while not stop_event.is_set():
-            try:
-                task_config, task = task_queue.get_nowait()
-            except queue.Empty:
-                return
-            try:
-                evaluate(gpu_id, task_config, task)
-            except Exception:
-                stop_event.set()
-                raise
-            finally:
-                task_queue.task_done()
-
-    started_perf = time.perf_counter()
-    try:
-        for gpu_id in range(args.gpu_count):
-            port = args.base_port + gpu_id
-            log_path = logs_dir / f"server_gpu{gpu_id}.log"
-            handle = log_path.open("ab")
-            server_handles.append(handle)
-            command = [
-                "bash",
-                str(server_script),
-                str(gpu_id),
-                str(port),
-                str(log_path),
-                str(args.use_compile),
-                str(model_path),
-            ]
-            server_processes.append(
-                subprocess.Popen(
-                    command,
-                    cwd=root,
-                    stdout=handle,
-                    stderr=subprocess.STDOUT,
-                    start_new_session=True,
-                )
-            )
-        for gpu_id, process in enumerate(server_processes):
-            port = args.base_port + gpu_id
-            wait_for_server(process, port, logs_dir / f"server_gpu{gpu_id}.log")
-            print(f"GPU {gpu_id} server ready on port {port}")
-
-        with ThreadPoolExecutor(max_workers=args.gpu_count) as executor:
-            futures = [executor.submit(worker, gpu_id) for gpu_id in range(args.gpu_count)]
-            try:
-                for future in futures:
-                    future.result()
-            except BaseException:
-                stop_event.set()
-                with process_lock:
-                    running_evals = list(eval_processes)
-                for process in running_evals:
-                    stop_process_group(process)
-                for future in futures:
-                    future.cancel()
-                raise
-    except KeyboardInterrupt:
-        print("Interrupted; completed tasks can be resumed with --resume")
-        raise
-    finally:
-        cleanup()
-
-    markers = {path.stem for path in done_dir.glob("*.done")}
-    missing = sorted(expected_markers - markers)
-    if missing:
-        raise RuntimeError(f"Benchmark incomplete; missing tasks: {missing}")
-    successes, episode_count = collect_results(work_items, logs_dir)
-    expected_episodes = len(work_items) * args.episodes
-    if episode_count != expected_episodes:
-        raise RuntimeError(f"Expected {expected_episodes} episodes, found {episode_count}")
-    elapsed = time.perf_counter() - started_perf
-    print(f"benchmark invocation: {elapsed / 3600:.2f} h")
-    print(f"overall success: {successes}/{episode_count} = {100 * successes / episode_count:.2f}%")
+    _atomic_json(run_dir / "summary.json", summaries)
+    for config, result in summaries.items():
+        rate = 100.0 * result["successes"] / result["episodes"]
+        print(f"{config}: {result['successes']}/{result['episodes']} = {rate:.2f}%")
     print(f"results: {run_dir}")
 
 
