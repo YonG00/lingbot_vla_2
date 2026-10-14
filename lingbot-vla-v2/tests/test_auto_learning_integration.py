@@ -202,12 +202,58 @@ def test_pass_snapshot_roundtrip():
     reg, al, cat = _registry()
     rec = reg.get("A")
     rec.sample_probs = {0: 0.6, 1: 0.4}
+    rec.pass_sampling_snapshot = dict(rec.sample_probs)
     rec.set_status(TaskStatus.PASS, reason="test")
 
     st = reg.to_state()
     reg2 = TaskRegistry.from_catalog(cat, al)
     reg2.load_state(st)
     assert reg2.get("A").sample_probs == {0: 0.6, 1: 0.4}, "PASS snapshot 必须随状态持久化"
+    assert reg2.get("A").pass_sampling_snapshot == {0: 0.6, 1: 0.4}
+
+
+def test_registry_restore_preserves_current_catalog_fields():
+    reg, al, cat = _registry()
+    rec = reg.get("A")
+    rec.status = TaskStatus.PASS.value
+    rec.attempt_count = 2
+    saved = reg.to_state()
+
+    current = TaskRegistry.from_catalog(cat, al)
+    current_rec = current.get("A")
+    current_rec.sample_ids = [101, 102, 103]
+    current_rec.train_traj_ids = [71, 72]
+    current_rec.baseline_mse = 0.125
+    issues = current.load_state(saved)
+
+    restored = current.get("A")
+    assert issues == []
+    assert restored.status == TaskStatus.PASS.value
+    assert restored.attempt_count == 2
+    assert restored.sample_ids == [101, 102, 103]
+    assert restored.train_traj_ids == [71, 72]
+    assert restored.baseline_mse == 0.125
+    assert restored.sample_probs == {}
+    assert restored.pass_sampling_snapshot is None
+
+
+def test_registry_restore_drops_entire_incompatible_probability_tables():
+    reg, al, cat = _registry()
+    rec = reg.get("A")
+    rec.sample_ids = [11, 12, 13]
+    rec.sample_probs = {11: 0.4, 999: 0.6}
+    rec.pass_sampling_snapshot = {12: 0.5, 1000: 0.5}
+    saved = reg.to_state()
+
+    restored = TaskRegistry.from_catalog(cat, al)
+    restored.get("A").sample_ids = [11, 12, 13]
+    issues = restored.load_state(saved)
+
+    assert restored.get("A").sample_probs == {}
+    assert restored.get("A").pass_sampling_snapshot is None
+    assert {(item["field"], item["invalid_count"]) for item in issues} == {
+        ("sample_probs", 1), ("pass_sampling_snapshot", 1),
+    }
 
 
 def test_initial_auto_pass_has_no_snapshot():

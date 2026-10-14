@@ -317,7 +317,13 @@ class AutoLearnLoopHook:
         if not isinstance(raw, dict) or int(raw.get("version", 0)) != 1:
             raise ValueError(f"auto_learning extra_state 版本不符: {raw!r:.120}")
         self.scheduler.state.load_state(raw["scheduler"])
-        self.scheduler.registry.load_state(raw["registry"])
+        sample_state_issues = self.scheduler.registry.load_state(raw["registry"])
+        for issue in sample_state_issues:
+            self._log(
+                f'[auto_learning] 丢弃不兼容采样表：task={issue["task"]} '
+                f'field={issue["field"]} 外来 sample_id={issue["invalid_count"]} 项 '
+                f'（示例 {issue["invalid_examples"]}）；整表清空，'
+                '使用当前 catalog 样本集合')
         self.sampler.load_state_dict(raw["sampler"])
         self.scheduler.rng.setstate(tuple(raw["sampler_rng"]) if raw.get("sampler_rng") else
                                     random.getstate())

@@ -347,7 +347,42 @@ class TaskRegistry:
             "records": {name: rec.to_dict() for name, rec in self.records.items()},
         }
 
-    def load_state(self, raw: Dict[str, Any]) -> None:
-        self.order = list(raw.get("order") or list(self.records.keys()))
+    def load_state(self, raw: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """恢复动态状态，保留当前 catalog 派生的数据字段。
+
+        采样权重只在其 sample id 全部属于当前任务时恢复；局部过滤会改变
+        原分布含义，因此发现外来 id 时整张表作废并返回诊断信息。
+        """
+        saved_order = list(raw.get("order") or list(self.records.keys()))
+        self.order = [name for name in saved_order if name in self.records]
+        self.order.extend(name for name in self.records if name not in self.order)
+        diagnostics: List[Dict[str, Any]] = []
+        catalog_fields = (
+            "train_traj_ids", "val_traj_ids", "scout_val_ids", "confirm_val_ids",
+            "active_val_ids", "train_monitor_ids", "sample_ids", "baseline_mse",
+            "metric_valid", "pass_line_usable",
+        )
         for name, data in (raw.get("records") or {}).items():
-            self.records[name] = TaskRecord.from_dict(data)
+            current = self.records.get(name)
+            if current is None:
+                continue
+            restored = TaskRecord.from_dict(data)
+            for field_name in catalog_fields:
+                setattr(restored, field_name, getattr(current, field_name))
+
+            valid_ids = set(current.sample_ids)
+            for field_name in ("sample_probs", "pass_sampling_snapshot"):
+                table = getattr(restored, field_name)
+                if table is None:
+                    continue
+                invalid_ids = sorted(set(table) - valid_ids)
+                if invalid_ids:
+                    diagnostics.append({
+                        "task": name,
+                        "field": field_name,
+                        "invalid_count": len(invalid_ids),
+                        "invalid_examples": invalid_ids[:3],
+                    })
+                    setattr(restored, field_name, None if field_name == "pass_sampling_snapshot" else {})
+            self.records[name] = restored
+        return diagnostics

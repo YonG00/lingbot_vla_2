@@ -552,13 +552,20 @@ def finish_auto_learning(
                               f'{pool_state_mod.DEFAULT_MIRROR}）⇒ 池子从零开始（权重与编号不受影响）')
             else:
                 _pool_al = _pool.get('auto_learning') or {}
-                scheduler.registry.load_state(_pool_al.get('registry') or {})
+                _sample_state_issues = scheduler.registry.load_state(
+                    _pool_al.get('registry') or {})
                 _sum = pool_state_mod.summarize_pool(_pool_al)
                 log.info_rank0(
                     f'[pool_state] 已导入池子：{_pool_path}（step={_pool.get("global_step")}）'
                     f' | {_sum["n_tasks"]} 任务 '
                     + ' '.join(f'{k} {v}' for k, v in sorted(_sum['counts'].items()))
                     + f' | sample_probs {_sum["n_sample_probs"]} 项')
+                for _issue in _sample_state_issues:
+                    log.warning(
+                        f'[pool_state] 丢弃不兼容采样表：task={_issue["task"]} '
+                        f'field={_issue["field"]} 外来 sample_id='
+                        f'{_issue["invalid_count"]} 项（示例 {_issue["invalid_examples"]}）；'
+                        '整表清空，使用当前 catalog 样本集合')
                 # 采样器状态：`sampler_rng` **默认不恢复**（从 HF 起新 run 时旧骰子串无续训语义）；
                 # `sampler`（batch_size/ratio_layout/…）本身由 cfg 决定，无需灌。
                 if not pool_state_mod.restore_rng_enabled():
