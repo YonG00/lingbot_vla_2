@@ -23,6 +23,7 @@
 | 验收 96G 单卡 bf16 | `acceptance_checks/gpu96_acceptance.py` |
 | 验收 HF 直出（跳过合并） | `acceptance_checks/hf_direct_export_acceptance.py` |
 | 验收模型加载加速 | `acceptance_checks/load_accel_smoke.py` |
+| 汇总CUDA缓存clear/reuse对照日志（纯CPU） | `auto_learning_pipeline/al_cache_profile.py`；说明见 `docs/acceptance/cuda_cache_ab_guide.md` |
 | 验收 eval 批处理（随机/自适应） | `acceptance_checks/eval_batch_stochastic_acceptance.py`、`adaptive_eval_batch_acceptance.py` |
 | 多卡评测冒烟 | `acceptance_checks/multigpu_eval_smoke.py` |
 | 48G 卡冒烟（不存 ckpt / TB10） | `acceptance_checks/run_smoke_nosave_48g.sh`、`run_smoke_tb10_48g.sh`、`run_smoke_tb10_48g_v2.sh` |

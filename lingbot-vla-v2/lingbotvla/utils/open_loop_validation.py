@@ -84,6 +84,7 @@ import numpy as np
 from lingbotvla.utils.eval_precision import (
     METRIC_DTYPE_LABEL, fp32_error_fp64_aggregation,
 )
+from lingbotvla.utils.cuda_cache_policy import prepare_cuda_cache
 import torch
 
 from lingbotvla.data.dataset import build_vla_dataset
@@ -1851,7 +1852,7 @@ def safe_eval_context(
     """评测期间临时改状态的 **snapshot / 强制 / finally 恢复 / 审计** 四件套。
 
     进入时：强制 eager（避开 compile 产物）→ 固定 seed → ``model.eval()`` →
-    清显存碎片 → ``use_cache=True`` → eager attention → 清视觉网格缓存。
+    默认清CUDA空闲缓存（可选reuse对照）→ ``use_cache=True`` → eager attention → 清视觉网格缓存。
     退出时（**任何路径**）：按相反顺序全部还原，并跑一次**恢复审计**。
 
     ``ft_aug_registry`` 是「每个评测集自己的 feature_transform」登记表
@@ -1886,10 +1887,9 @@ def safe_eval_context(
             torch.cuda.manual_seed_all(seed)
         # ③ 逐模块 eval（不是 model.eval() 一刀切，但那也可以：下面是等价写法）
         model.eval()
-        # ③b 释放训练侧遗留的碎片/缓存 —— 单卡余量本来就紧，不清的话
-        #     sample_actions 自己的激活 + KV cache 可能装不下
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        # ③b 默认清空空闲块，为评测激活/KV腾空间；reuse仅用于空闲GPU对照。
+        # OOM回退处的empty_cache始终保留，不受复用策略影响。
+        prepare_cuda_cache(torch.cuda, context="eval_entry", logger=logger)
         # ③c 🔴 临时打开 use_cache（2026-10-04 审查 B1 + CPU 实测确认）
         #   训练配置 `use_cache=False`（`configuration_lingbot_vla.py:104`，V2 不覆盖），
         #   而 `sample_actions` 传的是 `fill_kv_cache=True, use_cache=self.config.use_cache`

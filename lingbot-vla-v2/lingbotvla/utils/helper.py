@@ -34,6 +34,7 @@ from transformers import set_seed as set_seed_func
 from ..distributed.parallel_state import get_parallel_state
 from . import logging
 from .count_flops import VeomniFlopsCounter
+from .cuda_cache_policy import prepare_cuda_cache
 from .dist_utils import all_reduce
 from .import_utils import is_torch_npu_available
 from .seqlen_pos_transform_utils import culen2len, pos2culen
@@ -259,13 +260,12 @@ def print_cpu_memory_info():
     logger.info_rank0(f"Memory Usage: {memory_info.percent}%")
 
 
-def empty_cache() -> None:
+def empty_cache(*, context: str = "general") -> None:
     """
-    Collects system memory.
+    回收GC并按阶段策略释放CUDA空闲块；默认与原来的全部清理行为一致。
     """
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
+    prepare_cuda_cache(torch.cuda, context=context, logger=logger,
+                       collect_garbage=gc.collect)
 
 
 def get_cache_dir(path: Optional[str] = None) -> str:

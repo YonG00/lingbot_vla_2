@@ -40,6 +40,7 @@
 | AMD 平台使用说明 | `rocm/amd_rocm_usage_guide.md` |
 | ROCm 编译失败 / Triton 崩溃 | `rocm/rocm_compile_failure_and_sdpa_then_eager_zh.md`、`rocm/rocm_triton_compile_crash_zh.md` |
 | 编译调优（官方 + 我们的） | `acceptance/compile_tuning_guide.md` |
+| CUDA缓存清理耗时 / clear与reuse对照 | `acceptance/cuda_cache_ab_guide.md`（复用模式未GPU验收） |
 | Eval 批处理有没有闸门 | `acceptance/eval_batch_auto_gate_guide.md` |
 | 96G 单卡 bf16 验收结论 | `acceptance/gpu96_bf16_acceptance.md` |
 | 闭环评测（AMD 单卡） | `acceptance/closed_loop_amd_single_gpu_guide.md` |

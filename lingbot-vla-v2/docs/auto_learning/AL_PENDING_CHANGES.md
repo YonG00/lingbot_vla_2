@@ -42,7 +42,14 @@
 | 18 | 10-14 | `state/registry.py::TaskRegistry.load_state` 保留当前 catalog 派生字段并校验 `sample_probs` / `pass_sampling_snapshot`；`real/build.py` 与 `real/hook.py` 记录丢弃告警；集成回归覆盖 | HF 池子/DCP 状态恢复把旧 `sample_id` 空间覆盖到当前数据集，训练在 sampler 校验时失败；概率表只过滤外来 ID 会改变分布 | 仅恢复动态 AL 状态；任何一个键不属于当前任务时整张对应表清空并告警；当前任务/样本 ID 与 baseline 保持 catalog 值 | HF 池子和 DCP extra_state 共用注册表恢复；只验证 ID 成员关系，无法识别相同 local_idx 对应不同帧，resolver 指纹留作后续 | `d1fc26e` | 🧪 部分验证（CPU 29 passed；真机 `al_v77_sampleidfix` 已过原崩点，step 4055，长跑/DCP 真机恢复仍未验证） |
 
 
-| 20 | 10-14 | `tools/auto_learning_pipeline/al_checkpoint_watch.py`：单运行周期 HF 监控，满4份删最早1份，保留3份；工具索引与 CPU 回归 | 用户要求按存档数量滚动保留，避免220步存档积累占满盘 | 仅统计完整 HF（配置/index/所有分片长度/同一步号池）；仅清理指定 run 的周期目录；DCP/临时目录/符号链接/受保护路径跳过；单实例锁；默认预览，`--apply` 才删除 | 独立纯标准库进程，无 torch/GPU，不改训练参数；4份同时落盘的峰值、DCP及输入HF仍需预留空间 | 本次提交 | 🧪 纯 CPU 12 passed / 0.04 s；真实满4份滚动清理待观察 |
+| 20 | 10-14 | `tools/auto_learning_pipeline/al_checkpoint_watch.py`：单运行周期 HF 监控，满4份删最早1份，保留3份；工具索引与 CPU 回归 | 用户要求按存档数量滚动保留，避免220步存档积累占满盘 | 仅统计完整 HF（配置/index/所有分片长度/同一步号池）；仅清理指定 run 的周期目录；DCP/临时目录/符号链接/受保护路径跳过；单实例锁；默认预览，`--apply` 才删除 | 独立纯标准库进程，无 torch/GPU，不改训练参数；4份同时落盘的峰值、DCP及输入HF仍需预留空间 | `1243886` | 🧪 纯 CPU 12 passed / 0.04 s；真实满4份滚动清理待观察 |
+| 21 | 10-14 | `train_lingbotvla.py::main` 周期存档统一入口；`tests/test_al_periodic_checkpoint.py` | 当前运行4400重复HF，4620直出后4650又存；提前HF入口还绕过存档前磁盘保护 | `final_only + HF` 在220的绝对步号倍数只导出一次，不进入延迟队列；先DiskCheck再HF/池；DCP仍遵守安全边界；周期HF不能让收尾跳过完整DCP | 修正 #16b 的双入口；不改参数、评测、缓存释放或导出实现；只改本地，当前训练机继续旧版本；收尾重复HF暂未处理 | 本条提交（周期HF去重与缓存观测） | 🧪 本地纯CPU 9 tests / 0.024 s；四组合周期分支及smoke、零间隔、磁盘拒绝、收尾游标已测；真实导出与恢复未验证 |
+
+> #16b 是10-12的历史设计与局部验收记录。10-14连续运行证据确认独立HF入口与旧周期入口重复触发；本地修正由 #21 接续，尚未部署，不能据 #16b 的旧验收声称当前无重复存档。
+
+| # | 日期 | 改什么（文件/函数） | 为什么 | 期望行为 | 依赖/冲突 | commit | 状态 |
+|---|---|---|---|---|---|---|---|
+| 22 | 10-14 | `utils/cuda_cache_policy.py::prepare_cuda_cache`；helper/评测/周期HF接线；`al_cache_profile.py`；CPU测试与A/B说明 | 用户要求落实缓存优化建议；当前清理成本与复用收益缺独立证据 | 默认clear保持原清理；可选reuse仅跳过eval_entry/periodic_hf的CUDA清理，GC保留；启动/DCP/收尾/OOM强制清理保留；可选trace记录耗时/显存；CPU报告对比同工作量日志 | 依赖 #21；环境启动读一次；默认参数/行为不变；不部署当前训练；GPU对照待空闲，不能用CPU契约宣称性能/数值等价 | 本条提交（周期HF去重与缓存观测） | 🧪 缓存8项+报告2项纯CPU通过；GPU A/B及复用收益未验证，说明见 `docs/acceptance/cuda_cache_ab_guide.md` |
 
 ## §1.5 改动本意速查（**debug 入口**；2026-10-12 用户要求）
 
@@ -60,6 +67,8 @@
 | `AL_HARDNESS_FORCE_SNAPSHOT` | `0`（关） | 进程启动 | `1` ⇒ **强制**每批都做 RNG 快照/还原（O1 的 A/B 对照用） | 不设 ⇒ O1 的"无增强要关时跳过快照"生效 |
 | `AL_SCAN_SKIP_HARDNESS` | 关 | 启动器注入（仅预扫 worker） | `1` ⇒ 预扫只补 scout，不进 `_select()`（不跑 hardness/active_val） | 不设 ⇒ 完整流程（预扫会顺带扫 hardness） |
 | `AL_VIDEO_BACKEND` / `video_backend` | `pyav` | 数据集构造 | ❌ **未采纳**（torchcodec 在本机 ABI 不匹配、收益有限） | — |
+| `AL_CUDA_CACHE_POLICY` | `clear` | 模块首次导入（需重启） | `reuse`仅跳过评测入口/周期HF的CUDA空闲块释放；GC保留，OOM强制清理不变 | 改回`clear`恢复原清理，复用尚未GPU验收 |
+| `AL_CUDA_CACHE_TRACE` | `0` | 模块首次导入（需重启） | `1`记录清理调用墙钟与前后显存；不额外同步、不重置峰值统计 | `0`关闭诊断读取和日志 |
 | `SAVE_EVERY` / `HF_PASS_INTERVAL` | 训练脚本默认 | 进程启动 | 存档节奏（DCP 步数）/ HF 里程碑；**必须用 `--env` 或 shell 变量传**（`base_env()` 白名单已放开） | 去掉 ⇒ 回默认 |
 
 ### 逐条本意
@@ -78,6 +87,8 @@
 | **#19** HF 池生命周期保护 | 继承池文件而非重新初始化已存档任务；拦住超预算训练 | ① 导入的 PASS/DEFER/EXHAUSTED 在首次调度前不变；② 同一步号仅新任务 bootstrap，较新权重可重测旧候选；③ start_attempt 前 attempt_count 小于上限；④ rescan 免费通关不占 attempt | 日志导入计数正确但随后 50 个 bootstrap 重写状态；或 `select.attempt` 超过配置上限 | `git checkout d1fc26e -- lingbot-vla-v2/lingbotvla/auto_learning/orchestration/scheduler.py lingbot-vla-v2/lingbotvla/auto_learning/real/build.py`（仓库根执行，需重启；会重新暴露状态覆盖问题） | `python -m pytest tests/test_al_hf_pool_restore.py tests/test_resume.py tests/test_persistence.py tests/test_scheduler.py tests/test_state_machine.py tests/test_al_pool_state.py -q`；启动日志 `[pool_state] 保留 PASS/DEFER/EXHAUSTED 状态`；同一步号既有任务无需预扫，较新权重只重测候选，并核对真实计数 |
 
 | **#20** 周期 HF 滚动保留 | 满4份删除最早完整周期HF，留下3份 | 删除路径必须是指定 run/checkpoints 的直接子目录，分片与池完整，且不含DCP/临时发布目录；受保护路径不删 | 日志 `prune_begin` / `removed` 与实际完整周期目录数不符；未完整落盘的目录被计入 | 停止对应监控 PID（需用户同意）；下次启动不加 `--apply` 即只预览；已经删除的旧HF无法恢复 | `python -m pytest tests/test_al_checkpoint_watch.py -q`；`python tools/auto_learning_pipeline/al_checkpoint_watch.py <RUN_DIR> --once` 预览，获准后 `--apply` 后台监控；每15秒检查 |
+| **#21** 周期HF唯一入口 | 去掉重复写盘，同时保留磁盘保护与收尾完整状态 | `final_only + HF` 每个周期只有一对HF/池导出；始终先查磁盘；周期HF不更新完整存档游标；`always` 的DCP延迟规则不变 | 同一步出现多条周期直出HF日志；220非倍数出现周期HF；磁盘拒绝后仍HF导出；停止后缺完整DCP | 仓库根执行 `git restore --source=1243886 -- lingbot-vla-v2/tasks/vla/train_lingbotvla.py`；仅影响下次启动，不能热改在跑进程 | 本机 `python3 lingbot-vla-v2/tests/test_al_periodic_checkpoint.py`；下次启动日志 `周期直出 HF` 每个220倍数仅一次，非边界周期后无额外边界HF |
+| **#22** 缓存复用与观测 | 让clear/reuse可对照，定位调用成本，避免盲目改变默认 | 默认仍清理；reuse只作用两个入口；GC与OOM回退不取消；不读/写模型或RNG；trace不改变原清理异常传播 | reuse下新增OOM/批大小降级、恢复审计失败、整段墙钟变慢；trace日志缺context/policy或诊断失败阻断清理 | `AL_CUDA_CACHE_POLICY=clear AL_CUDA_CACHE_TRACE=0`下次启动回原清理；本次无当前运行修改 | 本机运行 `tests/test_cuda_cache_policy.py`、`tests/test_al_cache_profile.py`；空闲GPU按A/B说明覆盖评测和周期存档，不能仅验函数 |
 
 ## §2 已验证（可不再惦记）
 
@@ -107,10 +118,13 @@
 | ~~开环评测本体未按 rank 分片~~ ⇒ **已立项：见 §1 #6** | 用户 10-11 定 B 方案（每卡恒 `k=ceil(n/W)` 条、汇总按 episode id 去重），范围只 `active_val` + `train_monitor`；**默认关**，真机验证后再考虑默认开 |
 | `bootstrap PASS` 任务直接毕业 ⇒ confirm 值当不了训练基线 | 门控语义问题，改它等于改设计（"免费 PASS"的意义就是不用训），实测 v43/v44 零交集 |
 | 池子采样 ID 兼容性目前只按 local_idx 成员关系判断 | 当前修复会拦住 ID 集不匹配；如果数据内容/排序变化但产生相同 local_idx，单靠 ID 无法证明它仍指向同一 episode/frame。后续可给 pool state 加 resolver 映射指纹；本次先不扩大格式与导出改动面 |
+| 收尾路径再次调用HF转换 | step4300已观察到两次收尾HF；#21只收敛周期触发，收尾重排队仍待独立验证，不声明已修复 |
+| 评测/存档 `empty_cache()` 的GPU收益 | #22已提供可选复用/观测和CPU对照报告；默认clear保持原行为。CPU契约已验，真实GPU性能、数值与显存峰值仍未验；训练运行中禁止GPU A/B，不改变默认行为 |
+| 模型启动进一步并行化 | 当前运行日志已证实6线程预读6片23.8GiB/8.3s，逐片加载12.4s；单训练进程。FSDP2自定义逐张量装载不会自动因HF并行加载环境变量而加速。可后续测流水预取与逐片清理开销；未测收益前不新增多进程模型构建或调整线程参数 |
 
 ---
 
-**当前待验证：19 条（#1–#16、#16b、#18、#20；存在两条编号 `9` —— 并行协作者各写一条，本 agent 未擅自改其编号）。下次上机（无训练在跑时）优先按编号顺序验证；**
+**当前待验证见 §1（本次新增 #21/#22；存在两条编号 `9` —— 历史并行协作者各写一条，保留原编号）。下次上机（无训练在跑时）优先按编号顺序验证；**
 **排查入口：先看 §1.5（扰动本意/症状/回滚）与 `AL_*` 开关总表；**
 **#6（轨迹分片）需真机 7/8 卡 smoke：确认不死锁、指标与不分片逐位一致、墙钟下降。**
 

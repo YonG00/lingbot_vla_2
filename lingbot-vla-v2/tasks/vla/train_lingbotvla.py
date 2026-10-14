@@ -1831,35 +1831,21 @@ def main():
                                     current_pred_feats=future_video_current_preds,
                                 )
 
-            # ---- [Stage B1] 存档触发（review v0.2 #2：只在 **unit 边界** 落盘）----
-            # `_save_due`：本步正好是 save_steps 的整数倍，或之前欠下的一次存档到期。
-            # 🔴 2026-10-12（用户「如果我不在边界存档呢？」⇒ 选方案 B）：**HF 直出与 DCP 解耦**。
-            #   为什么可以解耦：下面那条"必须落在 unit 边界"的推迟，是为 **DCP** 设计的 ——
-            #   中途存档会写下 `extra_state['at_boundary']=False`，恢复时框架 fail-fast 拒绝
-            #   静默重跑。而 **HF 直出**（`final_only` + `save_hf_weights=true`）**不做 resume**、
-            #   也不写 DCP ⇒ 该约束对它不成立 ⇒ 可以在**任意步**落盘，`save_steps` 即真实间隔。
-            #   ⚠️ 仍然只在 `final_only` 下启用：`always` 模式的 HF 走 DCP 转档（那条路要求
-            #   与 DCP 同步，必须继续遵守边界约束）。
-            if (args.train.save_hf_weights
-                    and args.train.dcp_save_mode == "final_only"
-                    and not args.train.smoke_no_checkpoint
-                    and args.train.save_steps
-                    and global_step % args.train.save_steps == 0):
-                _hf_direct_path = os.path.join(
-                    args.train.save_checkpoint_path, f"global_step_{global_step}")
-                os.makedirs(_hf_direct_path, exist_ok=True)
-                logger.info_rank0(
-                    f"[ckpt] step {global_step}（{args.train.save_steps} 的整数倍）"
-                    f"⇒ HF 直出（不写 DCP、不受 unit 边界约束），路径 {_hf_direct_path}/hf_ckpt")
-                _save_hf_direct_best_effort(_hf_direct_path, global_step)
-                _export_pool_state_here(_hf_direct_path, global_step)
-
+            # ---- [Stage B1] 存档触发：DCP 守 unit 边界，周期 HF 按绝对步号 ----
+            # HF 直出与 DCP 解耦，但共用下方唯一落盘入口（先 DiskCheck，再导出池子）。
+            # 不提前导出再进入边界队列：否则边界步重复写，中途步又在下一边界额外写。
+            # final_only 的 HF 不支持精确 resume，允许在 save_steps 整数倍直接保存；
+            # always 的 DCP 仍必须在 unit 边界保存，保证 Scheduler/模型状态一致。
+            _hf_periodic_direct = (args.train.save_hf_weights
+                                   and args.train.dcp_save_mode == "final_only")
             _save_due = bool(not args.train.smoke_no_checkpoint and
                              args.train.save_steps and global_step % args.train.save_steps == 0)
-            if (_al_deferred_save and _al_hook is not None
+            if _hf_periodic_direct:
+                _al_deferred_save = False
+            elif (_al_deferred_save and _al_hook is not None
                     and _al_hook.at_safe_checkpoint_boundary):
                 _save_due = True
-            if _save_due:
+            if _save_due and not _hf_periodic_direct:
                 if _al_hook is not None and not _al_hook.at_safe_checkpoint_boundary:
                     # 不在 unit 边界 ⇒ 推迟到最近的边界（最多 eval_interval_steps-1 步）
                     if not _al_deferred_save:
@@ -1930,7 +1916,7 @@ def main():
                     if _avail_before is not None:
                         _disk_avail_before_gb = _avail_before
 
-                helper.empty_cache()
+                helper.empty_cache(context="periodic_hf" if _hf_periodic_direct else "periodic_dcp")
                 save_checkpoint_path = os.path.join(args.train.save_checkpoint_path, f"global_step_{global_step}")
 
                 # param_to_name = {}
@@ -1985,7 +1971,8 @@ def main():
                     if args.train.save_hf_weights:
                         logger.info_rank0(
                             f"[ckpt] dcp_save_mode=final_only ⇒ step {global_step} "
-                            f"直出 HF（不写 DCP），路径 {save_checkpoint_path}/hf_ckpt")
+                            f"周期直出 HF（{args.train.save_steps} 的整数倍；"
+                            f"不写 DCP、不排队到 unit 边界），路径 {save_checkpoint_path}/hf_ckpt")
                         _save_hf_direct_best_effort(save_checkpoint_path, global_step)
                         # [pool_state] 池子跟着这份 HF 一起导出。
                         # 🔴 必须显式调：池子导出原先只挂在 `save_hf_checkpoint_best_effort` 里，
@@ -1996,7 +1983,10 @@ def main():
                         logger.info_rank0(
                             f"[ckpt] dcp_save_mode=final_only 且 save_hf_weights=false ⇒ "
                             f"step {global_step} 周期不写任何存档（仅建目录 {save_checkpoint_path}）")
-                _last_saved_step = global_step
+                # 收尾用这个游标决定能否跳过完整存档；周期 HF 没有优化器/调度器，
+                # 即使恰好在 max_steps/STOP_AND_SAVE 同一步，也不能替代收尾 DCP。
+                if _write_dcp:
+                    _last_saved_step = global_step
 
             # --- 训练中原地 open-loop validation（不触发 checkpoint 保存）---
             if open_loop_validator is not None and \
