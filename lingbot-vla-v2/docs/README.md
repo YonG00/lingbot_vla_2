@@ -44,6 +44,7 @@
 | Eval 批处理有没有闸门 | `acceptance/eval_batch_auto_gate_guide.md` |
 | 96G 单卡 bf16 验收结论 | `acceptance/gpu96_bf16_acceptance.md` |
 | 闭环评测（AMD 单卡） | `acceptance/closed_loop_amd_single_gpu_guide.md` |
+| 迁入的50任务 benchmark / 训练后闭环评测准备 | `acceptance/clean_benchmark_import_guide.md`（上游原样保存，单卡 NVIDIA 接入待验证） |
 | 磁盘/检查点保留策略（官方） | 顶层 `disk_guard_guide.md` |
 | 查历史审计证据 | `archive/audit/<日期>/` |
 

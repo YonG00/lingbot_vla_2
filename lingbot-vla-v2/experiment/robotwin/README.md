@@ -100,6 +100,11 @@ ${XDG_CACHE_HOME}/huggingface/lerobot/${repo_id}
 
 ## 7. Simulated Evaluation (Inference + RoboTwin Sim)
 
+外部 benchmark 已原样迁入 [`run_clean_benchmark.py`](./run_clean_benchmark.py)。
+它依赖上游 AMD Docker 的服务 / 仿真客户端，尚不能直接在当前单卡 NVIDIA 环境运行；
+来源版本、评测口径差异和训练结束后的接入步骤见
+[`clean_benchmark_import_guide.md`](../../docs/acceptance/clean_benchmark_import_guide.md)。
+
 After training, evaluate your checkpoint on the 50 RoboTwin tasks (100 episodes each) with
 [`start_robotwin_infer_and_eval.sh`](./start_robotwin_infer_and_eval.sh). It starts
 `num_gpus * num_per_gpu` resident inference servers (one port each), then runs the sim tasks
