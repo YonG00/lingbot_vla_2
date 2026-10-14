@@ -114,7 +114,7 @@ replay_task_policy: uniform
 replay_sample_policy: pass_snapshot
 
 # ----- review -----
-review_after_task_transitions: 10   # 每 10 次 transition（含 PASS/DEFER/REOPEN 等所有状态转变）复查一次 PASS 池；0=关闭
+review_after_task_transitions: 20   # 每 20 次 transition（含 PASS/DEFER/REOPEN 等状态转变）复查一次 PASS 池；0=关闭。文件名 noreview 是历史遗留。
 forget_relative_threshold: 0.30
 
 # ----- scheduler -----
