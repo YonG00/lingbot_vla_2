@@ -45,6 +45,7 @@ from ..decision.thresholds import (
 from ..decision.state_machine import (
     apply_defer,
     apply_pass,
+    attempt_budget_exhausted,
     decide_after_unit,
     is_terminal,
     rollover_round,
@@ -199,6 +200,36 @@ class Scheduler:
         self.checkpoint_path: Optional[str] = None
         self.events: List[Dict[str, Any]] = []
         self.last_decision: Dict[str, Any] = {}
+
+    def import_pool_registry(
+        self, raw: Dict[str, Any], *, refresh_candidates: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """HF 新 run 继承任务池；不是恢复 DCP 的调度器进度/RNG。
+
+        已存档任务不再 bootstrap，避免把 DEFER/EXHAUSTED 洗回候选。
+        新 manifest 中没有存档记录的任务仍按正常 bootstrap 初始化。
+        HF 无法续接正在进行的 attempt；TRAINING 记录回候选或预算终态。
+        权重步号与池不同：只重新评测候选，保护 PASS/DEFER/EXHAUSTED。
+        """
+        issues = self.registry.load_state(raw)
+        imported = set(raw.get("records") or {}).intersection(self.registry.records)
+        for name in imported:
+            rec = self.registry.get(name)
+            if rec.status == TaskStatus.TRAINING.value:
+                exhausted = attempt_budget_exhausted(rec, self.al)
+                rec.set_status(
+                    TaskStatus.EXHAUSTED if exhausted else TaskStatus.CANDIDATE,
+                    "HF 池导入：未续接进行中的 attempt，保留已用 attempt 次数",
+                    ReasonCode.ATTEMPT_BUDGET_EXHAUSTED.value if exhausted else "",
+                )
+        self.state.bootstrap_queue = [
+            name for name in self.state.bootstrap_queue
+            if name not in imported or (
+                refresh_candidates
+                and self.registry.get(name).status == TaskStatus.CANDIDATE.value
+            )
+        ]
+        return issues
 
     # ---------------------------------------------------------------- #
     def rebind_rng(self) -> None:
@@ -599,6 +630,19 @@ class Scheduler:
         al = self.al
         st = self.state
 
+        # 防御旧池子/其他状态入口留下的超预算候选；免费 rescan PASS 不受影响。
+        # start_attempt 本身只加计数，故必须在排序/扫描之前守住训练预算。
+        for rec in self.registry.by_status(TaskStatus.CANDIDATE):
+            if attempt_budget_exhausted(rec, al):
+                rec.set_status(
+                    TaskStatus.EXHAUSTED,
+                    f"EXHAUSTED: 选任务前训练预算已用尽（attempt={rec.attempt_count}/{al.max_attempts_per_task}）",
+                    ReasonCode.ATTEMPT_BUDGET_EXHAUSTED.value,
+                )
+                if self.logger is not None:
+                    self.logger.info_rank0(
+                        f"[auto_learning] 跳过超预算候选 {rec.task_name}: "
+                        f"attempt={rec.attempt_count}/{al.max_attempts_per_task}")
         cands = self._pool_candidates()
         if not cands:
             if pool_filter_enabled(al) and self.registry.by_status(TaskStatus.CANDIDATE):

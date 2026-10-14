@@ -524,7 +524,8 @@ def finish_auto_learning(
     # ---- [pool_state] 池子导入（2026-10-12 用户要求；**只服务 HF 续训**）-----------
     # 背景：池子原本只随 DCP 的 extra_state 走。从 **HF 权重**起新 run 时框架判为
     #   `_al_resume_mode == "fresh"` ⇒ 池子从零 ⇒ 已 PASS 的被重训、刚 DEFER 的被立刻重试。
-    # 这里在**采样器构造之前**把池子灌回注册表 ⇒ 采样/选任务立刻按旧池子走。
+    # 这里在**采样器构造之前**导入池子，并移除已有任务的 bootstrap 队列项。
+    # 只灌注册表不够：随后全任务 bootstrap 会覆盖旧状态，刚 DEFER 的会立刻重试。
     #
     # 🔴 为什么"走 DCP 时跳过"：DCP 的 AL 状态是在 `train_lingbotvla.py` 里
     #   `_al_hook.load_extra_state(_al_state)`（在 parts 构建**之后**）才加载的，
@@ -552,14 +553,27 @@ def finish_auto_learning(
                               f'{pool_state_mod.DEFAULT_MIRROR}）⇒ 池子从零开始（权重与编号不受影响）')
             else:
                 _pool_al = _pool.get('auto_learning') or {}
-                _sample_state_issues = scheduler.registry.load_state(
-                    _pool_al.get('registry') or {})
+                # 较新 HF + 旧池是继承任务池，不是精确续训；旧候选排序需用当前权重重测。
+                _refresh_pool_candidates = (
+                    _pool.get('global_step') is not None
+                    and _pool.get('global_step') != getattr(args.train, 'step_offset', 0)
+                )
+                _sample_state_issues = scheduler.import_pool_registry(
+                    _pool_al.get('registry') or {},
+                    refresh_candidates=_refresh_pool_candidates)
                 _sum = pool_state_mod.summarize_pool(_pool_al)
                 log.info_rank0(
                     f'[pool_state] 已导入池子：{_pool_path}（step={_pool.get("global_step")}）'
                     f' | {_sum["n_tasks"]} 任务 '
                     + ' '.join(f'{k} {v}' for k, v in sorted(_sum['counts'].items()))
                     + f' | sample_probs {_sum["n_sample_probs"]} 项')
+                _live_counts = scheduler.registry.counts()
+                log.info_rank0(
+                    '[pool_state] 保留 PASS/DEFER/EXHAUSTED 状态，bootstrap 处理新任务'
+                    + ('和需更新评测的候选：' if _refresh_pool_candidates else '：')
+                    + f'权重 step={getattr(args.train, "step_offset", 0)} / 池 step={_pool.get("global_step")}；'
+                    f'{len(scheduler.state.bootstrap_queue)} 个待预扫 '
+                    + ' '.join(f'{k} {v}' for k, v in sorted(_live_counts.items())))
                 for _issue in _sample_state_issues:
                     log.warning(
                         f'[pool_state] 丢弃不兼容采样表：task={_issue["task"]} '

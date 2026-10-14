@@ -265,6 +265,9 @@ def test_build_py_hook_skips_when_resuming_from_dcp():
     i_sched = src.index('scheduler = Scheduler(backend, cfg')
     i_pool = src.index('_pool_note: Optional[str] = None')
     assert i_sched < i_pool
+    # HF 入口必须同时恢复 registry 与裁剪 bootstrap，不能退回只恢复 registry。
+    assert 'scheduler.import_pool_registry(' in src
+    assert 'scheduler.registry.load_state(' not in src
 
 
 def test_train_py_exports_inside_save_hf_helpers():
