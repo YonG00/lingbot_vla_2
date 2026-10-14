@@ -157,6 +157,13 @@ class AutoLearningConfig:
     rescan_every_n_task_switches: int = 1
     max_global_steps: Optional[int] = None
     max_transitions: Optional[int] = None
+    #: 「轮」上限（2026-10-14 用户要求）：候选池每被清空一次 = 一轮结束；
+    #: 第 N 轮的候选池再次清空时**不再 rollover**（DEFER 不再转回候选）⇒ 直接收工
+    #: （stop_reason=``max_rounds_reached(N)``）。None（默认）= 不限，行为与改造前逐字一致。
+    #: 例：2 ⇒ 第 1 轮覆盖全池 → 清空后 DEFER 转候选进入第 2 轮 → 第 2 轮清空即停。
+    #: ⚠️ ``round`` 从 1 起算，且**不随 pool_state.json 恢复**（HF 续训只灌注册表）⇒ 每个新 run 从第 1 轮重新计。
+    #: ⚠️ 刻意**不**放进 ``persistence.SEMANTIC_KEYS``（否则旧 DCP 的指纹会对不上、resume 被拦）。
+    max_rounds: Optional[int] = None
 
     # ----- misc -----
     seed: int = 0
@@ -197,6 +204,8 @@ class AutoLearningConfig:
             )
         if type(self.rescan_every_n_task_switches) is not int or self.rescan_every_n_task_switches < 1:
             raise ValueError("rescan_every_n_task_switches 必须是 >= 1 的整数")
+        if self.max_rounds is not None and (type(self.max_rounds) is not int or self.max_rounds < 1):
+            raise ValueError("max_rounds 必须是 >= 1 的整数（或不设）")
         if type(self.scout_confirm_enabled) is not bool:
             raise ValueError("scout_confirm_enabled 必须是布尔值")
         if self.eval_interval_steps <= 0:

@@ -6,7 +6,7 @@
 
 | 文件 | 字节 | sha256 |
 |---|---|---|
-| `README.md` | 6391 | `9d37bf53868bc471224ff2d149f91a51f0e2a23177e9650c9f377f1444263ed4` |
+| `README.md` | 6762 | `4f5d53dea9b7a3d495c353060d3763c71f1c220f36cfeff94a745ab97d48516e` |
 | `al/hardness_cache/hardness.json` | 12793 | `a3084d44ed1fd8b48445060e78d9194521d93e332483555c52f635c95edab2dc` |
 | `al/phases_al/datasets.txt` | 79 | `c4605a30b9a5355fc42287b2f459c6ba5c406efe88cbf22645bd990a127e244b` |
 | `al/scout_cache/scout.json` | 21753 | `0d6274d78841a1606591c8a5db53e01537fb82a08daa86f52949040c86171648` |
@@ -114,6 +114,7 @@
 | `al/task_splits_50/task_baseline.json` | 37094 | `7240138b97828e7b5a1044207275dedcb78364b7a4128b2b240efd814236b325` |
 | `al/task_splits_50/turn_switch.train_ids.json` | 323 | `c84d2be7bed3d6a31eb8c60a447cb47acf953d0a56774c2e0f9b370c3350f7fe` |
 | `al/task_splits_50/turn_switch.val_ids.json` | 83 | `e5aeee1542132ae44bc7bbcace75668bc2dffa18858260fa8ff58477e3c165fb` |
+| `eval_results/open_loop/ref50k/pass_thresholds_gmean60_warn.json` | 23554 | `61f6db0524660ca65684451f9df14dcb5552e7119df9bfd9798d5e8fd69da12f` |
 | `eval_results/open_loop/ref50k/pass_thresholds_gmean100_warn.json` | 23534 | `a9964828302fb27962d2ae4c024cebbc27e9584d595f90aafd38536392fbc570` |
 | `eval_results/open_loop/ref50k/ref_per_traj.jsonl` | 36131 | `793493bf3909dd6a4996e31e4022dee665338e037b5c4b536f2d5edae3851f32` |
 | `restore.sh` | 4196 | `ee75f60f4813af0ff606e4e15db763c1f6dd7d3ecc8b3c83d20ca88c3fed1054` |

@@ -613,6 +613,16 @@ class Scheduler:
                     self.logger.warning(
                         "[auto_learning] 候选池被 pool_ratio 分档清空"
                         f"（可练段 = [{al.pool_ratio_pass}, {al.pool_ratio_skip}]）：{_buckets}")
+            # 「轮」上限：候选池已空 = 当前轮结束；已是最后一轮 ⇒ 不再 rollover，直接收工。
+            # 先于 rollover_round 判断（rollover 会把 DEFER 改回 CANDIDATE，必须在此之前拦下）。
+            if al.max_rounds is not None and st.round >= al.max_rounds:
+                _cnt = self.registry.counts()
+                self._finish(f"max_rounds_reached({al.max_rounds})")
+                if self.logger is not None:
+                    self.logger.info_rank0(
+                        f"[auto_learning] 第 {st.round} 轮候选池已清空且已达 max_rounds={al.max_rounds} "
+                        f"⇒ 不再 rollover，收工；池子 {dict(_cnt)}")
+                return {"action": "finish", "stop_reason": st.stop_reason}
             promoted = rollover_round(self.registry, al)
             if promoted:
                 st.round += 1

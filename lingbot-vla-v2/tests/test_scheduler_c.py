@@ -287,3 +287,48 @@ def test_C06g_trained_tasks_is_superset_of_new_tasks():
     assert "A" not in sched.state.new_tasks_attempted  # 但它不是新任务
 
 
+
+
+# =========================================================================== #
+# C07 max_rounds：候选池清空 N 次即停（2026-10-14 用户要求）
+# =========================================================================== #
+def _run_unlearnable(**al_kw) -> Scheduler:
+    cfg = make_cfg([ft.easy_pass("A"), ft.unlearnable("B"), ft.easy_pass("C")],
+                   al=_al(max_attempts_per_task=2, **al_kw))
+    sched = scheduler_of(cfg)
+    sched.run(max_actions=800)
+    return sched
+
+
+def test_C07_max_rounds_none_is_legacy_behaviour():
+    """不设 max_rounds ⇒ 与改造前一致：B 经 rollover 用满 2 次 attempt 后 EXHAUSTED。"""
+    s = _run_unlearnable()
+    assert s.registry.get("B").status == TaskStatus.EXHAUSTED.value
+    assert s.state.round == 2
+    assert not s.state.stop_reason.startswith("max_rounds")
+
+
+def test_C07b_max_rounds_1_stops_before_rollover():
+    """max_rounds=1：第 1 轮清空即停，DEFER 不转回候选（B 停在 DEFER、只练过 1 次）。"""
+    s = _run_unlearnable(max_rounds=1)
+    assert s.state.finished and s.state.stop_reason == "max_rounds_reached(1)"
+    assert s.state.round == 1
+    assert s.registry.get("B").status == TaskStatus.DEFER.value
+    assert s.registry.get("B").attempt_count == 1
+
+
+def test_C07c_max_rounds_2_allows_exactly_one_rollover():
+    """max_rounds=2：第 1 轮清空 → rollover 进第 2 轮 → 第 2 轮清空即停。"""
+    s = _run_unlearnable(max_rounds=2)
+    assert s.state.finished
+    assert s.state.round == 2
+    assert s.registry.get("B").attempt_count == 2
+    # B 第二次也失败 ⇒ EXHAUSTED，池清空；此时停机原因应是"轮上限"而非 all_tasks_resolved
+    assert s.state.stop_reason == "max_rounds_reached(2)", s.state.stop_reason
+
+
+def test_C07d_max_rounds_validation():
+    import pytest
+    for bad in (0, -1, 1.5, True):
+        with pytest.raises(ValueError):
+            _al(max_rounds=bad)

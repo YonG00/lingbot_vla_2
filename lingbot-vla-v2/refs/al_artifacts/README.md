@@ -38,6 +38,7 @@ bash refs/al_artifacts/restore.sh root@<host> <port> <本机私钥路径>
 | `al/phases_al/datasets.txt` | `/workspace/al/phases_al/datasets.txt` | **单行聚合数据集**清单（训练侧 `--data.train_path` 指向它） | 秒级（但要知道"必须单行"这个约束） |
 | `al/scout_cache/scout.json` | `/workspace/al/scout_cache/scout.json` | scout 开环指标缓存（50/50 覆盖） | **~4 分 44 秒**（50 任务 / 8 分片首扫） |
 | `al/hardness_cache/hardness.json` | `/workspace/al/hardness_cache/hardness.json` | hardness 逐样本难度缓存（模型名判定有效性） | **单卡 ~1000 s/任务**（8 卡 rank 分片约 1/8） |
+| `eval_results/open_loop/ref50k/pass_thresholds_gmean60_warn.json` | 训练机 `…/ref50k/…`（ctrl 的 AL 配置直接引用仓库内路径） | **通过线阈值表**（GMean×60；2026-10-14 由 `ref_per_traj.jsonl` + `task_baseline.json` 生成，指纹 `0e9f13836c74914d`，50/50 可用） | 秒级（命令见 §3，`--multiplier 60 --high-cv-policy warn`） |
 | `eval_results/open_loop/ref50k/pass_thresholds_gmean100_warn.json` | `/workspace/eval_results/open_loop/ref50k/…` | **通过线阈值表**（GMean×100） | 秒级（但依赖 `ref_per_traj.jsonl`） |
 | `eval_results/open_loop/ref50k/ref_per_traj.jsonl` | 同上目录 | 50k 参考模型逐轨迹 MSE（生成阈值表的唯一输入） | **不可重算**（需 50k 参考模型；必须从历史机器带出来） |
 
