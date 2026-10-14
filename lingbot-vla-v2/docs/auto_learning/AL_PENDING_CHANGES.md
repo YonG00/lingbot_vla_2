@@ -41,7 +41,8 @@
 
 | 18 | 10-14 | `state/registry.py::TaskRegistry.load_state` 保留当前 catalog 派生字段并校验 `sample_probs` / `pass_sampling_snapshot`；`real/build.py` 与 `real/hook.py` 记录丢弃告警；集成回归覆盖 | HF 池子/DCP 状态恢复把旧 `sample_id` 空间覆盖到当前数据集，训练在 sampler 校验时失败；概率表只过滤外来 ID 会改变分布 | 仅恢复动态 AL 状态；任何一个键不属于当前任务时整张对应表清空并告警；当前任务/样本 ID 与 baseline 保持 catalog 值 | HF 池子和 DCP extra_state 共用注册表恢复；只验证 ID 成员关系，无法识别相同 local_idx 对应不同帧，resolver 指纹留作后续 | `d1fc26e` | 🧪 部分验证（CPU 29 passed；真机 `al_v77_sampleidfix` 已过原崩点，step 4055，长跑/DCP 真机恢复仍未验证） |
 
-| 19 | 10-14 | `Scheduler.import_pool_registry` + HF build 接线：同一步号 HF 的已有池记录退出 bootstrap；较新 HF 只重测旧候选，新任务仍预扫；`_select` 拦截超预算候选；纯 CPU 契约回归 | 输入池实际 PASS=16/DEFER=3/CANDIDATE=22/EXHAUSTED=9，但 HF 导入后全量 bootstrap 将其覆盖成 PASS=10/CANDIDATE=40，另出现 attempt=3 | 导入后的既有状态不被 bootstrap 改写；DEFER 只走正常 rollover，EXHAUSTED 不重新训练；候选在 start_attempt 前检查预算；HF 的 TRAINING 记录按剩余预算回候选/终态 | 依赖 #18；HF 只继承 registry，不恢复旧 scheduler 进度/RNG；DCP 恢复入口不改；rescan 免费 PASS 保留；必须重启生效 | 待提交 | 🧪 部分验证：隔离 torch 的 CPU 回归 56 passed / 2.03 s；含真实 CPU torch、HF 接线和 DCP resume 的回归 107 passed；生产重启待验证 |
+
+| 20 | 10-14 | `tools/auto_learning_pipeline/al_checkpoint_watch.py`：单运行周期 HF 监控，满4份删最早1份，保留3份；工具索引与 CPU 回归 | 用户要求按存档数量滚动保留，避免220步存档积累占满盘 | 仅统计完整 HF（配置/index/所有分片长度/同一步号池）；仅清理指定 run 的周期目录；DCP/临时目录/符号链接/受保护路径跳过；单实例锁；默认预览，`--apply` 才删除 | 独立纯标准库进程，无 torch/GPU，不改训练参数；4份同时落盘的峰值、DCP及输入HF仍需预留空间 | 本次提交 | 🧪 纯 CPU 12 passed / 0.04 s；真实满4份滚动清理待观察 |
 
 ## §1.5 改动本意速查（**debug 入口**；2026-10-12 用户要求）
 
@@ -74,7 +75,9 @@
 | **#13** 分片预检修复 | 让「每卡推理次数」**结构上恒等**，使多卡分片评测真机可跑（#6 才真正可用） | 分片下各 rank `n_starts` 相等；`ids` 并集 = 全集 `n_ids`；非分片路径逐字不变 | 日志 `多卡评测一致性预检未通过` + `n_starts=x vs y`；或 `[shard] 分片并集 N ≠ M` | `AL_EVAL_SHARD=0`（**需重启**）或 `git checkout <sha>~1 -- <两文件>` | `pytest tests/test_al_eval_shard_preflight.py -q`（真机 24 passed） |
 | **#18** 采样状态按当前 catalog 校验 | 旧池子只恢复生命周期/指标；分布只在样本 ID 全属于当前任务时恢复 | ① catalog 的 split/sample IDs/baseline 不被存档覆盖；② 任一外来 ID ⇒ 对应概率表整表清空；③ 合法表保留原值 | sampler 再报 `sample_id` 不在任务训练集；或 `[pool_state]/[auto_learning] 丢弃不兼容采样表` 告警显示 task/field/count | `git checkout <sha>~1 -- lingbotvla/auto_learning/state/registry.py lingbotvla/auto_learning/real/build.py lingbotvla/auto_learning/real/hook.py tests/test_auto_learning_integration.py` | `/data/miniconda3/envs/lingbotvla/bin/python -m pytest tests/test_auto_learning_integration.py tests/test_persistence.py tests/test_resume.py -q`；训练机 29 passed，4.37 s |
 
-| **#19** HF 池生命周期保护 | 继承池文件而非重新初始化已存档任务；拦住超预算训练 | ① 导入的 PASS/DEFER/EXHAUSTED 在首次调度前不变；② 仅新任务 bootstrap；③ start_attempt 前 attempt_count 小于上限；④ rescan 免费通关不占 attempt | 日志导入计数正确但随后 50 个 bootstrap 重写状态；或 `select.attempt` 超过配置上限 | `git checkout d1fc26e -- lingbot-vla-v2/lingbotvla/auto_learning/orchestration/scheduler.py lingbot-vla-v2/lingbotvla/auto_learning/real/build.py`（仓库根执行，需重启；会重新暴露状态覆盖问题） | `python -m pytest tests/test_al_hf_pool_restore.py tests/test_resume.py tests/test_persistence.py tests/test_scheduler.py tests/test_state_machine.py tests/test_al_pool_state.py -q`；启动日志 `[pool_state] 保留 PASS/DEFER/EXHAUSTED 状态`；同一步号既有任务无需预扫，较新权重只重测候选，并核对真实计数 |
+| **#19** HF 池生命周期保护 | 继承池文件而非重新初始化已存档任务；拦住超预算训练 | ① 导入的 PASS/DEFER/EXHAUSTED 在首次调度前不变；② 同一步号仅新任务 bootstrap，较新权重可重测旧候选；③ start_attempt 前 attempt_count 小于上限；④ rescan 免费通关不占 attempt | 日志导入计数正确但随后 50 个 bootstrap 重写状态；或 `select.attempt` 超过配置上限 | `git checkout d1fc26e -- lingbot-vla-v2/lingbotvla/auto_learning/orchestration/scheduler.py lingbot-vla-v2/lingbotvla/auto_learning/real/build.py`（仓库根执行，需重启；会重新暴露状态覆盖问题） | `python -m pytest tests/test_al_hf_pool_restore.py tests/test_resume.py tests/test_persistence.py tests/test_scheduler.py tests/test_state_machine.py tests/test_al_pool_state.py -q`；启动日志 `[pool_state] 保留 PASS/DEFER/EXHAUSTED 状态`；同一步号既有任务无需预扫，较新权重只重测候选，并核对真实计数 |
+
+| **#20** 周期 HF 滚动保留 | 满4份删除最早完整周期HF，留下3份 | 删除路径必须是指定 run/checkpoints 的直接子目录，分片与池完整，且不含DCP/临时发布目录；受保护路径不删 | 日志 `prune_begin` / `removed` 与实际完整周期目录数不符；未完整落盘的目录被计入 | 停止对应监控 PID（需用户同意）；下次启动不加 `--apply` 即只预览；已经删除的旧HF无法恢复 | `python -m pytest tests/test_al_checkpoint_watch.py -q`；`python tools/auto_learning_pipeline/al_checkpoint_watch.py <RUN_DIR> --once` 预览，获准后 `--apply` 后台监控；每15秒检查 |
 
 ## §2 已验证（可不再惦记）
 
@@ -89,7 +92,11 @@
 
 | # | 日期 | 内容 | 验证证据 |
 |---|---|---|---|
-| — | — | — | — |
+| 19 | 10-14 | HF池状态保护与超预算训练门控 | `b8f0ab9`；107 CPU回归通过，真机导入原池并仅刷新22个候选；step4327训练正常；详细本意见§1.5 |
+
+| 编号 | 日期 | 改动 | 原因 | 判据 | 影响面 | commit | 状态 |
+|---|---|---|---|---|---|---|---|
+| 19 | 10-14 | `Scheduler.import_pool_registry` + HF build 接线：同一步号 HF 的已有池记录退出 bootstrap；较新 HF 只重测旧候选，新任务仍预扫；`_select` 拦截超预算候选；纯 CPU 契约回归 | 输入池实际 PASS=16/DEFER=3/CANDIDATE=22/EXHAUSTED=9，但 HF 导入后全量 bootstrap 将其覆盖成 PASS=10/CANDIDATE=40，另出现 attempt=3 | 导入后的既有状态不被 bootstrap 改写；DEFER 只走正常 rollover，EXHAUSTED 不重新训练；候选在 start_attempt 前检查预算；HF 的 TRAINING 记录按剩余预算回候选/终态 | 依赖 #18；HF 只继承 registry，不恢复旧 scheduler 进度/RNG；DCP 恢复入口不改；rescan 免费 PASS 保留；必须重启生效 | `b8f0ab9` | ✅ HF 池继承已验证：CPU 107 passed / 4.97 s；真机 step4300 HF + 原4050池，保护16 PASS/3 DEFER/9 EXHAUSTED、仅重测22候选；训练已到4327。真实 DCP 恢复不作为本条已验证证据 |
 
 ## §3 已知遗留 / 暂不改（有明确理由）
 
@@ -103,7 +110,7 @@
 
 ---
 
-**当前待验证：19 条（#1–#16、#16b、#18–#19；存在两条编号 `9` —— 并行协作者各写一条，本 agent 未擅自改其编号）。下次上机（无训练在跑时）优先按编号顺序验证；**
+**当前待验证：19 条（#1–#16、#16b、#18、#20；存在两条编号 `9` —— 并行协作者各写一条，本 agent 未擅自改其编号）。下次上机（无训练在跑时）优先按编号顺序验证；**
 **排查入口：先看 §1.5（扰动本意/症状/回滚）与 `AL_*` 开关总表；**
 **#6（轨迹分片）需真机 7/8 卡 smoke：确认不死锁、指标与不分片逐位一致、墙钟下降。**
 
@@ -113,3 +120,12 @@
 - 当前 4300 池为 PASS=13 / CANDIDATE=36 / EXHAUSTED=1 / DEFER=0，是受错误 bootstrap 影响的运行结果，不替代原池。原 step4050 池 SHA256 `b8ba93e9deb7538ad55251f704ca0ef42b1e64af6adc3a02ddeb2f94e0f87251`，停训后复核未变。
 - 用户选择 step4300 HF + 原 step4050 池（重新继承池，不是精确断点恢复），SAVE_EVERY 明确恢复220，允许启动空间门槛 MIN_FREE_GB 从80改50；其他训练参数保持 MICRO=24 / GAS=1 / N_GPU=1 / MAX_STEPS=20000 / TB=0 / DCP_MODE=final_only / SAVE_HF=1 / HF_PASS_INTERVAL=0。此后参数调整必须先获用户明确允许。
 - 原 ctrl wrapper 固定要求三片 HF 且权重和池步号相同；本次六片 HF + 显式旧池通过独立预检后，调用同一个 `al_50task_bf16.sh`，不修改 wrapper。新运行 `al_v78_poolfix_4300`；重测原池22个候选，保护16 PASS / 3 DEFER / 9 EXHAUSTED；后续正常 rescan/review/rollover 可按既有规则更新状态。
+
+- #19 上机结果：训练机 HEAD=`b8f0ab9744c471468afb124abd358622376675f5`，与origin一致。实际进程确认 `step_offset=4300 / save_steps=220 / max_steps=20000 / micro=24 / gas=1 / dcp_save_mode=final_only / disk_guard=true`。
+- 用户明确允许删除刚保存的4300 DCP，保留HF：仅删除 `global_step_4300/model`、`optimizer`、`extra_state`，释放23.72 GiB，空闲77.5 GiB；HF六片长度/header/mtime及config/index/池文件SHA复核未变。
+
+### #20 监控运行方式
+
+- 对新运行 `al_v78_poolfix_4300` 启动独立后台脚本；日志 `/data/tmp/al_v78_checkpoint_watch.log`。启动用的4300 HF在旧run，且通过 `--protect` 再显式保护。
+- 命令：`python tools/auto_learning_pipeline/al_checkpoint_watch.py /data/outputs/al_v78_poolfix_4300 --apply --protect /data/outputs/al_v77_sampleidfix/checkpoints/global_step_4300/hf_ckpt`（生产按项目约定 `setsid nohup` 后台）。
+- 仅周期HF参与“满4删1”；完整/正在写DCP仍由训练器自身保留策略负责。当前CPU12项覆盖阈值、预览、重启追赶、多种未完成存档、输入保护、符号链接及目录发布竞态。真实运行未积满4份之前，不宣称生产删除路径已验证。
