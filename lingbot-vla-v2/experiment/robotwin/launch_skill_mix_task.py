@@ -255,7 +255,10 @@ def main(argv=None):
         (args.out / name).write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n")
     (args.out / "datasets.txt").write_text(f"robotwin {args.dataset_root.resolve()}\n")
     if args.execute:
+        # 入口在 tasks/vla，子进程不会自动把包根加入 sys.path；安装的 editable
+        # 包可能仍指向生产目录。必须让 torchrun 及其 worker 优先导入实验源码。
         env = dict(os.environ, QWEN3VL_PATH=str(args.qwen3vl.resolve()),
+                   PYTHONPATH=os.pathsep.join(filter(None, (str(REPO), os.environ.get("PYTHONPATH", "")))),
                    AL_POOL_STATE_NO_IMPORT="1", AL_POOL_STATE_MIRROR="",
                    AL_SCAN_SKIP_HARDNESS="0",
                    AL_SCOUT_CACHE_MODE="off", AL_SCOUT_CACHE_FILE="", AL_HARDNESS_SELFTEST_IDS="0",

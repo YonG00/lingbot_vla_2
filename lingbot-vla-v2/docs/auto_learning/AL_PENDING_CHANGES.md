@@ -60,6 +60,8 @@
 | 28 | 10-15 | 启动器 tokenizer 校验改为库规范化语义比较 | CKPT9680 与 Qwen 的合并规则存储格式、默认字段及 72 长度设置导致原 JSON 相等检查误报；只读取证后单独获批 | **不变量**：仅忽略运行期 padding/truncation 和库兼容的序列化差异，词表/ID/有序合并/特殊 token/分词规则差异仍拒绝，不改源文件。**症状**：相同 tokenizer 被拦截，或不同 token ID/规则可生成计划。**回滚**：恢复 `6470669` 的启动器与对应测试（回到严格原 JSON 比较，会恢复本次误报），新进程生效。**验证入口**：`PYTHONPATH=.:tests python -m unittest test_skill_mix_task_launcher -v` | 只影响实验启动器预检/来源报告；依赖 tokenizers（原项目已有依赖）；不影响训练 tokenizer 的长度设置 | `686bdee` | 🧪 本地共 37 项纯 CPU 通过；服务器最终 37 项单测及真实 CKPT9680 预检通过；GPU 待验 |
 | 29 | 10-15 | 单技能实验每 250 步保存 BF16 HF | 用户要求 1000 步只保存 250/500/750/1000 四份；旧档只留两份是一次性清理，不改新实验保留机制 | **不变量**：命令 `train.save_steps=250`；250/750 不等评测边界；1000 周期/结束只导出一次；不写 DCP。**症状**：仍生成200档、250推迟300、1000重复导出。**回滚**：启动器 `train.save_steps` 改回200，重启新run生效。**验证入口**：`PYTHONPATH=.:tests python -m unittest test_al_hf_only test_skill_mix_task_launcher -v` | 仅实验启动器参数、对应契约与文档；100步独立评测不变；旧档清理后可用76.8GiB，四份HF预计47.5GiB；GPU未验 | 本条所在提交 | 本地37项纯CPU通过；同步后核对实际计划含250，不启动训练 |
 
+**#30（10-15）实验 worker 导入路径修复**：首次 GPU 运行在 step0 以 `no_eligible_candidate` 退出；只读复现实际导入 `/data/code` 旧配置与调度器，四个新开关均不存在。已获批修复、提交同步并换新目录立即重启。**不变量**：torchrun/worker 的 `PYTHONPATH` 以实验包根开头，保留原环境其余路径；不改生产安装。**症状**：关闭扫描仍出现 bootstrap，或模块来源指向 `/data/code`。**回滚**：撤回启动器的 `PYTHONPATH` 设置并停止实验启动（会恢复误导入，不能继续旧命令）。**验证入口**：`PYTHONPATH=.:tests python -m unittest test_skill_mix_task_launcher.LauncherTests.test_execute_worker_imports_experiment_before_installed_package -v`；本地38项CPU通过，包含真实子进程与竞争旧包的来源/开关契约。step0 HF保留作证据，未训练；GPU重试待同步后核实。
+
 ## §1.5 改动本意速查（**debug 入口**；2026-10-12 用户要求）
 
 > 用法：**出问题时先看这里** —— 回答三个问题：① 这是不是我改的？② 它现在算不算坏？③ 怎么立刻退回去？

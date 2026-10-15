@@ -59,6 +59,8 @@ tokenizer 校验使用项目已依赖的 `tokenizers` 库分别加载，取消�
 
 **`--train-config` 必须给 CKPT9680 来源 run 的 `lingbotvla_cli.yaml`**，保留原动作配置和归一化。脚本生成独立 `trainer_config.json`，清除 DCP 恢复及 VLM-only/部分加载入口；完整 HF 使用 `post_training=true` 严格检查参数。模型构造仍复用原有 loader，实际加载、buffer 和 GPU 精度需上机检查。Qwen3VL 路径需保留型号名称，因为现有模型 patch 选择依赖这个名字；不把 step 目录当作 Qwen 型号路径。
 
+训练子进程必须优先导入本实验源码。启动器显式把包根置于 `PYTHONPATH` 首位，再保留原值，torchrun 与 worker 均继承此环境；不能只依赖启动器的 cwd。机器中的 editable 安装仍指向生产 `/data/code`，无需修改该安装。2026-10-15 首次 GPU 启动因缺此设置，误导入旧 AL（四个新开关均不存在），在 step0 以 `no_eligible_candidate` 退出；`skill_cabinet_9680_1000` 中 step0 HF 和日志留作证据，不算训练完成。用户获知后批准修复并在新目录重启；CPU 契约使用竞争旧包与真实子进程覆盖此问题。
+
 开机后先核实真实路径，打印计划示例（下列占位参数需替换）：
 
 ```bash

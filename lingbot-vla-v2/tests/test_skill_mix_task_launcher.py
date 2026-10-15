@@ -1,11 +1,17 @@
 """实际启动器预检/命令生成；纯 CPU，无训练、无 torch。"""
 import importlib.util
+import contextlib
+import io
 import json
+import os
 from pathlib import Path
 import struct
+import subprocess
+import sys
 import tempfile
 from types import SimpleNamespace as NS
 import unittest
+from unittest.mock import patch
 from tokenizers import Tokenizer, models
 
 from lingbotvla.auto_learning.config import AutoLearningConfig
@@ -81,6 +87,34 @@ class LauncherTests(unittest.TestCase):
         self.args.learning_tasks = ["typo"]
         with self.assertRaisesRegex(ValueError, "unknown tasks"):
             launcher.build_plan(self.args)
+
+    def test_execute_worker_imports_experiment_before_installed_package(self):
+        installed = self.root / "old_install"
+        shadow = installed / "lingbotvla"
+        shadow.mkdir(parents=True)
+        (shadow / "__init__.py").write_text("raise RuntimeError('imported old production package')\n")
+        argv = ["--model", str(self.model), "--train-config", str(self.train),
+                "--dataset-root", str(self.args.dataset_root), "--qwen3vl", str(self.args.qwen3vl),
+                "--out", str(self.args.out), "--audit-report", str(self.args.audit_report), "--execute"]
+        with patch.dict(os.environ, PYTHONPATH=str(installed), CUDA_VISIBLE_DEVICES="0"), \
+                patch.object(launcher.os, "chdir"), patch.object(launcher.os, "execvpe") as execute, \
+                contextlib.redirect_stdout(io.StringIO()):
+            launcher.main(argv)
+        env = execute.call_args.args[2]
+        self.assertEqual(env["PYTHONPATH"].split(os.pathsep), [str(ROOT), str(installed)])
+        # 真实 Python 子进程：脚本目录与包根不同，且存在竞争的旧包。只导入 AL，禁用 GPU。
+        worker = self.root / "worker"
+        worker.mkdir()
+        probe = worker / "probe.py"
+        probe.write_text(
+            "import json\nfrom pathlib import Path\n"
+            "import lingbotvla.auto_learning.config as module\n"
+            f"cfg=module.AutoLearningConfig.from_dict(json.loads(Path({str(self.args.out / 'al_config.json')!r}).read_text()))\n"
+            "assert not cfg.task_scan_enabled and not cfg.pass_transition_enabled and not cfg.import_pool_state\n"
+            "print(Path(module.__file__).resolve())\n")
+        actual = subprocess.check_output([sys.executable, str(probe)], cwd=self.root,
+                    env=dict(env, CUDA_VISIBLE_DEVICES=""), text=True).strip()
+        self.assertEqual(Path(actual), ROOT / "lingbotvla/auto_learning/config.py")
 
     def test_serialization_and_runtime_settings_are_not_semantic_mismatches(self):
         source = Tokenizer.from_str(json.dumps(self.tokenizer))
