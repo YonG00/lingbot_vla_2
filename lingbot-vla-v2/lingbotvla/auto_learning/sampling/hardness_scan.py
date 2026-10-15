@@ -135,6 +135,15 @@ class HardnessScanner:
     # ---------------------------------------------------------------- #
     def scan(self, record: TaskRecord, entry: TaskEntry) -> HardnessScan:
         cfg = self.cfg
+        if not cfg.hardness_scan_enabled:
+            # 所有入口（select / continue / rescue）共用此守卫；绝不读取旧权重。
+            weights = {sid: 1.0 for sid in record.sample_ids}
+            record.pass_sampling_snapshot = None
+            return HardnessScan(
+                task=record.task_name, version=0, scanned_traj_ids=[],
+                scanned_sample_ids=[], losses={}, difficulties={}, weights=weights,
+                probs=normalize_weights(weights), n_total=len(weights), n_scanned=0,
+                unscored_difficulty=cfg.difficulty_unscored_default)
         chosen = self.probe_traj_ids(record)
 
         scanned_ids: List[int] = []

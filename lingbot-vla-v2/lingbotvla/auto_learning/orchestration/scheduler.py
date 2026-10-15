@@ -102,9 +102,10 @@ def _nmse_is_required(cfg: Any) -> bool:
     任务会在 bootstrap 被排除、或在第一个 unit 后带着 metric_invalid 永远 DEFER）。
     指标有效性改由 GMean 自己把关（``record.metric_valid`` / ``check_pass``）。
 
-    开关关闭（默认）⇒ 恒为 True，行为与改造前**逐字一致**。
+    免任务扫描的 GMean 实验同样不依赖 NMSE。旧默认仍为 True。
     """
-    return not pool_filter_enabled(cfg)
+    return not (pool_filter_enabled(cfg) or (
+        not cfg.task_scan_enabled and cfg.pass_metric == "gmean_mse"))
 
 
 MAX_METRIC_ROWS = 20000
@@ -183,6 +184,15 @@ class Scheduler:
         self.evaluator = backend.evaluator
         self.trainer = backend.trainer
         self.registry = TaskRegistry.from_catalog(backend.catalog, al)
+        available = set(self.registry.names())
+        for key in ("learning_task_names", "replay_task_names"):
+            unknown = set(getattr(al, key) or []) - available
+            if unknown:
+                raise ValueError(f"{key}: unknown tasks {sorted(unknown)}")
+        self.learning_tasks = list(al.learning_task_names) if al.learning_task_names is not None else [
+            n for n in self.registry.names() if n not in (al.replay_task_names or [])]
+        if not self.learning_tasks:
+            raise ValueError("no learning tasks selected")
         #: B1：True 时 `_train_unit()` **不**自己调 trainer，只发布 request，
         #: 等外层真实训练循环跑完后用 `complete_train_unit(result)` 回填。
         #: 默认 False ⇒ Stage A / 既有测试的行为**逐位不变**。
@@ -192,7 +202,8 @@ class Scheduler:
         self.reviewer = Reviewer(al, self.evaluator)
         self.rebind_rng()
 
-        self.state = SchedulerState(bootstrap_queue=list(self.registry.names()))
+        self.state = SchedulerState(bootstrap_queue=(list(self.learning_tasks)
+                                                    if al.task_scan_enabled else []))
         self.scans: Dict[str, HardnessScan] = {}
         self.metrics_rows: List[Dict[str, Any]] = []
         self.heatmap_rows: List[Dict[str, Any]] = []
@@ -212,6 +223,11 @@ class Scheduler:
         权重步号与池不同：只重新评测候选，保护 PASS/DEFER/EXHAUSTED。
         """
         issues = self.registry.load_state(raw)
+        if not self.al.hardness_scan_enabled:
+            for rec in self.registry:
+                rec.sample_probs = {}
+                rec.pass_sampling_snapshot = None
+                rec.hardness_version = 0
         imported = set(raw.get("records") or {}).intersection(self.registry.records)
         for name in imported:
             rec = self.registry.get(name)
@@ -225,7 +241,7 @@ class Scheduler:
         self.state.bootstrap_queue = [
             name for name in self.state.bootstrap_queue
             if name not in imported or (
-                refresh_candidates
+                refresh_candidates and self.al.task_scan_enabled
                 and self.registry.get(name).status == TaskStatus.CANDIDATE.value
             )
         ]
@@ -250,7 +266,7 @@ class Scheduler:
         return self.backend.extra_state
 
     def replay_plan(self) -> ReplayPlan:
-        """PASS 池 = registry 里 status 为 PASS 的任务（含各自 PASS 时的采样分布）。
+        """默认复习 PASS 池；显式 replay_task_names 是用户指定数据池，不代表已通关。
 
         不再需要单独的 ReplayPool 对象 —— PASS 状态本来就在 registry 里，
         多一份副本只会多一个可能不同步的地方。
@@ -258,9 +274,13 @@ class Scheduler:
         tasks: List[str] = []
         probs: Dict[str, Optional[Dict[int, float]]] = {}
         sample_ids: Dict[str, List[int]] = {}
-        for rec in self.registry.by_status(TaskStatus.PASS):
+        records = (self.registry.by_status(TaskStatus.PASS)
+                   if self.al.replay_task_names is None else
+                   [self.registry.get(n) for n in self.al.replay_task_names])
+        for rec in records:
             tasks.append(rec.task_name)
-            probs[rec.task_name] = rec.pass_sampling_snapshot
+            probs[rec.task_name] = (rec.pass_sampling_snapshot
+                                   if self.al.hardness_scan_enabled else None)
             sample_ids[rec.task_name] = rec.sample_ids
         return ReplayPlan(tasks=tasks, probs=probs, sample_ids=sample_ids)
 
@@ -507,7 +527,8 @@ class Scheduler:
 
         # 判定走统一入口 thresholds.is_pass（口径由 cfg.pass_metric 决定；
         # mse 模式下任务没有可用阈值 ⇒ 不判 PASS，不会误放行）
-        if is_pass(al, name, nmse=scout.nmse, mse=scout.mse, gmean_mse=scout.gmean_mse):
+        if al.pass_transition_enabled and is_pass(
+                al, name, nmse=scout.nmse, mse=scout.mse, gmean_mse=scout.gmean_mse):
             accepted = scout
             if al.scout_confirm_enabled:
                 # 🔴 2026-10-11：复用 scout 已测的回合，只新评 confirm 里"scout 之外"的回合
@@ -598,13 +619,18 @@ class Scheduler:
         * 开关打开 ⇒ ratio 模式：NMSE 不再是必要条件（缺 baseline 时为 None），
           改用「实测 gmean_mse / 该任务参考线」分档，**只有可练段进池**。
         """
+        if not self.al.task_scan_enabled:
+            # 人工选定的任务不依赖尚未测量的 scout，不伪造指标参与排序。
+            return [r for r in self.registry.by_status(TaskStatus.CANDIDATE)
+                    if r.task_name in self.learning_tasks]
         if not pool_filter_enabled(self.al):
-            return self.registry.candidate_records()
-        return self.registry.candidate_records(
+            return [r for r in self.registry.candidate_records()
+                    if r.task_name in self.learning_tasks]
+        return [r for r in self.registry.candidate_records(
             require_finite_nmse=False,
             predicate=lambda r: gmean_pool_bucket(
                 self.al, r.task_name, gmean_mse=r.scout_gmean_mse) == POOL_RATIO_TRAINABLE,
-        )
+        ) if r.task_name in self.learning_tasks]
 
     def _candidate_priority(self, rec: TaskRecord) -> tuple:
         """Rank by the *active* pass metric, not an unrelated NMSE.
@@ -614,6 +640,8 @@ class Scheduler:
         multiplier. It measures proximity, not guaranteed learnability.
         Old NMSE/MSE modes preserve the previous NMSE ordering exactly.
         """
+        if not self.al.task_scan_enabled:
+            return (self.learning_tasks.index(rec.task_name), rec.task_name)
         if self.al.pass_metric != "gmean_mse":
             return (rec.scout_nmse, rec.task_name)
         _, threshold = pass_line(self.al, rec.task_name)
@@ -633,6 +661,8 @@ class Scheduler:
         # 防御旧池子/其他状态入口留下的超预算候选；免费 rescan PASS 不受影响。
         # start_attempt 本身只加计数，故必须在排序/扫描之前守住训练预算。
         for rec in self.registry.by_status(TaskStatus.CANDIDATE):
+            if rec.task_name not in self.learning_tasks:
+                continue
             if attempt_budget_exhausted(rec, al):
                 rec.set_status(
                     TaskStatus.EXHAUSTED,
@@ -670,7 +700,7 @@ class Scheduler:
             promoted = rollover_round(self.registry, al)
             if promoted:
                 st.round += 1
-                if al.rescan_candidates_after_transition:
+                if al.task_scan_enabled and al.rescan_candidates_after_transition:
                     self._rescan(promoted)
                 return {
                     "action": "round_rollover",
@@ -678,7 +708,8 @@ class Scheduler:
                     "promoted": promoted,
                 }
             counts = self.registry.counts()
-            if counts.get("CANDIDATE", 0) == 0 and counts.get("DEFER", 0) == 0:
+            if not any(r.task_name in self.learning_tasks and r.status in ("CANDIDATE", "DEFER")
+                       for r in self.registry):
                 _floor2 = getattr(al, 'min_new_tasks_passed_this_run', None)
                 if _floor2 is not None and len(st.newly_passed) < int(_floor2):
                     self._finish('min_new_passes_not_reached')
@@ -707,7 +738,7 @@ class Scheduler:
 
         pick = min(cands, key=self._candidate_priority)
         name = pick.task_name
-        if al.pass_metric == "gmean_mse" and self.logger is not None:
+        if al.task_scan_enabled and al.pass_metric == "gmean_mse" and self.logger is not None:
             self.logger.log_metrics(st.global_step, "curriculum/selected_scout_pass_ratio",
                                     self._candidate_priority(pick)[0])
         if name not in st.trained_tasks:
@@ -730,6 +761,10 @@ class Scheduler:
         pick.current_val_mse = vm.mse
         pick.current_val_gmean_mse = vm.gmean_mse
         pick.current_train_gmean_mse = tm.gmean_mse
+        if not al.task_scan_enabled:
+            pick.metric_valid = vm.metric_valid and (
+                is_finite_metric(vm.gmean_mse) if al.pass_metric == "gmean_mse"
+                else is_finite_metric(vm.nmse))
         pick.prev_train_nmse = tm.nmse
         pick.prev_val_nmse = vm.nmse
         # GMean 的"上一个 unit 值"（ratio 模式下 LP 用它算；非 ratio 模式只是多记两个数，
@@ -790,7 +825,9 @@ class Scheduler:
             "scout_nmse": pick.scout_nmse,
             "scout_gmean_mse": pick.scout_gmean_mse,
             "scout_pass_ratio": (self._candidate_priority(pick)[0]
-                                  if al.pass_metric == "gmean_mse" else None),
+                                  if al.task_scan_enabled and al.pass_metric == "gmean_mse" else None),
+            "hardness_scan_enabled": al.hardness_scan_enabled,
+            "pass_transition_enabled": al.pass_transition_enabled,
             "attempt": pick.attempt_count,
             "round": st.round,
             "baseline_train_nmse": tm.nmse,
@@ -802,7 +839,7 @@ class Scheduler:
             "hardness_p90_loss": round(scan.p90_loss_scanned, 4),
             "n_samples": scan.n_total,
             "hardness_scan_seconds": round(_hardness_seconds, 3),
-            "hardness_scan_is_first": bool(_hardness_first),
+            "hardness_scan_is_first": bool(_hardness_first and al.hardness_scan_enabled),
         }
 
     # ---------------------------------------------------------------- #
@@ -819,7 +856,8 @@ class Scheduler:
         # 这件事由 trainer 负责（契约见 ports.Trainer）；scheduler 只说「跑几步」。
         request = TrainRequest(
             task=name,
-            probs=dict(rec.sample_probs),
+            probs=(dict(rec.sample_probs) if al.hardness_scan_enabled else
+                   {sid: 1.0 / len(rec.sample_ids) for sid in rec.sample_ids}),
             replay=self.replay_plan(),
             start_step=st.global_step,
             batch_size=al.batch_size,
@@ -904,11 +942,16 @@ class Scheduler:
         rec.current_val_mse = vm.mse
         rec.current_val_gmean_mse = vm.gmean_mse
         rec.current_train_gmean_mse = tm.gmean_mse
+        if not al.task_scan_enabled:
+            rec.metric_valid = vm.metric_valid and (
+                is_finite_metric(vm.gmean_mse) if al.pass_metric == "gmean_mse"
+                else is_finite_metric(vm.nmse))
         # LP 与 gap 都是**尺度无关**的比值 ⇒ 用 gmean 还是 nmse 算数值等价（同一 baseline）。
         # 🔴 ratio 模式下必须用 gmean：缺 baseline 时 nmse 恒为 None ⇒ 旧 LP 永远是
         #    None ⇒ `decide_after_unit` 的 ④ 只会 CONTINUE(LP_UNAVAILABLE)，attempt
         #    永不收尾（一个任务被无限训练）。非 ratio 模式逐字不变。
-        _gmean_scale = pool_filter_enabled(al)
+        _gmean_scale = pool_filter_enabled(al) or (
+            not al.task_scan_enabled and al.pass_metric == "gmean_mse")
         rec.lp50 = (learning_progress(rec.prev_val_gmean_mse, rec.current_val_gmean_mse)
                     if _gmean_scale else
                     learning_progress(rec.prev_val_nmse, rec.current_val_nmse))
@@ -1007,7 +1050,9 @@ class Scheduler:
             self._refresh_hardness(rec, event)
             event["decision"] = "RESCUE"
             event["reason"] = (
-                f"准备 DEFER，先换一组 hardness 分布再给 {al.defer_retry_steps} step（{reason}）"
+                ("准备 DEFER，换一组 hardness 分布" if al.hardness_scan_enabled
+                 else "准备 DEFER，样本扫描已关闭，保留均匀采样")
+                + f"，再给 {al.defer_retry_steps} step（{reason}）"
             )
         else:
             status = apply_defer(rec, al, reason, verdict.code)
@@ -1054,7 +1099,8 @@ class Scheduler:
         self.scans[rec.task_name] = scan
         rec.sample_probs = scan.probs
         rec.hardness_version = scan.version
-        event["hardness_refreshed"] = scan.version
+        event["hardness_refreshed"] = scan.version if self.al.hardness_scan_enabled else False
+        event["hardness_scan_enabled"] = self.al.hardness_scan_enabled
 
     # ---------------------------------------------------------------- #
     def _mark_auto_pass(self, task: str) -> None:
@@ -1098,7 +1144,7 @@ class Scheduler:
         if self._total_pass_target_reached():
             self._finish(f"target_total_passed_reached({self.al.target_total_passed_tasks})")
             return
-        if (self.al.rescan_candidates_after_transition
+        if (self.al.task_scan_enabled and self.al.rescan_candidates_after_transition
                 and st.task_switch_count % self.al.rescan_every_n_task_switches == 0):
             self._rescan()
             st.full_rescan_count += 1
@@ -1137,10 +1183,14 @@ class Scheduler:
         直接 PASS（不再消耗训练预算）。
         """
         al = self.al
+        if not al.task_scan_enabled:
+            return []
         # ratio 模式下 nmse 允许为 None（缺 baseline）⇒ 不用它当"指标有效"的前提
         nmse_required = _nmse_is_required(al)
         rows: List[Dict[str, Any]] = []
         for rec in self.registry:
+            if rec.task_name not in self.learning_tasks:
+                continue
             if rec.task_name == self.state.current_task:
                 continue
             if rec.status not in (
@@ -1169,7 +1219,7 @@ class Scheduler:
             self._record_eval(rec, scout, kind="rescan")
             row = {"task": rec.task_name, "nmse": scout.nmse, "status": rec.status}
             if (
-                rec.metric_valid
+                al.pass_transition_enabled and rec.metric_valid
                 and (is_finite_metric(scout.nmse) or not nmse_required)
                 # 判定走统一入口（口径由 cfg.pass_metric 决定；
                 # mse 模式下任务没有可用阈值 ⇒ 不判 PASS）
@@ -1231,6 +1281,21 @@ class Scheduler:
 
     def _record_eval(self, rec: TaskRecord, metrics, kind: str) -> None:
         self.state.eval_events += 1
+        comparisons = {}
+        if kind == "active_val" and self.al.pass_metric == "gmean_mse":
+            if (rec.initial_val_gmean_mse is None and rec.total_task_steps == 0
+                    and rec.attempt_count == 1 and is_finite_metric(metrics.gmean_mse)):
+                rec.initial_val_gmean_mse = metrics.gmean_mse
+            _, reference = pass_line(self.al, rec.task_name)
+            for key, denominator in (("val_to_reference", reference),
+                                     ("val_to_initial", rec.initial_val_gmean_mse)):
+                comparisons[key] = (float(metrics.gmean_mse) / denominator
+                    if is_finite_metric(metrics.gmean_mse) and is_finite_metric(denominator)
+                    and denominator > 0 else None)
+            if self.logger is not None:
+                for key, value in comparisons.items():
+                    self.logger.log_metrics(self.state.global_step,
+                                            f"task/{rec.task_name}/{key}", value)
         rec.note_eval(
             {
                 "step": self.state.global_step,
@@ -1241,6 +1306,7 @@ class Scheduler:
                 "mse": metrics.mse,
                 "gmean_mse": metrics.gmean_mse,
                 "baseline_mse": metrics.baseline_mse,
+                **comparisons,
                 # 2026-10-11：合并式 confirm 会带"复用 N + 新评 M"说明 ⇒ 落进 eval_history
                 # 便于事后从 DCP 状态核对，不必翻日志（为空则不占空间）
                 **({"note": metrics.note} if getattr(metrics, "note", "") else {}),

@@ -59,7 +59,8 @@ def decide_after_unit(
     #    缺 baseline ⇒ nmse 恒为 None，若还在这里拦，GMean 指标再好的任务也永远
     #    DEFER(metric_invalid)。指标有效性由上面的 gmean 守卫 + `check_pass` 把关。
     #    开关关闭（默认）⇒ 条件退化回改造前的 `if not is_finite_metric(val)`。
-    if not is_finite_metric(val) and not pool_filter_enabled(cfg):
+    if (not is_finite_metric(val) and not pool_filter_enabled(cfg)
+            and (cfg.task_scan_enabled or cfg.pass_metric == "nmse")):
         if attempt_step >= threshold:
             return Verdict(
                 Decision.DEFER,
@@ -80,7 +81,7 @@ def decide_after_unit(
         cfg, record.task_name, nmse=val, mse=record.current_val_mse,
         gmean_mse=record.current_val_gmean_mse
     )
-    if _check == PassCheck.PASS:
+    if cfg.pass_transition_enabled and _check == PassCheck.PASS:
         _shown = (record.current_val_gmean_mse if _metric == "gmean_mse" else
                   record.current_val_mse if _metric == "mse" else val)
         if (
@@ -177,6 +178,8 @@ def apply_pass(
     reason: str,
     code: str = ReasonCode.VAL_BELOW_THRESHOLD.value,
 ) -> None:
+    if not cfg.pass_transition_enabled:
+        raise RuntimeError("automatic PASS transition is disabled")
     record.set_status(TaskStatus.PASS, f"PASS: {reason}", code)
     record.forgotten = False
     record.ever_passed = True
@@ -298,6 +301,9 @@ def rollover_round(registry: TaskRegistry, cfg: AutoLearningConfig) -> List[str]
     """本轮候选都处理完了 ⇒ 给 DEFER 且还有预算的任务第二次机会（文档 §16）。"""
     promoted: List[str] = []
     for rec in registry.by_status(TaskStatus.DEFER):
+        if ((cfg.learning_task_names is not None and rec.task_name not in cfg.learning_task_names)
+                or rec.task_name in (cfg.replay_task_names or [])):
+            continue
         if rec.attempt_count < cfg.max_attempts_per_task:
             rec.set_status(
                 TaskStatus.CANDIDATE,

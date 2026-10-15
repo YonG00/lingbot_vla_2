@@ -34,6 +34,7 @@
 | 开环评测（官方三篇） | 顶层 `open_loop_guide.md`、`open_loop_selfcheck_guide.md`、`open_loop_validation_guide.md` |
 | AL 与开环的结合 | `auto_learning/AL_OPENLOOP_UPDATE_GUIDE.md` |
 | 单任务训练（官方） | 顶层 `single_task_train_guide.md` |
+| 指定技能实验（禁 PASS/扫描，数据对拍，HF-only） | `auto_learning/skill_mix_task_experiment_zh.md`（本地 CPU 验证，上机待验） |
 | 分阶段训练（官方） | 顶层 `phase_training_guide.md`、`phase_train_then_eval_guide.md`、`phase1_vit_frozen_guide.md` |
 | 任务划分 / 课程顺序（官方） | 顶层 `task_split_guide.md`、`robotwin_curriculum_v1.md` |
 | AMD 机器重建后怎么恢复 | `rocm/amd_instance_rebuild_recovery_zh.md` |

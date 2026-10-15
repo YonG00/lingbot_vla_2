@@ -1822,6 +1822,9 @@ def run(args: argparse.Namespace, log: Tee, report: Dict[str, Any]) -> int:
     scout_trajs = args.scout_trajs
     if al_cfg.is_file():
         al_body, al_warnings = read_al_config(al_cfg)
+        if not al_body.get('task_scan_enabled', True):
+            raise LaunchError('task_scan_enabled=false：请使用 launch_skill_mix_task.py；'
+                              '本启动器要求全池 scout 缓存，不能用于免扫描实验')
         for warning in al_warnings:
             plan.warnings.append(warning)
             log('[warn] ' + warning)

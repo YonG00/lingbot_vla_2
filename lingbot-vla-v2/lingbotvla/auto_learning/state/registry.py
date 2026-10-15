@@ -103,6 +103,7 @@ class TaskRecord:
     current_val_mse: Optional[float] = None
     best_mse: Optional[float] = None
     current_val_gmean_mse: Optional[float] = None
+    initial_val_gmean_mse: Optional[float] = None
     best_gmean_mse: Optional[float] = None
     #: 上一个 unit 的 GMean 实测值 —— 候选池 ratio 模式下 LP / train-val gap 用
     #: **同一把尺子**算（缺 baseline 时 nmse 恒为 None，旧 LP 字段会一直是 None

@@ -1,0 +1,369 @@
+{
+  "version": 1,
+  "metric": "mse",
+  "stat": "geomean",
+  "margin": 0,
+  "reference": "global_step_50000",
+  "config_fingerprint": "0e9f13836c74914d",
+  "tasks": {
+    "adjust_bottle": 0.0002507948324384753,
+    "click_bell": 0.0001778285160887205,
+    "hanging_mug": 0.00023280590460726788,
+    "move_stapler_pad": 9.625895945094407e-05,
+    "place_a2b_left": 0.00022129504669087232,
+    "place_can_basket": 0.000145486197203779,
+    "place_fan": 0.00013398102769781862,
+    "place_phone_stand": 0.00022629443277505387,
+    "rotate_qrcode": 9.614426487485322e-05,
+    "stack_blocks_two": 0.00011272593428391545,
+    "beat_block_hammer": 0.00013141374165574326,
+    "dump_bin_bigbin": 0.0003278281179571078,
+    "lift_pot": 0.00013504781592290726,
+    "open_laptop": 0.00030033097320224727,
+    "place_a2b_right": 0.0001647265546390903,
+    "place_cans_plasticbox": 0.0004998528362184578,
+    "place_mouse_pad": 0.00015185890864793957,
+    "place_shoe": 0.00010342208029729541,
+    "scan_object": 0.0007207698046468716,
+    "stack_bowls_three": 0.0002083057547467426,
+    "blocks_ranking_rgb": 0.000269624637184516,
+    "grab_roller": 0.0008442108527936999,
+    "move_can_pot": 0.0003884549065441549,
+    "open_microwave": 9.339665417907654e-05,
+    "place_bread_basket": 0.00018063693628056216,
+    "place_container_plate": 0.0005523699701133911,
+    "place_object_basket": 0.0001289789001368529,
+    "press_stapler": 0.0001552436790106086,
+    "shake_bottle": 0.0006629953721974053,
+    "stack_bowls_two": 0.0006389960567008932,
+    "blocks_ranking_size": 0.0004032580653269631,
+    "handover_block": 0.00015589645403286538,
+    "move_pillbottle_pad": 8.36315801816166e-05,
+    "pick_diverse_bottles": 0.00026834839133631834,
+    "place_bread_skillet": 0.0001333115759436777,
+    "place_dual_shoes": 0.0005697834398998698,
+    "place_object_scale": 0.0005501544917751257,
+    "put_bottles_dustbin": 0.00020094948399922163,
+    "shake_bottle_horizontally": 0.0005038153978795404,
+    "stamp_seal": 0.00011537333922351653,
+    "click_alarmclock": 0.00013679597108674695,
+    "handover_mic": 7.535370774567593e-05,
+    "move_playingcard_away": 8.119917077093731e-05,
+    "pick_dual_bottles": 0.00025050827824685035,
+    "place_burger_fries": 5.973620006189151e-05,
+    "place_empty_cup": 0.00016499886869182127,
+    "place_object_stand": 0.0002841521906567001,
+    "put_object_cabinet": 0.0007115229657801033,
+    "stack_blocks_three": 0.00022302705383951658,
+    "turn_switch": 7.816269872736145e-05
+  },
+  "trajectory_ids": {
+    "adjust_bottle": [
+      1,
+      5,
+      20,
+      21
+    ],
+    "click_bell": [
+      51,
+      52,
+      56,
+      66
+    ],
+    "hanging_mug": [
+      103,
+      104,
+      110,
+      114
+    ],
+    "move_stapler_pad": [
+      151,
+      155,
+      172,
+      182
+    ],
+    "place_a2b_left": [
+      200,
+      202,
+      209,
+      221
+    ],
+    "place_can_basket": [
+      257,
+      269,
+      271,
+      278
+    ],
+    "place_fan": [
+      300,
+      309,
+      321,
+      327
+    ],
+    "place_phone_stand": [
+      353,
+      355,
+      359,
+      362
+    ],
+    "rotate_qrcode": [
+      404,
+      406,
+      409,
+      416
+    ],
+    "stack_blocks_two": [
+      453,
+      456,
+      462,
+      474
+    ],
+    "beat_block_hammer": [
+      505,
+      513,
+      514,
+      515
+    ],
+    "dump_bin_bigbin": [
+      554,
+      563,
+      571,
+      576
+    ],
+    "lift_pot": [
+      608,
+      610,
+      611,
+      617
+    ],
+    "open_laptop": [
+      652,
+      653,
+      660,
+      664
+    ],
+    "place_a2b_right": [
+      702,
+      706,
+      712,
+      714
+    ],
+    "place_cans_plasticbox": [
+      754,
+      759,
+      760,
+      763
+    ],
+    "place_mouse_pad": [
+      804,
+      805,
+      810,
+      811
+    ],
+    "place_shoe": [
+      856,
+      865,
+      870,
+      871
+    ],
+    "scan_object": [
+      904,
+      905,
+      912,
+      917
+    ],
+    "stack_bowls_three": [
+      952,
+      967,
+      971,
+      977
+    ],
+    "blocks_ranking_rgb": [
+      1004,
+      1006,
+      1013,
+      1018
+    ],
+    "grab_roller": [
+      1063,
+      1074,
+      1079,
+      1081
+    ],
+    "move_can_pot": [
+      1109,
+      1110,
+      1111,
+      1116
+    ],
+    "open_microwave": [
+      1156,
+      1157,
+      1172,
+      1176
+    ],
+    "place_bread_basket": [
+      1208,
+      1209,
+      1217,
+      1220
+    ],
+    "place_container_plate": [
+      1250,
+      1262,
+      1265,
+      1268
+    ],
+    "place_object_basket": [
+      1302,
+      1309,
+      1320,
+      1324
+    ],
+    "press_stapler": [
+      1356,
+      1357,
+      1358,
+      1361
+    ],
+    "shake_bottle": [
+      1403,
+      1405,
+      1408,
+      1419
+    ],
+    "stack_bowls_two": [
+      1453,
+      1455,
+      1456,
+      1459
+    ],
+    "blocks_ranking_size": [
+      1511,
+      1512,
+      1514,
+      1519
+    ],
+    "handover_block": [
+      1561,
+      1562,
+      1564,
+      1565
+    ],
+    "move_pillbottle_pad": [
+      1604,
+      1610,
+      1612,
+      1617
+    ],
+    "pick_diverse_bottles": [
+      1652,
+      1661,
+      1671,
+      1672
+    ],
+    "place_bread_skillet": [
+      1700,
+      1725,
+      1726,
+      1731
+    ],
+    "place_dual_shoes": [
+      1753,
+      1754,
+      1756,
+      1761
+    ],
+    "place_object_scale": [
+      1802,
+      1807,
+      1816,
+      1819
+    ],
+    "put_bottles_dustbin": [
+      1857,
+      1861,
+      1864,
+      1874
+    ],
+    "shake_bottle_horizontally": [
+      1901,
+      1904,
+      1906,
+      1922
+    ],
+    "stamp_seal": [
+      1950,
+      1952,
+      1955,
+      1963
+    ],
+    "click_alarmclock": [
+      2003,
+      2011,
+      2027,
+      2032
+    ],
+    "handover_mic": [
+      2050,
+      2056,
+      2057,
+      2059
+    ],
+    "move_playingcard_away": [
+      2105,
+      2109,
+      2119,
+      2121
+    ],
+    "pick_dual_bottles": [
+      2162,
+      2164,
+      2173,
+      2176
+    ],
+    "place_burger_fries": [
+      2200,
+      2209,
+      2212,
+      2215
+    ],
+    "place_empty_cup": [
+      2250,
+      2256,
+      2265,
+      2270
+    ],
+    "place_object_stand": [
+      2300,
+      2312,
+      2318,
+      2319
+    ],
+    "put_object_cabinet": [
+      2350,
+      2351,
+      2354,
+      2367
+    ],
+    "stack_blocks_three": [
+      2402,
+      2404,
+      2407,
+      2419
+    ],
+    "turn_switch": [
+      2459,
+      2460,
+      2461,
+      2474
+    ]
+  },
+  "calibration": {
+    "multiplier": 1,
+    "method": "exact_active4_per_trajectory_geomean",
+    "source_file": "refs/al_artifacts/eval_results/open_loop/ref50k/ref_per_traj.jsonl",
+    "source_sha256": "793493bf3909dd6a4996e31e4022dee665338e037b5c4b536f2d5edae3851f32",
+    "note": "Historical finished-model reference, reporting only; runtime equivalence still requires verification"
+  }
+}

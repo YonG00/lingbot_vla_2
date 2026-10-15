@@ -29,6 +29,16 @@ class AutoLearningConfig:
 
     # ----- task pool -----
     task_names: Optional[List[str]] = None
+    # None 保留动态候选/PASS replay；显式列表定义学习与复习范围，不伪造 PASS。
+    learning_task_names: Optional[List[str]] = None
+    replay_task_names: Optional[List[str]] = None
+    task_scan_enabled: bool = True
+    pass_transition_enabled: bool = True
+    hardness_scan_enabled: bool = True
+    import_pool_state: bool = True
+    # 缓存完整数据对拍报告；空值保持原启动流程。
+    data_audit_file: Optional[str] = None
+    data_audit_instruction_patterns: Dict[str, str] = field(default_factory=dict)
     #: 「本次最多**主动尝试**多少个新任务」—— 这是第一阶段的主开关。
     #: 统计口径 = 曾经进入 TRAINING（attempt_count 0→1）的不同任务数。
     max_new_tasks_attempted_this_run: Optional[int] = None
@@ -180,6 +190,27 @@ class AutoLearningConfig:
         self.validate()
 
     def validate(self) -> None:
+        for key in ("task_scan_enabled", "pass_transition_enabled",
+                    "hardness_scan_enabled", "import_pool_state"):
+            if type(getattr(self, key)) is not bool:
+                raise ValueError(f"{key} must be boolean")
+        for key in ("task_names", "learning_task_names", "replay_task_names"):
+            names = getattr(self, key)
+            if names is not None and (not isinstance(names, list)
+                    or any(not isinstance(n, str) or not n for n in names)
+                    or len(names) != len(set(names))):
+                raise ValueError(f"{key} must contain unique nonempty task names")
+        if self.learning_task_names == [] or self.task_names == []:
+            raise ValueError("task_names / learning_task_names cannot be empty")
+        if set(self.learning_task_names or []) & set(self.replay_task_names or []):
+            raise ValueError("learning_task_names and replay_task_names must not overlap")
+        if not self.task_scan_enabled and self.pool_filter_by_gmean_ratio:
+            raise ValueError("task_scan_enabled=false requires pool_filter_by_gmean_ratio=false")
+        if not self.pass_transition_enabled and any(
+                getattr(self, k) is not None for k in (
+                    "max_new_tasks_passed_this_run", "min_new_tasks_passed_this_run",
+                    "target_total_passed_tasks")):
+            raise ValueError("PASS goals require pass_transition_enabled=true")
         if type(self.batch_size) is not int or self.batch_size < 1:
             raise ValueError("batch_size must be a positive integer")
         if self.new_ratio is not None:

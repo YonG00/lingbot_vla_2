@@ -58,6 +58,7 @@ def run_periodic(steps, *, mode="final_only", hf=True, smoke=False,
         _dcp_save_or_abort=lambda _c, _p, _s, step: calls.append(("dcp", step)),
         _save_hf_direct_best_effort=lambda _p, step: calls.append(("hf", step)),
         _export_pool_state_here=lambda _p, step: calls.append(("pool", step)),
+        _save_hf_only=lambda step, **kw: calls.append(("hf_only", step)),
     )
     exec(compile(ast.parse(code), str(TRAINER), "exec"), ns)
     return calls, ns["exercise"]()

@@ -82,7 +82,7 @@ class TaskEntry:
 
 @dataclass
 class ReplayPlan:
-    """replay 池：PASS 任务 + 各自 PASS 时的采样分布（None ⇒ 均匀）。"""
+    """replay 池：默认 PASS；也可用户显式指定（不代表通过）。None 权重 ⇒ 均匀。"""
 
     tasks: List[str] = field(default_factory=list)
     probs: Dict[str, Optional[Dict[int, float]]] = field(default_factory=dict)

@@ -234,6 +234,12 @@ def build_auto_learning_parts(
     # ---- 回合 → dataset local_idx ----
     resolver = SampleResolver.from_dataset(train_dataset, task_of_episode=cat.task_of_episode)
     cat = cat.attach_samples(resolver)
+    if cfg.data_audit_file:
+        from ..data_audit import audit_dataset
+        audit = audit_dataset(cat, resolver, train_dataset, cfg)
+        if logger is not None:
+            logger.info_rank0(f"[data_audit] {'缓存身份核对通过' if audit['cached'] else '完整对拍通过'}: "
+                              f"{audit['tasks']}；report={cfg.data_audit_file}")
     if logger is not None:
         e0 = cat.entry(cat.task_names()[0])
         logger.info_rank0(
@@ -262,9 +268,9 @@ def build_auto_learning_parts(
         if _gmean_ratio_pool_mode(cfg):
             if logger is not None:
                 logger.warning(
-                    "[auto_learning] ⚠️ 没有 baseline store，但 "
-                    "pass_metric='gmean_mse' + pool_filter_by_gmean_ratio=true ⇒ "
-                    "不拒绝启动：候选池筛选与 PASS 判定都走 GMean/参考线，NMSE 只是 "
+                    "[auto_learning] 没有 baseline store，当前 GMean 模式"
+                    "（ratio 筛选或免任务扫描）不依赖 NMSE ⇒ "
+                    "继续启动：评测与参考比较走 GMean，NMSE 只是 "
                     "legacy 显示量（会一直是 n/a）。")
         elif not cfg.allow_missing_baseline:
             raise ValueError(
@@ -424,7 +430,7 @@ def finish_auto_learning(
     # ---- Backend / Scheduler ----
     # Optional strict-provenance cache: off by default; never Rescan/Review.
     scout_cache = None
-    if os.environ.get('AL_SCOUT_CACHE_MODE', 'off') == 'bootstrap':
+    if cfg.task_scan_enabled and os.environ.get('AL_SCOUT_CACHE_MODE', 'off') == 'bootstrap':
         if cfg.pass_metric != 'gmean_mse':
             raise RuntimeError('Scout cache only supports GMean (gmean_mse)')
         # [ROCM-PORT 2026-10-10] 原实现把 step_offset==500 当硬门槛（AutoDL step-500 续训场景）。
@@ -540,8 +546,8 @@ def finish_auto_learning(
     if _will_restore_from_dcp:
         _pool_note = ('本次从 DCP 续训 ⇒ AL 状态由 DCP 的 extra_state 恢复，'
                       '跳过 pool_state.json 导入（这是预期行为，不是丢状态）')
-    elif pool_state_mod.import_disabled():
-        _pool_note = (f'{pool_state_mod.NO_IMPORT_ENV}=1 ⇒ 跳过池子导入（池子从零）')
+    elif not cfg.import_pool_state or pool_state_mod.import_disabled():
+        _pool_note = ('import_pool_state=false 或环境开关 ⇒ 跳过池子导入（池子从零）')
     else:
         try:
             _pool_path = pool_state_mod.find_pool_state_file(
@@ -610,7 +616,10 @@ def finish_auto_learning(
     log.info_rank0(
         f"[auto_learning] 已就绪：{len(cat)} 任务；batch={cfg.batch_size}"
         f"（{cfg.new_slots} NEW + {cfg.replay_slots} Replay）；"
-        f"eval_interval={cfg.eval_interval_steps} 步；defer_train={scheduler.defer_train}")
+        f"eval_interval={cfg.eval_interval_steps} 步；defer_train={scheduler.defer_train}；"
+        f"PASS转换={cfg.pass_transition_enabled} task_scan={cfg.task_scan_enabled} "
+        f"hardness_scan={cfg.hardness_scan_enabled}；"
+        f"Replay来源={'用户指定' if cfg.replay_task_names is not None else '动态PASS池'}")
     # 验收钩子（默认关闭）：零 optimizer.step 时 Hardness 扫描不会被执行，
     # 这里在模型加载完成后、训练开始前，用**同一个**真实 scorer 跑一次逐样本对拍。
     # 复用 RealHardnessScorer 的阶段与报告逻辑（B8 → B1 → B8），不复制任何算法。
@@ -618,7 +627,7 @@ def finish_auto_learning(
     # AL_HARDNESS_REPORT_OUT（正式训练不会设）⇒ 只用于独立验收运行。
     # 单卡限制：多卡 FSDP2 明确拒绝，避免 collective 死锁。
     _selftest_n = int(os.environ.get('AL_HARDNESS_SELFTEST_IDS', '0') or 0)
-    if _selftest_n > 0 and os.environ.get('AL_HARDNESS_REPORT_OUT'):
+    if cfg.hardness_scan_enabled and _selftest_n > 0 and os.environ.get('AL_HARDNESS_REPORT_OUT'):
         try:
             import torch.distributed as _dist
             if _dist.is_available() and _dist.is_initialized() and _dist.get_world_size() > 1:
@@ -711,7 +720,9 @@ def validate_batch_alignment(cfg: AutoLearningConfig, args: Any, log: Any) -> No
 
 
 def _gmean_ratio_pool_mode(cfg: AutoLearningConfig) -> bool:
-    """是否「GMean 一把尺子」模式：``pass_metric='gmean_mse'`` + 候选池 ratio 开关。
+    """历史函数名：现在表示 GMean 不依赖 NMSE 的模式。
+
+    包含 ratio 候选池，以及 task_scan_enabled=false 的显式任务实验。
 
     只有这个模式下才允许 baseline 缺失 / 指纹不一致降级为 warning ——
     此时候选池筛选与 PASS 判定都只依赖 ``pass_thresholds_file`` 里的每任务参考线，
@@ -721,7 +732,8 @@ def _gmean_ratio_pool_mode(cfg: AutoLearningConfig) -> bool:
     """
     from ..decision.thresholds import pool_filter_enabled
 
-    return bool(pool_filter_enabled(cfg))
+    return bool(pool_filter_enabled(cfg) or (
+        not cfg.task_scan_enabled and cfg.pass_metric == "gmean_mse"))
 
 
 def _verify_baseline_fingerprint(parts: AutoLearningParts, cfg: AutoLearningConfig,

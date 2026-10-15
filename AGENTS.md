@@ -6,7 +6,8 @@
 ## 0. 工程坐标（以当前仓库为准）
 
 - 仓库根：本文件所在目录（git 顶层）；Python 包在 `lingbot-vla-v2/`（package `lingbot-vla-v2`）。
-- **工作分支：`Task_Auto_Learning`**（唯一以此为准；`origin/Task_Auto_Learning`）。
+- **本地实验分支：`learn_skill_mix_task`**，由 `Task_Auto_Learning` 创建；生产基线仍为 `Task_Auto_Learning`。
+  实验使用独立服务器目录，提交/push/同步须获批；下方生产分支的 reset/push 指令不能用于同步本实验。
   其它分支（`main` / `feature/auto-learning-v1` / `feature/quick-eval-multigpu-v1` / `feature/rocm-adapt`）**不作为开发基线**，不要往里同步或合并。
 - **训练机：`ctrl`（AutoDL）**；代码在 `/data/code`；Python：`/data/miniconda3/envs/lingbotvla/bin/python`。
   本机 Python 缺 torchdata / 新版 transformers ⇒ 重依赖测试只能在训练机上跑。AMD/ROCm 路线**不再使用**（`docs/rocm/` 仅作历史资料）。
@@ -41,6 +42,7 @@
 | **AL 系统怎么运转**（数据模型 / 评测 split / 判定口径 / 状态机 / 缓存 / 存档四象限 / 成本模型 / 已知冲突） | 技能 **`lingbot-auto-learning-logic`**（改 AL 代码前先读） |
 | **怎么改代码才不出事**（讨论 → 清单 → 逐条执行 → 提交；改动本意四问；验证矩阵） | 技能 **`lingbot-code-changes`** |
 | **改动台账**（改了什么 / 为什么 / 是否已上机验证 / 怎么回滚；`AL_*` 开关总表） | `lingbot-vla-v2/docs/auto_learning/AL_PENDING_CHANGES.md` |
+| 单技能实验 / 指定学习与 Replay 任务 / 无 PASS 与扫描 / HF-only | `lingbot-vla-v2/docs/auto_learning/skill_mix_task_experiment_zh.md` |
 | AL 上手 / 概念 / 启动命令 | `lingbot-vla-v2/README_AUTOLEARNING.md`、`docs/auto_learning/auto_learning_overview_zh.md`、`auto_learning_launch_guide_zh.md` |
 | 已知坑与自查表 | `lingbot-vla-v2/docs/auto_learning/auto_learning_pitfalls_zh.md` |
 | 文档总索引（按"想做什么"查） | `lingbot-vla-v2/docs/README.md` |

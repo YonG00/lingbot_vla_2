@@ -376,10 +376,12 @@ class MyTrainingArguments(TrainingArguments):
     )
 
     # ---- 步数编号偏移 ----
+    reset_step_counter: bool = field(
+        default=False, metadata={"help": "HF 新实验从 0 计步，禁止从模型路径推导旧步号；不兼容 DCP resume。"})
     step_offset: int = field(
         default=0,
         metadata={"help": (
-            "global_step 的**起始编号**（默认 0，行为与以前完全一致）。"
+            "global_step 的起始编号（0 默认从模型路径推导；reset_step_counter=true 才强制从零）。"
             "用途：接某个 `hf_ckpt` 起新 run、但希望存档编号接着旧模型继续 —— "
             "例如旧模型是 `global_step_500`，设 `step_offset=500` ⇒ 本 run 从 501 开始编号，"
             "存档落在 global_step_501/N*（实际落盘点是 save_steps 的整数倍）。"
@@ -389,13 +391,14 @@ class MyTrainingArguments(TrainingArguments):
     )
 
     # ---- 存档策略 ----
-    dcp_save_mode: Literal["always", "final_only"] = field(
+    dcp_save_mode: Literal["always", "final_only", "hf_only"] = field(
         default="always",
         metadata={"help": (
             "always（默认，现状）＝每次存档都写完整 DCP（model+optimizer+extra_state），可精确 resume；"
             "final_only＝**训练中的周期性存档只写 hf_ckpt**，只有收尾/轮末才写完整 DCP。"
             "省磁盘约 3×（F32 下 72G→24G/份），代价：中途无法精确 resume"
-            "（`enable_resume` 只能接上最后一个完整 DCP）。")},
+            "（`enable_resume` 只能接上最后一个完整 DCP）。"
+            "hf_only＝周期/轮末/收尾都只直出 HF，无优化器状态，不支持精确 resume。")},
     )
     eval_inference_dtype: str = field(
         default="auto",
@@ -826,7 +829,11 @@ def main():
     #    显式传值优先；读不到 ⇒ 从 1 开始并打日志（不报错，保持原默认行为可用）。
     #    ⚠️ 失败模式：DCP 成功加载时本值被 DCP 里的 global_step 覆盖（框架原有语义，未改）。
     _step_offset = max(0, int(getattr(args.train, "step_offset", 0) or 0))
-    if _step_offset == 0:
+    if args.train.reset_step_counter:
+        if args.train.enable_resume or args.train.load_checkpoint_path or _step_offset:
+            raise ValueError("reset_step_counter requires fresh HF run and step_offset=0")
+        logger.info_rank0("[step_offset] reset_step_counter=true：本实验从 0 计步")
+    elif _step_offset == 0:
         _so_mp = str(getattr(args.model, "model_path", "") or "")
         _so_m = re.search(r"global_step_(\d+)", _so_mp)
         if _so_m:
@@ -937,6 +944,12 @@ def main():
             f"hf_export_dtype 只支持 native/bf16/fp32，收到 {args.train.hf_export_dtype!r}")
     if args.train.dcp_keep_last is None or int(args.train.dcp_keep_last) < 0:
         raise ValueError("dcp_keep_last 必须是 >=0 的整数（0=不清理，默认 2）")
+    if args.train.dcp_save_mode == "hf_only":
+        if (not args.train.save_hf_weights or args.train.async_save_hf_weights
+                or args.train.hf_pass_interval or args.train.enable_resume
+                or args.train.load_checkpoint_path or args.train.smoke_no_checkpoint):
+            raise ValueError("hf_only requires synchronous HF saving, fresh HF run, no PASS milestone")
+        logger.info_rank0("[ckpt] hf_only：周期与结束仅 HF，无 DCP；保存失败即停止")
     if args.train.hf_pass_interval:
         if (args.train.hf_pass_interval < 1 or args.train.smoke_no_checkpoint
                 or not args.train.auto_learning
@@ -1076,7 +1089,7 @@ def main():
         """
         if _al_hook is None or args.train.global_rank != 0:
             return
-        _sub = 'hf_ckpt' if args.train.dcp_save_mode == 'final_only' else None
+        _sub = 'hf_ckpt' if args.train.dcp_save_mode in ('final_only', 'hf_only') else None
         _al = _al_hook.extra_state()
         _res = _export_pool_state_safely(
             logger,
@@ -1372,6 +1385,28 @@ def main():
     # ---- [Stage B1] Auto Learning：checkpoint 边界门控状态（review v0.2 #2）----
     #: 上一个**真正落盘成功**的 global_step（用于「收尾存档是否需要补一次」的判断）
     _last_saved_step = None
+    _last_hf_only_step = None
+
+    def _save_hf_only(step: int, *, disk_checked: bool = False) -> None:
+        # 所有 rank 同步提交成功游标，周期与结束同一步不重复导出。
+        nonlocal _last_hf_only_step, max_checkpoint_used_gb
+        if _last_hf_only_step == step:
+            return
+        if args.train.disk_guard and not disk_checked:
+            allowed, max_checkpoint_used_gb, _, reason = _disk_guard_check(
+                args.train.save_checkpoint_path, hf_saver, max_checkpoint_used_gb,
+                args.train.disk_guard_margin, label=f"HF-only 存档前 step {step}")
+            if not allowed:
+                raise RuntimeError(f"HF-only final checkpoint blocked by disk guard: {reason}")
+        path = os.path.join(args.train.save_checkpoint_path, f"global_step_{step}")
+        out = _save_hf_direct_best_effort(path, step)
+        success = [bool(out)]
+        dist.broadcast_object_list(success, src=0)
+        if not success[0]:
+            raise RuntimeError(f"HF-only checkpoint failed at step {step}; no DCP fallback")
+        _export_pool_state_here(path, step)
+        _last_hf_only_step = step
+
     #: 到点了但不在 unit 边界 ⇒ 欠一次存档，等最近的边界补上
     _al_deferred_save = False
     #: STOP_AND_SAVE 请求：AL 开启时不在 unit 中途停 —— 等到边界再停+存档
@@ -1837,7 +1872,7 @@ def main():
             # final_only 的 HF 不支持精确 resume，允许在 save_steps 整数倍直接保存；
             # always 的 DCP 仍必须在 unit 边界保存，保证 Scheduler/模型状态一致。
             _hf_periodic_direct = (args.train.save_hf_weights
-                                   and args.train.dcp_save_mode == "final_only")
+                                   and args.train.dcp_save_mode in ("final_only", "hf_only"))
             _save_due = bool(not args.train.smoke_no_checkpoint and
                              args.train.save_steps and global_step % args.train.save_steps == 0)
             if _hf_periodic_direct:
@@ -1949,7 +1984,7 @@ def main():
                 # `final_only`：训练中的周期性存档**只写 hf_ckpt**，不写完整 DCP（省 ≈3× 磁盘）。
                 #   完整 DCP（model+optimizer+extra_state）只在**收尾/轮末**写。
                 #   ⚠️ 代价：中途无法精确 resume —— `enable_resume` 只能接上最后一个完整 DCP。
-                _write_dcp = (args.train.dcp_save_mode != "final_only")
+                _write_dcp = (args.train.dcp_save_mode == "always")
                 if _write_dcp:
                     if _milestone_covered_by_dcp:
                         _hf_milestone_index = observed
@@ -1968,7 +2003,9 @@ def main():
                     #    ⇒ `assert metadata is not None` ⇒ AssertionError **杀训练**。
                     #    ⇒ 本模式下改用**内存直出**（`_save_hf_direct_best_effort`，不碰 DCP）；
                     #      `dcp_save_mode=always` 那条路**逐字不变**（通用训练脚本不受影响）。
-                    if args.train.save_hf_weights:
+                    if args.train.dcp_save_mode == "hf_only":
+                        _save_hf_only(global_step, disk_checked=True)
+                    elif args.train.save_hf_weights:
                         logger.info_rank0(
                             f"[ckpt] dcp_save_mode=final_only ⇒ step {global_step} "
                             f"周期直出 HF（{args.train.save_steps} 的整数倍；"
@@ -2064,6 +2101,16 @@ def main():
                     "[DiskCheck] 剩余空间不足以再存一份 checkpoint, "
                     "当前 checkpoint 已完整保存, 不再继续训练。")
             break
+
+        if args.train.dcp_save_mode == "hf_only":
+            # max_steps / AL 完成 / STOP_AND_SAVE / 最后一轮都经同一 HF-only 入口。
+            # 这里刻意不使用 DCP 的完成游标，也不访问优化器/数据加载器的存档。
+            final = reached_max_steps or al_finished or epoch + 1 == args.train.num_train_epochs
+            if final or (args.train.save_epochs and (epoch + 1) % args.train.save_epochs == 0):
+                _save_hf_only(global_step)
+            if final:
+                break
+            continue
 
         if reached_max_steps or al_finished:
             if args.train.smoke_no_checkpoint:
@@ -2217,7 +2264,7 @@ def main():
     del optimizer, lr_scheduler
     helper.empty_cache()
     # Ensure the last checkpoint has an HF conversion scheduled, then wait for async work.
-    if save_checkpoint_path is not None:
+    if save_checkpoint_path is not None and args.train.dcp_save_mode != "hf_only":
         save_hf_checkpoint_best_effort(
             save_checkpoint_path,
             state,

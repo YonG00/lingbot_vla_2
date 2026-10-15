@@ -76,6 +76,13 @@ def config_fingerprint(al: Any, task_names: Sequence[str]) -> Dict[str, Any]:
                           if k != "target_total_passed_tasks"
                           or getattr(al, k, None) is not None}
     fp["task_names"] = list(task_names)
+    # 新选项只在偏离旧默认时写入，旧 DCP 指纹不变。
+    for key, default in (("learning_task_names", None), ("replay_task_names", None),
+                         ("task_scan_enabled", True), ("pass_transition_enabled", True),
+                         ("hardness_scan_enabled", True)):
+        value = getattr(al, key, default)
+        if value != default:
+            fp[key] = value
     if getattr(al, "pass_metric", "nmse") == "gmean_mse":
         # Fresh GMean experiment controls how Scout can produce PASS. Changing
         # Confirm behavior must invalidate exact resume, without touching legacy
@@ -185,6 +192,14 @@ def restore_state(sched, raw: Dict[str, Any], *, allow_config_change: bool = Fal
     sched.metrics_rows = list(raw.get("metrics_rows") or [])
     sched.heatmap_rows = list(raw.get("heatmap_rows") or [])
     sched.events = list(raw.get("events") or [])
+    if not sched.al.task_scan_enabled:
+        sched.state.bootstrap_queue = []
+    if not sched.al.hardness_scan_enabled:
+        sched.scans = {}
+        for rec in sched.registry:
+            rec.sample_probs = {}
+            rec.pass_sampling_snapshot = None
+            rec.hardness_version = 0
 
 
 def save_state(sched, path: str) -> None:
