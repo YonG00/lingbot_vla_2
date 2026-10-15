@@ -6,6 +6,7 @@ import struct
 import tempfile
 from types import SimpleNamespace as NS
 import unittest
+from tokenizers import Tokenizer, models
 
 from lingbotvla.auto_learning.config import AutoLearningConfig
 
@@ -24,7 +25,12 @@ class LauncherTests(unittest.TestCase):
         self.model.mkdir(parents=True)
         (self.model / "config.json").write_text("{}")
         (self.model / "tokenizer_config.json").write_text("{}")
-        (self.model / "tokenizer.json").write_text("{}")
+        tokenizer = Tokenizer(models.BPE(
+            vocab={"a": 0, "b": 1, "c": 2, "ab": 3, "bc": 4, "abc": 5},
+            merges=[("a", "b"), ("ab", "c"), ("b", "c")]))
+        tokenizer.add_special_tokens(["[PAD]"])
+        self.tokenizer = json.loads(tokenizer.to_str())
+        (self.model / "tokenizer.json").write_text(tokenizer.to_str())
         self.write_shard()
         (self.model / "model.safetensors.index.json").write_text(json.dumps(
             dict(weight_map={"weight": "model-01.safetensors"})))
@@ -34,7 +40,7 @@ class LauncherTests(unittest.TestCase):
         self.train.write_text(json.dumps(dict(data=dict(norm_stats_file=str(self.norm)))))
         (self.root / "dataset/meta").mkdir(parents=True)
         (self.root / "Qwen3-VL").mkdir()
-        (self.root / "Qwen3-VL/tokenizer.json").write_text("{}")
+        (self.root / "Qwen3-VL/tokenizer.json").write_text(tokenizer.to_str())
         self.args = NS(al_config=ROOT / "configs/auto_learning/learn_skill_mix_task.json",
             learning_tasks=None, replay_tasks=None, steps=1000, micro=1, gas=10, new_ratio=1.,
             out=self.root / "new_run", model=self.model, train_config=self.train,
@@ -75,6 +81,52 @@ class LauncherTests(unittest.TestCase):
         self.args.learning_tasks = ["typo"]
         with self.assertRaisesRegex(ValueError, "unknown tasks"):
             launcher.build_plan(self.args)
+
+    def test_serialization_and_runtime_settings_are_not_semantic_mismatches(self):
+        source = Tokenizer.from_str(json.dumps(self.tokenizer))
+        source.enable_padding(length=72, pad_id=6, pad_token="[PAD]")
+        source.enable_truncation(max_length=72)
+        source_path = self.model / "tokenizer.json"
+        source_path.write_text(source.to_str())
+        original = source_path.read_bytes()
+        selected = json.loads(json.dumps(self.tokenizer))
+        selected["model"].pop("ignore_merges", None)
+        selected["model"]["merges"] = [" ".join(pair) if isinstance(pair, list) else pair
+                                              for pair in selected["model"]["merges"]]
+        (self.args.qwen3vl / "tokenizer.json").write_text(json.dumps(selected))
+        plan = launcher.build_plan(self.args)
+        check = plan["tokenizer_validation"]
+        self.assertEqual(len(check["normalized_sha256"]), 64)
+        self.assertEqual(check["ignored_runtime_settings"][0]["truncation"]["max_length"], 72)
+        self.assertIsNone(check["ignored_runtime_settings"][1]["truncation"])
+        self.assertIn(str(source_path.resolve()), plan["source_files"])
+        self.assertEqual(source_path.read_bytes(), original)
+        self.assertFalse(self.args.out.exists())
+
+    def test_tokenizer_semantic_changes_fail_before_output(self):
+        for mutation in ("token_ids", "merges", "special_token", "pre_tokenizer", "ignore_merges"):
+            with self.subTest(mutation=mutation):
+                selected = json.loads(json.dumps(self.tokenizer))
+                if mutation == "token_ids":
+                    selected["model"]["vocab"].update(a=1, b=0)
+                elif mutation == "merges":
+                    selected["model"]["merges"][1:] = selected["model"]["merges"][1:][::-1]
+                elif mutation == "special_token":
+                    selected["added_tokens"][0]["special"] = False
+                elif mutation == "pre_tokenizer":
+                    selected["pre_tokenizer"] = {"type": "Whitespace"}
+                else:
+                    selected["model"]["ignore_merges"] = True
+                (self.args.qwen3vl / "tokenizer.json").write_text(json.dumps(selected))
+                with self.assertRaisesRegex(ValueError, "tokenizer disagrees"):
+                    launcher.build_plan(self.args)
+                self.assertFalse(self.args.out.exists())
+
+    def test_invalid_tokenizer_is_not_treated_as_compatible(self):
+        (self.args.qwen3vl / "tokenizer.json").write_text("{}")
+        with self.assertRaisesRegex(ValueError, "cannot validate tokenizer"):
+            launcher.build_plan(self.args)
+        self.assertFalse(self.args.out.exists())
 
     def test_incomplete_checkpoint_and_normalization_fail_before_output(self):
         (self.model / "model-01.safetensors").write_bytes(b"bad")

@@ -1,6 +1,6 @@
 # 指定技能学习实验
 
-实验分支 `learn_skill_mix_task` 基于 `Task_Auto_Learning` 的 `956782f`。已完成本地实现与 CPU 契约验证；2026-10-15 获批提交、push，并在服务器独立目录同步和做 CPU 验证。GPU 验收和训练需后续单独确认，不能由同步脚本自动启动。
+实验分支 `learn_skill_mix_task` 基于 `Task_Auto_Learning` 的 `956782f`。主体实现已提交并推送为 `6470669`，同步至服务器独立目录 `/data/experiments/learn_skill_mix_task`；生产 `/data/code` 保持 `Task_Auto_Learning` 的 `e64388c`。GPU 验收和训练需后续单独确认，不能由同步脚本自动启动。
 
 ## 当前实验
 
@@ -53,7 +53,9 @@
 
 ## 启动器
 
-`experiment/robotwin/launch_skill_mix_task.py` 默认仅打印计划，不写输出、不启动训练。它检查 HF 分片头、索引与 payload 是否完整，BF16 dtype，来源归一化文件，HF 与选用 Qwen3VL 的 tokenizer 是否一致，并记录来源配置/索引/归一化/参考表摘要。它不替代真实模型的加载验收。
+`experiment/robotwin/launch_skill_mix_task.py` 默认仅打印计划，不写输出、不启动训练。它检查 HF 分片头、索引与文件长度是否匹配，BF16 dtype，来源归一化文件，HF 与选用 Qwen3VL 的 tokenizer 语义是否一致，并记录来源配置/索引/归一化/参考表摘要。分片预检不读取全部权重 payload，不能替代真实模型加载验收。
+
+tokenizer 校验使用项目已依赖的 `tokenizers` 库分别加载，取消运行期 padding/truncation 后比较规范化配置，仍严格比较完整词表、ID、有序 BPE 合并规则、特殊 token、normalizer、pre-tokenizer、decoder 等。库负责兼容旧字符串与新二元数组的 merges 存储格式；不会修改 tokenizer 文件或训练长度设置。报告记录规范化 SHA256、原始长度设置及两个文件摘要。实际 CKPT9680 与 Qwen 文件的 151,387 条合并规则全部一致，规范化配置相同；原始 JSON 相等检查会因上述格式、默认 `ignore_merges=false` 和训练保存的 72 长度设置误报。该校验修正已单独获批，不是跳过兼容性检查。
 
 **`--train-config` 必须给 CKPT9680 来源 run 的 `lingbotvla_cli.yaml`**，保留原动作配置和归一化。脚本生成独立 `trainer_config.json`，清除 DCP 恢复及 VLM-only/部分加载入口；完整 HF 使用 `post_training=true` 严格检查参数。模型构造仍复用原有 loader，实际加载、buffer 和 GPU 精度需上机检查。Qwen3VL 路径需保留型号名称，因为现有模型 patch 选择依赖这个名字；不把 step 目录当作 Qwen 型号路径。
 
@@ -88,9 +90,9 @@ python experiment/robotwin/launch_skill_mix_task.py \
 | `hf_only × true` | HF 直出，不等 unit | HF，同步成功游标去重 | 周期/正常结束/AL结束/STOP复用路径/轮末/失败契约 |
 | `hf_only × false` | 拒绝 | 拒绝 | 真实参数守卫 CPU 执行 |
 
-## 本地验证与后续
+## 验证与后续
 
-34 项纯 CPU 单测通过，包括扫描 × rescue 四组合、1000 步完整模拟、指定 Replay、真实 local_idx 数据对拍/缓存失效、初始评测失效不能冒充训练前基准、HF-only 分支和启动器预检。另将当前调度器与基线 `956782f` 的调度器在 6 组旧配置上对拍，学习路线、任务状态/步数、停止原因和采样表一致。
+本地 37 项纯 CPU 单测通过，包括扫描 × rescue 四组合、1000 步完整模拟、指定 Replay、真实 local_idx 数据对拍/缓存失效、初始评测失效不能冒充训练前基准、HF-only 分支和启动器预检。tokenizer 新增契约覆盖格式与长度差异可兼容，以及 ID、合并顺序、特殊 token、预分词规则和有效参数变化必须拒绝。另将当前调度器与基线 `956782f` 的调度器在 6 组旧配置上对拍，学习路线、任务状态/步数、停止原因和采样表一致。
 
 ```bash
 PYTHONPATH=.:tests python -m unittest \
@@ -100,6 +102,13 @@ PYTHONPATH=.:tests python -m unittest \
 
 本机 Python 3.13 的 pytest 在收集前退出 139，禁用插件仍复现，未把它计作测试通过；模拟测试替换 CUDA 计时同步以避免导入本机 torch。CPU 证据不包含真实张量导出、NCCL 集合通信或训练效果。
 
-本轮服务器同步仅在独立实验目录进行，不覆盖生产分支。后续验收顺序：核实来源模型/归一化与 tokenizer → 真实 CPU 数据对拍和小模型保存契约 → 用户开卡并确认后，做 GPU 权重完整加载、独立验证与小步数 HF-only 验收 → 确认每份存档完整且没有 DCP → 再启动 1000 步实验。训练完后另行闭环比较 5 个 HF，固定 unseen、任务、seed 和推理参数；本轮不接闭环通关。
+2026-10-15 实验目录上机证据：
+
+- 主体提交 `6470669` 的 34 项新/周期单测通过（0.681 秒），182 项既有 CPU 回归通过（20.68 秒）；后者包括真实小张量 HF dtype 保存/读取，不代表 6B 模型保存已验证。原预检在 tokenizer 原始 JSON 比较处被拦截；只读取证后获批修正。
+- 修正候选的服务器 7 项启动器契约通过，实际 CKPT9680 分片头、来源归一化与 tokenizer 预检通过。默认仅生成计划，未执行训练命令、未创建实验输出目录。
+- 真实 Parquet 的 `episode_index/index/task_index` 列与 LeRobotDatasetMetadata 对拍通过：`put_object_cabinet` 为 40 train / 10 val，训练 10,769 帧；原始指令指向 cabinet。第二次命中缓存，签名 `ffd08b32b22aa7a140420ce17db86b9eab02bbc075148143c00d0f34472513f6`。报告在 `/data/al_cache/skill_mix_cabinet_audit.json`。本项未实例化完整 VLA DataLoader、未解码图像，不能视为全链训练已跑通。
+- 日志：`/tmp/al_verify_skill_mix.log`（主体回归与原预检拦截）、`/tmp/al_tokenizer_candidate_check.log`（校验修正候选）、`/tmp/al_audit_skill_mix.log`（真实映射对拍）。
+
+后续验收顺序：先解决存档空间 → 用户开卡并确认后，做 GPU 权重完整加载、独立验证与小步数 HF-only 验收 → 确认每份存档完整且没有 DCP → 再启动 1000 步实验。训练完后另行闭环比较 5 个 HF，固定 unseen、任务、seed 和推理参数；本轮不接闭环通关。
 
 2026-10-15 同步前的机器检查：无训练进程，无 GPU，CPU 模式内存限额 2 GiB；文件系统可用约 18 GB，五份 6B BF16 HF 约需 60 GB，尚不满足完整实验存档容量要求。不自动清理历史产物；正式训练前须重新确认磁盘挂载与可用空间。生产分支 `e64388c` 上的既有 CPU 用例 `test_hf_export_dtype.py`、`test_state_machine.py`、`test_pass_thresholds.py` 共 49 项通过；这不是本次新代码的上机验收。

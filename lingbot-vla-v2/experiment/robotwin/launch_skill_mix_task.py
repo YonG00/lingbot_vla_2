@@ -31,6 +31,33 @@ def read_training_config(path):
         return yaml.safe_load(text)
 
 
+def validate_tokenizer_compatibility(source, selected):
+    from tokenizers import Tokenizer
+
+    normalized = []
+    runtime = []
+    for path in (source, selected):
+        try:
+            tokenizer = Tokenizer.from_file(str(path))
+            # HF 保存时会固化训练的 padding/truncation，并可能将 BPE merges
+            # 从字符串改存二元数组。让同一运行库规范化，保留全部词表/规则语义；
+            # 长度设置由训练 loader 负责，不以序列化格式判断模型是否兼容。
+            raw = read_json(path)
+            runtime.append({key: raw.get(key) for key in ("padding", "truncation")})
+            tokenizer.no_padding()
+            tokenizer.no_truncation()
+            normalized.append(json.loads(tokenizer.to_str()))
+        except Exception as exc:
+            raise ValueError(f"cannot validate tokenizer: {path}: {exc}") from exc
+    if normalized[0] != normalized[1]:
+        keys = sorted(key for key in set(normalized[0]) | set(normalized[1])
+                      if normalized[0].get(key) != normalized[1].get(key))
+        raise ValueError(f"source HF tokenizer disagrees with selected Qwen3VL tokenizer: {keys}")
+    return dict(normalized_sha256=hashlib.sha256(
+        json.dumps(normalized[0], sort_keys=True).encode()).hexdigest(),
+        ignored_runtime_settings=runtime)
+
+
 def checkpoint_inventory(model):
     index_path = model / "model.safetensors.index.json"
     index = read_json(index_path)
@@ -111,8 +138,8 @@ def build_plan(args):
         raise ValueError(f"source normalization file missing: {norm}")
     if not (model / "tokenizer_config.json").is_file():
         raise ValueError("source HF must include its tokenizer/processor assets")
-    if read_json(model / "tokenizer.json") != read_json(args.qwen3vl / "tokenizer.json"):
-        raise ValueError("source HF tokenizer disagrees with selected Qwen3VL tokenizer")
+    tokenizer_validation = validate_tokenizer_compatibility(
+        model / "tokenizer.json", args.qwen3vl / "tokenizer.json")
     # build_foundation_model 当前按路径识别 Qwen3 patch；HF 的 step 目录名没有型号。
     qwen_name = str(args.qwen3vl).lower()
     if "qwen3" not in qwen_name or "vl" not in qwen_name:
@@ -184,9 +211,10 @@ def build_plan(args):
         command += ["--" + key, str(value).lower() if isinstance(value, bool) else str(value)]
     source_files = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (
         model / "config.json", model / "model.safetensors.index.json", args.train_config,
-        args.manifest, thresholds, norm)}
+        args.manifest, thresholds, norm, model / "tokenizer.json", args.qwen3vl / "tokenizer.json")}
     return dict(config=cfg, training_config=run_config, command=command, train_ids=sorted(train_ids), counts=counts,
                 source_model=str(model), checkpoint_inventory=inventory, source_files=source_files,
+                tokenizer_validation=tokenizer_validation,
                 source_model_config=model_config,
                 note="fresh optimizer/LR/step; HF-only; historical finished-model reference reports only")
 
