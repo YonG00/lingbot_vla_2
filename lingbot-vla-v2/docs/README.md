@@ -45,6 +45,7 @@
 | 96G 单卡 bf16 验收结论 | `acceptance/gpu96_bf16_acceptance.md` |
 | 闭环评测（AMD 单卡） | `acceptance/closed_loop_amd_single_gpu_guide.md` |
 | 50任务 benchmark / 训练后闭环评测准备 | `acceptance/clean_benchmark_import_guide.md`（单卡 NVIDIA 适配，GPU 闭环待验证） |
+| step9680 闭环结果 / NVIDIA两阶段对齐 | `acceptance/robotwin_step9680_eval_20261014.md`（全量中断；lift_pot 0/10伴随OIDN异常；两阶段对照待开机） |
 | 磁盘/检查点保留策略（官方） | 顶层 `disk_guard_guide.md` |
 | 查历史审计证据 | `archive/audit/<日期>/` |
 
