@@ -71,6 +71,13 @@ def discover_trainers() -> List[Dict[str, object]]:
             continue
         env = _environ(kids[0])
         train_out = env.get('TRAIN_OUT', '')
+        # Dedicated launchers pass output_dir on argv, without legacy TRAIN_OUT.
+        argv = [a for a in _cmdline(kids[0]).split('\0') if a]
+        for i, arg in enumerate(argv):
+            if arg == '--train.output_dir' and i + 1 < len(argv):
+                train_out = argv[i + 1]
+            elif arg.startswith('--train.output_dir='):
+                train_out = arg.split('=', 1)[1]
         # 🔴 判据必须是 **basename**：TRAIN_OUT 是绝对路径（`/models/…/train_al_v42`），
         #    对整串做 `startswith('train_')` 恒为 False ⇒ 会掉进下面的回退正则，
         #    而回退正则会被 `al_eval2_*.yaml` 里的 `al_eval2` 命中 ⇒ 解析成错误的 `al_v2`。
@@ -240,28 +247,52 @@ def resolve_run_dir(run: str) -> Optional[Path]:
 def run_cfg(run: str) -> Dict[str, object]:
     """从 run 目录的 CLI 配置里取：AL 配置路径 / 目标 PASS / 评测间隔。"""
     out: Dict[str, object] = {'al_cfg': None, 'target': None, 'interval': None,
-                             'thresholds': None}
+                             'thresholds': None, 'max_steps': None,
+                             'pass_enabled': True, 'task_scan': None,
+                             'hardness_scan': None, 'save_steps': None}
     rd = resolve_run_dir(run)
     p = (rd if rd else ROOT / f'train_{run}') / 'lingbotvla_cli.yaml'
     if not p.is_file():
         return out
     txt = p.read_text(encoding='utf-8', errors='replace')
+    for key in ('max_steps', 'save_steps'):
+        m = re.search(r'^\s*' + key + r':\s*(\d+)\s*$', txt, re.M)
+        if m and int(m.group(1)) > 0:
+            out[key] = int(m.group(1))
     m = re.search(r'^\s*auto_learning:\s*(\S+)\s*$', txt, re.M)
     if m:
-        out['al_cfg'] = m.group(1)
+        out['al_cfg'] = m.group(1).strip("\"'")
     # AL 配置里的目标与阈值表
     al_path = Path(str(out['al_cfg'])).expanduser() if out['al_cfg'] else None
+    if al_path and not al_path.is_absolute():
+        al_path = next((q for q in (p.parent / al_path, Path(__file__).resolve().parents[2] / al_path)
+                        if q.is_file()), al_path)
     if al_path and al_path.is_file():
         a = al_path.read_text(encoding='utf-8', errors='replace')
-        m = re.search(r'^target_total_passed_tasks:\s*(\d+)', a, re.M)
-        if m:
-            out['target'] = int(m.group(1))
-        m = re.search(r'^pass_thresholds_file:\s*(\S+)', a, re.M)
-        if m:
-            out['thresholds'] = m.group(1)
-        m = re.search(r'^eval_interval_steps:\s*(\d+)', a, re.M)
-        if m:
-            out['interval'] = int(m.group(1))
+        try:
+            values = json.loads(a)
+        except ValueError:
+            # Legacy AL files are flat YAML; retain dependency-free parsing.
+            values = {}
+            for key, value in re.findall(r'^([A-Za-z_]+):\s*([^#\n]+)', a, re.M):
+                value = value.strip().strip("\"'")
+                values[key] = (value.lower() == 'true' if value.lower() in ('true', 'false')
+                               else int(value) if value.isdigit() else value)
+        for source, dest in (('target_total_passed_tasks', 'target'),
+                             ('pass_thresholds_file', 'thresholds'),
+                             ('eval_interval_steps', 'interval'),
+                             ('pass_transition_enabled', 'pass_enabled'),
+                             ('task_scan_enabled', 'task_scan'),
+                             ('hardness_scan_enabled', 'hardness_scan')):
+            if source in values:
+                out[dest] = values[source]
+        if not out['max_steps'] and values.get('max_global_steps', 0) > 0:
+            out['max_steps'] = values['max_global_steps']
+        if out['thresholds']:
+            th = Path(str(out['thresholds']))
+            if not th.is_absolute():
+                out['thresholds'] = str(next((q for q in (al_path.parent / th,
+                    Path(__file__).resolve().parents[2] / th) if q.is_file()), th))
     return out
 
 
@@ -292,6 +323,8 @@ def read_events(events: Path) -> Tuple[Dict[str, object], Dict[str, Dict[str, fl
                 except Exception:
                     continue
                 name = d.get('name')
+                if d.get('action') == 'select' and d.get('task'):
+                    last['curriculum/current_task_name'] = str(d['task'])
                 if not name:
                     continue
                 val = d.get('value')
@@ -756,7 +789,7 @@ def step_progress(log: Path, interval: Optional[int]) -> Tuple[Optional[int], Op
     try:
         tail = log.read_text(encoding='utf-8', errors='replace')[-2_000_000:]
     except OSError:
-        return None, None, 0, None
+        return None, None, 0, None, None, None
     tail = tail.replace('\r', '\n')                       # 进度条分隔符归一
     # 取 (step, 该行 elapsed 秒, 累计均值 s/it)
     hits = re.findall(r'Step:\s*(\d+)/\d+\s*\[([\d:]+)<[^]]*?([\d.]+)s/it', tail)
@@ -959,7 +992,7 @@ def _fit(text: str, width: int) -> str:
 def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit, latest_sit,
                   elapsed_s, eta_s, trainer, trainers, records, thresholds, derived_status,
                   per_task, series, dcp_name, dcp_step, tb=None,
-                  wide_hint: bool = True) -> None:
+                  wide_hint: bool = True, cfg=None, current_task=None) -> None:
     """紧凑视图 v5：**每行一个信息**、缩进统一两格、宽度自适应（窄终端不折行）。
 
     结构（约 15 行）：
@@ -982,7 +1015,11 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
         print('  ' + _fit(f'{label:<{LBL}}{text}', W))
 
     # ---- 标题 ----
-    print('AL ' + _fit(f'{run}   目标 PASS {target}', W - 3))
+    cfg = cfg or {}
+    pass_enabled = cfg.get('pass_enabled', True)
+    total_steps = cfg.get('max_steps')
+    goal = f'目标 PASS {target}' if pass_enabled else f'固定步数 {total_steps or "未知"}（PASS关闭）'
+    print('AL ' + _fit(f'{run}   {goal}', W - 3))
     # ---- 通关 ----
     pct = (passed / target) if target else 0.0
     extra = ''
@@ -991,11 +1028,11 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
     if isinstance(boot, (int, float)) and boot:
         extra += f'  免费{int(boot)}'
     # 用户要求：通关**不要条形**（`##....`），只要数字与百分比
-    row('通关', f'{passed}/{target} ({pct * 100:.0f}%){extra}')
+    row('通关', f'{passed}/{target} ({pct * 100:.0f}%){extra}' if pass_enabled else '关闭状态转换；开环指标仅观察')
     # ---- 进度 + 步时（用户要求合并成一行）----
     p_bits = []
     if step is not None:
-        p_bits.append(f'Step {step}')          # 只给当前步，不写 /20000
+        p_bits.append(f'Step {step}' + (f'/{total_steps}' if total_steps else ''))
     if trainer:
         p_bits.append(f'{int(trainer["ranks"])}卡')
         if trainer.get('gpus'):
@@ -1009,23 +1046,28 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
     row('进度', '  '.join(p_bits))
     # ---- 用时 ----
     t_bits = []
-    total_steps = 20000
     if elapsed_s:
         t_bits.append(f'已训 {_hms_h(elapsed_s)}')
     # ⚠️ 日志里的 `<ETA` 字段**不可靠**：它与累计均值同源，会被边界步（评测+扫描）抬高，
     #    实测同一时刻连续读到 61:27 → 63:52 → 69:45（在涨）。所以**用稳态步速自己算**：
     #    剩余 = (总步数 - 当前步) × 稳态 s/it —— 单调、可解释、不被单次边界步带偏。
     eta_est = None
-    if sit and step is not None and step < total_steps:
-        eta_est = (total_steps - int(step)) * float(sit)
-    elif eta_s:
-        eta_est = eta_s
+    if sit and step is not None and total_steps:
+        eta_est = max(0, total_steps - int(step)) * float(sit)
     if eta_est:
         t_bits.append(f'剩余约 {_hms_h(eta_est)}')
     if elapsed_s and eta_est:
         t_bits.append(f'总计约 {_hms_h(elapsed_s + eta_est)}')
     if t_bits:
-        row('用时', ' / '.join(t_bits) + ('（按稳态步速估）' if (sit and step) else ''))
+        row('用时', ' / '.join(t_bits) + ('（纯训练估计，另加评测/存档）' if (sit and step) else ''))
+    switches = [f'{label}={"开" if cfg[key] else "关"}' for key, label in
+                (('task_scan', '任务扫描'), ('hardness_scan', '样本扫描')) if cfg.get(key) is not None]
+    if cfg.get('interval'):
+        switches.append(f'评测每{cfg["interval"]}步')
+    if cfg.get('save_steps'):
+        switches.append(f'存档每{cfg["save_steps"]}步')
+    if switches:
+        row('配置', '  '.join(switches))
     # ---- 池子（**实时优先**：TensorBoard 的计数 vs 注册表快照）----
     # 🔴 2026-10-12（用户要求"面板全部实时"）：池子计数改从 **TB** 读。
     #   为什么：注册表只在存档点导出（`SAVE_EVERY`=400 步）⇒ 真机 v65 出现
@@ -1066,7 +1108,8 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
     #   而事件流的 `task/<任务>/unit_loss` 是**每 unit 末实时写**的 ⇒ 用它判"当前在训"。
     _loss_all = series.get('unit_loss') or {}
     _cand = [(seq[-1][0], str(t)) for t, seq in _loss_all.items() if seq]
-    cur = max(_cand)[1] if _cand else ''
+    cur = current_task or next((t for t, s in reversed(list(derived_status.items())) if s == 'TRAINING'), '')
+    cur = cur or (max(_cand)[1] if _cand else '')
     _live = bool(cur)
     if not cur:                                    # 事件流还没 unit ⇒ 只能用快照
         if records:
@@ -1263,7 +1306,7 @@ def main() -> int:
         _st = Counter(derived_status.values()) if derived_status else {}
         if _st:
             print(' 池子（事件流推导）: ' + ' | '.join(f'{k} {v}' for k, v in sorted(_st.items())))
-            print('   ⚠️ 事件流推不出 DEFER/EXHAUSTED 与 attempts；权威池子要等 run 落下第一份 DCP')
+            print('   ⚠️ 事件流仅作参考；完整池详情待 HF/pool_state 或 DCP 快照（不影响训练显示）')
 
     # ---- 输出：默认紧凑视图；`--wide` 走原完整表格 ----
     _common = dict(run=run, target=target, passed=passed, newly=newly, boot=boot,
@@ -1271,6 +1314,7 @@ def main() -> int:
                    elapsed_s=elapsed_s, eta_s=eta_s,
                    trainer=trainer, trainers=trainers, thresholds=thresholds,
                    derived_status=derived_status, per_task=per_task, series=series,
+                   current_task=last.get('curriculum/current_task_name'),
                    records=records, dcp_name=(dcp_dir.name if dcp_dir else None),
                    dcp_step=dcp_step, tb=tb)
     if getattr(args, 'wide', False):
@@ -1278,7 +1322,7 @@ def main() -> int:
                                                   if k not in ('dcp_name', 'dcp_step')},
                            dcp_name=(dcp_dir.name if dcp_dir else None), dcp_step=dcp_step,
                            derived_passed=derived_passed, reg_passed=reg_passed)
-    print_compact(**_common)
+    print_compact(**_common, cfg=cfg)
     return 0
 
 
@@ -1286,7 +1330,8 @@ def main() -> int:
 def render_wide(*, run: str, args, cfg, thresholds, target, trainer, trainers,
                 passed, newly, boot, step, sit, latest_sit, per_task, series,
                 derived_status, records, dcp_name, dcp_step,
-                derived_passed, reg_passed) -> int:
+                derived_passed, reg_passed, elapsed_s=None, eta_s=None, tb=None,
+                current_task=None) -> int:
     """`--wide`：原来的**完整表格**视图（任务明细 + 成长轨迹 + 三次槽位 + 摘要）。
 
     2026-10-12 起默认输出改为紧凑视图（终端只放得下一屏）；本函数保留全部细节，
@@ -1294,7 +1339,8 @@ def render_wide(*, run: str, args, cfg, thresholds, target, trainer, trainers,
     """
     W = 76
     print('=' * 78)
-    print(f' AL 仪表盘  run={run}   目标 PASS={target}')
+    goal = f'目标 PASS={target}' if cfg.get('pass_enabled', True) else f'固定步数={cfg.get("max_steps") or "未知"}（PASS关闭）'
+    print(f' AL 仪表盘  run={run}   {goal}')
     _th = Path(str(cfg['thresholds'] or '?')).name
     _iv = f'；每 {cfg["interval"]} 步判定一次' if cfg['interval'] else ''
     print(f' 门槛: {_th.replace("pass_thresholds_", "")}（{len(thresholds)} 任务）{_iv}')
@@ -1326,8 +1372,11 @@ def render_wide(*, run: str, args, cfg, thresholds, target, trainer, trainers,
     if isinstance(boot, (int, float)) and boot:
         _extra += f' | Bootstrap {int(boot)}'
     print(st_line)
-    print(f' 通关: {passed}/{target}（{pct:.0f}%）还差 {max(0, target - passed)}{_extra}'
-          + ('' if reg_passed is not None else '（本 run 尚未产生判定）'))
+    if cfg.get('pass_enabled', True):
+        print(f' 通关: {passed}/{target}（{pct:.0f}%）还差 {max(0, target - passed)}{_extra}'
+              + ('' if reg_passed is not None else '（本 run 尚未产生判定）'))
+    else:
+        print(' 通关: 关闭状态转换；开环指标仅观察')
     # 新 run（如 al_v42）自己的事件流里还没有 curriculum/* ⇒ 上面那个数字来自**别的 run/继承口径**，
     # 必须点明，不能让读者以为是本 run 的战绩。
     if reg_passed is None and derived_passed:
@@ -1402,7 +1451,7 @@ def render_wide(*, run: str, args, cfg, thresholds, target, trainer, trainers,
     if cur_task is None:      # 还没走完任何 unit ⇒ 退化为"有 val 数据的任务"
         cand2 = [(seq[-1][0], t) for t, seq in val_all.items() if seq]
         cur_task = max(cand2)[1] if cand2 else None
-    named = last.get('curriculum/current_task_name')
+    named = current_task
     if isinstance(named, str) and named and named != cur_task:
         print(f' 注: 在训 {named}（unit 未完）；轨迹={cur_task}')
     print('-' * W)

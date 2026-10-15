@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import importlib.util
+import contextlib
+import io
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -40,6 +43,77 @@ class TrainerDiscoveryTests(unittest.TestCase):
 
     def test_rejects_unrelated_process_command(self):
         self.assertFalse(panel._is_torchrun_cmdline("/usr/bin/python\0train.py"))
+
+    def test_output_argument_identifies_run_without_legacy_environment(self):
+        for option in ('--train.output_dir\0', '--train.output_dir='):
+            with self.subTest(option=option), patch.object(panel, '_pids', return_value=['100', '101']), \
+                 patch.object(panel, '_ppid', side_effect=lambda p: '100' if p == '101' else '1'), \
+                 patch.object(panel, '_cmdline', side_effect=lambda p: (
+                     '/python\0-m\0torch.distributed.run' if p == '100' else
+                     '/python\0train.py\0' + option + '/data/outputs/al_skill_m24')), \
+                 patch.object(panel, '_environ', return_value={'WORLD_SIZE': '1'}), \
+                 patch.object(panel, '_start_ticks', return_value=1):
+                trainers = panel.discover_trainers()
+                self.assertEqual(trainers[0]['run'], 'al_skill_m24')
+                self.assertIsNone(panel.find_trainer(trainers, 'al_skill_m2'))
+
+
+class SkillPanelTests(unittest.TestCase):
+    def test_json_config_and_selection_show_before_first_unit_or_checkpoint(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            rd = root / 'al_skill'
+            rd.mkdir()
+            al = rd / 'al_config.json'
+            al.write_text(json.dumps(dict(max_global_steps=2000, eval_interval_steps=100,
+                pass_transition_enabled=False, task_scan_enabled=False, hardness_scan_enabled=False)))
+            (rd / 'lingbotvla_cli.yaml').write_text(
+                f'train:\n  auto_learning: {al}\n  max_steps: 1000\n  save_steps: 250\n')
+            (rd / 'auto_learning_events.jsonl').write_text(json.dumps(
+                dict(action='select', task='put_object_cabinet', step=0)) + '\n')
+            logs = root / 'logs'
+            logs.mkdir()
+            (logs / 'train_al_skill.log').write_text('Step: 69/1000 [03:27<46:33, 3.00s/it]\r'
+                                                   'Step: 70/1000 [03:30<46:30, 3.00s/it]')
+            with patch.object(panel, 'ROOT', root), \
+                 patch.object(panel, 'discover_trainers', return_value=[dict(run='al_skill', ranks=1, gpus='0')]), \
+                 patch.object(panel, 'read_tb_latest', return_value={}), \
+                 patch('sys.argv', ['al_panel.py', 'al_skill']), \
+                 contextlib.redirect_stdout(io.StringIO()) as output:
+                cfg = panel.run_cfg('al_skill')
+                self.assertEqual(cfg['max_steps'], 1000)
+                self.assertFalse(cfg['pass_enabled'])
+                self.assertEqual(panel.main(), 0)
+                with patch('sys.argv', ['al_panel.py', 'al_skill', '--wide']):
+                    self.assertEqual(panel.main(), 0)
+            text = output.getvalue()
+            for wanted in ('Step 70/1000', 'PASS关闭', 'put_object_cabinet', '剩余约 0.8h',
+                           '任务扫描=关', '样本扫描=关', '评测每100步', '存档每250步'):
+                self.assertIn(wanted, text)
+            for unwanted in ('无进程!', '预扫/初始化阶段', '16.6h', '第一份 DCP'):
+                self.assertNotIn(unwanted, text)
+
+    def test_legacy_yaml_keeps_goal_and_interval(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            rd = root / 'train_al_v99'
+            rd.mkdir()
+            al = rd / 'old.yaml'
+            al.write_text('target_total_passed_tasks: 50\neval_interval_steps: 50\nmax_global_steps: 20000\n')
+            (rd / 'lingbotvla_cli.yaml').write_text(f'train:\n  auto_learning: {al}\n')
+            with patch.object(panel, 'ROOT', root):
+                cfg = panel.run_cfg('al_v99')
+            self.assertTrue(cfg['pass_enabled'])
+            self.assertEqual((cfg['target'], cfg['interval'], cfg['max_steps']), (50, 50, 20000))
+
+    def test_selection_beats_last_completed_task(self):
+        with tempfile.TemporaryDirectory() as temp:
+            events = Path(temp) / 'events.jsonl'
+            events.write_text('\n'.join(json.dumps(x) for x in [
+                dict(name='curriculum/current_task_name', value='old'),
+                dict(action='select', task='new')]))
+            last, _ = panel.read_events(events)
+            self.assertEqual(last['curriculum/current_task_name'], 'new')
 
 
 class ProgressSourceTests(unittest.TestCase):
