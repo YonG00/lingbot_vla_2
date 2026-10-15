@@ -24,7 +24,7 @@
 | 本次新增步数 | `1000`，可改 `--steps 2000` | 各配置决定 |
 | `reset_step_counter` | `true`，从 0 开始 | `false`，0 offset 从路径推导 |
 | `dcp_save_mode` | `hf_only` | `always` |
-| HF | BF16，每 200 步及结束时 | 各配置决定 |
+| HF | BF16，每 250 步及结束时 | 各配置决定 |
 
 配置：`configs/auto_learning/learn_skill_mix_task.json`。开关均在启动时读取，修改后需重新启动。关闭 PASS 是不允许**新的自动状态转换**，不会把继承的旧 PASS 改回候选；本实验因此同时关闭旧池导入。
 
@@ -78,9 +78,9 @@ python experiment/robotwin/launch_skill_mix_task.py \
 
 ## 存档与恢复
 
-1000 步预期只得到 HF 200/400/600/800/1000，结束与周期同一步只写一次；非 200 整数倍结束则补最终 HF。STOP_AND_SAVE 沿用已有 AL unit 边界停止机制，然后走 HF-only 收尾。最后一轮自然结束也会补 HF。
+1000 步预期得到 HF 250/500/750/1000，共四份，全部保留；不启动旧的 `al_checkpoint_watch.py --apply`（满四份删最早一份）监控，启动脚本也不调用它。结束与周期同一步只写一次；非 250 整数倍结束则补最终 HF。评测仍每 100 步进行；HF-only 周期保存不等待评测单元边界，因此 250/750 步不会推迟到 300/800。STOP_AND_SAVE 沿用已有 AL unit 边界停止机制，然后走 HF-only 收尾。最后一轮自然结束也会补 HF。
 
-本模式无 DCP、无优化器/调度器状态，**不支持精确 Resume**。HF 可用于测评或作为下一次新实验的起点。保存失败会报错停止，不能用“没有 DCP 的 best-effort 成功”假装存好了；磁盘保护仍在写入前检查。保留所有 HF，6B BF16 五份权重按参数规模约 60 GB，真实占用/主机内存峰值需上机确认，不自动删除旧产物。
+本模式无 DCP、无优化器/调度器状态，**不支持精确 Resume**。HF 可用于测评或作为下一次新实验的起点。保存失败会报错停止，不能用“没有 DCP 的 best-effort 成功”假装存好了；磁盘保护仍在写入前检查。保留本次全部四份 HF；按来源每份权重 12,752,076,094 bytes 估计，四份约 47.5 GiB，另需资源文件与日志空间。真实导出占用/主机内存峰值需上卡确认。旧训练存档只留两份是一次性清理决定，不是本次训练的自动保留规则。
 
 | 存档模式 × save_hf_weights | 周期 | 收尾/轮末 | 本地证据 |
 |---|---|---|---|
@@ -109,6 +109,8 @@ PYTHONPATH=.:tests python -m unittest \
 - 真实 Parquet 的 `episode_index/index/task_index` 列与 LeRobotDatasetMetadata 对拍通过：`put_object_cabinet` 为 40 train / 10 val，训练 10,769 帧；原始指令指向 cabinet。第二次命中缓存，签名 `ffd08b32b22aa7a140420ce17db86b9eab02bbc075148143c00d0f34472513f6`。报告在 `/data/al_cache/skill_mix_cabinet_audit.json`。本项未实例化完整 VLA DataLoader、未解码图像，不能视为全链训练已跑通。
 - 日志：`/tmp/al_verify_skill_mix.log`（主体回归与原预检拦截）、`/tmp/al_tokenizer_candidate_check.log`（校验修正候选）、`/tmp/al_audit_skill_mix.log`（真实映射对拍）。
 
-后续验收顺序：先解决存档空间 → 用户开卡并确认后，做 GPU 权重完整加载、独立验证与小步数 HF-only 验收 → 确认每份存档完整且没有 DCP → 再启动 1000 步实验。训练完后另行闭环比较 5 个 HF，固定 unseen、任务、seed 和推理参数；本轮不接闭环通关。
+后续验收顺序：用户开卡并确认后，做 GPU 权重完整加载、独立验证与小步数 HF-only 验收 → 确认每份存档完整且没有 DCP → 再启动 1000 步实验。训练完后另行闭环比较四个 HF，固定 unseen、任务、seed 和推理参数；本轮不接闭环通关。
+
+2026-10-15 后续准备：按用户确认，旧训练 HF 只保留 `al_v79_poolfix_7300/checkpoints/global_step_9460`、`global_step_9680`；已删除旧 4300/7260/7300/9240 及空 9701，释放约 59.5 GiB，可用约 76.8 GiB，两份保留 HF 的分片头/索引/关键资源复核通过。清理日志在 `/data/al_cache/cleanup_old_ckpts_20261015.log`，清理后默认启动预检退出 0，未启动训练。用户随后将新实验保存周期由 200 改为 250，CPU 契约覆盖四次保存、同一步结束去重和非评测边界的周期触发。
 
 2026-10-15 同步前的机器检查：无训练进程，无 GPU，CPU 模式内存限额 2 GiB；文件系统可用约 18 GB，五份 6B BF16 HF 约需 60 GB，尚不满足完整实验存档容量要求。不自动清理历史产物；正式训练前须重新确认磁盘挂载与可用空间。生产分支 `e64388c` 上的既有 CPU 用例 `test_hf_export_dtype.py`、`test_state_machine.py`、`test_pass_thresholds.py` 共 49 项通过；这不是本次新代码的上机验收。

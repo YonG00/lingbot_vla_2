@@ -192,7 +192,7 @@ def build_plan(args):
         "train.output_dir": str(out), "train.micro_batch_size": args.micro,
         "train.gradient_accumulation_steps": args.gas, "train.global_batch_size": args.micro * args.gas,
         "train.num_train_epochs": args.steps + 1, "train.max_steps": args.steps,
-        "train.save_steps": 200, "train.save_epochs": 0, "train.save_hf_weights": True,
+        "train.save_steps": 250, "train.save_epochs": 0, "train.save_hf_weights": True,
         "train.async_save_hf_weights": False, "train.hf_pass_interval": 0,
         "train.hf_export_dtype": "bf16", "train.dcp_save_mode": "hf_only",
         "train.dcp_keep_last": 0, "train.enable_resume": False, "train.reset_step_counter": True,

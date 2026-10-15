@@ -64,7 +64,7 @@ class LauncherTests(unittest.TestCase):
         # 固定入口参数通过真实数组核对，避免 shell 拆词/引号问题。
         for flag, expected in (("train.dcp_save_mode", "hf_only"),
             ("train.hf_export_dtype", "bf16"), ("train.reset_step_counter", "true"),
-            ("train.max_steps", "1000"), ("train.save_steps", "200"),
+            ("train.max_steps", "1000"), ("train.save_steps", "250"),
             ("train.hf_pass_interval", "0"), ("data.norm_stats_file", str(self.norm.resolve()))):
             self.assertEqual(cmd[cmd.index("--" + flag)+1], expected)
         self.assertIn(str(self.norm), plan["source_files"])

@@ -86,17 +86,17 @@ class HFOnlyTests(unittest.TestCase):
 
     def test_periodic_on_and_between_unit_boundaries(self):
         calls, (_, last_dcp, stopped) = run_periodic(
-            [(200, False), (250, True), (400, True)], mode="hf_only", interval=200)
-        self.assertEqual(calls, [("disk", 200), ("hf_only", 200),
-                                 ("disk", 400), ("hf_only", 400)])
+            [(250, False), (300, True), (500, True)], mode="hf_only", interval=250)
+        self.assertEqual(calls, [("disk", 250), ("hf_only", 250),
+                                 ("disk", 500), ("hf_only", 500)])
         self.assertIsNone(last_dcp)
         self.assertFalse(stopped)
 
-    def test_five_periodic_exports_and_same_step_final_do_not_duplicate(self):
-        calls, run = save_sequence([200, 400, 600, 800, 1000, 1000])
+    def test_four_periodic_exports_and_same_step_final_do_not_duplicate(self):
+        calls, run = save_sequence([250, 500, 750, 1000, 1000])
         self.assertEqual(run(), 1000)
-        self.assertEqual([s for kind, s in calls if kind == "hf"], [200, 400, 600, 800, 1000])
-        self.assertEqual([s for kind, s in calls if kind == "pool"], [200, 400, 600, 800, 1000])
+        self.assertEqual([s for kind, s in calls if kind == "hf"], [250, 500, 750, 1000])
+        self.assertEqual([s for kind, s in calls if kind == "pool"], [250, 500, 750, 1000])
 
     def test_off_grid_final_is_saved(self):
         calls, run = save_sequence([200, 300])
