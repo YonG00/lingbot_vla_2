@@ -5,7 +5,7 @@
   "replay_task_names": [],
   "task_scan_enabled": false,
   "pass_transition_enabled": false,
-  "hardness_scan_enabled": false,
+  "hardness_scan_enabled": true,
   "import_pool_state": false,
   "data_audit_instruction_patterns": {"put_object_cabinet": "cabinet"},
   "pass_metric": "gmean_mse",

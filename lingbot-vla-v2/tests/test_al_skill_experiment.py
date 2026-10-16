@@ -176,5 +176,107 @@ class SkillExperimentTests(unittest.TestCase):
             self.assertAlmostEqual(ref["tasks"][task], math.exp(math.fsum(math.log(v) for v in values)/4))
 
 
+    # =================================================================== #
+    # 存档后样本重扫（2026-10-16 用户要求：任务启动 + 周期存档 两个触发机制）
+    # =================================================================== #
+    def _to_training(self, s, task="t0"):
+        for _ in range(50):
+            if s.registry.get(task).status == TaskStatus.TRAINING.value:
+                return s.registry.get(task)
+            s.advance()
+        self.fail(f"{task} 未在 50 次 advance 内进入 TRAINING")
+
+    def test_refresh_current_hardness_after_save_updates_probs_for_next_unit(self):
+        s = scheduler_of(make_cfg(1, curves={"t0": [.9] * 8}, n_train_trajs=4,
+                                  samples_per_traj=3,
+                                  al=self.config(hardness_scan_enabled=True)))
+        rec = self._to_training(s)
+        v0 = rec.hardness_version
+        self.assertGreaterEqual(v0, 1)          # 任务启动时已扫过一次
+        ev = s.refresh_current_hardness()
+        self.assertIsNotNone(ev)
+        self.assertEqual(ev["action"], "hardness_refresh_save")
+        self.assertEqual(ev["task"], "t0")
+        self.assertEqual(rec.hardness_version, v0 + 1)   # 轮转窗口 ⇒ 重新扫
+        self.assertEqual(set(rec.sample_probs), set(rec.sample_ids))
+        # 新 probs 在**下一个 unit 边界**生效：下一次 _prepare_train_request 取到它
+        req, _ = s._prepare_train_request()
+        self.assertEqual(req.probs, rec.sample_probs)
+
+    def test_refresh_current_hardness_noop_when_disabled_or_idle(self):
+        s = scheduler_of(make_cfg(1, curves={"t0": [.9] * 4},
+                                  al=self.config(hardness_scan_enabled=False)))
+        s.scanner.scorer.score = no_score        # 关闭后连 scorer 都不许调用
+        self._to_training(s)
+        self.assertIsNone(s.refresh_current_hardness())
+
+    def test_hook_on_save_triggers_refresh_and_records_event(self):
+        from lingbotvla.auto_learning.real.hook import AutoLearnLoopHook
+        s = scheduler_of(make_cfg(1, curves={"t0": [.9] * 6}, n_train_trajs=4,
+                                  samples_per_traj=3,
+                                  al=self.config(hardness_scan_enabled=True)))
+        hook = AutoLearnLoopHook(scheduler=s, sampler=None, cfg=s.al)
+        rec = self._to_training(s)
+        v0 = rec.hardness_version
+        ev = hook.on_save(100)
+        self.assertEqual(ev["action"], "hardness_refresh_save")
+        self.assertEqual(rec.hardness_version, v0 + 1)
+        self.assertTrue(any(e.get("action") == "hardness_refresh_save"
+                            for e in hook._events))
+
+    def test_save_scans_with_real_hook_and_sampler_across_1000_steps(self):
+        from lingbotvla.auto_learning.real.hook import AutoLearnLoopHook
+        from lingbotvla.auto_learning.real.sampler import AutoLearnSampler
+        from lingbotvla.auto_learning.sampling.sampler import BatchSampler
+        s = scheduler_of(make_cfg(1, curves={"t0": [.9] * 20}, n_train_trajs=4,
+                                  samples_per_traj=3,
+                                  al=self.config(hardness_scan_enabled=True)))
+        sampler = AutoLearnSampler(BatchSampler(s.al, s.backend.resolver,
+                                                s.backend.catalog, s.rng), batch_size=2)
+        hook = AutoLearnLoopHook(scheduler=s, sampler=sampler, cfg=s.al)
+        score = s.scanner.scorer.score
+        with patch.object(s.scanner.scorer, "score", wraps=score) as initial, \
+                patch.object(s.scanner.scorer, "score_fresh", wraps=score, create=True) as fresh:
+            events, requests = [], {}
+            for step in range(1, 1001):
+                directive = hook.on_step_begin(step - 1)
+                self.assertFalse(directive.finished)
+                if directive.rebuild_iterator:
+                    iterator = iter(sampler)
+                    requests[step] = s.registry.get("t0").hardness_version
+                for _ in range(2):
+                    next(iterator)
+                hook.on_step_end(step, .9)
+                if step % 250 == 0:
+                    before = dict(sampler._prepared.request.probs)
+                    # 绝对存档步号与 AL 相对步号可以不同；不能改写 Scheduler 的记账。
+                    ev = hook.on_save(10000 + step)
+                    if ev is not None:
+                        events.append(ev)
+                    self.assertEqual(sampler._prepared.request.probs, before)
+            self.assertEqual(initial.call_count, 1)
+            self.assertEqual(fresh.call_count, 3)  # 250/500/750；1000 收尾不再扫描。
+        self.assertEqual([e["step"] for e in events], [250, 500, 750])
+        self.assertEqual([e["scheduler_step"] for e in events], [200, 500, 700])
+        self.assertEqual([e["checkpoint_step"] for e in events], [10250, 10500, 10750])
+        self.assertEqual([requests[n] for n in (1, 201, 301, 501, 701, 801)],
+                         [1, 1, 2, 3, 3, 4])
+        self.assertEqual(s.state.global_step, 1000)
+
+    def test_save_scan_skips_idle_finished_budget_and_explicit_stop(self):
+        from lingbotvla.auto_learning.real.hook import AutoLearnLoopHook
+        s = scheduler_of(make_cfg(1, curves={"t0": [.9] * 6}, n_train_trajs=4,
+                                  samples_per_traj=3,
+                                  al=self.config(hardness_scan_enabled=True)))
+        self.assertIsNone(s.refresh_current_hardness())  # 尚未选择任务。
+        self._to_training(s)
+        s.scanner.scorer.score = no_score
+        hook = AutoLearnLoopHook(scheduler=s, sampler=None, cfg=s.al)
+        self.assertIsNone(hook.on_save(250, will_continue=False))
+        self.assertIsNone(s.refresh_current_hardness(step=1000))
+        s.state.finished = True
+        self.assertIsNone(hook.on_save(250))
+
+
 if __name__ == "__main__":
     unittest.main()

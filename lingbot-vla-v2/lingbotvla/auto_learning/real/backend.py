@@ -416,6 +416,15 @@ class RealHardnessScorer:
                 current=max_batch, maximum=int(os.environ.get('AL_HARDNESS_BATCH_MAX', '16')),
                 reserve_gib=float(os.environ.get('AL_HARDNESS_RESERVE_GIB', '10')))
 
+    def score_fresh(self, task: str, sample_ids: Sequence[int]) -> Dict[int, float]:
+        """按当前训练权重打分，不读写来源模型的磁盘缓存。异常时也恢复缓存配置。"""
+        cache = self.cache
+        self.cache = None
+        try:
+            return self.score(task, sample_ids)
+        finally:
+            self.cache = cache
+
     def score(self, task: str, sample_ids: Sequence[int]) -> Dict[int, float]:
         ids_all = [int(s) for s in sample_ids]
         # 阶段名走实例属性 ⇒ 递归子调用也能带上正确标签（局部变量会被重置为 main）。

@@ -88,6 +88,30 @@ class LauncherTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown tasks"):
             launcher.build_plan(self.args)
 
+    def test_continue_entry_runs_real_source_and_tokenizer_preflight(self):
+        import shutil
+        from test_continue_skill_training import entry
+        source = self.root / "old_run"
+        model = source / "checkpoints/global_step_1000/hf_ckpt"
+        shutil.copytree(self.model, model)
+        (source / "lingbotvla_cli.yaml").write_text(json.dumps(dict(
+            data=dict(norm_stats_file=str(self.norm)),
+            model=dict(tokenizer_path=str(self.args.qwen3vl)))))
+        (source / "datasets.txt").write_text(f"robotwin {self.args.dataset_root}\n")
+        (source / "al_config.json").write_text(json.dumps(dict(data_audit_file=str(self.args.audit_report))))
+        args = NS(from_hf=model, qwen3vl=None, out=self.args.out,
+            output_root=self.root, steps=500, micro=24, gas=1, shutdown=True,
+            al_config=self.args.al_config, manifest=self.args.manifest,
+            learning_tasks=None, master_port=62510, runtime_dir=None)
+        args.run_name = "preflight_fixture"
+        job, plan = entry.make_job(args)
+        self.assertEqual(plan["config"]["batch_size"], 24)
+        self.assertEqual(plan["config"]["max_global_steps"], 500)
+        self.assertTrue(plan["config"]["hardness_scan_enabled"])
+        self.assertEqual(plan["counts"]["put_object_cabinet"], dict(train=40, val=10))
+        self.assertTrue(job["shutdown"])
+        self.assertFalse(self.args.out.exists())
+
     def test_execute_worker_imports_experiment_before_installed_package(self):
         installed = self.root / "old_install"
         shadow = installed / "lingbotvla"
@@ -96,11 +120,15 @@ class LauncherTests(unittest.TestCase):
         argv = ["--model", str(self.model), "--train-config", str(self.train),
                 "--dataset-root", str(self.args.dataset_root), "--qwen3vl", str(self.args.qwen3vl),
                 "--out", str(self.args.out), "--audit-report", str(self.args.audit_report), "--execute"]
-        with patch.dict(os.environ, PYTHONPATH=str(installed), CUDA_VISIBLE_DEVICES="0"), \
+        with patch.dict(os.environ, PYTHONPATH=str(installed), CUDA_VISIBLE_DEVICES="0",
+                        AL_HARDNESS_CACHE_FILE="/tmp/old_hardness.json",
+                        AL_HARDNESS_CACHE="/tmp/old_alias.json"), \
                 patch.object(launcher.os, "chdir"), patch.object(launcher.os, "execvpe") as execute, \
                 contextlib.redirect_stdout(io.StringIO()):
             launcher.main(argv)
         env = execute.call_args.args[2]
+        self.assertEqual(env["AL_HARDNESS_CACHE_FILE"], "")
+        self.assertEqual(env["AL_HARDNESS_CACHE"], "")
         self.assertEqual(env["PYTHONPATH"].split(os.pathsep), [str(ROOT), str(installed)])
         # 真实 Python 子进程：脚本目录与包根不同，且存在竞争的旧包。只导入 AL，禁用 GPU。
         worker = self.root / "worker"

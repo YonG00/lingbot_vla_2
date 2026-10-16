@@ -1,0 +1,8 @@
+feat(al): refresh sample hardness after checkpoints and add resume launcher
+
+单技能训练在每次成功的中间存档后重新按当前权重扫描样本难度，
+并新增从 HF 检查点便捷续练、AL 参数覆盖和可选的成功后自动关机入口。
+
+验证：Python 3.12 运行 53 项 CPU 测试通过；Python 3.13 运行 47 项 CPU 测试通过，
+去重后共覆盖 62 项；py_compile、启动器 --help 与 git diff --check 通过。
+未进行 GPU 训练或真实关机验证。

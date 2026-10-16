@@ -133,7 +133,7 @@ class HardnessScanner:
         return sorted(trajs[(start + i) % n] for i in range(k))
 
     # ---------------------------------------------------------------- #
-    def scan(self, record: TaskRecord, entry: TaskEntry) -> HardnessScan:
+    def scan(self, record: TaskRecord, entry: TaskEntry, *, force_fresh: bool = False) -> HardnessScan:
         cfg = self.cfg
         if not cfg.hardness_scan_enabled:
             # 所有入口（select / continue / rescue）共用此守卫；绝不读取旧权重。
@@ -180,13 +180,18 @@ class HardnessScanner:
                 pass
 
         _say(f'[hardness] 扫描开始：task={record.task_name} '
+             f'{"当前权重（不读写磁盘缓存） " if force_fresh else ""}'
              f'轨迹 {len(chosen)}/{len(record.train_traj_ids)} 条'
              f'（fraction={cfg.hardness_probe_fraction}）'
              f' ⇒ 待打分样本 {len(scanned_ids)}/该任务 {len(record.sample_ids)} 帧'
              + (f'（帧数上限 {_cap}：{_capped_trajs} 条轨迹被均匀压缩，'
                 f'{_frames_before} → {_frames_after} 帧）' if _cap > 0 and _capped_trajs else ''))
 
-        scored = self.scorer.score(record.task_name, scanned_ids)
+        # 真实 scorer 可跨 run 缓存来源模型的 loss；训练后重扫必须绕过读写，
+        # 也不能用更新后的权重污染来源模型缓存。无缓存 scorer 仍遵守原 score 契约。
+        score = (getattr(self.scorer, "score_fresh", self.scorer.score)
+                 if force_fresh else self.scorer.score)
+        scored = score(record.task_name, scanned_ids)
         losses = {int(s): float(v) for s, v in scored.items()}
         order = list(losses.keys())
         ranks = percentile_rank([losses[s] for s in order])

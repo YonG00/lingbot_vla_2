@@ -15,6 +15,9 @@ import shlex
 import struct
 import sys
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from lingbotvla.auto_learning.config import AutoLearningConfig
+
 REPO = Path(__file__).resolve().parents[2]
 
 
@@ -99,7 +102,7 @@ def checkpoint_inventory(model):
 
 
 def build_plan(args):
-    cfg = read_json(args.al_config)
+    cfg = getattr(args, "al_config_data", None) or read_json(args.al_config)
     learning = args.learning_tasks if args.learning_tasks is not None else cfg["learning_task_names"]
     replay = args.replay_tasks if args.replay_tasks is not None else cfg["replay_task_names"]
     tasks = list(learning) + list(replay)
@@ -109,10 +112,12 @@ def build_plan(args):
         raise ValueError("steps must be a positive multiple of eval_interval_steps")
     if cfg["min_steps_before_defer"] <= args.steps or cfg["early_defer_on_overfit"]:
         raise ValueError("experiment requires defer budget > total steps and early defer disabled")
-    if any(cfg[k] for k in ("task_scan_enabled", "pass_transition_enabled", "hardness_scan_enabled",
+    # 2026-10-16：**允许** `hardness_scan_enabled=true` —— 新增"周期存档后重扫"触发机制后，
+    # 单任务实验也能按当前模型难度重新加权采样。其余扫描/PASS/池导入/复查仍须关闭（隔离前提）。
+    if any(cfg[k] for k in ("task_scan_enabled", "pass_transition_enabled",
                              "import_pool_state", "review_after_task_transitions",
                              "rescan_candidates_after_transition")):
-        raise ValueError("skill probe requires PASS/scans/import/review disabled")
+        raise ValueError("skill probe requires PASS/task-scan/import/review disabled")
     if args.micro < 1 or args.gas < 1:
         raise ValueError("micro/gas must be positive")
     if (not replay and args.new_ratio != 1.0) or not 0 < args.new_ratio <= 1:
@@ -261,6 +266,7 @@ def main(argv=None):
                    PYTHONPATH=os.pathsep.join(filter(None, (str(REPO), os.environ.get("PYTHONPATH", "")))),
                    AL_POOL_STATE_NO_IMPORT="1", AL_POOL_STATE_MIRROR="",
                    AL_SCAN_SKIP_HARDNESS="0",
+                   AL_HARDNESS_CACHE_FILE="", AL_HARDNESS_CACHE="",
                    AL_SCOUT_CACHE_MODE="off", AL_SCOUT_CACHE_FILE="", AL_HARDNESS_SELFTEST_IDS="0",
                    HF_HUB_OFFLINE="1", HF_DATASETS_OFFLINE="1", TRANSFORMERS_OFFLINE="1",
                    CUDA_VISIBLE_DEVICES=os.environ.get("CUDA_VISIBLE_DEVICES", "0"))

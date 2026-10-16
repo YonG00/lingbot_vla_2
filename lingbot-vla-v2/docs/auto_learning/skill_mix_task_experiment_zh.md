@@ -14,7 +14,7 @@
 | `new_ratio` | `1.0`，全为当前任务 | 旧固定槽位或用户配置 |
 | `pass_transition_enabled` | `false` | `true` |
 | `task_scan_enabled` | `false`，不做 bootstrap/rescan/rollover 复扫 | `true` |
-| `hardness_scan_enabled` | `false`，均匀采样 | `true` |
+| `hardness_scan_enabled` | `true`：任务启动 + 后续仍训练的周期成功存档后各扫一次 | `true`；入口扫描，另有可选 continue/rescue 重扫 |
 | `import_pool_state` | `false`，不继承旧状态/attempt/权重/RNG | `true` |
 | `review_after_task_transitions` | `0`，关闭复查 | `2` |
 | `eval_interval_steps` | `100` optimizer steps | `50` |
@@ -27,6 +27,35 @@
 | HF | BF16，每 250 步及结束时 | 各配置决定 |
 
 配置：`configs/auto_learning/learn_skill_mix_task.json`。开关均在启动时读取，修改后需重新启动。关闭 PASS 是不允许**新的自动状态转换**，不会把继承的旧 PASS 改回候选；本实验因此同时关闭旧池导入。
+
+### 样本扫描的两个触发机制（2026-10-16 用户要求）
+
+`hardness_scan_enabled=true` 时，样本难度扫描有**两个触发点**：
+
+1. **任务启动**：`Scheduler._select()` 里扫一次（原有）。
+2. **周期存档后**：周期保存成功后调用 `AutoLearnLoopHook.on_save()` → `Scheduler.refresh_current_hardness()`，更新单任务长跑的采样分布。HF-only 在 `save_steps` 整数倍保存；旧 DCP 模式仍可能延迟到 unit 边界，按实际落盘时点触发。
+
+生效条件：`hardness_scan_enabled=true`、当前任务处于 `TRAINING`、确有成功存档且后续仍会训练。保存失败、只建空目录、最大步数到顶、AL 预算耗尽、STOP_AND_SAVE/待停标记、最后一轮的最后一步均不重扫。HF-only 保存失败仍按原规则报错退出；best-effort HF 导出失败则继续训练但跳过本次扫描。多 rank 下由 rank0 广播 HF 导出成功状态，避免各 rank 走不同扫描分支。
+
+**新 probs 在下一个 learning unit 开始时生效**：`TrainRequest` 在 unit 开始时已快照 `rec.sample_probs`（`_prepare_train_request`），采样器也只在边界 `set_request()` 时重编译 alias 表。当前 unit 的分布和 DataLoader 预取不变。`eval_interval_steps=100` 时，250/500/750 存档后立即重扫，分别从第 **301/501/801 次 optimizer 更新**使用新概率；1000 步达到结束条件则仅保存，不再白扫。任务入口一次 + 250/500/750 三次，共四次扫描。
+
+缓存与覆盖范围：
+
+- 存档后重扫调用真实 scorer 的 `score_fresh()`，暂时绕过 hardness 缓存读写，按**当前权重**计算；异常时也恢复缓存对象，不用新权重的分数污染来源模型缓存。实验启动器另外将子进程的 `AL_HARDNESS_CACHE_FILE` 和旧别名 `AL_HARDNESS_CACHE` 都置空，防止继承 shell 中的旧路径。其他入口的缓存策略保持原有配置。
+- 探测窗口按 `hardness_version` 轮转；默认 `hardness_probe_fraction=0.10` 每次扫 4/40 条训练轨迹，每条最多 300 帧。未扫到的样本按默认难度计权，概率覆盖全训练集，但只反映**当次窗口**，不会累计历史窗口分数；验证集不参与打分或训练。
+- `hardness_refresh_save` 事件的 `step` 是包含 unit 内进度的 AL 相对步，`scheduler_step` 是已完成 unit 的记账步，`checkpoint_step` 是实际存档的训练绝对步。例：250 步重扫记录 `step=250, scheduler_step=200, checkpoint_step=250`；有来源 offset 时绝对步可能不同。Scheduler 本身的记账不因记录日志而前移。
+
+样本扫描是 Flow Matching loss 的难度代理；更新采样概率不等于保证训练 loss、开环 gMSE 或闭环成功率提升，需要对照验证。
+
+启动器门控相应放宽：原 `build_plan` 强制 `hardness_scan_enabled=false`，现**允许为 true**；`task_scan_enabled` / `pass_transition_enabled` / `import_pool_state` / `review_after_task_transitions` / `rescan_candidates_after_transition` 仍必须关闭。
+
+本地验证（2026-10-16，未同步、未做 GPU 验收）：39 项标准库 CPU 测试通过，包含真实 Hook/采样器的 1000 步模拟、实际 scorer 类的缓存命中/绕过/异常恢复，以及成功/失败/无产物/收尾存档触发、非零 rank 使用 rank0 保存结果的契约；另在已安装 `tokenizers` 的本地 Python 环境中，启动器 8 项 CPU 测试通过，覆盖两种旧缓存环境变量被清除。验证入口：
+
+```bash
+PYTHONPATH=.:tests python -m unittest \
+  test_al_skill_experiment test_al_periodic_checkpoint test_al_hf_only \
+  test_al_save_hardness_refresh test_skill_mix_task_launcher -v
+```
 
 `min_steps_before_defer` 是最小判定预算，不是必然的硬截止；达到预算后仍根据 LP 决定是否 DEFER。关闭 hardness 后，即使以后启用 rescue 或 CONTINUE refresh，也不能调用 scorer 或使用旧概率：rescue 只增加预算、保持均匀采样。实际 DEFER 后的重选也遵守同一个扫描开关。任务级 rescan 与样本 hardness 是两个独立开关。
 
@@ -52,6 +81,50 @@
 `sample_id` 始终是**当前过滤后数据集 local_idx**。报告是元数据与索引契约验收，不会解码视频、判断画面是不是柜子；同尺寸且保留 mtime 的人为内容替换不在这套快速文件身份检查保证范围内。报告应放在 run 目录外、按数据版本共用，避免每个新 run 重做。
 
 ## 启动器
+
+### 从 HF 存档便捷续练
+
+`experiment/robotwin/continue_skill_training.py` 用于从某次训练的 `global_step_N/hf_ckpt` 开始**新 run**。默认新增 500 步、micro24/GAS1、单任务沿用该实验 AL 配置；它会从来源 run 自动读取 `lingbotvla_cli.yaml`、`datasets.txt`、AL 对拍报告，并复用 `launch_skill_mix_task.py` 的 HF、tokenizer、数据划分预检。新 run 的优化器/LR/步数从头开始；HF-only 不提供精确续训。
+
+先预览（不会占 GPU 或创建训练目录）：
+
+```bash
+cd /data/experiments/learn_skill_mix_task/lingbot-vla-v2
+PY=/data/miniconda3/envs/lingbotvla/bin/python
+MODEL=/data/outputs/<来源训练run>/checkpoints/global_step_1000/hf_ckpt
+RUN=continue_cabinet_from1000_add500
+"$PY" experiment/robotwin/continue_skill_training.py --from-hf "$MODEL" --run-name "$RUN"
+```
+
+预览确认来源、任务、AL 开关、输出目录、日志路径和剩余磁盘后，再后台启动：
+
+```bash
+"$PY" experiment/robotwin/continue_skill_training.py \
+  --from-hf "$MODEL" --run-name "$RUN" --steps 500 --micro 24 --gas 1 --execute
+```
+
+默认**不关机**。想在训练成功结束且最终 step500 HF 校验通过后自动关机，增加 `--shutdown`：
+
+```bash
+"$PY" experiment/robotwin/continue_skill_training.py \
+  --from-hf "$MODEL" --run-name "$RUN" --steps 500 --micro 24 --gas 1 --shutdown --execute
+```
+
+命令加 `--no-shutdown` 可显式关闭自动关机。只有训练进程返回成功，且最终 checkpoint 的 BF16 safetensors、张量索引和 tokenizer/config 文件均完整并与来源张量名一致，脚本才运行 `bash /usr/bin/shutdown`；训练失败、磁盘保护拦截、最终 HF 不完整时不关机。脚本不会删除任何 checkpoint，也不会启动“满四删一”监控。
+
+常用 AL 参数可直接在命令行改，不需要复制 JSON。比如关闭样本扫描、把开环间隔改成 50、DEFER 预算设为 5000：
+
+```bash
+"$PY" experiment/robotwin/continue_skill_training.py \
+  --from-hf "$MODEL" --run-name "$RUN" --steps 500 \
+  --no-sample-scan --eval-interval-steps 50 --defer-steps 5000
+```
+
+可选布尔开关：`--sample-scan/--no-sample-scan`、`--refresh-hardness-on-continue/--no-refresh-hardness-on-continue`。数值选项：`--eval-interval-steps`、`--defer-steps`、`--defer-retry-steps`。任意其他 AL 字段可用重复的 `--al-set hardness_probe_fraction=0.2 --al-set hardness_weight_max=2.5` 覆盖；值按 JSON 解析，不能覆盖任务集合、对拍路径和总步数上限。单技能隔离要求关闭任务扫描、PASS 转换、旧池导入和 review；尝试开启会被预检拒绝。脚本会验证配置、显示生效值，并将最终配置快照到 launch 记录旁。
+
+启动后日志和状态 JSON 位于 `/data/outputs/skill_launches/`；脚本启动时会打印实际路径。用 `tail -f <日志路径>` 看训练与扫描进度，用 `cat <状态JSON路径>` 检查是否完成、最终 HF 校验结果及是否发出关机命令。自定义任务可用 `--learning-tasks task_a task_b`；默认使用 AL 配置中的任务。`--out` 可指定一个不存在的新输出目录。预览和执行传相同 `--run-name` 会使用相同路径；重复启动会拒绝覆盖已有记录。
+
+便捷入口只检查当前 NVIDIA compute 进程和输出盘余量，不会停止或清理已有任务。确认 `nvidia-smi` 无计算进程、磁盘余量足够后再加 `--execute`。自动关机是真正的服务器关机动作，使用前先确认这台机器可关。
 
 `experiment/robotwin/launch_skill_mix_task.py` 默认仅打印计划，不写输出、不启动训练。它检查 HF 分片头、索引与文件长度是否匹配，BF16 dtype，来源归一化文件，HF 与选用 Qwen3VL 的 tokenizer 语义是否一致，并记录来源配置/索引/归一化/参考表摘要。分片预检不读取全部权重 payload，不能替代真实模型加载验收。
 

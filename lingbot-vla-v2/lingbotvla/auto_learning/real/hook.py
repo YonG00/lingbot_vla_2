@@ -152,6 +152,26 @@ class AutoLearnLoopHook:
         """显式结束本 unit（正常情况下 `on_step_begin` 会自动 drain）。"""
         return self._drain_pending_unit(global_step)
 
+    def on_save(self, global_step: int, *, will_continue: bool = True) -> Optional[Dict[str, Any]]:
+        """**周期存档之后**的样本难度重扫入口（2026-10-16 用户要求）。
+
+        训练循环在周期存档成功后调用它 ⇒ 与"任务启动时扫一次"
+        （`Scheduler._select`）构成两个触发机制。
+
+        是否真的扫描由 `Scheduler.refresh_current_hardness()` 把关
+        （`hardness_scan_enabled` 为假、或无 TRAINING 任务 ⇒ 空操作，返回 None）。
+        新 probs 在**下一个 learning unit 边界**生效。
+        """
+        if not will_continue:
+            return None
+        # Scheduler 只在 unit 末记账；日志不能遗漏本 unit 已跑的更新。
+        al_step = self.scheduler.state.global_step + self._step_in_unit
+        ev = self.scheduler.refresh_current_hardness(step=al_step)
+        if ev is not None:
+            ev["checkpoint_step"] = int(global_step)
+            self._record(ev)
+        return ev
+
     # -- 内部 ---------------------------------------------------------------
     @property
     def step_in_unit(self) -> int:

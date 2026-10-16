@@ -1093,14 +1093,64 @@ class Scheduler:
                 f"!= samples_seen({result.samples_seen})"
             )
 
-    def _refresh_hardness(self, rec: TaskRecord, event: Dict[str, Any]) -> None:
+    def _refresh_hardness(self, rec: TaskRecord, event: Dict[str, Any], *,
+                          force_fresh: bool = False) -> None:
         """换一组 hardness 分布（文档 §15 rescue / §26 refresh_hardness_on_continue）。"""
-        scan = self.scanner.scan(rec, self.backend.catalog.entry(rec.task_name))
+        scan = self.scanner.scan(rec, self.backend.catalog.entry(rec.task_name),
+                                 force_fresh=force_fresh)
         self.scans[rec.task_name] = scan
         rec.sample_probs = scan.probs
         rec.hardness_version = scan.version
         event["hardness_refreshed"] = scan.version if self.al.hardness_scan_enabled else False
         event["hardness_scan_enabled"] = self.al.hardness_scan_enabled
+
+    def refresh_current_hardness(self, *, step: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """**周期存档之后**重扫当前训练任务的样本难度（2026-10-16 用户要求）。
+
+        与 `_select()` 里"任务启动时扫一次"构成**两个触发机制**；本方法只负责"存档后"那一个，
+        由训练循环在周期存档落盘后经 `AutoLearnLoopHook.on_save()` 调用。
+
+        生效条件（任一不满足即空操作，返回 None）：
+          * `hardness_scan_enabled` 为真；
+          * 当前存在处于 `TRAINING` 的任务，且仍有训练预算。
+
+        `step` 是包含 unit 内已完成更新的 AL 相对步号，仅用于门控与日志；
+        不修改只在 unit 结束时记账的 `state.global_step`。
+
+        🔴 **新 probs 不在当前 unit 生效**：`TrainRequest` 在 unit 开始时已快照
+        `rec.sample_probs`（`_prepare_train_request`），采样器也只在 unit 边界
+        `set_request()` 时重编译 alias 表（`BatchSampler.prepare`）⇒ 新 probs 从
+        **下一个 learning unit 边界**起生效。
+        """
+        al = self.al
+        st = self.state
+        if not al.hardness_scan_enabled:
+            return None
+        actual_step = st.global_step if step is None else int(step)
+        if (st.finished or self._budget_exhausted() is not None
+                or (al.max_global_steps is not None and actual_step >= al.max_global_steps)):
+            return None
+        name = st.current_task
+        if name is None:
+            return None
+        rec = self.registry.get(name)
+        if rec.status != TaskStatus.TRAINING.value:
+            return None
+        event: Dict[str, Any] = {
+            "action": "hardness_refresh_save",
+            "task": name,
+            "step": actual_step,
+            "scheduler_step": st.global_step,
+            "cache_bypassed": True,
+        }
+        self._refresh_hardness(rec, event, force_fresh=True)
+        event["n_samples"] = len(rec.sample_probs)
+        if self.logger is not None:
+            self.logger.warning(
+                f"[hardness] 存档后重扫：task={name} al_step={actual_step} "
+                f"version={rec.hardness_version} 覆盖 {len(rec.sample_probs)} 个样本"
+                f"（绕过旧缓存；新 probs 在下一个 unit 边界生效）")
+        return event
 
     # ---------------------------------------------------------------- #
     def _mark_auto_pass(self, task: str) -> None:

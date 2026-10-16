@@ -1937,6 +1937,7 @@ def main():
                         f"[ckpt] PASS 里程碑在 step {global_step} 与 DCP 重合，"
                         "跳过 HF，待 DCP 保存成功后确认")
             if _save_due:
+                _checkpoint_saved = False
                 # [DiskCheck] 本次 checkpoint 开始前: 收上一份的实测占用 + 判断余量
                 _disk_avail_before_gb = -1.0
                 if args.train.disk_guard:
@@ -1990,6 +1991,7 @@ def main():
                         _hf_milestone_index = observed
                     _dcp_save_or_abort(Checkpointer, args.train.save_checkpoint_path, state, global_step)
                     dist.barrier()
+                    _checkpoint_saved = True
                     logger.info_rank0(f"Distributed checkpoint saved at {save_checkpoint_path} successfully!")
                     _retention_after_save(global_step)
                     if _milestone_covered_by_dcp:
@@ -2005,12 +2007,17 @@ def main():
                     #      `dcp_save_mode=always` 那条路**逐字不变**（通用训练脚本不受影响）。
                     if args.train.dcp_save_mode == "hf_only":
                         _save_hf_only(global_step, disk_checked=True)
+                        _checkpoint_saved = True  # 该入口失败会抛异常，返回即全 rank 成功。
                     elif args.train.save_hf_weights:
                         logger.info_rank0(
                             f"[ckpt] dcp_save_mode=final_only ⇒ step {global_step} "
                             f"周期直出 HF（{args.train.save_steps} 的整数倍；"
                             f"不写 DCP、不排队到 unit 边界），路径 {save_checkpoint_path}/hf_ckpt")
-                        _save_hf_direct_best_effort(save_checkpoint_path, global_step)
+                        _hf_out = _save_hf_direct_best_effort(save_checkpoint_path, global_step)
+                        # 导出路径只由 rank0 返回；所有 rank 必须作出相同的扫描决策。
+                        _hf_success = [bool(_hf_out)]
+                        dist.broadcast_object_list(_hf_success, src=0)
+                        _checkpoint_saved = _hf_success[0]
                         # [pool_state] 池子跟着这份 HF 一起导出。
                         # 🔴 必须显式调：池子导出原先只挂在 `save_hf_checkpoint_best_effort` 里，
                         #    本模式不再走那条路 ⇒ 不接过来会**静默不导出**（v65 停机后一个池子
@@ -2024,6 +2031,19 @@ def main():
                 # 即使恰好在 max_steps/STOP_AND_SAVE 同一步，也不能替代收尾 DCP。
                 if _write_dcp:
                     _last_saved_step = global_step
+
+                # 周期存档成功且还会训练时才重扫；HF 失败/空目录/最终存档不消耗扫描预算。
+                # 新 probs 在下一个 unit 边界生效，不改当前 unit 的 alias 表与预取数据。
+                if _checkpoint_saved and _al_hook is not None:
+                    _will_continue = not (
+                        _al_hook.scheduler.state.finished
+                        or (args.train.max_steps is not None and global_step >= args.train.max_steps)
+                        or _al_stop_pending
+                        or (stop_and_save_path and os.path.exists(stop_and_save_path))
+                        or (epoch + 1 >= args.train.num_train_epochs
+                            and epoch_step + 1 >= args.train.train_steps)
+                    )
+                    _al_hook.on_save(global_step, will_continue=_will_continue)
 
             # --- 训练中原地 open-loop validation（不触发 checkpoint 保存）---
             if open_loop_validator is not None and \
