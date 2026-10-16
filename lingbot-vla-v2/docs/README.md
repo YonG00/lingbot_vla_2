@@ -46,6 +46,7 @@
 | Eval 批处理有没有闸门 | `acceptance/eval_batch_auto_gate_guide.md` |
 | 96G 单卡 bf16 验收结论 | `acceptance/gpu96_bf16_acceptance.md` |
 | 闭环评测（AMD 单卡） | `acceptance/closed_loop_amd_single_gpu_guide.md` |
+| 评测**全景录像**（外部相机、720p、仿真时间 30/60 FPS；本地实现，GPU 待验） | `robotwin_global_view_video_zh.md` |
 | 50任务 benchmark / 训练后闭环评测准备 | `acceptance/clean_benchmark_import_guide.md`（单卡 NVIDIA 适配，GPU 闭环待验证） |
 | step9680 闭环结果 / NVIDIA两阶段对齐 | `acceptance/robotwin_step9680_eval_20261014.md`（全量中断；lift_pot 0/10伴随OIDN异常；两阶段对照待开机） |
 | 磁盘/检查点保留策略（官方） | 顶层 `disk_guard_guide.md` |

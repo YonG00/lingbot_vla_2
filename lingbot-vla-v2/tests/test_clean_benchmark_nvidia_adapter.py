@@ -22,6 +22,8 @@ class NvidiaAdapterTests(unittest.TestCase):
             "precision": "fp32",
             "use_compile": False,
             "video": False,
+            "global_view": False,
+            "global_view_fps": 60,
             "episodes": 3,
             "model_path": Path("/models/run/checkpoints/global_step_100/hf_ckpt"),
             "robotwin_root": Path("/sim/RoboTwin"),
@@ -53,6 +55,33 @@ class NvidiaAdapterTests(unittest.TestCase):
             log = Path(tmp) / "task.log"
             log.write_text("Success rate: 1/2 => 50.0%\r\n\x1b[92mSuccess rate: 2/3 => 66.7%\x1b[0m\n")
             self.assertEqual(benchmark.read_result(log), (2, 3))
+
+    def test_global_view_is_independent_of_head_and_passes_fps(self):
+        for head in (False, True):
+            for enabled in (False, True):
+                with self.subTest(head=head, enabled=enabled):
+                    command = benchmark._launcher_command(
+                        self._args(video=head, global_view=enabled, global_view_fps=30),
+                        Path('/tmp/run'), 'demo_clean', Path('/tmp/tasks.txt'))
+                    self.assertEqual('--global_view' in command, enabled)
+                    self.assertIn('--enable_video' if head else '--no_video', command)
+                    if enabled:
+                        self.assertEqual(command[command.index('--global_view_fps')+1], '30')
+
+    def test_global_view_manifest_separates_fps_but_preserves_old_resume(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            model = Path(tmp)
+            (model / 'model.safetensors.index.json').write_text('{}')
+            args = self._args(model_path=model, qwen3vl_path=model, task_config='demo_clean')
+            old = benchmark._manifest(args, ['click_bell'])
+            self.assertNotIn('global_view', old)
+            args.global_view_fps = 30
+            self.assertEqual(benchmark._manifest(args, ['click_bell']), old)
+            args.global_view = True
+            recording = benchmark._manifest(args, ['click_bell'])
+            self.assertEqual(recording['global_view']['fps'], 30)
+            args.global_view_fps = 60
+            self.assertNotEqual(benchmark._manifest(args, ['click_bell']), recording)
 
     def test_only_full_episode_results_create_resume_marker(self):
         with tempfile.TemporaryDirectory() as tmp:

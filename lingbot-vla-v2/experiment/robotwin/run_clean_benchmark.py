@@ -47,6 +47,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--precision", choices=("fp32", "bf16"), default="fp32")
     parser.add_argument("--use-compile", action="store_true")
     parser.add_argument("--video", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--global-view", action="store_true",
+                        help="Record an independent 720p external view; no GUI required.")
+    parser.add_argument("--global-view-fps", type=int, default=60, choices=range(1, 121),
+                        metavar="1..120", help="Global video FPS in simulation time (default: 60).")
     parser.add_argument("--resume", action="store_true")
     return parser.parse_args()
 
@@ -87,7 +91,7 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
 def _manifest(args: argparse.Namespace, tasks: list[str]) -> dict[str, Any]:
     model_path = args.model_path.expanduser().resolve()
     index = model_path / "model.safetensors.index.json"
-    return {
+    manifest = {
         "model_path": str(model_path),
         "model_index_size": index.stat().st_size,
         "model_index_mtime_ns": index.stat().st_mtime_ns,
@@ -105,13 +109,18 @@ def _manifest(args: argparse.Namespace, tasks: list[str]) -> dict[str, Any]:
         "conda_sh": str(args.conda_sh.expanduser().resolve()),
         "base_port": args.base_port,
     }
+    # Old no-global-view manifests remain resumable; enabled recordings have their
+    # own identity so resume cannot silently skip video creation at another FPS.
+    if args.global_view:
+        manifest["global_view"] = {"fps": args.global_view_fps, "width": 1280, "height": 720}
+    return manifest
 
 
 def _launcher_command(args: argparse.Namespace, run_dir: Path, config: str,
                       tasks_file: Path) -> list[str]:
     launcher = REPO_ROOT / "experiment/robotwin/start_robotwin_infer_and_eval.sh"
     use_bf16 = args.precision == "bf16"
-    return [
+    command = [
         "bash", str(launcher),
         "--inference_workdir", f"{REPO_ROOT}{os.sep}",
         "--model_path", str(args.model_path.expanduser().resolve()),
@@ -129,6 +138,9 @@ def _launcher_command(args: argparse.Namespace, run_dir: Path, config: str,
         "--conda_sh", str(args.conda_sh.expanduser().resolve()),
         "--no_video" if not args.video else "--enable_video",
     ]
+    if args.global_view:
+        command += ["--global_view", "--global_view_fps", str(args.global_view_fps)]
+    return command
 
 
 def _done_path(run_dir: Path, config: str, task: str) -> Path:

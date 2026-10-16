@@ -66,6 +66,8 @@
 
 **#32（10-16）HF 便捷续练与可选自动关机**：新增 `experiment/robotwin/continue_skill_training.py`，从来源 HF 自动读取原 run 的训练配置、数据集与对拍报告，复用现有启动器 CPU 预检；命令支持常用 AL 布尔/数值覆盖和通用 JSON 字段覆盖；默认 micro24/GAS1、新增500步，`--execute` 经只读 GPU/磁盘检查后用 setsid/nohup 后台启动。**不变量**：默认预览；`--shutdown` 才启用关机，`--no-shutdown` 显式关闭；训练退出0且目标步HF索引/分片/关键资源及张量名与来源一致才执行 `bash /usr/bin/shutdown`；失败不关机、不重试；不删存档、不启动清理监控；固定 run name 的预览/执行路径相同，既有记录不覆盖。**症状**：缺最终HF仍关机、默认启动GPU、Exec format error、来源配置丢失、主终端断开导致训练停止。**回滚**：使用旧完整启动命令，不使用新便捷入口；新启动不加 `--shutdown`。**验证入口**：`PYTHONPATH=.:tests python -m unittest test_continue_skill_training test_skill_mix_task_launcher -v`；新增用例全用子进程替身，不执行真实关机。代码已随 `7b9d73f` 提交；GPU与真实关机未验。
 
+**#33（10-16）评测专用全景相机与按仿真时间录像**：独立 1280×720 外部相机，默认 60 FPS，可调 30；独立录像模块由现有测评自动调用，不进入模型输入。**不变量**：关闭不新增相机/采帧；开启不推进物理、不重新抽取灯光、不改策略观测或 RNG；以物理步计时采新帧，正常结束/Python异常均关闭编码器，最终成功帧覆盖。**症状**：视频加速/重复帧、失去最终动作、无帧/黑帧、模型输入改变、ffmpeg 残留。**快速回滚**：下一次测评去掉 --global_view / --global-view（启动时读取）；已有录像保留。**验证入口**：PYTHONPATH=.:tests python3 -m unittest test_robotwin_global_view_video test_clean_benchmark_nvidia_adapter -v；🧪 本地22项CPU通过，含真实H.264/ffprobe验证60 FPS、61帧/1.016667秒；语法/bash -n/diff检查通过。GPU构图/黑帧/性能待验，未同步服务器。依赖：RoboTwin相机/基类/新模块一起同步；启动器开启时先检查版本特征及ffmpeg；不涉及AL训练。详见 docs/robotwin_global_view_video_zh.md。未提交。
+
 ## §1.5 改动本意速查（**debug 入口**；2026-10-12 用户要求）
 
 > 用法：**出问题时先看这里** —— 回答三个问题：① 这是不是我改的？② 它现在算不算坏？③ 怎么立刻退回去？

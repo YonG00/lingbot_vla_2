@@ -11,6 +11,7 @@ from envs.utils.create_actor import UnStableError
 import numpy as np
 from pathlib import Path
 from collections import deque
+from contextlib import ExitStack
 import traceback
 
 import yaml
@@ -82,6 +83,9 @@ def main(usr_args):
     args['task_name'] = task_name
     args["task_config"] = task_config
     args["ckpt_setting"] = ckpt_setting
+    # Global recording is independent of head-camera video and never enters model input.
+    args["eval_global_view_log"] = usr_args.get("eval_global_view_log", False)
+    args["global_view_fps"] = int(usr_args.get("global_view_fps", 60))
 
     embodiment_type = args.get("embodiment")
     embodiment_config_path = os.path.join(CONFIGS_PATH, "_embodiment_config.yml")
@@ -127,6 +131,7 @@ def main(usr_args):
     else:
         save_dir = Path(f"eval_result/{task_name}/{policy_name}/{task_config}/{ckpt_setting}/{current_time}")
     save_dir.mkdir(parents=True, exist_ok=True)
+    args["eval_global_view_save_dir"] = save_dir
 
     # 命令行 --eval_video_log 优先于 YAML 配置
     if "eval_video_log" in usr_args:
@@ -307,66 +312,78 @@ def eval_policy(task_name,
             )
             TASK_ENV._set_eval_video_ffmpeg(ffmpeg)
 
-        succ = False
-        path_to_pi_model = None
-        if usr_args is not None and "new_ckpt_path" in usr_args:
-            path_to_pi_model = usr_args['new_ckpt_path']
-        ret = model.infer(dict(reset = True, robo_name=usr_args['robo_name'], path_to_pi_model=path_to_pi_model))
+        # Own both encoders during reset/inference/actions, including exceptions.
+        with ExitStack() as video_cleanup:
+            if TASK_ENV.eval_video_path is not None:
+                video_cleanup.callback(TASK_ENV._del_eval_video_ffmpeg)
+            if args.get("eval_global_view_log", False):
+                # Register first so camera/encoder startup errors also release resources.
+                video_cleanup.callback(TASK_ENV._stop_eval_global_video)
+                camera_config = args.get("global_view_camera", {})
+                TASK_ENV._start_eval_global_video(
+                    Path(args["eval_global_view_save_dir"]) / f"episode{TASK_ENV.test_num}_global.mp4",
+                    fps=args["global_view_fps"],
+                    position=camera_config.get("position", (1.2, -1.2, 1.8)),
+                    target=camera_config.get("target", (0, 0, 0.85)),
+                    fovy=camera_config.get("fovy", 65))
+            succ = False
+            path_to_pi_model = None
+            if usr_args is not None and "new_ckpt_path" in usr_args:
+                path_to_pi_model = usr_args['new_ckpt_path']
+            ret = model.infer(dict(reset = True, robo_name=usr_args['robo_name'], path_to_pi_model=path_to_pi_model))
         
-        while TASK_ENV.take_action_cnt<TASK_ENV.step_lim and not succ:
-            observation = TASK_ENV.get_obs()
-            # from IPython import embed;embed()
+            while TASK_ENV.take_action_cnt<TASK_ENV.step_lim and not succ:
+                observation = TASK_ENV.get_obs()
+                # from IPython import embed;embed()
             
-            formatted_observation = {
-                "observation.images.cam_high": observation["observation"]["head_camera"]["rgb"], # H,W,3
-                "observation.images.cam_left_wrist": observation["observation"]["left_camera"]["rgb"],
-                "observation.images.cam_right_wrist": observation["observation"]["right_camera"]["rgb"],
+                formatted_observation = {
+                    "observation.images.cam_high": observation["observation"]["head_camera"]["rgb"], # H,W,3
+                    "observation.images.cam_left_wrist": observation["observation"]["left_camera"]["rgb"],
+                    "observation.images.cam_right_wrist": observation["observation"]["right_camera"]["rgb"],
                 
-                "observation.state": observation["joint_action"]["vector"],
-                "task": TASK_ENV.get_instruction(),
-            }
+                    "observation.state": observation["joint_action"]["vector"],
+                    "task": TASK_ENV.get_instruction(),
+                }
 
-            # print(formatted_observation["observation.images.cam_high"].shape)
-            # ========= debug image =========
-            # import torch, torchvision
-            # from PIL import Image
-            # imgs_np = []
-            # for k in ['base_0_rgb', 'left_wrist_0_rgb', 'right_wrist_0_rgb']:
-            #     arr = formatted_observation['image'][k].squeeze(0)  # (H,W,3), uint8
-            #     print(arr.max(), arr.min())
-            #     imgs_np.append(arr)
+                # print(formatted_observation["observation.images.cam_high"].shape)
+                # ========= debug image =========
+                # import torch, torchvision
+                # from PIL import Image
+                # imgs_np = []
+                # for k in ['base_0_rgb', 'left_wrist_0_rgb', 'right_wrist_0_rgb']:
+                #     arr = formatted_observation['image'][k].squeeze(0)  # (H,W,3), uint8
+                #     print(arr.max(), arr.min())
+                #     imgs_np.append(arr)
 
-            # concat = np.concatenate(imgs_np, axis=1)
-            # if TASK_ENV.take_action_cnt % 25 ==0:
-            #     Image.fromarray(concat).save(f'combined_{TASK_ENV.take_action_cnt}.png')
-            # ========= debug image =========
+                # concat = np.concatenate(imgs_np, axis=1)
+                # if TASK_ENV.take_action_cnt % 25 ==0:
+                #     Image.fromarray(concat).save(f'combined_{TASK_ENV.take_action_cnt}.png')
+                # ========= debug image =========
 
-            # from IPython import embed;embed()
-            ret = model.infer(formatted_observation) #(TASK_ENV, model, observation)
-            action, latency = ret['action'], ret['server_timing']
-            if len(action.shape) == 2:
-                initial_obs = False
-                for act in action:
-                    if initial_obs: # ensure the video is correct, but slow down simulation
-                        # observation = TASK_ENV.get_obs()
-                        pass
-                    else:
-                        initial_obs = True
-                    TASK_ENV.take_action(act)
+                # from IPython import embed;embed()
+                ret = model.infer(formatted_observation) #(TASK_ENV, model, observation)
+                action, latency = ret['action'], ret['server_timing']
+                if len(action.shape) == 2:
+                    initial_obs = False
+                    for act in action:
+                        if initial_obs: # ensure the video is correct, but slow down simulation
+                            # observation = TASK_ENV.get_obs()
+                            pass
+                        else:
+                            initial_obs = True
+                        TASK_ENV.take_action(act)
+                        if TASK_ENV.eval_success:
+                            succ = True
+                            break
+                else:
+                    TASK_ENV.take_action(action)
                     if TASK_ENV.eval_success:
                         succ = True
-                        break
-            else:
-                TASK_ENV.take_action(action)
-                if TASK_ENV.eval_success:
-                    succ = True
             
-            print(f"infer time {latency}")
+                print(f"infer time {latency}")
 
-
-        # task_total_reward += TASK_ENV.episode_score
-        if TASK_ENV.eval_video_path is not None:
-            TASK_ENV._del_eval_video_ffmpeg()
+            if args.get("eval_global_view_log", False):
+                TASK_ENV._stop_eval_global_video("success" if succ else "failure")
 
         result_tag = "success" if succ else "failure"
         

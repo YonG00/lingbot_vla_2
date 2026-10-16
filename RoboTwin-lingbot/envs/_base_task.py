@@ -98,6 +98,7 @@ class Base_Task(gym.Env):
         self.now_obs = {}
         self.take_action_cnt = 0
         self.eval_video_path = kwags.get("eval_video_save_dir", None)
+        self._eval_global_recorder = None
 
         self.save_freq = kwags.get("save_freq")
         self.world_pcd = None
@@ -589,7 +590,35 @@ class Base_Task(gym.Env):
     def _set_eval_video_ffmpeg(self, ffmpeg):
         self.eval_video_ffmpeg = ffmpeg
 
+    def _start_eval_global_video(self, path, *, fps=60, width=1280, height=720,
+                                 position=(1.2, -1.2, 1.8), target=(0, 0, 0.85), fovy=65):
+        from .utils.global_view_video import GlobalViewRecorder
+        from PIL import Image
+
+        camera = self.cameras.create_global_view_camera(
+            self.scene, width=width, height=height, position=position, target=target, fovy=fovy)
+
+        def capture_rgb():
+            # 不调用 _update_render/get_obs：前者在 random 模式下会重新抽取灯光，
+            # 后者会改变 now_obs。只同步渲染姿态和读取独立相机。
+            self.scene.update_render()
+            camera.take_picture()
+            return (camera.get_picture("Color")[:, :, :3] * 255).clip(0, 255).astype("uint8")
+
+        self._eval_global_recorder = GlobalViewRecorder(
+            path, capture_rgb, timestep=self.scene.get_timestep(), fps=fps, width=width, height=height,
+            preview_writer=lambda frame, output: Image.fromarray(frame).save(output),
+            camera_config=dict(position=list(position), target=list(target), fovy=fovy))
+        self._eval_global_recorder.start()
+
+    def _stop_eval_global_video(self, result="interrupted"):
+        recorder = getattr(self, "_eval_global_recorder", None)
+        self._eval_global_recorder = None
+        if recorder is not None:
+            recorder.close(result)
+
     def close_env(self, clear_cache=False):
+        self._stop_eval_global_video()
         if clear_cache:
             # for actor in self.scene.get_all_actors():
             #     self.scene.remove_actor(actor)
@@ -1667,7 +1696,10 @@ class Base_Task(gym.Env):
 
             self.scene.step()
             self._update_render()
-                
+            # 必须在物理子步内采帧；只在 take_action 边界写帧无法得到真实 60 FPS。
+            if self._eval_global_recorder is not None:
+                self._eval_global_recorder.after_step()
+
             if self.check_success():
                 self.eval_success = True
                 self.get_obs() # update obs

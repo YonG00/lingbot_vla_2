@@ -270,6 +270,18 @@ class Camera:
         world_cam_mat44[:3, 3] = world_cam_pos
         self.world_camera2.entity.set_pose(sapien.Pose(world_cam_mat44))
 
+    def create_global_view_camera(self, scene, *, width, height, position, target, fovy):
+        """仅录像使用；不加入 static_camera_list，不改变策略观测或随机数序列。"""
+        from ..utils.global_view_video import look_at_matrix
+
+        if not np.isfinite(fovy) or not 1 < fovy < 179:
+            raise ValueError("全景相机 fovy 必须在 1..179 度之间")
+        pose = look_at_matrix(position, target)
+        camera = scene.add_camera(name="eval_global_view", width=width, height=height,
+                                  fovy=np.deg2rad(fovy), near=0.05, far=100)
+        camera.entity.set_pose(sapien.Pose(np.array(pose)))
+        return camera
+
     def update_picture(self):
         # camera
         if self.collect_wrist_camera:

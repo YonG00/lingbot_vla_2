@@ -26,6 +26,8 @@
 #   --use_length        chunk length (default: 50)
 #   --robo_name         robot config name (default: robotwin)
 #   --video_fps         video recording fps (default: 10)
+#   --global_view       independent 720p external-view recording (default: disabled)
+#   --global_view_fps   simulation-time FPS, 1..120 (default: 60)
 #   --no_video          disable video recording to speed up simulation
 #   --use_bf16          use bfloat16 inference (default: False)
 #   --use_fp32          use float32 inference (default: True; release reproduction setting)
@@ -68,6 +70,8 @@ video_fps=10
 # 前一行是死代码 (实际生效值 = False), 且**没有**能把它打开的 CLI 开关。
 # 现改为单一默认值 + 对称的 --enable_video / --no_video, 默认行为不变。
 enable_video=False
+global_view=False
+global_view_fps=60
 keep_inference=false
 task_config="${TASK_CONFIG:-demo_clean}"
 
@@ -94,6 +98,12 @@ while [[ $# -gt 0 ]]; do
         --video_fps)         video_fps="$2";         shift 2 ;;
         --no_video)          enable_video=False;     shift ;;
         --enable_video)      enable_video=True;      shift ;;
+        --global_view)       global_view=True;       shift ;;
+        --global_view_fps)
+            if [ "$#" -lt 2 ]; then
+                echo "Error: --global_view_fps requires an integer in 1..120"; exit 2
+            fi
+            global_view_fps="$2"; shift 2 ;;
         --keep_inference)    keep_inference=true;    shift ;;
         --inference_env)     inference_env="$2";     shift 2 ;;
         --sim_env)           sim_env="$2";           shift 2 ;;
@@ -126,11 +136,20 @@ while [[ $# -gt 0 ]]; do
             echo "  --video_fps         video recording fps (default: 10)"
             echo "  --no_video          disable video recording to speed up simulation"
             echo "  --enable_video      enable video recording (default: disabled)"
+            echo "  --global_view       independent 1280x720 external-view video (default: disabled)"
+            echo "  --global_view_fps   simulation-time FPS, 1..120 (default: 60; 30 reduces rendering)"
             exit 0 ;;
         *)
             echo -e "\033[31mUnknown argument: $1\033[0m"; exit 1 ;;
     esac
 done
+
+if ! [[ "$global_view_fps" =~ ^[0-9]+$ ]] || [ "${#global_view_fps}" -gt 3 ] \
+    || (( 10#$global_view_fps < 1 || 10#$global_view_fps > 120 )); then
+    echo "Error: --global_view_fps must be an integer in 1..120"
+    exit 2
+fi
+global_view_fps=$((10#$global_view_fps))
 
 
 # ===== Common environment =====
@@ -204,6 +223,21 @@ if ! command -v python >/dev/null 2>&1; then
 fi
 sim_python="$(command -v python)"
 echo -e "\033[36mSim-side python (${sim_env}): ${sim_python} ($(${sim_python} --version 2>&1))\033[0m"
+if [ "$global_view" = True ]; then
+    if ! command -v ffmpeg >/dev/null 2>&1; then
+        echo "Error: --global_view requires ffmpeg in the simulation environment."
+        exit 2
+    fi
+    # Fail before loading inference weights if the external RoboTwin clone is stale.
+    if [ ! -f "${eval_workdir}/envs/utils/global_view_video.py" ] \
+        || ! grep -q 'def _start_eval_global_video' "${eval_workdir}/envs/_base_task.py" \
+        || ! grep -q '_eval_global_recorder.after_step()' "${eval_workdir}/envs/_base_task.py" \
+        || ! grep -q 'def create_global_view_camera' "${eval_workdir}/envs/camera/camera.py"; then
+        echo "Error: --global_view requires updated RoboTwin camera/base-task/recorder files; sync before evaluation."
+        exit 2
+    fi
+    echo "Global-view video: 1280x720, ${global_view_fps} FPS (simulation time; extra rendering/encoding)"
+fi
 # Deactivate so later phases don't inherit sim env; the actual sim launch
 # activates ${sim_env} itself via `setsid bash -c`.
 conda deactivate 2>/dev/null || true
@@ -516,6 +550,8 @@ launch_task() {
         --robo_name ${robo_name} \
         --video_fps ${video_fps} \
         --eval_video_log ${enable_video} \
+        --eval_global_view_log ${global_view} \
+        --global_view_fps ${global_view_fps} \
         --output_dir '${run_dir}/eval_results' ${test_num_arg}" >> "$log_file" 2>&1 &
 
     local pid=$!
