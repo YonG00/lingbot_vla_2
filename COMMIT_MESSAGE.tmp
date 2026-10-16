@@ -1,4 +1,0 @@
-docs(al): record CPU validation and experiment commit
-
-Remove the temporary commit message accidentally included in 7b9d73f
-and record the commit reference and CPU-only validation state in the AL ledger.
