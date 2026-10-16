@@ -54,6 +54,7 @@ class LingbotVLAConfig(PretrainedConfig):
         vlm_causal: bool = False,
         tokenizer_max_length: int = 48,
         loss_type: str = "fm",
+        low_noise_fm_enabled: bool = False,
         norm_qkv: bool = False,
         align_params: Optional[Dict[str, Any]] = None,
         use_compile: bool = False,
@@ -124,6 +125,7 @@ class LingbotVLAConfig(PretrainedConfig):
         self.norm_qkv = norm_qkv
         self.use_compile = use_compile
         self.loss_type = loss_type
+        self.low_noise_fm_enabled = low_noise_fm_enabled
         self.separate_time_proj = separate_time_proj
         self.final_norm_adanorm = final_norm_adanorm
         self.freeze_vision_encoder = freeze_vision_encoder

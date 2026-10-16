@@ -159,7 +159,7 @@ class AutoLearnLoopHook:
         （`Scheduler._select`）构成两个触发机制。
 
         是否真的扫描由 `Scheduler.refresh_current_hardness()` 把关
-        （`hardness_scan_enabled` 为假、或无 TRAINING 任务 ⇒ 空操作，返回 None）。
+        （扫描关闭、静态窗口模式、或无 TRAINING 任务 ⇒ 空操作，返回 None）。
         新 probs 在**下一个 learning unit 边界**生效。
         """
         if not will_continue:

@@ -30,7 +30,7 @@
 
 ### 样本扫描的两个触发机制（2026-10-16 用户要求）
 
-`hardness_scan_enabled=true` 时，样本难度扫描有**两个触发点**：
+`hardness_scan_enabled=true` 且 `sample_scan_method=hardness`（默认）时，样本难度扫描有**两个触发点**：
 
 1. **任务启动**：`Scheduler._select()` 里扫一次（原有）。
 2. **周期存档后**：周期保存成功后调用 `AutoLearnLoopHook.on_save()` → `Scheduler.refresh_current_hardness()`，更新单任务长跑的采样分布。HF-only 在 `save_steps` 整数倍保存；旧 DCP 模式仍可能延迟到 unit 边界，按实际落盘时点触发。
@@ -46,6 +46,8 @@
 - `hardness_refresh_save` 事件的 `step` 是包含 unit 内进度的 AL 相对步，`scheduler_step` 是已完成 unit 的记账步，`checkpoint_step` 是实际存档的训练绝对步。例：250 步重扫记录 `step=250, scheduler_step=200, checkpoint_step=250`；有来源 offset 时绝对步可能不同。Scheduler 本身的记账不因记录日志而前移。
 
 样本扫描是 Flow Matching loss 的难度代理；更新采样概率不等于保证训练 loss、开环 gMSE 或闭环成功率提升，需要对照验证。
+
+选择 `sample_scan_method=target_change_window` 时，只在训练前准备静态窗口，任务启动、周期存档和 DEFER/rescue 均复用缓存，不执行上述模型重扫。低噪 FM 是独立开关。参数、按任务名的缓存和人工对帧报告见 [目标变化窗口说明](target_change_window_zh.md)。
 
 启动器门控相应放宽：原 `build_plan` 强制 `hardness_scan_enabled=false`，现**允许为 true**；`task_scan_enabled` / `pass_transition_enabled` / `import_pool_state` / `review_after_task_transitions` / `rescan_candidates_after_transition` 仍必须关闭。
 
@@ -120,7 +122,7 @@ RUN=continue_cabinet_from1000_add500
   --no-sample-scan --eval-interval-steps 50 --defer-steps 5000
 ```
 
-可选布尔开关：`--sample-scan/--no-sample-scan`、`--refresh-hardness-on-continue/--no-refresh-hardness-on-continue`。数值选项：`--eval-interval-steps`、`--defer-steps`、`--defer-retry-steps`。任意其他 AL 字段可用重复的 `--al-set hardness_probe_fraction=0.2 --al-set hardness_weight_max=2.5` 覆盖；值按 JSON 解析，不能覆盖任务集合、对拍路径和总步数上限。单技能隔离要求关闭任务扫描、PASS 转换、旧池导入和 review；尝试开启会被预检拒绝。脚本会验证配置、显示生效值，并将最终配置快照到 launch 记录旁。
+可选布尔开关：`--sample-scan/--no-sample-scan`、`--refresh-hardness-on-continue/--no-refresh-hardness-on-continue`、`--low-noise-fm/--no-low-noise-fm`。扫描方法用 `--sample-scan-method hardness|target_change_window` 二选一；静态窗口的真实关节名称、预计算缓存和报告见 [窗口采样说明](target_change_window_zh.md)。数值选项：`--eval-interval-steps`、`--defer-steps`、`--defer-retry-steps`。任意其他 AL 字段可用重复的 `--al-set hardness_probe_fraction=0.2 --al-set hardness_weight_max=2.5` 覆盖；值按 JSON 解析，不能覆盖任务集合、对拍路径和总步数上限。单技能隔离要求关闭任务扫描、PASS 转换、旧池导入和 review；尝试开启会被预检拒绝。脚本会验证配置、显示生效值，并将最终配置快照到 launch 记录旁。
 
 启动后日志和状态 JSON 位于 `/data/outputs/skill_launches/`；脚本启动时会打印实际路径。用 `tail -f <日志路径>` 看训练与扫描进度，用 `cat <状态JSON路径>` 检查是否完成、最终 HF 校验结果及是否发出关机命令。自定义任务可用 `--learning-tasks task_a task_b`；默认使用 AL 配置中的任务。`--out` 可指定一个不存在的新输出目录。预览和执行传相同 `--run-name` 会使用相同路径；重复启动会拒绝覆盖已有记录。
 

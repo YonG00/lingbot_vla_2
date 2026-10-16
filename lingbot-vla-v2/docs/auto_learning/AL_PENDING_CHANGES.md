@@ -17,6 +17,18 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#34（2026-10-16）低噪 FM + 目标变化窗口采样，🧪 本地 CPU 部分验证，未提交、未上机。**
+低噪 FM 默认关闭；开启后 25% 时间样本取 `[0.001,0.2]`，不改变显式指定的评测时间。
+新增 `sample_scan_method=hardness|target_change_window`，历史 `hardness_scan_enabled` 为总开关。
+窗口缓存按任务名保存，以 episode/绝对帧号映射当前 local_idx；仅训练前补算，不随模型、存档或 DEFER 重扫。
+**实现入口**：`utils/flow_time.py` + 模型/训练参数接线；`sampling/target_change_window.py` + `prepare_target_change_windows.py`；便捷/完整启动器、scheduler、pool/DCP 恢复接线。
+**不变量**：关闭低噪时 RNG 不增加调用；扫描关闭时均匀；独立验证集不进入窗口概率；未知腕部名称拒绝启动。
+**症状**：静态模式出现模型扫描日志、缓存坐标与 resolver 不匹配、报告覆盖率异常或无事件；不能把目标变化解释为接触力。
+**快速回滚**：新进程设 `low_noise_fm_enabled=false`，`sample_scan_method=hardness`（或总扫描开关 false）。
+**验证入口**：`tests/test_target_change_window.py`、`tests/test_low_noise_fm.py` 及既有 AL/启动器回归；真实数据人工对帧与 GPU 对照待开机。
+**CPU 证据**：最终选择集 `169 passed, 2 deselected, 66 subtests passed`，19 个修改/新增 Python 文件编译、CLI help、`git diff --check` 通过。两项既有 hardness-cache scorer 测试在第一次扩展回归中因缺 `torchdata` 失败，最终显式排除；对应测试、backend、data_loader、open_loop_validation 相比 HEAD 均未改动，不能宣称重依赖全链已通过。命令与矩阵见 `target_change_window_zh.md`。
+**依赖/未验项**：准备工具依赖既有 PyArrow/YAML；模型分数与静态权重共用采样器/历史 `HardnessScan` DTO，静态结果不伪造 loss。真实机器人资产/原始轨迹不在本地，须核对腕部关节含义、窗口视频对齐，再做 GPU 对照；尚未提交、push 或同步。
+
 | # | 日期 | 改什么（文件/函数） | 为什么 | 期望行为 | 依赖/冲突 | commit | 状态 |
 |---|---|---|---|---|---|---|---|
 | 1 | 10-11 | `state/registry.py`：抽 `_judge_n`；`confirm_val_ids` 与 `active_val_ids` 同组 | 判定尺子原先两处各写 `val_ids[:4]`，语义上看不出是同一把尺子 | 判定仍用 4 条；无行为变化（等价重构） | 与 #2 同批 | `d014aa6` | 🧪 部分验证（CPU 回归 131 passed） |

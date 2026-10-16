@@ -76,6 +76,14 @@ def config_fingerprint(al: Any, task_names: Sequence[str]) -> Dict[str, Any]:
                           if k != "target_total_passed_tasks"
                           or getattr(al, k, None) is not None}
     fp["task_names"] = list(task_names)
+    if getattr(al, "low_noise_fm_enabled", False):
+        fp["low_noise_fm_enabled"] = True
+    if getattr(al, "sample_scan_method", "hardness") != "hardness":
+        from ..sampling.target_change_window import WindowSettings
+        from dataclasses import asdict
+        fp["sample_scan_method"] = al.sample_scan_method
+        fp["target_change_settings"] = asdict(WindowSettings.from_config(al))
+        fp["target_change_wrist_joint_names"] = al.target_change_wrist_joint_names
     # 新选项只在偏离旧默认时写入，旧 DCP 指纹不变。
     for key, default in (("learning_task_names", None), ("replay_task_names", None),
                          ("task_scan_enabled", True), ("pass_transition_enabled", True),
@@ -194,6 +202,7 @@ def restore_state(sched, raw: Dict[str, Any], *, allow_config_change: bool = Fal
     sched.events = list(raw.get("events") or [])
     if not sched.al.task_scan_enabled:
         sched.state.bootstrap_queue = []
+    sched.restore_static_sampling()
     if not sched.al.hardness_scan_enabled:
         sched.scans = {}
         for rec in sched.registry:

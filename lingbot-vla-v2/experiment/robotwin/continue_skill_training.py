@@ -23,6 +23,8 @@ SPEC.loader.exec_module(launcher)
 
 AL_CLI_FIELDS = {
     "hardness_scan_enabled": "sample_scan",
+    "low_noise_fm_enabled": "low_noise_fm",
+    "sample_scan_method": "sample_scan_method",
     "eval_interval_steps": "eval_interval_steps",
     "min_steps_before_defer": "defer_steps",
     "defer_retry_steps": "defer_retry_steps",
@@ -198,7 +200,9 @@ def main(argv=None):
     parser.add_argument("--gas", type=int, default=1)
     parser.add_argument("--learning-tasks", nargs="+")
     for field, name in AL_CLI_FIELDS.items():
-        if field in {"eval_interval_steps", "min_steps_before_defer", "defer_retry_steps"}:
+        if field == "sample_scan_method":
+            parser.add_argument("--sample-scan-method", choices=("hardness", "target_change_window"))
+        elif field in {"eval_interval_steps", "min_steps_before_defer", "defer_retry_steps"}:
             parser.add_argument("--" + name.replace("_", "-"), dest=name, type=int)
         else:
             parser.add_argument("--" + name.replace("_", "-"), dest=name,
@@ -227,6 +231,7 @@ def main(argv=None):
         micro=args.micro, gas=args.gas, tasks=plan["config"]["learning_task_names"],
         hardness_scan_enabled=plan["config"]["hardness_scan_enabled"], shutdown=args.shutdown,
         al={key: plan["config"].get(key) for key in (
+            "sample_scan_method", "low_noise_fm_enabled", "target_change_cache_dir",
             "hardness_scan_enabled", "task_scan_enabled", "pass_transition_enabled",
             "eval_interval_steps", "min_steps_before_defer", "defer_retry_steps",
             "early_defer_on_overfit", "review_after_task_transitions",

@@ -88,6 +88,52 @@ class LauncherTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "unknown tasks"):
             launcher.build_plan(self.args)
 
+    def test_low_noise_and_static_config_propagate_without_scanning_in_preview(self):
+        cfg=launcher.read_json(self.args.al_config)
+        cfg.update(low_noise_fm_enabled=True,sample_scan_method='target_change_window',
+                   target_change_cache_dir=str(self.root/'cache'),
+                   target_change_embodiment_config=str(self.root/'actual_robot.yml'),
+                   target_change_wrist_joint_names=[['left_wrist'],['right_wrist']])
+        self.args.al_config_data=cfg
+        plan=launcher.build_plan(self.args)
+        self.assertTrue(plan['training_config']['train']['low_noise_fm_enabled'])
+        self.assertEqual(plan['config']['sample_scan_method'],'target_change_window')
+        self.assertEqual(plan['config']['target_change_dataset_root'],str(self.args.dataset_root.resolve()))
+        self.assertFalse(self.args.out.exists())
+        self.assertFalse((self.root/'cache').exists())
+        # Source-run settings must not silently enable the experiment switch.
+        self.args.al_config_data=launcher.read_json(self.args.al_config)
+        self.train.write_text(json.dumps(dict(data=dict(norm_stats_file=str(self.norm)),
+                                             train=dict(low_noise_fm_enabled=True))))
+        self.assertFalse(launcher.build_plan(self.args)['training_config']['train']['low_noise_fm_enabled'])
+
+    def test_static_preparation_is_before_exec_and_failure_leaves_no_run(self):
+        cfg=launcher.read_json(self.args.al_config)
+        cfg.update(sample_scan_method='target_change_window',
+                   target_change_cache_dir=str(self.root/'cache'),
+                   target_change_embodiment_config=str(self.root/'robot.yml'),
+                   target_change_wrist_joint_names=[['l'],['r']])
+        config_file=self.root/'al.json';config_file.write_text(json.dumps(cfg))
+        argv=['--model',str(self.model),'--train-config',str(self.train),
+              '--dataset-root',str(self.args.dataset_root),'--qwen3vl',str(self.args.qwen3vl),
+              '--out',str(self.args.out),'--audit-report',str(self.args.audit_report),
+              '--al-config',str(config_file),'--execute']
+        target='experiment.robotwin.prepare_target_change_windows.prepare'
+        with patch(target,side_effect=ValueError('bad static cache')), \
+             patch.object(launcher.os,'execvpe') as execute, contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(ValueError,'bad static cache'):
+                launcher.main(argv)
+            execute.assert_not_called()
+        self.assertFalse(self.args.out.exists())
+        order=[]
+        with patch(target,side_effect=lambda *a,**k:order.append('prepare')) as prepare, \
+             patch.object(launcher.os,'chdir'), \
+             patch.object(launcher.os,'execvpe',side_effect=lambda *a:order.append('exec')), \
+             contextlib.redirect_stdout(io.StringIO()):
+            launcher.main(argv)
+        self.assertEqual(order,['prepare','exec'])
+        self.assertEqual(prepare.call_args.args[3],['put_object_cabinet'])
+
     def test_continue_entry_runs_real_source_and_tokenizer_preflight(self):
         import shutil
         from test_continue_skill_training import entry

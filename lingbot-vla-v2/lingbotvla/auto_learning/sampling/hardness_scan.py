@@ -56,6 +56,8 @@ class HardnessScan:
     unscored_difficulty: float
     mean_loss_scanned: float = 0.0
     p90_loss_scanned: float = 0.0
+    # 历史类型名兼容存档；静态窗口结果没有模型 loss/difficulty。
+    method: str = "hardness"
 
     @property
     def coverage(self) -> float:
@@ -63,9 +65,11 @@ class HardnessScan:
 
     def to_state(self) -> Dict[str, Any]:
         return {
+            "method": self.method,
             "task": self.task,
             "version": self.version,
             "scanned_traj_ids": self.scanned_traj_ids,
+            "scanned_sample_ids": self.scanned_sample_ids,
             "losses": {str(k): v for k, v in self.losses.items()},
             "difficulties": {str(k): v for k, v in self.difficulties.items()},
             "weights": {str(k): v for k, v in self.weights.items()},
@@ -83,10 +87,11 @@ class HardnessScan:
         probs = {int(k): float(v) for k, v in (raw.get("probs") or {}).items()}
         vals = sorted(losses.values())
         return cls(
+            method=raw.get("method", "hardness"),
             task=raw["task"],
             version=int(raw.get("version", 1)),
             scanned_traj_ids=list(raw.get("scanned_traj_ids") or []),
-            scanned_sample_ids=sorted(losses.keys()),
+            scanned_sample_ids=list(raw.get("scanned_sample_ids", sorted(losses.keys()))),
             losses=losses,
             difficulties=diffs,
             weights=weights,

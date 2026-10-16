@@ -501,6 +501,17 @@ class Arguments:
 
 def main():
     args = parse_args(Arguments)
+    if args.train.auto_learning:
+        # Resolve before saving args: the recorded experiment must match the model.
+        import yaml
+        from lingbotvla.auto_learning.config import AutoLearningConfig
+        with open(args.train.auto_learning, encoding="utf-8") as f:
+            _fm_raw = yaml.safe_load(f) or {}
+        _fm_body = _fm_raw.get("auto_learning", _fm_raw)
+        _fm_al = AutoLearningConfig(**{k: v for k, v in _fm_body.items()
+                                      if k in AutoLearningConfig.__dataclass_fields__})
+        if _fm_al.enabled:
+            args.train.low_noise_fm_enabled = _fm_al.low_noise_fm_enabled
     logger.info(f"Process rank: {args.train.global_rank}, world size: {args.train.world_size}")
     logger.info_rank0(json.dumps(asdict(args), indent=2))
     torch.cuda.set_device(f"cuda:{args.train.local_rank}")
@@ -527,6 +538,7 @@ def main():
     )
 
     logger.info_rank0("Prepare model")
+    logger.info_rank0(f"[FM] low_noise_fm_enabled={args.train.low_noise_fm_enabled}")
     config_kwargs = {**vars(args.model), **vars(args.train)}
     config_registry = get_config_registry()
 

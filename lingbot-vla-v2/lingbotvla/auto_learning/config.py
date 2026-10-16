@@ -35,6 +35,20 @@ class AutoLearningConfig:
     task_scan_enabled: bool = True
     pass_transition_enabled: bool = True
     hardness_scan_enabled: bool = True
+    # 历史名称：hardness_scan_enabled 是两种样本扫描共用的总开关。
+    sample_scan_method: str = "hardness"
+    target_change_cache_dir: Optional[str] = None
+    target_change_dataset_root: Optional[str] = None
+    target_change_embodiment_config: Optional[str] = None
+    # 必须来自 embodiment arm_joints_name，左右分别指定；绝不猜数字维度。
+    target_change_wrist_joint_names: List[List[str]] = field(default_factory=list)
+    target_change_window_seconds: float = 0.25
+    target_change_gripper_speed: float = 0.1
+    target_change_wrist_speed: float = 0.2
+    target_change_release_ratio: float = 0.5
+    target_change_persistence_frames: int = 2
+    target_change_window_weight: float = 2.0
+    low_noise_fm_enabled: bool = False
     import_pool_state: bool = True
     # 缓存完整数据对拍报告；空值保持原启动流程。
     data_audit_file: Optional[str] = None
@@ -191,9 +205,33 @@ class AutoLearningConfig:
 
     def validate(self) -> None:
         for key in ("task_scan_enabled", "pass_transition_enabled",
-                    "hardness_scan_enabled", "import_pool_state"):
+                    "hardness_scan_enabled", "import_pool_state", "low_noise_fm_enabled"):
             if type(getattr(self, key)) is not bool:
                 raise ValueError(f"{key} must be boolean")
+        if self.sample_scan_method not in ("hardness", "target_change_window"):
+            raise ValueError("sample_scan_method must be hardness or target_change_window")
+        if self.hardness_scan_enabled and self.sample_scan_method == "target_change_window":
+            if not self.target_change_cache_dir:
+                raise ValueError("target_change_window requires target_change_cache_dir")
+        for key in ("target_change_gripper_speed", "target_change_wrist_speed",
+                    "target_change_window_weight"):
+            value = getattr(self, key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                raise ValueError(f"{key} must be finite and positive")
+        if (not isinstance(self.target_change_window_seconds, (int, float))
+                or isinstance(self.target_change_window_seconds, bool)
+                or not math.isfinite(self.target_change_window_seconds)
+                or self.target_change_window_seconds < 0):
+            raise ValueError("target_change_window_seconds must be finite and nonnegative")
+        if self.target_change_window_weight < 1:
+            raise ValueError("target_change_window_weight must be at least 1")
+        if (isinstance(self.target_change_release_ratio, bool)
+                or not isinstance(self.target_change_release_ratio, (int, float))
+                or not math.isfinite(self.target_change_release_ratio)
+                or not 0 < self.target_change_release_ratio < 1):
+            raise ValueError("target_change_release_ratio must be in (0,1)")
+        if type(self.target_change_persistence_frames) is not int or self.target_change_persistence_frames < 1:
+            raise ValueError("target_change_persistence_frames must be a positive integer")
         for key in ("task_names", "learning_task_names", "replay_task_names"):
             names = getattr(self, key)
             if names is not None and (not isinstance(names, list)

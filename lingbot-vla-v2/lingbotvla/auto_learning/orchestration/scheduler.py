@@ -199,6 +199,9 @@ class Scheduler:
         self.defer_train = False
         self._pending_train = None
         self.scanner = HardnessScanner(al, backend.scorer)
+        if al.hardness_scan_enabled and al.sample_scan_method == "target_change_window":
+            from ..sampling.target_change_window import TargetChangeScanner
+            self.scanner = TargetChangeScanner(al, backend.resolver)
         self.reviewer = Reviewer(al, self.evaluator)
         self.rebind_rng()
 
@@ -211,6 +214,19 @@ class Scheduler:
         self.checkpoint_path: Optional[str] = None
         self.events: List[Dict[str, Any]] = []
         self.last_decision: Dict[str, Any] = {}
+        self.restore_static_sampling()
+
+    def restore_static_sampling(self):
+        """Preload every static task before the first optimizer step; ignore old pool weights."""
+        if not self.al.hardness_scan_enabled or self.al.sample_scan_method != "target_change_window":
+            return
+        for rec in self.registry:
+            scan = self.scanner.scan(rec, self.backend.catalog.entry(rec.task_name))
+            self.scans[rec.task_name] = scan
+            rec.sample_probs = dict(scan.probs)
+            rec.hardness_version = scan.version
+            if rec.pass_sampling_snapshot is not None:
+                rec.pass_sampling_snapshot = dict(scan.probs)
 
     def import_pool_registry(
         self, raw: Dict[str, Any], *, refresh_candidates: bool = False,
@@ -223,6 +239,7 @@ class Scheduler:
         权重步号与池不同：只重新评测候选，保护 PASS/DEFER/EXHAUSTED。
         """
         issues = self.registry.load_state(raw)
+        self.restore_static_sampling()
         if not self.al.hardness_scan_enabled:
             for rec in self.registry:
                 rec.sample_probs = {}
@@ -279,8 +296,12 @@ class Scheduler:
                    [self.registry.get(n) for n in self.al.replay_task_names])
         for rec in records:
             tasks.append(rec.task_name)
-            probs[rec.task_name] = (rec.pass_sampling_snapshot
-                                   if self.al.hardness_scan_enabled else None)
+            if not self.al.hardness_scan_enabled:
+                probs[rec.task_name] = None
+            elif self.al.sample_scan_method == "target_change_window":
+                probs[rec.task_name] = rec.sample_probs
+            else:
+                probs[rec.task_name] = rec.pass_sampling_snapshot
             sample_ids[rec.task_name] = rec.sample_ids
         return ReplayPlan(tasks=tasks, probs=probs, sample_ids=sample_ids)
 
@@ -782,22 +803,27 @@ class Scheduler:
         # 首次扫描含 train-mode 的 torch.compile / 预热（首跑实测该窗口 369 s，其中大部分是编译）
         # ⇒ 用 `self.scans` 是否为空区分「预热」与「稳态」，避免把编译算进难度扫描成本。
         _hardness_first = not self.scans
-        _cuda_sync_for_timing()
+        if al.sample_scan_method == "hardness":
+            _cuda_sync_for_timing()
         _hardness_t0 = time.perf_counter()
         scan = self.scanner.scan(pick, self.backend.catalog.entry(name))
-        _cuda_sync_for_timing()
+        if al.sample_scan_method == "hardness":
+            _cuda_sync_for_timing()
         _hardness_seconds = time.perf_counter() - _hardness_t0
         if self.logger is not None:
+            self.logger.log_text(st.global_step, "auto_learning/sample_scan_method",
+                                 scan.method if al.hardness_scan_enabled else "disabled")
             self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_seconds",
                                     round(_hardness_seconds, 3))
             self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_samples",
                                     int(scan.n_scanned))
             self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_trajs",
                                     len(scan.scanned_traj_ids))
-            self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_mean_loss",
-                                    round(scan.mean_loss_scanned, 6))
-            self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_p90_loss",
-                                    round(scan.p90_loss_scanned, 6))
+            if scan.method == "hardness":
+                self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_mean_loss",
+                                        round(scan.mean_loss_scanned, 6))
+                self.logger.log_metrics(st.global_step, "auto_learning/hardness_scan_p90_loss",
+                                        round(scan.p90_loss_scanned, 6))
             self.logger.log_metrics(
                 st.global_step,
                 "auto_learning/hardness_scan_seconds_warmup" if _hardness_first
@@ -806,7 +832,7 @@ class Scheduler:
             )
         # Hardness batch scorer reports CPU-side times separately. These are
         # NOT CUDA event times; total synchronized scan time above is authoritative.
-        profile = getattr(self.scanner.scorer, "last_timing", None)
+        profile = getattr(getattr(self.scanner, "scorer", None), "last_timing", None)
         if self.logger is not None and isinstance(profile, dict):
             for key in ("data_wall_seconds", "score_submit_seconds", "batches", "samples"):
                 value = profile.get(key)
@@ -827,6 +853,7 @@ class Scheduler:
             "scout_pass_ratio": (self._candidate_priority(pick)[0]
                                   if al.task_scan_enabled and al.pass_metric == "gmean_mse" else None),
             "hardness_scan_enabled": al.hardness_scan_enabled,
+            "sample_scan_method": scan.method,
             "pass_transition_enabled": al.pass_transition_enabled,
             "attempt": pick.attempt_count,
             "round": st.round,
@@ -835,11 +862,11 @@ class Scheduler:
             "hardness_version": scan.version,
             "hardness_scanned_trajs": len(scan.scanned_traj_ids),
             "hardness_coverage": round(scan.coverage, 3),
-            "hardness_mean_loss": round(scan.mean_loss_scanned, 4),
-            "hardness_p90_loss": round(scan.p90_loss_scanned, 4),
+            "hardness_mean_loss": round(scan.mean_loss_scanned, 4) if scan.method == "hardness" else None,
+            "hardness_p90_loss": round(scan.p90_loss_scanned, 4) if scan.method == "hardness" else None,
             "n_samples": scan.n_total,
             "hardness_scan_seconds": round(_hardness_seconds, 3),
-            "hardness_scan_is_first": bool(_hardness_first and al.hardness_scan_enabled),
+            "hardness_scan_is_first": bool(_hardness_first and al.hardness_scan_enabled and scan.method == "hardness"),
         }
 
     # ---------------------------------------------------------------- #
@@ -1050,8 +1077,9 @@ class Scheduler:
             self._refresh_hardness(rec, event)
             event["decision"] = "RESCUE"
             event["reason"] = (
-                ("准备 DEFER，换一组 hardness 分布" if al.hardness_scan_enabled
-                 else "准备 DEFER，样本扫描已关闭，保留均匀采样")
+                ("准备 DEFER，样本扫描已关闭，保留均匀采样" if not al.hardness_scan_enabled
+                 else "准备 DEFER，复用静态目标变化窗口分布" if al.sample_scan_method == "target_change_window"
+                 else "准备 DEFER，换一组 hardness 分布")
                 + f"，再给 {al.defer_retry_steps} step（{reason}）"
             )
         else:
@@ -1096,6 +1124,10 @@ class Scheduler:
     def _refresh_hardness(self, rec: TaskRecord, event: Dict[str, Any], *,
                           force_fresh: bool = False) -> None:
         """换一组 hardness 分布（文档 §15 rescue / §26 refresh_hardness_on_continue）。"""
+        if self.al.hardness_scan_enabled and self.al.sample_scan_method == "target_change_window":
+            event["hardness_refreshed"] = False
+            event["sample_scan_method"] = "target_change_window"
+            return  # 静态窗口与模型无关，DEFER/rescue 不重扫。
         scan = self.scanner.scan(rec, self.backend.catalog.entry(rec.task_name),
                                  force_fresh=force_fresh)
         self.scans[rec.task_name] = scan
@@ -1124,7 +1156,7 @@ class Scheduler:
         """
         al = self.al
         st = self.state
-        if not al.hardness_scan_enabled:
+        if not al.hardness_scan_enabled or al.sample_scan_method != "hardness":
             return None
         actual_step = st.global_step if step is None else int(step)
         if (st.finished or self._budget_exhausted() is not None

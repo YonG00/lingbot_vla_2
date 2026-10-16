@@ -233,6 +233,18 @@ def build_auto_learning_parts(
 
     # ---- 回合 → dataset local_idx ----
     resolver = SampleResolver.from_dataset(train_dataset, task_of_episode=cat.task_of_episode)
+    if cfg.hardness_scan_enabled and cfg.sample_scan_method == "target_change_window":
+        node = train_dataset
+        children = getattr(node, "_datasets", None)
+        if children is not None:
+            if len(children) != 1:
+                raise ValueError("target_change_window requires one Robotwin dataset")
+            node = children[0]
+        node = getattr(node, "dataset", node)
+        actual_root = getattr(node, "root", None)
+        if (actual_root is None or not cfg.target_change_dataset_root
+                or Path(actual_root).resolve() != Path(cfg.target_change_dataset_root).resolve()):
+            raise ValueError("target-change source root differs from actual training dataset")
     cat = cat.attach_samples(resolver)
     if cfg.data_audit_file:
         from ..data_audit import audit_dataset
@@ -618,7 +630,8 @@ def finish_auto_learning(
         f"（{cfg.new_slots} NEW + {cfg.replay_slots} Replay）；"
         f"eval_interval={cfg.eval_interval_steps} 步；defer_train={scheduler.defer_train}；"
         f"PASS转换={cfg.pass_transition_enabled} task_scan={cfg.task_scan_enabled} "
-        f"hardness_scan={cfg.hardness_scan_enabled}；"
+        f"sample_scan={cfg.hardness_scan_enabled} method={cfg.sample_scan_method} "
+        f"low_noise_fm={cfg.low_noise_fm_enabled}；"
         f"Replay来源={'用户指定' if cfg.replay_task_names is not None else '动态PASS池'}")
     # 验收钩子（默认关闭）：零 optimizer.step 时 Hardness 扫描不会被执行，
     # 这里在模型加载完成后、训练开始前，用**同一个**真实 scorer 跑一次逐样本对拍。
@@ -627,7 +640,7 @@ def finish_auto_learning(
     # AL_HARDNESS_REPORT_OUT（正式训练不会设）⇒ 只用于独立验收运行。
     # 单卡限制：多卡 FSDP2 明确拒绝，避免 collective 死锁。
     _selftest_n = int(os.environ.get('AL_HARDNESS_SELFTEST_IDS', '0') or 0)
-    if cfg.hardness_scan_enabled and _selftest_n > 0 and os.environ.get('AL_HARDNESS_REPORT_OUT'):
+    if cfg.hardness_scan_enabled and cfg.sample_scan_method == "hardness" and _selftest_n > 0 and os.environ.get('AL_HARDNESS_REPORT_OUT'):
         try:
             import torch.distributed as _dist
             if _dist.is_available() and _dist.is_initialized() and _dist.get_world_size() > 1:

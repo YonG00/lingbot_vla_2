@@ -77,6 +77,8 @@ class ContinueSkillTests(unittest.TestCase):
         self.args.eval_interval_steps = 50
         self.args.defer_steps = 5000
         self.args.review_every = 0
+        self.args.low_noise_fm = True
+        self.args.sample_scan_method = 'target_change_window'
         self.args.al_set = ["hardness_weight_max=2.5"]
         with patch.object(entry.launcher, "build_plan", return_value={"config": {}}) as build:
             entry.make_job(self.args)
@@ -86,6 +88,8 @@ class ContinueSkillTests(unittest.TestCase):
         self.assertEqual(cfg["min_steps_before_defer"], 5000)
         self.assertEqual(cfg["review_after_task_transitions"], 0)
         self.assertEqual(cfg["hardness_weight_max"], 2.5)
+        self.assertTrue(cfg["low_noise_fm_enabled"])
+        self.assertEqual(cfg["sample_scan_method"], 'target_change_window')
 
     def test_al_overrides_are_typed_validated_and_cannot_replace_launcher_budget(self):
         self.args.al_set = ["task_names=[\"another_task\"]"]
@@ -101,7 +105,9 @@ class ContinueSkillTests(unittest.TestCase):
             entry.make_job(self.args)
 
     def test_background_job_is_detached_and_freezes_config(self):
-        with patch.object(entry.launcher, "build_plan", return_value={"config": {"hardness_scan_enabled": True}}):
+        snapshot={"hardness_scan_enabled": True,"sample_scan_method":"target_change_window",
+                  "low_noise_fm_enabled":True,"target_change_window_seconds":0.4}
+        with patch.object(entry.launcher, "build_plan", return_value={"config": snapshot}):
             job, plan = entry.make_job(self.args)
         with patch.object(entry.subprocess, "Popen", return_value=NS(pid=123)) as spawn:
             self.assertEqual(entry.start_background(job, plan), 123)

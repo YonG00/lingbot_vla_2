@@ -3,6 +3,9 @@
 > **这是 Auto Learning 子系统的专属 README**（与根目录 `README.md` 并列，互不影响）。
 > 想先理解概念看本文 §1–§3；要上手跑看 §4；改代码看 §5；排查问题看 §7。
 
+低噪 FM 与两种互斥样本扫描的配置、训练前缓存及事件报告，见
+[低噪 FM 与目标变化窗口采样](docs/auto_learning/target_change_window_zh.md)。新开关默认保持原行为。
+
 ---
 
 ## 1. 它是什么

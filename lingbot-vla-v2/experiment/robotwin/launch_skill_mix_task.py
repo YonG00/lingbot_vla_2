@@ -103,6 +103,13 @@ def checkpoint_inventory(model):
 
 def build_plan(args):
     cfg = getattr(args, "al_config_data", None) or read_json(args.al_config)
+    AutoLearningConfig(**cfg)
+    if cfg.get("sample_scan_method", "hardness") == "target_change_window" and cfg["hardness_scan_enabled"]:
+        if not cfg.get("target_change_cache_dir") or not cfg.get("target_change_embodiment_config"):
+            raise ValueError("target_change_window requires cache directory and actual embodiment config")
+        cfg["target_change_cache_dir"] = str(Path(cfg["target_change_cache_dir"]).expanduser().resolve())
+        cfg["target_change_embodiment_config"] = str(Path(cfg["target_change_embodiment_config"]).expanduser().resolve())
+        cfg["target_change_dataset_root"] = str(args.dataset_root.resolve())
     learning = args.learning_tasks if args.learning_tasks is not None else cfg["learning_task_names"]
     replay = args.replay_tasks if args.replay_tasks is not None else cfg["replay_task_names"]
     tasks = list(learning) + list(replay)
@@ -153,6 +160,7 @@ def build_plan(args):
     run_config = json.loads(json.dumps(source_args))
     run_config.setdefault("model", {}).update(vlm_repo_id=None, post_training=True, incremental_training=False)
     run_config.setdefault("train", {}).update(load_checkpoint_path=None, enable_resume=False)
+    run_config["train"]["low_noise_fm_enabled"] = cfg.get("low_noise_fm_enabled", False)
     manifest = read_json(args.manifest)
     missing = set(tasks) - set(manifest["tasks"])
     if missing:
@@ -253,6 +261,12 @@ def main(argv=None):
     print("COMMAND: " + shlex.join(plan["command"]))
     if not (args.prepare_only or args.execute):
         return
+    if args.execute and plan["config"]["hardness_scan_enabled"] and plan["config"].get("sample_scan_method") == "target_change_window":
+        # Finish CPU preparation before creating the run or loading the model.
+        # A bad cache must not leave an unusable, nonempty output directory.
+        from experiment.robotwin.prepare_target_change_windows import prepare
+        prepare(AutoLearningConfig(**plan["config"]), args.dataset_root,
+                read_json(args.manifest), plan["config"]["task_names"])
     args.out.mkdir(parents=True, exist_ok=False)
     for name, value in (("al_config.json", plan["config"]), ("trainer_config.json", plan["training_config"]),
                         ("train_ids.json", plan["train_ids"]),

@@ -262,6 +262,9 @@ class TrainingArguments:
     output_dir: str = field(
         metadata={"help": "Path to save model checkpoints."},
     )
+    low_noise_fm_enabled: bool = field(
+        default=False, metadata={"help": "Mix 25% uniform t in [0.001,0.2] into FM training times."},
+    )
     lr: float = field(
         default=5e-5,
         metadata={"help": "Maximum learning rate or defult learning rate, or init learning rate for warmup."},

@@ -21,6 +21,7 @@
 
 | 我要做什么 | 读哪篇 |
 |---|---|
+| 低噪 FM / 目标变化窗口采样 / 训练前事件报告 | `auto_learning/target_change_window_zh.md` |
 | 第一次跑通 AutoLearning | `auto_learning/auto_learning_overview_zh.md` |
 | 启动训练（完整命令与参数） | `auto_learning/auto_learning_launch_guide_zh.md` |
 | **避开已知的坑**（8 项预检 + 6 类核心坑） | `auto_learning/auto_learning_pitfalls_zh.md` |
