@@ -364,8 +364,16 @@ def ee_training_loss_text(series, step):
         if not isinstance(value, (int, float)) or not math.isfinite(value):
             return None
         values.append(value)
-    return (f'EE训练@{step} 未加权/该步: 位置 {values[0]:.5f} '
-            f'姿态 {values[1]:.5f} 夹爪 {values[2]:.5f}')
+    return 'EE ' + '/'.join(f'{value:.5f}' for value in values)
+
+
+def history_threshold_text(steps, thresholds):
+    """A fixed threshold belongs in the heading; preserve changing history."""
+    values = {thresholds.get(step) for step in steps}
+    if len(values) == 1:
+        value = next(iter(values))
+        return (f'门槛 {value:.4g}' if isinstance(value, (int, float)) else '门槛 --'), False
+    return '门槛有变化，逐行标注T', True
 
 
 def read_series(events: Path) -> Dict[str, Dict[str, List[Tuple[int, float]]]]:
@@ -1226,7 +1234,10 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
         row('历史', '尚无实测记录（等第一个 unit 末的判定）')
     else:
         # 用户口径：固定看**最近 3 个 unit**
-        row('历史', f'最近 {min(len(val), 3)} 个 unit（倍率 ≤1.0 过线）')
+        threshold_text, changing_threshold = history_threshold_text([step for step, _ in val[-3:]], thr)
+        row('历史', f'最近 {min(len(val), 3)} 个 unit（倍率 ≤1.0 过线；{threshold_text}）')
+        if series.get('_training_ee'):
+            row('说明', 'EE=位置/姿态/夹爪，未乘权重，取该训练步')
         prev = None
         for stp, g in val[-3:]:
             r = rat.get(stp) or ((g / thr[stp]) if thr.get(stp) else None)
@@ -1236,15 +1247,13 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
                 d = ('↓%.3f' % abs(diff)) if diff < -0.005 else (
                     ('↑+%.3f' % diff) if diff > 0.005 else '→')
             prev = r if r is not None else prev
-            th_txt = f'{thr[stp]:.4f}' if isinstance(thr.get(stp), (int, float)) else '--'
             lo_txt = f'{los[stp]:.4f}' if isinstance(los.get(stp), (int, float)) else '--'
             r_txt = f'{r:.2f}x' if isinstance(r, (int, float)) else '--'
-            print('  ' + _fit(f'  {stp:>5}  G {g:.4f}  门槛 {th_txt}  {r_txt:>6}  '
-                             f'loss {lo_txt}  {d}', W))
             ee_loss = ee_training_loss_text(series, stp) if stp in los else None
-            if ee_loss:
-                label, values = ee_loss.split(': ', 1)
-                print(f'    {label}\n      {values}')
+            threshold = (f' T {thr[stp]:.4g}' if isinstance(thr.get(stp), (int, float)) else ' T --') if changing_threshold else ''
+            # Keep the three EE values on one logical line, without truncation.
+            print(f'    {stp:>5} G {g:.4f}{threshold} {r_txt:>6} loss {lo_txt}'
+                  f'{"  " + ee_loss if ee_loss else ""}  {d}'.rstrip())
     print('=' * W)
     if trainers and len(trainers) > 1:
         print(_c(f'  机上另有 {len(trainers) - 1} 个训练器在跑（--trainers 看全部）', '33'))
@@ -1516,11 +1525,14 @@ def render_wide(*, run: str, args, cfg, thresholds, target, trainer, trainers,
     th_map = dict((series.get('pass_threshold_gmean_mse') or {}).get(str(cur_task)) or [])
     ra_map = dict((series.get('val_to_pass_threshold') or {}).get(str(cur_task)) or [])
     lo_map = dict((series.get('unit_loss') or {}).get(str(cur_task)) or [])
-    print(f' 成长轨迹: {cur_task}（该任务自身历史，每 unit 一点）')
+    threshold_text, changing_threshold = history_threshold_text([step for step, _ in val_seq], th_map)
+    print(f' 成长轨迹: {cur_task}（该任务自身历史，每 unit 一点；倍率 ≤1.0 过线；{threshold_text}）')
+    if series.get('_training_ee'):
+        print(' 说明: EE=位置/姿态/夹爪，未乘权重，取该训练步')
     if not val_seq:
         print('   没有（该任务还没有 active_val 记录）')
     else:
-        print(f'   {"step":>5}{"GMean":>9}{"门槛":>9}{"倍率":>7}{"loss":>9}  {"类型":<4}变化')
+        print(f'   {"step":>5}{"GMean":>9}{"倍率":>7}{"loss":>9}  EE(位置/姿态/夹爪)  变化')
         prev_ratio = None
         shown = 0
         for st, g in val_seq:
@@ -1539,13 +1551,12 @@ def render_wide(*, run: str, args, cfg, thresholds, target, trainer, trainers,
                     delta = f'↑ 变差 +{d:.3f}'
                 else:
                     delta = '→ 持平'
-            kind = '基线' if loss is None else '训后'
-            print(f'   {st:>5}{g:>9.4f}{(f"{th:.4f}" if th else "—"):>9}'
-                  f'{(f"{ratio:.2f}x" if ratio is not None else "—"):>7}'
-                  f'{(f"{loss:.4f}" if loss is not None else "—"):>9}  {kind:<4}{delta}')
             ee_loss = ee_training_loss_text(series, st) if loss is not None else None
-            if ee_loss:
-                print(f'     {ee_loss}')
+            threshold = (f' T {th:.4g}' if isinstance(th, (int, float)) else ' T --') if changing_threshold else ''
+            print(f'   {st:>5}{g:>9.4f}{threshold}'
+                  f'{(f"{ratio:.2f}x" if ratio is not None else "—"):>7}'
+                  f'{(f"{loss:.4f}" if loss is not None else "—"):>9}'
+                  f'{"  " + ee_loss if ee_loss else ""}  {delta}')
             prev_ratio = ratio if ratio is not None else prev_ratio
             shown += 1
         if shown < 3:

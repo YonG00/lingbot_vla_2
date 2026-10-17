@@ -26,14 +26,19 @@ class PanelEETrainingTests(unittest.TestCase):
                   for key, points in self.points().items()}
         series = {'_training_ee': source}
         text = panel.ee_training_loss_text(series, 100)
-        self.assertIn('位置 0.00100 姿态 0.03000 夹爪 0.00200', text)
-        self.assertIn('未加权/该步', text)
+        self.assertEqual(text, 'EE 0.00100/0.03000/0.00200')
         self.assertIsNone(panel.ee_training_loss_text(series, 99))
         self.assertIsNone(panel.ee_training_loss_text({}, 100))
         source['ee_fk/gripper_loss'] = [(100, float('nan'))]
         self.assertIsNone(panel.ee_training_loss_text(series, 100))
         source['ee_fk/gripper_loss'] = [(100, 0.)]
-        self.assertIn('夹爪 0.00000', panel.ee_training_loss_text(series, 100))
+        self.assertIn('/0.00000', panel.ee_training_loss_text(series, 100))
+
+    def test_threshold_heading_preserves_historical_changes(self):
+        label, changing = panel.history_threshold_text([100,200],{100:.001,200:.001})
+        self.assertIn('门槛 0.001',label)
+        self.assertFalse(changing)
+        self.assertTrue(panel.history_threshold_text([100,200],{100:.001,200:.002})[1])
 
     def test_real_reader_and_both_views_bind_ee_to_history_step(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -64,10 +69,13 @@ class PanelEETrainingTests(unittest.TestCase):
                          contextlib.redirect_stdout(io.StringIO()) as output:
                         self.assertEqual(panel.main(),0)
                     text = output.getvalue()
-                    self.assertIn('EE训练@100',text)
-                    self.assertIn('夹爪 0.00200',text)
-                    self.assertNotIn('EE训练@0',text)
-                    self.assertNotIn('EE训练@120',text)
+                    self.assertIn('EE=位置/姿态/夹爪，未乘权重，取该训练步',text)
+                    line=next(line for line in text.splitlines() if '0.00100/0.03000/0.00200' in line)
+                    self.assertIn('100',line)
+                    self.assertNotIn('门槛',line)
+                    self.assertNotIn('9.00000',line)
+                    self.assertNotIn('EE训练@',text)
+                    self.assertIn('门槛 0.001',text)
             self.assertEqual(factory.call_count,2)  # one TB load per refresh, no second read
 
 

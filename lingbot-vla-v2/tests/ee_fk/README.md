@@ -25,6 +25,8 @@ python3 -m unittest discover -s tests/ee_fk -p test_panel_ee_training.py -v
 python3 -m unittest discover -s tests -p test_al_panel_live_progress.py -v
 ```
 
+当前单行格式为 `100 G ... loss ... EE 位置值/姿态值/夹爪值`，门槛和未加权说明置于历史标题。覆盖固定/变化门槛；真实显示证据见 `evidence/panel-singleline-2026-10-17/live_check.log.txt`，不再使用此前三行标签。
+
 ### 0. 运行期接线回归
 
 文件：`test_runtime_and_metrics.py`。精度生命周期用小型模型验证父模块转 bf16 和 safetensors 权重往返不会改动 FP32 几何；再与已归档的200组 SAPIEN reference 比较。真实 val 方法复用模拟预测，核对不增加推理次数、旧 GMSE 完全一致、EE 屏蔽 padding。实际 AL DTO→scheduler→SummaryWriter→TensorBoard读取→事件流→面板构成一条 CPU 链路，并覆盖分片去重和不完整数据拒绝。

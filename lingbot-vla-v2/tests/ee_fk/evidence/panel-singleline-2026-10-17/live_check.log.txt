@@ -1,0 +1,115 @@
+test_exact_step_missing_partial_zero_and_nonfinite (test_panel_ee_training.PanelEETrainingTests.test_exact_step_missing_partial_zero_and_nonfinite) ... ok
+test_real_reader_and_both_views_bind_ee_to_history_step (test_panel_ee_training.PanelEETrainingTests.test_real_reader_and_both_views_bind_ee_to_history_step) ... ok
+test_threshold_heading_preserves_historical_changes (test_panel_ee_training.PanelEETrainingTests.test_threshold_heading_preserves_historical_changes) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.003s
+
+OK
+test_default_log_paths_cover_panel_and_start_script_layouts (test_al_panel_live_progress.ProgressSourceTests.test_default_log_paths_cover_panel_and_start_script_layouts) ... ok
+test_explicit_log_path_precedes_newer_fallback_logs (test_al_panel_live_progress.ProgressSourceTests.test_explicit_log_path_precedes_newer_fallback_logs) ... ok
+test_invalid_tensorboard_step_is_ignored (test_al_panel_live_progress.ProgressSourceTests.test_invalid_tensorboard_step_is_ignored) ... ok
+test_missing_tensorboard_keeps_log_progress (test_al_panel_live_progress.ProgressSourceTests.test_missing_tensorboard_keeps_log_progress) ... ok
+test_newer_log_step_wins_over_stale_tensorboard (test_al_panel_live_progress.ProgressSourceTests.test_newer_log_step_wins_over_stale_tensorboard) ... ok
+test_newer_tensorboard_step_and_steptime_win (test_al_panel_live_progress.ProgressSourceTests.test_newer_tensorboard_step_and_steptime_win) ... ok
+test_tensorboard_supplies_progress_when_log_missing (test_al_panel_live_progress.ProgressSourceTests.test_tensorboard_supplies_progress_when_log_missing) ... ok
+test_json_config_and_selection_show_before_first_unit_or_checkpoint (test_al_panel_live_progress.SkillPanelTests.test_json_config_and_selection_show_before_first_unit_or_checkpoint) ... ok
+test_legacy_yaml_keeps_goal_and_interval (test_al_panel_live_progress.SkillPanelTests.test_legacy_yaml_keeps_goal_and_interval) ... ok
+test_selection_beats_last_completed_task (test_al_panel_live_progress.SkillPanelTests.test_selection_beats_last_completed_task) ... ok
+test_detects_python_module_launcher (test_al_panel_live_progress.TrainerDiscoveryTests.test_detects_python_module_launcher) ... ok
+test_detects_torchrun_console_script_for_future_run_name (test_al_panel_live_progress.TrainerDiscoveryTests.test_detects_torchrun_console_script_for_future_run_name) ... ok
+test_output_argument_identifies_run_without_legacy_environment (test_al_panel_live_progress.TrainerDiscoveryTests.test_output_argument_identifies_run_without_legacy_environment) ... ok
+test_rejects_unrelated_process_command (test_al_panel_live_progress.TrainerDiscoveryTests.test_rejects_unrelated_process_command) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.006s
+
+OK
+test_range_ignores_dataset_epoch_only_for_fixed_step_al_without_epoch_saves (test_loop_budget.ALOptimizerStepLoopTests.test_range_ignores_dataset_epoch_only_for_fixed_step_al_without_epoch_saves) ... ok
+test_real_hook_sampler_cross_231_without_partial_eval_and_keep_final_flush (test_loop_budget.ALOptimizerStepLoopTests.test_real_hook_sampler_cross_231_without_partial_eval_and_keep_final_flush) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.122s
+
+OK
+test_failure_or_disk_denial_cannot_claim_success (test_al_hf_only.HFOnlyTests.test_failure_or_disk_denial_cannot_claim_success) ... ok
+test_final_stop_al_and_epoch_never_reach_dcp (test_al_hf_only.HFOnlyTests.test_final_stop_al_and_epoch_never_reach_dcp) ... ok
+test_four_periodic_exports_and_same_step_final_do_not_duplicate (test_al_hf_only.HFOnlyTests.test_four_periodic_exports_and_same_step_final_do_not_duplicate) ... ok
+test_invalid_hf_only_combinations_fail (test_al_hf_only.HFOnlyTests.test_invalid_hf_only_combinations_fail) ... ok
+test_off_grid_final_is_saved (test_al_hf_only.HFOnlyTests.test_off_grid_final_is_saved) ... ok
+test_periodic_on_and_between_unit_boundaries (test_al_hf_only.HFOnlyTests.test_periodic_on_and_between_unit_boundaries) ... ok
+test_step_reset_and_legacy_auto_offset (test_al_hf_only.HFOnlyTests.test_step_reset_and_legacy_auto_offset) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.133s
+
+OK
+test_dcp_still_defers_until_safe_boundary_with_or_without_hf (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_dcp_still_defers_until_safe_boundary_with_or_without_hf) ... ok
+test_disk_guard_runs_before_hf_and_blocks_export (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_disk_guard_runs_before_hf_and_blocks_export) ... ok
+test_final_only_without_hf_keeps_legacy_no_export (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_final_only_without_hf_keeps_legacy_no_export) ... ok
+test_hf_absolute_step_sequence (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_hf_absolute_step_sequence) ... ok
+test_hf_at_unit_boundary_is_written_once (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_hf_at_unit_boundary_is_written_once) ... ok
+test_hf_mid_unit_does_not_queue_another_save (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_hf_mid_unit_does_not_queue_another_save) ... ok
+test_nonzero_rank_uses_rank0_export_success_for_scan_decision (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_nonzero_rank_uses_rank0_export_success_for_scan_decision) ... ok
+test_on_save_hook_called_only_at_periodic_save_steps (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_on_save_hook_called_only_at_periodic_save_steps) ... ok
+test_periodic_hf_cannot_replace_final_dcp (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_periodic_hf_cannot_replace_final_dcp) ... ok
+test_scan_requires_a_successful_artifact (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_scan_requires_a_successful_artifact) ... ok
+test_scan_skips_final_step_stop_and_finished_scheduler (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_scan_skips_final_step_stop_and_finished_scheduler) ... ok
+test_smoke_disables_all_four_mode_combinations (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_smoke_disables_all_four_mode_combinations) ... ok
+test_successful_hf_only_and_dcp_each_trigger_one_scan (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_successful_hf_only_and_dcp_each_trigger_one_scan) ... ok
+test_zero_interval_disables_periodic_save (test_al_periodic_checkpoint.PeriodicCheckpointTests.test_zero_interval_disables_periodic_save) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.067s
+
+OK
+AL al_stand_ee_lnfm_9680_add500_20261017_184252   固定步数 500（PASS…
+  通关    关闭状态转换；开环指标仅观察
+  进度    Step 408/500  1卡  GPU0  3.5s/it
+  用时    剩余约 0.1h（纯训练估计，另加评测/存档）
+  配置    任务扫描=关  样本扫描=开  评测每100步  存档每250步
+  池子    pass=0  defer=0  candidate=0  exhausted=0   (实时·TB)
+  训练    1 个 (lp50>0 0 / ≤0 1, 过拟合 0, 最好 place_object_stand(-0.038…
+----------------------------------------------------------------
+  在训    place_object_stand   [TRAINING]
+  本任务   231 步（注册表快照落后 177 步）
+  倍率    当前 24.19x
+  末端val Step 331  位置 33.46 mm  姿态 8.74°  夹爪 0.0321
+  左右定位  左 37.65 mm (step 331)  右 28.65 mm (step 331)
+  进步    lp50 -0.0382  lp_train +0.0189  gap 1.49   未过拟合
+  历史    最近 3 个 unit（倍率 ≤1.0 过线；门槛 0.0002842）
+  说明    EE=位置/姿态/夹爪，未乘权重，取该训练步
+      200 G 0.0066 23.30x loss 0.0570  EE 0.00119/0.03060/0.00206
+      231 G 0.0069 24.19x loss 0.0534  EE 0.00069/0.02402/0.00111  ↑+0.889
+      331 G 0.0062 21.70x loss 0.0515  EE 0.00064/0.01981/0.00133  ↓2.486
+================================================================
+  参数: --pool 明细, --progress 进步, --traces N 轨迹, --wide 表格, --wat…
+
+==============================================================================
+ AL 仪表盘  run=al_stand_ee_lnfm_9680_add500_20261017_184252   固定步数=500（PASS关闭）
+ 门槛: gmean1_active4.json（50 任务）；每 100 步判定一次
+ 状态: 训练中（1 rank · GPU0） | Step 409 | 稳态 3.5s/it
+ 通关: 关闭状态转换；开环指标仅观察
+ 下一次判定: 再过 91 步（Step 500）
+----------------------------------------------------------------------------
+ 任务                               GMean        门槛      倍数  数据     距过线
+----------------------------------------------------------------------------
+ place_object_stand           0.0062   0.0003 21.70x  实测     差距大
+----------------------------------------------------------------------------
+ 表内 1/50 有数（实测 1）｜"已过线" 0 个（仅指标，非通关）
+ 末端val: place_object_stand  Step 331  位置 33.46 mm  姿态 8.74°  夹爪 0.0321
+----------------------------------------------------------------------------
+ 成长轨迹: place_object_stand（该任务自身历史，每 unit 一点；倍率 ≤1.0 过线；门槛 0.0002842）
+ 说明: EE=位置/姿态/夹爪，未乘权重，取该训练步
+    step    GMean     倍率     loss  EE(位置/姿态/夹爪)  变化
+       0   0.0163 57.27x        —  —（首次记录）
+     100   0.0069 24.26x   0.0607  EE 0.00039/0.01861/0.00226  ↓ 改善 33.014
+     200   0.0066 23.30x   0.0570  EE 0.00119/0.03060/0.00206  ↓ 改善 0.957
+     231   0.0069 24.19x   0.0534  EE 0.00069/0.02402/0.00111  ↑ 变差 +0.889
+     331   0.0062 21.70x   0.0515  EE 0.00064/0.01981/0.00133  ↓ 改善 2.486
+   三次: 上一次=331 / 21.70x｜上上次=231 / 24.19x｜上上上次=200 / 23.30x
+----------------------------------------------------------------------------
+ 摘要: 通关 0/15 | 21.70x ↓ 在改善 | 57.27x→21.70x（改善62%）
+============================================================================
+
+PURE_CPU_TESTS=40; LIVE_COMPACT_WIDE=PASS; TORCH_IMPORTED=False
