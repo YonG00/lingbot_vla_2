@@ -17,14 +17,7 @@
 
 ## §1 待验证（改了但没上机跑过）
 
-**#36（2026-10-17）FK 精度隔离、val 末端误差和 TB/仪表盘接线，🧪 服务器 CPU 验证通过，GPU 待验证。** 用户授权保留现有 val，复用完整去噪预测增加末端误差；本次修复 #35 的训练接线。FK 改为模型模块树之外的运行期辅助对象，从原始 spec 缓存各设备 FP32 几何；动作恢复、归一化和 FK loss 局部禁用 autocast。现有 val 同一次推理后计算按轨迹等权的位置欧氏 RMSE(mm)、平均姿态角(度)、夹爪 MAE及左右臂明细；只对 EE 指标排除 padding，历史 GMSE/阈值/PASS 不变。新增可独立开启的 `ee_fk_eval_enabled`，FK loss 开启时自动记录末端误差。指标经 AL DTO、事件流和 TB 到仪表盘。
-
-- **不变量：** FK 固定几何不被 model.to(bf16)/权重存档舍入；GT 无梯度；开关关闭时不额外推理、不消耗 RNG、不改变 GMSE；EE 评测不调用模型；尾部 padding 不参与 EE 指标；所有标量有单位。
-- **症状：** bf16/FP32 矩阵乘法报错、加载后几何误差变为毫米级、EE 指标无 TB/事件记录、padding 改动影响 EE、旧 GMSE 被改变。
-- **快速回滚：** 下次启动关闭 `ee_fk_loss_enabled` 和 `ee_fk_eval_enabled`；不修改当前进程。便捷启动器用 `--no-ee-fk-loss --no-ee-fk-eval`。代码回滚参照本次之前的 `298e90e`，保留历史产物。
-- **验证入口：** `tests/ee_fk/` 中精度、存档、完整 val→AL→TB/面板契约测试；关联低噪、scheduler、面板及启动器回归。真实模型加载、CUDA autocast/FSDP、HF 和短训仍需开卡验收，不以 CPU 证据代替。
-- **验证证据：** 服务器隔离目录回归 **143 passed / 26 subtests passed / 33.90s**；模型父模块转bf16后对200组归档SAPIEN reference的位置<1e-5m、姿态<1e-4rad；实际step9680/tokenizer/归一化/stand配置预览通过，40train/10val。左右6轴名称对实际资产预检通过；没有启动GPU。基线面板测试漏world_size已用旧HEAD复现并补fixture。详见 `tests/ee_fk/VALIDATION_RUNTIME_2026-10-17.md` 和同功能目录原始日志。
-- **下步配置：** 用户确定从原始step9680新增500步对照；micro/GBS24、低噪FM与target_change_window保持、每100步val、250/500两份BF16 HF、不写DCP；保持上一轮视觉冻结设置。CPU时可用40.95GiB、单份HF11.88GiB；GPU启动前复查。无训练/存档删除监控启动。
+**#36 已完成实机短训、val、周期HF保存/重载和CUDA精度验收，已移入 §2。** 500步正式对照已启动，尚未完成，闭环效果待另测。
 
 **#35（2026-10-17）低噪 FM 与末端 FK 一致性监督，🧪 CPU 与当前仿真几何部分验证，bf16 兼容/精度未通过，GPU 待验证。**
 > 本条保留首次验证与归档边界；后续训练接线、bf16精度修复和val指标交付以 #36 为准。
@@ -148,6 +141,15 @@
 | **#22** 缓存复用与观测 | 让clear/reuse可对照，定位调用成本，避免盲目改变默认 | 默认仍清理；reuse只作用两个入口；GC与OOM回退不取消；不读/写模型或RNG；trace不改变原清理异常传播 | reuse下新增OOM/批大小降级、恢复审计失败、整段墙钟变慢；trace日志缺context/policy或诊断失败阻断清理 | `AL_CUDA_CACHE_POLICY=clear AL_CUDA_CACHE_TRACE=0`下次启动回原清理；本次无当前运行修改 | 本机运行 `tests/test_cuda_cache_policy.py`、`tests/test_al_cache_profile.py`；空闲GPU按A/B说明覆盖评测和周期存档，不能仅验函数 |
 
 ## §2 已验证（可不再惦记）
+
+**#36（2026-10-17）FK精度隔离与val末端指标，✅ CPU和96G实机接口验收通过。代码 `7f66523`。** 运行期FP32几何独立于模型模块树，局部禁用autocast；val复用原完整去噪预测，增加按轨迹等权的位置RMSE(mm)、姿态角(度)、夹爪MAE与左右臂明细，贯通AL DTO、事件、TB和面板。历史GMSE/阈值/PASS保持。
+
+- **不变量：** 几何不被模型bf16转换或HF存储舍入；GT无梯度；关闭时不增加推理/RNG；EE不统计padding。
+- **症状：** dtype冲突、毫米级几何漂移、缺指标、旧GMSE变化或保存/重载丢spec。
+- **回滚：** 下次启动 `--no-ee-fk-loss --no-ee-fk-eval`，不热改当前进程；代码基线 `298e90e`，保留产物。
+- **验证：** CPU143项+26子项通过；真实3步训练、非unit边界step2周期HF和step3最终HF、step2权重重载后1步训练及独立val全部正常；HF均1708个BF16张量，无DCP；加权EE loss 0.0041–0.0054。CUDA对200组归档SAPIEN参考，位置最大6.42135e-7m、姿态最大9.00505e-7rad；BF16 autocast下loss FP32、预测梯度有限非零、GT detach/mask通过。
+- **正式运行边界：** `al_stand_ee_lnfm_9680_add500_20261017_184252` 从原始step9680新增500步已启动；micro/GBS24、低噪FM+target_change_window+EE(1/.1/.1)、每100步val、250/500两份BF16 HF、无DCP，保持上一轮视觉冻结。尚未完成或证明闭环提升，不启用删除监控/自动关机。
+- **证据与复现：** `tests/ee_fk/VALIDATION_RUNTIME_2026-10-17.md`、`VALIDATION_GPU_2026-10-17.md`；同功能目录下diagnostics与evidence保存脚本、命令和小型原始结果。
 
 ### #18 上机启动记录（2026-10-14）
 

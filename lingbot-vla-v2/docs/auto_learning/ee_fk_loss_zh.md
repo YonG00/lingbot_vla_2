@@ -1,6 +1,6 @@
 # 低噪 FM 与末端 FK 一致性监督
 
-**验收范围：** 包含模型/训练接线、FK 局部 FP32 精度隔离、独立 val 末端误差、TensorBoard 和仪表盘。CPU 结果见 [运行期验证记录](../../tests/ee_fk/VALIDATION_RUNTIME_2026-10-17.md)；完整大模型的 CUDA/FSDP 前反向、周期 HF 保存和重载仍需开卡验证。历史 bf16 故障证据保留在原测试记录中，不代表修复后的运行期路径。
+**验收范围：** 包含模型/训练接线、FK 局部 FP32 精度隔离、独立 val 末端误差、TensorBoard 和仪表盘。CPU 结果见 [运行期验证记录](../../tests/ee_fk/VALIDATION_RUNTIME_2026-10-17.md)；真实大模型的 CUDA/FSDP 前反向、周期 HF 保存/重载与CUDA数值检查均已通过 [96G实机验收](../../tests/ee_fk/VALIDATION_GPU_2026-10-17.md)。500步对照已启动，闭环效果尚未验证。历史 bf16 故障证据保留在原测试记录中，不代表修复后的运行期路径。
 
 这项功能用于让 Flow Matching 在接近专家动作的低噪声区间，额外关注动作经过机器人正向运动学（FK）后得到的末端状态。默认关闭，不改变现有训练和 Auto Learning 判定。
 
@@ -146,7 +146,7 @@ task/<task>/active_val_ee_left_position_rmse_mm
 task/<task>/active_val_ee_right_position_rmse_mm
 ```
 
-`train_monitor` 对应训练集；`open_loop/{train|val}_ee/*` 对应通用开环验证入口。AL 事件流与 eval_history 同步保留指标，仪表盘紧凑视图和 `--wide` 均显示末端 val 及测量步号，旧 run 无 EE 指标时不显示。
+训练集 `train_monitor` split在事件/TB中的kind名为 `active_train`；`open_loop/{train|val}_ee/*` 对应通用开环验证入口。AL 事件流与 eval_history 同步保留指标，仪表盘紧凑视图和 `--wide` 均显示末端 val 及测量步号，旧 run 无 EE 指标时不显示。
 
 ## 本次 step9680 对照配置
 
@@ -169,4 +169,4 @@ PYTHONPATH="$PWD" /data/miniconda3/envs/lingbotvla/bin/python \
   --steps 500 --micro 24 --gas 1 --ee-fk-loss --ee-fk-eval
 ```
 
-便捷续练入口 `continue_skill_training.py` 也支持上述 EE 开关及 `--ee-position-weight`、`--ee-orientation-weight`、`--ee-gripper-weight`；使用便捷入口的 `--shutdown` 可在正常训练结束且最终 HF 核验成功后关机。本次正式 GPU 验收与训练尚未启动。
+便捷续练入口 `continue_skill_training.py` 也支持上述 EE 开关及 `--ee-position-weight`、`--ee-orientation-weight`、`--ee-gripper-weight`；使用便捷入口的 `--shutdown` 可在正常训练结束且最终 HF 核验成功后关机。本次验收通过后启动 `al_stand_ee_lnfm_9680_add500_20261017_184252`，未附带关机动作，实际命令归档在GPU验证记录的evidence目录。

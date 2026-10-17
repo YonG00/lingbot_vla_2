@@ -2,7 +2,7 @@
 
 这里集中保存 FK 一致性监督的测试入口、测试意图和历史验证证据。后续新增 FK 相关测试、资产对拍脚本和精度回归，继续放在本目录；通用低噪 FM 测试仍位于 `../test_low_noise_fm.py`，作为关联回归执行。
 
-本目录覆盖独立 FK 计算、运行期 FP32 精度隔离、val 指标及 AL/TensorBoard/仪表盘链路。历史诊断保留首次 bf16 故障证据；当前修复状态看 [运行期验证记录](VALIDATION_RUNTIME_2026-10-17.md)。运行单测无需加载完整模型。
+本目录覆盖独立 FK 计算、运行期 FP32 精度隔离、val 指标及 AL/TensorBoard/仪表盘链路。历史诊断保留首次 bf16 故障证据；CPU结果看 [运行期验证记录](VALIDATION_RUNTIME_2026-10-17.md)，真实模型、HF重载和CUDA验收看 [GPU验证记录](VALIDATION_GPU_2026-10-17.md)。运行单测无需加载完整模型。
 
 ```text
 tests/ee_fk/

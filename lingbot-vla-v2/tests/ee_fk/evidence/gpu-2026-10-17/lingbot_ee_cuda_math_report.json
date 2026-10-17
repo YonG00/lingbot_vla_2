@@ -1,0 +1,21 @@
+{
+  "samples": 200,
+  "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+  "arms": {
+    "left": {
+      "position_max_m": 6.421345801754796e-07,
+      "orientation_max_rad": 9.005045171761594e-07,
+      "dtype": "torch.float32"
+    },
+    "right": {
+      "position_max_m": 4.933724540023832e-07,
+      "orientation_max_rad": 8.590199627178663e-07,
+      "dtype": "torch.float32"
+    }
+  },
+  "loss_dtype": "torch.float32",
+  "gradient_finite": true,
+  "gradient_nonzero": true,
+  "gt_detached": true,
+  "masked_gradient_zero": true
+}
