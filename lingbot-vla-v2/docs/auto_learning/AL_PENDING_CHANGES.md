@@ -19,6 +19,7 @@
 
 **#35（2026-10-17）低噪 FM 与末端 FK 一致性监督，🧪 CPU 与当前仿真几何部分验证，bf16 兼容/精度未通过，GPU 待验证。**
 **本次提交边界：** 只归档独立 FP32 FK 计算模块、关节名预检、功能测试与文档。`configuration_lingbot_vla.py`、`modeling_lingbot_vla_v2.py`、`utils/arguments.py`、`tasks/vla/train_lingbotvla.py` 的 FK 模型/训练接线仍为本地未提交候选修改，待修复 bf16 问题后单独验收和提交。下述完整行为是候选设计，不代表本次提交已提供 FK 训练入口。
+**归档提交：** `7ea53aa`（独立计算模块、预检和按功能归档的测试/证据；CPU 8 passed，三个历史 JSON 报告复现一致）。本条状态仍为部分验证，FK 训练接线没有随该提交交付。
 低噪 FM 默认关闭；开启后 25% 的训练时间采样落在 `[0.001,0.2]`。FK 默认关闭且必须依赖低噪 FM，只在 `t <= ee_fk_time_max` 对 `x_hat = x_t - t * v_t` 与 GT 动作做可微 FK 对齐，分位置、姿态、夹爪三项加权监督。动作布局和归一化统计从真实 `FeatureTransform` 提取，多数据集不一致时拒绝启动。JSON chain spec 必须按 RoboTwin 的关节名、顺序、TCP 坐标口径核对，禁止猜测。
 
 **改动本意四问：**
