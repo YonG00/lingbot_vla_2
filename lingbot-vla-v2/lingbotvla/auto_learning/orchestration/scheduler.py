@@ -1389,6 +1389,7 @@ class Scheduler:
                 "gmean_mse": metrics.gmean_mse,
                 "baseline_mse": metrics.baseline_mse,
                 **comparisons,
+                **({"ee_metrics": dict(metrics.ee_metrics)} if getattr(metrics, "ee_metrics", None) else {}),
                 # 2026-10-11：合并式 confirm 会带"复用 N + 新评 M"说明 ⇒ 落进 eval_history
                 # 便于事后从 DCP 状态核对，不必翻日志（为空则不占空间）
                 **({"note": metrics.note} if getattr(metrics, "note", "") else {}),
@@ -1404,6 +1405,9 @@ class Scheduler:
             }
         )
         if self.logger is not None:
+            for key, value in getattr(metrics, "ee_metrics", {}).items():
+                self.logger.log_metrics(self.state.global_step,
+                    f"task/{rec.task_name}/{kind}_ee_{key}", value)
             self.logger.log_metrics(self.state.global_step, f"task/{rec.task_name}/{kind}_nmse", metrics.nmse)
             self.logger.log_metrics(
                 self.state.global_step, f"debug/{rec.task_name}/{kind}_mse", metrics.mse

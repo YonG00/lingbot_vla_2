@@ -2,18 +2,38 @@
 
 这里集中保存 FK 一致性监督的测试入口、测试意图和历史验证证据。后续新增 FK 相关测试、资产对拍脚本和精度回归，继续放在本目录；通用低噪 FM 测试仍位于 `../test_low_noise_fm.py`，作为关联回归执行。
 
-本次归档提交包括独立 FP32 FK 计算与预检，不包括尚有 bf16 问题的模型/训练接线。历史诊断保留了对该候选接线的风险证据；运行本目录的单测无需加载或开启完整模型。
+本目录覆盖独立 FK 计算、运行期 FP32 精度隔离、val 指标及 AL/TensorBoard/仪表盘链路。历史诊断保留首次 bf16 故障证据；当前修复状态看 [运行期验证记录](VALIDATION_RUNTIME_2026-10-17.md)。运行单测无需加载完整模型。
 
 ```text
 tests/ee_fk/
 ├── README.md                   测试意图、方法、命令与故障定位
 ├── test_ee_fk.py                自动单测
+├── test_runtime_and_metrics.py  dtype/权重往返、val复用、指标聚合、启动器与观测链路
 ├── diagnostics/                反归一化、梯度、资产对拍、历史记录和精度探针
 ├── evidence/2026-10-17/         原始 spec、reference、日志及 JSON 结果
 └── VALIDATION_2026-10-17.md     当次验证记录
 ```
 
 ## 测试分层
+
+### 0. 运行期接线回归
+
+文件：`test_runtime_and_metrics.py`。精度生命周期用小型模型验证父模块转 bf16 和 safetensors 权重往返不会改动 FP32 几何；再与已归档的200组 SAPIEN reference 比较。真实 val 方法复用模拟预测，核对不增加推理次数、旧 GMSE 完全一致、EE 屏蔽 padding。实际 AL DTO→scheduler→SummaryWriter→TensorBoard读取→事件流→面板构成一条 CPU 链路，并覆盖分片去重和不完整数据拒绝。
+
+重依赖模型方法通过 AST 提取实际函数体，输入/大模型层使用替身；这不等于完整6B模型前反向或真实 FSDP 验收。开卡后仍需实际模型短训及 HF 导出/重载。
+
+```bash
+CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=1 PYTHONPATH=. \
+  PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+  /data/miniconda3/envs/lingbotvla/bin/python -m pytest \
+  tests/ee_fk tests/test_low_noise_fm.py tests/test_al_panel_live_progress.py \
+  tests/test_skill_mix_task_launcher.py tests/test_continue_skill_training.py \
+  tests/test_scheduler.py tests/test_scheduler_c.py tests/test_persistence.py \
+  tests/test_resume.py tests/test_al_confirm_merge.py tests/test_target_change_window.py \
+  tests/test_al_hf_milestone_policy.py tests/test_hf_export_dtype.py -q
+```
+
+原始日志和通过数量见运行期验证记录。历史 `precision_probe` 故意把裸 solver 先转 bf16，用于复现错误；实际训练只使用 `EEFKRuntime`，不能用历史探针仍能复现错误来判断修复失败。
 
 ### 1. 纯计算单元测试
 
@@ -119,6 +139,8 @@ cat "$FK_VALIDATION_DIR/unit_tests.log"
 
 ## 当前验收状态
 
+本节记录首次归档时的状态；修复后结果以 [运行期验证记录](VALIDATION_RUNTIME_2026-10-17.md) 为准。
+
 - 纯 CPU FK/低噪回归：8 passed。
 - 真实 SAPIEN 几何对拍：200 组通过。
 - FK 训练开启：暂不通过。模型主体可以保持 bf16，但 FK 固定几何必须保持 FP32，并在 FK loss 局部使用 FP32 计算；当前代码还需补这一生命周期契约。
@@ -143,7 +165,7 @@ FK 使用机器人固定几何参数：连杆长度、关节 origin、旋转轴�
     -> 梯度回传到 bf16 模型参数
 ```
 
-FP32 只保护 FK 这条数值敏感的辅助分支；它不会把模型推理或训练主干改成 FP32，也不会改变部署时的 bf16 行为。这是拟修复的目标，当前精度隔离尚未实现。预测动作若已是 bf16，转 FP32 不能找回已舍掉的动作精度；目的只是避免 FK 再引入额外几何与计算误差，不能保证闭环抓取提升。
+FP32 只保护 FK 这条数值敏感的辅助分支；它不会把模型推理或训练主干改成 FP32，也不会改变部署时的 bf16 行为。运行期实现已通过 `EEFKRuntime` 隔离几何，CUDA 验收仍待开卡。预测动作若已是 bf16，转 FP32 不能找回已舍掉的动作精度；目的只是避免 FK 再引入额外几何与计算误差，不能保证闭环抓取提升。
 
 ## 修复验收条件
 

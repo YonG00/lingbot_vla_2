@@ -10,6 +10,7 @@ the explicit packed-action layout produced by the dataset feature transform.
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
@@ -19,7 +20,7 @@ import torch.nn.functional as F
 
 
 def _as_float_tensor(value: Any) -> Tensor:
-    tensor = torch.as_tensor(value, dtype=torch.float32)
+    tensor = torch.as_tensor(value, dtype=torch.float32, device="cpu")
     if not torch.isfinite(tensor).all():
         raise ValueError("ee_fk chain geometry must contain only finite values")
     return tensor
@@ -162,6 +163,35 @@ class DifferentiableEEFKSolver(nn.Module):
         return {"left": self.left(left_joints), "right": self.right(right_joints)}
 
 
+class EEFKRuntime:
+    """Training-only geometry, deliberately outside the model module tree.
+
+    A plain object prevents model.to(bf16), FSDP and HF weight restoration from
+    rounding fixed robot geometry. Rebuild from the JSON config on a new run;
+    cache only FP32 solvers by the actual action device. No parameters or RNG.
+    """
+
+    def __init__(self, spec: Mapping[str, Any]):
+        self.spec = deepcopy(spec)
+        self._solvers = {}
+
+    def solver(self, device) -> DifferentiableEEFKSolver:
+        key = str(torch.device(device))
+        if key not in self._solvers:
+            with torch.device("cpu"):
+                solver = DifferentiableEEFKSolver(self.spec)
+            self._solvers[key] = solver.to(device=device, dtype=torch.float32)
+        return self._solvers[key]
+
+
+def recover_clean_action(target: Tensor, noise: Tensor, time: Tensor, velocity: Tensor) -> Tensor:
+    """Compute x_t - t*v in FP32 without first rounding the target to bf16."""
+    with torch.autocast(device_type=target.device.type, enabled=False):
+        t = time.float()[:, None, None]
+        noisy = t * noise.float() + (1.0 - t) * target.float()
+        return noisy - t * velocity.float()
+
+
 def _apply_norm(value: Tensor, spec: Mapping[str, Any]) -> Tensor:
     kind = spec.get("norm_type", "identity")
     if kind == "identity":
@@ -220,7 +250,7 @@ def _rotation_error(pred: Tensor, target: Tensor) -> Tensor:
     return torch.atan2(sine, cosine.clamp_min(-1.0).clamp_max(1.0))
 
 
-def compute_ee_fk_losses(
+def _compute_ee_fk_losses_fp32(
     solver: DifferentiableEEFKSolver,
     predicted_action: Tensor,
     target_action: Tensor,
@@ -266,6 +296,12 @@ def compute_ee_fk_losses(
     }
 
 
+def compute_ee_fk_losses(solver, predicted_action, target_action, **kwargs):
+    """Keep geometry and the loss in FP32 even inside a training autocast."""
+    with torch.autocast(device_type=predicted_action.device.type, enabled=False):
+        return _compute_ee_fk_losses_fp32(solver, predicted_action.float(), target_action.float(), **kwargs)
+
+
 def build_action_norm_spec(feature_transform: Any) -> list[dict[str, Any]]:
     """Serialize the exact packed action normalization used by the dataset."""
     normalizer = getattr(feature_transform, "normalizer", None)
@@ -296,6 +332,9 @@ def build_action_norm_spec(feature_transform: Any) -> list[dict[str, Any]]:
 
 def build_action_layout(feature_transform: Any) -> dict[str, list[int]]:
     """Derive arm/gripper slices from named dataset features, never by guesswork."""
+    if any(getattr(feature_transform, "action_subtract_state", {}).get(key, False)
+           for key in ("action.arm.position", "action.effector.position")):
+        raise ValueError("ee_fk currently requires absolute arm and gripper actions")
     offset = 0
     starts = {}
     for joint_name in feature_transform.feature_config.joints:

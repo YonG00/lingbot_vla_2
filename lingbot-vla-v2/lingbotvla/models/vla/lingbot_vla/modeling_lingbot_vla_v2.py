@@ -45,6 +45,7 @@ from lingbotvla.models.vla.lingbot_vla.qwen2_action_expert import (
     Qwen2FusedExperts,
     FixQwen2RMSNorm,
 )
+from lingbotvla.losses.ee_fk import EEFKRuntime, compute_ee_fk_losses, recover_clean_action
 
 try:
     from dinov3.hub.backbones import dinov3_vitb16
@@ -514,6 +515,20 @@ class FlowMatchingV2(FlowMatchingV1):
             self.block_future_depth_to_action = False
 
         self.set_requires_grad()
+        self.ee_fk_runtime = None
+        self.ee_fk_action_layout = None
+        self.ee_fk_action_norm_spec = None
+        if getattr(self.config, "ee_fk_loss_enabled", False):
+            self.ee_fk_runtime = EEFKRuntime(self.config.ee_fk_spec)
+
+    def configure_ee_fk(self, action_layout, action_norm_spec):
+        """Attach dataset-derived packed-action metadata before FSDP wrapping."""
+        if not getattr(self.config, "ee_fk_loss_enabled", False):
+            return
+        if self.ee_fk_runtime is None:
+            raise RuntimeError("ee_fk loss is enabled but its verified solver was not constructed")
+        self.ee_fk_action_layout = action_layout
+        self.ee_fk_action_norm_spec = action_norm_spec
 
     def embed_prefix(
         self,
@@ -800,6 +815,8 @@ class FlowMatchingV2(FlowMatchingV1):
         future_video_targets=None,
         future_video_cls_targets=None,
         future_video_current_patch=None,
+        action_is_pad=None,
+        ee_fk_target_actions=None,
     ) -> Tensor:
         dtype = state.dtype
         device = state.device
@@ -929,9 +946,36 @@ class FlowMatchingV2(FlowMatchingV1):
         elif loss_type == "L1_fm":
             losses = F.l1_loss(u_t, v_t, reduction="none")
 
+        if getattr(self.config, "ee_fk_loss_enabled", False):
+            if self.ee_fk_action_layout is None or self.ee_fk_action_norm_spec is None:
+                raise RuntimeError("ee_fk loss is enabled but dataset action metadata is not configured")
+            fk_target = actions if ee_fk_target_actions is None else ee_fk_target_actions
+            action_hat = recover_clean_action(fk_target, noise, time, v_t)
+            valid_time = time <= self.config.ee_fk_time_max
+            if action_is_pad is not None:
+                valid_time = (~action_is_pad.to(dtype=torch.bool)) & valid_time[:, None]
+            ee_fk_loss, ee_fk_metrics = compute_ee_fk_losses(
+                self.ee_fk_runtime.solver(action_hat.device),
+                action_hat,
+                fk_target,
+                action_layout=self.ee_fk_action_layout,
+                action_norm_spec=self.ee_fk_action_norm_spec,
+                position_weight=self.config.ee_fk_position_loss_weight,
+                orientation_weight=self.config.ee_fk_orientation_loss_weight,
+                gripper_weight=self.config.ee_fk_gripper_loss_weight,
+                huber_delta=self.config.ee_fk_huber_delta,
+                valid_time=valid_time,
+            )
+        else:
+            ee_fk_loss = losses.new_zeros(())
+            ee_fk_metrics = {}
+
         seq_wise_loss, router_z_loss, moe_metrics = self._moe_losses_and_metrics(
             router_logits_list, losses
         )
+        if ee_fk_metrics:
+            moe_metrics.update(ee_fk_metrics)
+            moe_metrics["_ee_fk_total"] = ee_fk_loss
         if align_metrics:
             moe_metrics.update(align_metrics)
         return losses, loss_depth, loss_future_depth, loss_future_video, depth_preds, seq_wise_loss, router_z_loss, moe_metrics, future_depth_preds, future_video_preds, current_video_preds
@@ -1249,6 +1293,9 @@ class LingbotVlaV2Policy(PreTrainedModel):
     def reset(self):
         return None
 
+    def configure_ee_fk(self, action_layout, action_norm_spec):
+        self.model.configure_ee_fk(action_layout, action_norm_spec)
+
     def get_optim_params(self) -> dict:
         return self.parameters()
 
@@ -1273,6 +1320,9 @@ class LingbotVlaV2Policy(PreTrainedModel):
         **kwargs
     ) -> tuple[Tensor, dict[str, Tensor]]:
         loss_dict = {}
+        # Preserve the dataset's FP32 target for the auxiliary loss. The model
+        # and FM main loss retain their existing dtype path.
+        ee_fk_target_actions = actions if getattr(self.config, "ee_fk_loss_enabled", False) else None
         if getattr(self.config, "action_fp32", False):
             state = state.float()
             actions = actions.float()
@@ -1314,6 +1364,8 @@ class LingbotVlaV2Policy(PreTrainedModel):
             future_video_targets=future_video_targets,
             future_video_cls_targets=future_video_cls_targets,
             future_video_current_patch=future_video_current_patch,
+            action_is_pad=action_is_pad,
+            ee_fk_target_actions=ee_fk_target_actions,
         )
 
         if joint_mask is not None:
@@ -1331,6 +1383,9 @@ class LingbotVlaV2Policy(PreTrainedModel):
             loss_vla = losses.mean()
 
         loss_dict["batch_mean_losses"] = batch_mean_losses.detach()
+        ee_fk_loss = moe_metrics.pop("_ee_fk_total", None) if isinstance(moe_metrics, dict) else None
+        if ee_fk_loss is None:
+            ee_fk_loss = losses.new_zeros(())
         total_loss = (
             loss_vla
             + loss_depth
@@ -1338,6 +1393,7 @@ class LingbotVlaV2Policy(PreTrainedModel):
             + loss_future_video
             + seq_wise_loss
             + router_z_loss
+            + ee_fk_loss
         )
         loss_dict["router_z_loss"] = router_z_loss.detach() if torch.is_tensor(router_z_loss) else router_z_loss
         if moe_metrics:

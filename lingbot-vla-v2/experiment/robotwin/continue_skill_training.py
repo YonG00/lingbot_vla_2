@@ -86,6 +86,8 @@ def make_job(args):
         manifest=args.manifest.expanduser().resolve(), learning_tasks=args.learning_tasks, replay_tasks=None,
         steps=args.steps, micro=args.micro, gas=args.gas, new_ratio=1.0,
         python=sys.executable, master_port=args.master_port)
+    for attr in launcher.EE_ARGUMENTS:
+        setattr(config, attr, getattr(args, attr, None))
     plan = launcher.build_plan(config)  # 同一 CPU 预检、来源配置与数据划分契约。
     command = [sys.executable, str(Path(launcher.__file__).resolve())]
     for flag in ("model", "train_config", "dataset_root", "qwen3vl", "out", "audit_report",
@@ -93,6 +95,15 @@ def make_job(args):
         command += ["--" + flag.replace("_", "-"), str(getattr(config, flag))]
     if args.learning_tasks is not None:
         command += ["--learning-tasks", *args.learning_tasks]
+    for attr in launcher.EE_ARGUMENTS:
+        value = getattr(args, attr, None)
+        if value is None:
+            continue
+        flag = "--" + attr.replace("_", "-")
+        if isinstance(value, bool):
+            command += [flag if value else "--no-" + attr.replace("_", "-")]
+        else:
+            command += [flag, str(value)]
     command += ["--python", sys.executable, "--execute"]
     runtime = (args.runtime_dir or args.output_root / "skill_launches").expanduser().resolve()
     job = dict(command=command, output_dir=str(out), source_model=str(model), steps=args.steps,
@@ -194,6 +205,7 @@ def run_job(job):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
+    launcher.add_ee_arguments(parser)
     parser.add_argument("--from-hf", type=Path, help="来源 run/checkpoints/global_step_N/hf_ckpt")
     parser.add_argument("--steps", type=int, default=500, help="新增训练步数，默认500")
     parser.add_argument("--micro", type=int, default=24)

@@ -1,0 +1,81 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ SkillPanelTests.test_json_config_and_selection_show_before_first_unit_or_checkpoint _
+
+self = <test_al_panel_live_progress.SkillPanelTests testMethod=test_json_config_and_selection_show_before_first_unit_or_checkpoint>
+
+    def test_json_config_and_selection_show_before_first_unit_or_checkpoint(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            rd = root / 'al_skill'
+            rd.mkdir()
+            al = rd / 'al_config.json'
+            al.write_text(json.dumps(dict(max_global_steps=2000, eval_interval_steps=100,
+                pass_transition_enabled=False, task_scan_enabled=False, hardness_scan_enabled=False)))
+            (rd / 'lingbotvla_cli.yaml').write_text(
+                f'train:\n  auto_learning: {al}\n  max_steps: 1000\n  save_steps: 250\n')
+            (rd / 'auto_learning_events.jsonl').write_text(json.dumps(
+                dict(action='select', task='put_object_cabinet', step=0)) + '\n')
+            logs = root / 'logs'
+            logs.mkdir()
+            (logs / 'train_al_skill.log').write_text('Step: 69/1000 [03:27<46:33, 3.00s/it]\r'
+                                                   'Step: 70/1000 [03:30<46:30, 3.00s/it]')
+            with patch.object(panel, 'ROOT', root), \
+                 patch.object(panel, 'discover_trainers', return_value=[dict(run='al_skill', ranks=1, gpus='0')]), \
+                 patch.object(panel, 'read_tb_latest', return_value={}), \
+                 patch('sys.argv', ['al_panel.py', 'al_skill']), \
+                 contextlib.redirect_stdout(io.StringIO()) as output:
+                cfg = panel.run_cfg('al_skill')
+                self.assertEqual(cfg['max_steps'], 1000)
+                self.assertFalse(cfg['pass_enabled'])
+                self.assertEqual(panel.main(), 0)
+                with patch('sys.argv', ['al_panel.py', 'al_skill', '--wide']):
+>                   self.assertEqual(panel.main(), 0)
+                                     ^^^^^^^^^^^^
+
+tests/test_al_panel_live_progress.py:88:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tools/auto_learning_pipeline/al_panel.py:1321: in main
+    return render_wide(args=args, cfg=cfg, **{k: v for k, v in _common.items()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+run = 'al_skill'
+args = Namespace(run='al_skill', all=False, trainers=False, top=4, wide=True, pool=False, progress=False, traces=None, watch=None)
+cfg = {'al_cfg': '/tmp/tmpgq31r270/al_skill/al_config.json', 'target': None, 'interval': 100, 'thresholds': None, ...}
+thresholds = {}, target = 15
+trainer = {'run': 'al_skill', 'ranks': 1, 'gpus': '0'}
+trainers = [{'run': 'al_skill', 'ranks': 1, 'gpus': '0'}], passed = 0
+newly = None, boot = None, step = 70, sit = 3.0, latest_sit = 3.0, per_task = {}
+series = {}, derived_status = {'put_object_cabinet': 'TRAINING'}, records = None
+dcp_name = None, dcp_step = None, derived_passed = [], reg_passed = None
+elapsed_s = 210.0, eta_s = 2790.0, tb = {}, current_task = 'put_object_cabinet'
+
+    def render_wide(*, run: str, args, cfg, thresholds, target, trainer, trainers,
+                    passed, newly, boot, step, sit, latest_sit, per_task, series,
+                    derived_status, records, dcp_name, dcp_step,
+                    derived_passed, reg_passed, elapsed_s=None, eta_s=None, tb=None,
+                    current_task=None) -> int:
+        """`--wide`：原来的**完整表格**视图（任务明细 + 成长轨迹 + 三次槽位 + 摘要）。
+
+        2026-10-12 起默认输出改为紧凑视图（终端只放得下一屏）；本函数保留全部细节，
+        供需要逐任务核对时使用。**代码是从原 main() 整段搬来的，逻辑一字未改。**
+        """
+        W = 76
+        print('=' * 78)
+        goal = f'目标 PASS={target}' if cfg.get('pass_enabled', True) else f'固定步数={cfg.get("max_steps") or "未知"}（PASS关闭）'
+        print(f' AL 仪表盘  run={run}   {goal}')
+        _th = Path(str(cfg['thresholds'] or '?')).name
+        _iv = f'；每 {cfg["interval"]} 步判定一次' if cfg['interval'] else ''
+        print(f' 门槛: {_th.replace("pass_thresholds_", "")}（{len(thresholds)} 任务）{_iv}')
+        # 🔴 状态行只报**本 run 自己的训练器**；机上有多个训练器时**绝不合并计数**
+        #    （旧实现把 v41 的 6 rank + v42 的 2 rank 加成 8 ⇒ 对两个 run 都错）。
+        if trainer:
+            _r = int(trainer['ranks'])                        # type: ignore[arg-type]
+>           ws = trainer['world_size']
+                 ^^^^^^^^^^^^^^^^^^^^^
+E           KeyError: 'world_size'
+
+tools/auto_learning_pipeline/al_panel.py:1351: KeyError
+=========================== short test summary info ============================
+FAILED tests/test_al_panel_live_progress.py::SkillPanelTests::test_json_config_and_selection_show_before_first_unit_or_checkpoint
+1 failed in 0.52s

@@ -14,6 +14,9 @@
 
 
 from copy import deepcopy
+import json
+import math
+from pathlib import Path
 from typing import Any, Dict, Literal, Optional
 
 from transformers import AutoConfig, PretrainedConfig
@@ -55,6 +58,15 @@ class LingbotVLAConfig(PretrainedConfig):
         tokenizer_max_length: int = 48,
         loss_type: str = "fm",
         low_noise_fm_enabled: bool = False,
+        ee_fk_loss_enabled: bool = False,
+        ee_fk_eval_enabled: bool = False,
+        ee_fk_position_loss_weight: float = 0.0,
+        ee_fk_orientation_loss_weight: float = 0.0,
+        ee_fk_gripper_loss_weight: float = 0.0,
+        ee_fk_time_max: float = 0.2,
+        ee_fk_huber_delta: float = 0.01,
+        ee_fk_spec_path: Optional[str] = None,
+        ee_fk_spec: Optional[Dict[str, Any]] = None,
         norm_qkv: bool = False,
         align_params: Optional[Dict[str, Any]] = None,
         use_compile: bool = False,
@@ -126,6 +138,41 @@ class LingbotVLAConfig(PretrainedConfig):
         self.use_compile = use_compile
         self.loss_type = loss_type
         self.low_noise_fm_enabled = low_noise_fm_enabled
+        if type(ee_fk_loss_enabled) is not bool or type(ee_fk_eval_enabled) is not bool:
+            raise ValueError("ee_fk enable flags must be booleans")
+        self.ee_fk_loss_enabled = ee_fk_loss_enabled
+        self.ee_fk_eval_enabled = ee_fk_eval_enabled
+        self.ee_fk_position_loss_weight = float(ee_fk_position_loss_weight)
+        self.ee_fk_orientation_loss_weight = float(ee_fk_orientation_loss_weight)
+        self.ee_fk_gripper_loss_weight = float(ee_fk_gripper_loss_weight)
+        self.ee_fk_time_max = float(ee_fk_time_max)
+        self.ee_fk_huber_delta = float(ee_fk_huber_delta)
+        self.ee_fk_spec_path = ee_fk_spec_path
+        if ee_fk_spec is None and ee_fk_spec_path and (ee_fk_loss_enabled or ee_fk_eval_enabled):
+            with Path(ee_fk_spec_path).open() as handle:
+                ee_fk_spec = json.load(handle)
+        self.ee_fk_spec = ee_fk_spec
+        if self.ee_fk_loss_enabled or self.ee_fk_eval_enabled:
+            if self.ee_fk_loss_enabled and not self.low_noise_fm_enabled:
+                raise ValueError("ee_fk_loss_enabled requires low_noise_fm_enabled=true")
+            if not isinstance(self.ee_fk_spec, dict):
+                raise ValueError("ee_fk_loss_enabled requires a verified ee_fk_spec or ee_fk_spec_path")
+            if not math.isfinite(self.ee_fk_time_max) or not 0.0 < self.ee_fk_time_max <= 1.0:
+                raise ValueError("ee_fk_time_max must be in (0, 1]")
+            if not math.isfinite(self.ee_fk_huber_delta) or self.ee_fk_huber_delta <= 0:
+                raise ValueError("ee_fk_huber_delta must be finite and positive")
+            if any(not math.isfinite(weight) or weight < 0.0 for weight in (
+                self.ee_fk_position_loss_weight,
+                self.ee_fk_orientation_loss_weight,
+                self.ee_fk_gripper_loss_weight,
+            )):
+                raise ValueError("ee_fk loss weights must be non-negative")
+            if self.ee_fk_loss_enabled and sum((
+                self.ee_fk_position_loss_weight,
+                self.ee_fk_orientation_loss_weight,
+                self.ee_fk_gripper_loss_weight,
+            )) <= 0.0:
+                raise ValueError("at least one ee_fk loss weight must be positive when enabled")
         self.separate_time_proj = separate_time_proj
         self.final_norm_adanorm = final_norm_adanorm
         self.freeze_vision_encoder = freeze_vision_encoder

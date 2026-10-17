@@ -167,6 +167,7 @@ class EvaluatorAdapter:
             eval_seconds=elapsed,
             action_keys=list(raw.get("action_keys", [])),
             baseline_fingerprint=(baseline.fingerprint if baseline is not None else None),
+            ee_metrics=dict(raw.get("ee_metrics", {})),
         )
         self.logger.info_rank0(
             f"[auto_learning] eval {task_id}/{split} n_ids={len(ids)}: mse={res.mse:.6f} "

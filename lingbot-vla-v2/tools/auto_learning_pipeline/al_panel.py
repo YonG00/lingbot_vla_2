@@ -337,6 +337,20 @@ def read_events(events: Path) -> Tuple[Dict[str, object], Dict[str, Dict[str, fl
     return last, per_task
 
 
+def ee_val_text(series, task):
+    """Read one matching EE eval step from events, never from stale pool state."""
+    positions = (series.get('active_val_ee_position_rmse_mm') or {}).get(task) or []
+    if not positions:
+        return None
+    step, position = positions[-1]
+    def value(key):
+        return dict((series.get('active_val_ee_' + key) or {}).get(task) or []).get(step)
+    angle, grip = value('orientation_mean_deg'), value('gripper_mae')
+    if angle is None or grip is None:
+        return None  # tolerate a partially appended event group
+    return f'Step {step}  位置 {position:.2f} mm  姿态 {angle:.2f}°  夹爪 {grip:.4f}'
+
+
 def read_series(events: Path) -> Dict[str, Dict[str, List[Tuple[int, float]]]]:
     """收集**带 step 的逐任务指标序列**：`{指标名: {task: [(step, value), ...]}}`。
 
@@ -1163,6 +1177,16 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
         m_bits.append(f'best {_rstr(r_best)}')
     if m_bits:
         row('倍率', '  '.join(m_bits))
+    ee_text = ee_val_text(series, cur)
+    if ee_text is not None:
+        row('末端val', ee_text)
+        ee_sides = []
+        for side, label in (('left', '左'), ('right', '右')):
+            values = (series.get(f'active_val_ee_{side}_position_rmse_mm') or {}).get(cur) or []
+            if values:
+                ee_sides.append(f'{label} {values[-1][1]:.2f} mm (step {values[-1][0]})')
+        if ee_sides:
+            row('左右定位', '  '.join(ee_sides))
     lp50, lptr, gap = rec.get('lp50'), rec.get('lp_train'), rec.get('train_val_gap_ratio')
     f_bits = []
     if isinstance(lp50, (int, float)):
@@ -1452,6 +1476,9 @@ def render_wide(*, run: str, args, cfg, thresholds, target, trainer, trainers,
         cand2 = [(seq[-1][0], t) for t, seq in val_all.items() if seq]
         cur_task = max(cand2)[1] if cand2 else None
     named = current_task
+    ee_text = ee_val_text(series, named or cur_task)
+    if ee_text:
+        print(f' 末端val: {named or cur_task}  {ee_text}')
     if isinstance(named, str) and named and named != cur_task:
         print(f' 注: 在训 {named}（unit 未完）；轨迹={cur_task}')
     print('-' * W)

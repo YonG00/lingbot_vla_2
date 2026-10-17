@@ -76,7 +76,7 @@ class SkillPanelTests(unittest.TestCase):
             (logs / 'train_al_skill.log').write_text('Step: 69/1000 [03:27<46:33, 3.00s/it]\r'
                                                    'Step: 70/1000 [03:30<46:30, 3.00s/it]')
             with patch.object(panel, 'ROOT', root), \
-                 patch.object(panel, 'discover_trainers', return_value=[dict(run='al_skill', ranks=1, gpus='0')]), \
+                 patch.object(panel, 'discover_trainers', return_value=[dict(run='al_skill', ranks=1, world_size=1, gpus='0')]), \
                  patch.object(panel, 'read_tb_latest', return_value={}), \
                  patch('sys.argv', ['al_panel.py', 'al_skill']), \
                  contextlib.redirect_stdout(io.StringIO()) as output:

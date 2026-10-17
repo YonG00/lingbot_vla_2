@@ -265,6 +265,31 @@ class TrainingArguments:
     low_noise_fm_enabled: bool = field(
         default=False, metadata={"help": "Mix 25% uniform t in [0.001,0.2] into FM training times."},
     )
+    ee_fk_loss_enabled: bool = field(
+        default=False,
+        metadata={"help": "Enable differentiable end-effector FK consistency loss in the low-noise FM interval."},
+    )
+    ee_fk_eval_enabled: bool = field(
+        default=False, metadata={"help": "Record FK errors on existing open-loop predictions; also enabled by FK loss."},
+    )
+    ee_fk_position_loss_weight: float = field(
+        default=0.0, metadata={"help": "Weight for the FK end-effector position loss."},
+    )
+    ee_fk_orientation_loss_weight: float = field(
+        default=0.0, metadata={"help": "Weight for the FK end-effector orientation loss."},
+    )
+    ee_fk_gripper_loss_weight: float = field(
+        default=0.0, metadata={"help": "Weight for the FK gripper loss."},
+    )
+    ee_fk_time_max: float = field(
+        default=0.2, metadata={"help": "Maximum FM time used by the FK consistency loss."},
+    )
+    ee_fk_huber_delta: float = field(
+        default=0.01, metadata={"help": "Huber delta for FK position and gripper losses."},
+    )
+    ee_fk_spec_path: Optional[str] = field(
+        default=None, metadata={"help": "Verified JSON robot-chain specification for FK supervision."},
+    )
     lr: float = field(
         default=5e-5,
         metadata={"help": "Maximum learning rate or defult learning rate, or init learning rate for warmup."},

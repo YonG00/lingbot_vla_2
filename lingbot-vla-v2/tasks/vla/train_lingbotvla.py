@@ -680,6 +680,39 @@ def main():
             args.data.chunk_size = args.train.chunk_size
             train_dataset = build_vla_dataset(dataset_config=args.data, model_config=args.model, config=model.config, processor=processor, use_depth_align=use_depth_align)
             args.train.compute_train_steps(args.data.max_seq_len, args.data.train_size, len(train_dataset))
+
+            # FK supervision must consume the exact packed layout and normalization
+            # produced by this dataset.  Do not hand-code offsets here: arm/end/
+            # effector slots can be padded differently by a robot config.
+            if (getattr(model.config, "ee_fk_loss_enabled", False)
+                    or getattr(model.config, "ee_fk_eval_enabled", False)):
+                from lingbotvla.losses.ee_fk import build_action_layout, build_action_norm_spec
+
+                _ee_fk_transforms = list(getattr(train_dataset, "feature_transforms", {}).values())
+                if not _ee_fk_transforms:
+                    _ee_fk_transforms = [train_dataset.feature_transform]
+                _ee_fk_layouts = [build_action_layout(_transform) for _transform in _ee_fk_transforms]
+                _ee_fk_norms = [build_action_norm_spec(_transform) for _transform in _ee_fk_transforms]
+                if any(layout != _ee_fk_layouts[0] for layout in _ee_fk_layouts[1:]):
+                    raise ValueError("ee_fk requires identical packed arm/gripper layouts across all datasets")
+                if any(norm != _ee_fk_norms[0] for norm in _ee_fk_norms[1:]):
+                    raise ValueError("ee_fk requires identical action normalization statistics across all datasets")
+                _ee_fk_layout = _ee_fk_layouts[0]
+                _ee_fk_norm = _ee_fk_norms[0]
+                model.configure_ee_fk(_ee_fk_layout, _ee_fk_norm)
+                logger.info_rank0(
+                    "[ee_fk] enabled: layout=%s norm_keys=%s time_max=%.3f "
+                    "weights=(position=%.4g, orientation=%.4g, gripper=%.4g) "
+                    "chains=(left=%s, right=%s)",
+                    _ee_fk_layout,
+                    [item["key"] for item in _ee_fk_norm],
+                    model.config.ee_fk_time_max,
+                    model.config.ee_fk_position_loss_weight,
+                    model.config.ee_fk_orientation_loss_weight,
+                    model.config.ee_fk_gripper_loss_weight,
+                    [joint["name"] for joint in model.config.ee_fk_spec["left"]["joints"]],
+                    [joint["name"] for joint in model.config.ee_fk_spec["right"]["joints"]],
+                )
         
         # ---- [Stage B1] Auto Learning：第一段（不需要模型；**必须在 build_dataloader 之前**）----
         # 🔴 review v0.2 #10：disabled 时**一个对象都不建、不 import、不挂属性**
@@ -1781,7 +1814,7 @@ def main():
                         scalar = _tb_scalar(value)
                         if scalar is not None:
                             writer.add_scalar(key, scalar, global_step)
-                    elif key.startswith("align/"):
+                    elif key.startswith(("align/", "ee_fk/")):
                         scalar = _tb_scalar(value)
                         if scalar is not None:
                             writer.add_scalar(key, scalar, global_step)

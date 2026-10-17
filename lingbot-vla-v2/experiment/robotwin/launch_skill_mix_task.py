@@ -20,6 +20,48 @@ from lingbotvla.auto_learning.config import AutoLearningConfig
 
 REPO = Path(__file__).resolve().parents[2]
 
+EE_ARGUMENTS = {
+    "ee_fk_loss": ("ee_fk_loss_enabled", False),
+    "ee_fk_eval": ("ee_fk_eval_enabled", False),
+    "ee_fk_spec": ("ee_fk_spec_path", None),
+    "ee_position_weight": ("ee_fk_position_loss_weight", 1.0),
+    "ee_orientation_weight": ("ee_fk_orientation_loss_weight", 0.1),
+    "ee_gripper_weight": ("ee_fk_gripper_loss_weight", 0.1),
+}
+
+
+def ee_training_options(args, source, al_config):
+    resolved = {}
+    for attr, (key, default) in EE_ARGUMENTS.items():
+        value = getattr(args, attr, None)
+        resolved[key] = source.get("train", {}).get(key, default) if value is None else value
+    enabled = resolved["ee_fk_loss_enabled"] or resolved["ee_fk_eval_enabled"]
+    if not enabled:
+        return {"train.ee_fk_loss_enabled": False, "train.ee_fk_eval_enabled": False}
+    if resolved["ee_fk_loss_enabled"] and not al_config.get("low_noise_fm_enabled", False):
+        raise ValueError("FK loss requires low_noise_fm_enabled=true in the AL config")
+    spec = Path(resolved["ee_fk_spec_path"] or REPO / "configs/kinematics/robotwin_aloha_agilex_ee.json").expanduser().resolve()
+    geometry = read_json(spec)
+    for side in ("left", "right"):
+        names = [joint.get("name") for joint in geometry.get(side, {}).get("joints", [])]
+        if len(names) != 6 or len(set(names)) != 6 or not all(isinstance(n, str) and n for n in names):
+            raise ValueError(f"invalid {side} FK joint names in {spec}")
+    resolved["ee_fk_spec_path"] = str(spec)
+    weights = [resolved[key] for key in ("ee_fk_position_loss_weight", "ee_fk_orientation_loss_weight", "ee_fk_gripper_loss_weight")]
+    if any(not math.isfinite(weight) or weight < 0 for weight in weights):
+        raise ValueError("FK weights must be finite and nonnegative")
+    if resolved["ee_fk_loss_enabled"] and sum(weights) <= 0:
+        raise ValueError("FK loss requires at least one positive weight")
+    return {"train." + key: value for key, value in resolved.items()}
+
+
+def add_ee_arguments(parser):
+    for name in ("ee_fk_loss", "ee_fk_eval"):
+        parser.add_argument("--" + name.replace("_", "-"), action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--ee-fk-spec", type=Path)
+    for name in ("position", "orientation", "gripper"):
+        parser.add_argument(f"--ee-{name}-weight", type=float)
+
 
 def read_json(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -220,6 +262,7 @@ def build_plan(args):
         "train.data_parallel_shard_size": 1, "train.auto_learning": str(out / "al_config.json"),
         "train.auto_learning_manifest": str(args.manifest.resolve()),
     }
+    options.update(ee_training_options(args, source_args, cfg))
     for key, value in options.items():
         command += ["--" + key, str(value).lower() if isinstance(value, bool) else str(value)]
     source_files = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (
@@ -234,6 +277,7 @@ def build_plan(args):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
+    add_ee_arguments(p)
     p.add_argument("--model", type=Path, required=True)
     p.add_argument("--train-config", type=Path, required=True,
                    help="来源训练 run 的 lingbotvla_cli.yaml（含原归一化路径/动作配置）")

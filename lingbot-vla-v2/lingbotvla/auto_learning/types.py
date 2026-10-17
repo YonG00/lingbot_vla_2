@@ -162,6 +162,7 @@ class TrajectoryMetrics:
     n_trajs: int
     wall_time_s: float = 0.0
     note: str = ""
+    ee_metrics: Dict[str, float] = field(default_factory=dict)
 
     @property
     def gmean_mse(self) -> Optional[float]:

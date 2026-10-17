@@ -1,0 +1,12 @@
+...................................................... [ 37%]
+................................................................ [ 82%]
+.........................                                                [100%]
+143 passed, 26 subtests passed in 33.90s
+REGRESSION_EXIT=0
+REAL_SOURCE_PREVIEW_EXIT=0
+SOURCE_MODEL=/root/autodl-tmp/data/outputs/al_v79_poolfix_7300/checkpoints/global_step_9680/hf_ckpt
+TASK_COUNTS={"place_object_stand": {"train": 40, "val": 10}}
+EE_OPTIONS={"--train.ee_fk_loss_enabled": "true", "--train.ee_fk_eval_enabled": "true", "--train.ee_fk_spec_path": "/tmp/lingbot_ee_cpu_v2_vl70x66r/configs/kinematics/robotwin_aloha_agilex_ee.json", "--train.ee_fk_position_loss_weight": "1.0", "--train.ee_fk_orientation_loss_weight": "0.1", "--train.ee_fk_gripper_loss_weight": "0.1"}
+SOURCE_WEIGHT_GIB=11.876296339556575
+FREE_GIB=40.951202392578125
+FINAL_CPU_EXIT=0

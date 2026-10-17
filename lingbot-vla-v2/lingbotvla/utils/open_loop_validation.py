@@ -545,7 +545,7 @@ def _merge_shard_raw_payloads(results: List[Any], strategy: Dict[str, Any]) -> D
             per_frames[eid] = int(frames[pos]) if pos < len(frames) else 0
         n_chunks += int(raw.get("n_chunks") or 0)
         for k, v in raw.items():
-            if k in _SHARD_PER_TRAJ_KEYS or k in ("mse", "n", "n_chunks", "frames"):
+            if k in _SHARD_PER_TRAJ_KEYS or k in ("mse", "n", "n_chunks", "frames", "ee_metrics", "ee_per_traj"):
                 continue
             if k not in scalars and v is not None:
                 scalars[k] = v
@@ -564,6 +564,15 @@ def _merge_shard_raw_payloads(results: List[Any], strategy: Dict[str, Any]) -> D
         "per_traj_ids": list(order),
         "per_traj_frames": [per_frames[e] for e in order],
     })
+    ee_records = {}
+    for raw in results:
+        for episode, record in (raw or {}).get("ee_per_traj", {}).items():
+            ee_records.setdefault(str(episode), record)
+    if ee_records:
+        from lingbotvla.losses.ee_metrics import summarize_ee_records
+        if set(ee_records) != set(map(str, order)):
+            raise ValueError("EE shard results do not cover the GMSE trajectory set")
+        out.update(ee_metrics=summarize_ee_records(ee_records), ee_per_traj=ee_records)
     return out
 
 
@@ -3179,6 +3188,11 @@ class OpenLoopValidator:
         if phases is not None:
             phases.phase(f"推理循环（{len(starts)} 次推理 / {len(ds)} 帧）")
         chunks: List[tuple] = []        # (episode_key, gt(N,D), pr(N,D))
+        ee_accumulator = None
+        if (getattr(self._model_config, "ee_fk_eval_enabled", False)
+                or getattr(self._model_config, "ee_fk_loss_enabled", False)):
+            from lingbotvla.losses.ee_metrics import EEErrorAccumulator
+            ee_accumulator = EEErrorAccumulator(self._model_config.ee_fk_spec)
         action_keys: List[str] = []
         _n_done = 0
         for _group in self._prediction_groups(ds, starts, ft, tag):
@@ -3269,12 +3283,18 @@ class OpenLoopValidator:
                     np.save(_p + "_gt.npy", gt)
                     np.save(_p + "_pred.npy", pr)
                 chunks.append((ep_key, gt, pr))
+                if ee_accumulator is not None:
+                    # Reuse the exact fully denoised prediction and physical GT.
+                    # EE excludes tail padding; legacy GMSE retains its old scope.
+                    ee_accumulator.add(ep_key, gt_phys, pred, ft, item.get("action_is_pad"))
 
         # ---- 按**完整 trajectory** 聚合（🔴 2026-10-04 审查 B2）----
         # 抽成纯函数 `aggregate_chunks` 是为了让 tools/open_loop_parity_check.py 能单测它。
         if phases is not None:
             phases.phase(f"聚合指标（{_n_done} 次推理 → {len(chunks)} 个有效 chunk）")
         out = aggregate_chunks(chunks)
+        if ee_accumulator is not None:
+            out.update(ee_accumulator.result())
         # review v0.1 #9：把实际用到的 action keys 一并返回（供审计 action space）；
         # 之前只有 `collect_gt_chunks` 返回它，evaluator 侧拿不到。
         out["action_keys"] = list(action_keys)
@@ -3299,6 +3319,9 @@ class OpenLoopValidator:
         w.add_scalar("open_loop/val_mse", float(va["mse"]), global_step)
         w.add_scalar("open_loop/val_mae", float(va["mae"]), global_step)
         w.add_scalar("open_loop/val_r2", float(va["r2"]), global_step)
+        for split, result in (("train", tr), ("val", va)):
+            for key, value in result.get("ee_metrics", {}).items():
+                w.add_scalar(f"open_loop/{split}_ee/{key}", float(value), global_step)
         # mean_baseline_mse = 该评测集上「每个维度都输出自己的常数均值」的 MSE
         # ⇒ 画成参考线：MSE 低于它才算学到。train / val 各自一份（评测集不同）
         w.add_scalar("open_loop/train_mean_baseline_mse",

@@ -17,7 +17,17 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#36（2026-10-17）FK 精度隔离、val 末端误差和 TB/仪表盘接线，🧪 服务器 CPU 验证通过，GPU 待验证。** 用户授权保留现有 val，复用完整去噪预测增加末端误差；本次修复 #35 的训练接线。FK 改为模型模块树之外的运行期辅助对象，从原始 spec 缓存各设备 FP32 几何；动作恢复、归一化和 FK loss 局部禁用 autocast。现有 val 同一次推理后计算按轨迹等权的位置欧氏 RMSE(mm)、平均姿态角(度)、夹爪 MAE及左右臂明细；只对 EE 指标排除 padding，历史 GMSE/阈值/PASS 不变。新增可独立开启的 `ee_fk_eval_enabled`，FK loss 开启时自动记录末端误差。指标经 AL DTO、事件流和 TB 到仪表盘。
+
+- **不变量：** FK 固定几何不被 model.to(bf16)/权重存档舍入；GT 无梯度；开关关闭时不额外推理、不消耗 RNG、不改变 GMSE；EE 评测不调用模型；尾部 padding 不参与 EE 指标；所有标量有单位。
+- **症状：** bf16/FP32 矩阵乘法报错、加载后几何误差变为毫米级、EE 指标无 TB/事件记录、padding 改动影响 EE、旧 GMSE 被改变。
+- **快速回滚：** 下次启动关闭 `ee_fk_loss_enabled` 和 `ee_fk_eval_enabled`；不修改当前进程。便捷启动器用 `--no-ee-fk-loss --no-ee-fk-eval`。代码回滚参照本次之前的 `298e90e`，保留历史产物。
+- **验证入口：** `tests/ee_fk/` 中精度、存档、完整 val→AL→TB/面板契约测试；关联低噪、scheduler、面板及启动器回归。真实模型加载、CUDA autocast/FSDP、HF 和短训仍需开卡验收，不以 CPU 证据代替。
+- **验证证据：** 服务器隔离目录回归 **143 passed / 26 subtests passed / 33.90s**；模型父模块转bf16后对200组归档SAPIEN reference的位置<1e-5m、姿态<1e-4rad；实际step9680/tokenizer/归一化/stand配置预览通过，40train/10val。左右6轴名称对实际资产预检通过；没有启动GPU。基线面板测试漏world_size已用旧HEAD复现并补fixture。详见 `tests/ee_fk/VALIDATION_RUNTIME_2026-10-17.md` 和同功能目录原始日志。
+- **下步配置：** 用户确定从原始step9680新增500步对照；micro/GBS24、低噪FM与target_change_window保持、每100步val、250/500两份BF16 HF、不写DCP；保持上一轮视觉冻结设置。CPU时可用40.95GiB、单份HF11.88GiB；GPU启动前复查。无训练/存档删除监控启动。
+
 **#35（2026-10-17）低噪 FM 与末端 FK 一致性监督，🧪 CPU 与当前仿真几何部分验证，bf16 兼容/精度未通过，GPU 待验证。**
+> 本条保留首次验证与归档边界；后续训练接线、bf16精度修复和val指标交付以 #36 为准。
 **本次提交边界：** 只归档独立 FP32 FK 计算模块、关节名预检、功能测试与文档。`configuration_lingbot_vla.py`、`modeling_lingbot_vla_v2.py`、`utils/arguments.py`、`tasks/vla/train_lingbotvla.py` 的 FK 模型/训练接线仍为本地未提交候选修改，待修复 bf16 问题后单独验收和提交。下述完整行为是候选设计，不代表本次提交已提供 FK 训练入口。
 **归档提交：** `7ea53aa`（独立计算模块、预检和按功能归档的测试/证据；CPU 8 passed，三个历史 JSON 报告复现一致）。本条状态仍为部分验证，FK 训练接线没有随该提交交付。
 低噪 FM 默认关闭；开启后 25% 的训练时间采样落在 `[0.001,0.2]`。FK 默认关闭且必须依赖低噪 FM，只在 `t <= ee_fk_time_max` 对 `x_hat = x_t - t * v_t` 与 GT 动作做可微 FK 对齐，分位置、姿态、夹爪三项加权监督。动作布局和归一化统计从真实 `FeatureTransform` 提取，多数据集不一致时拒绝启动。JSON chain spec 必须按 RoboTwin 的关节名、顺序、TCP 坐标口径核对，禁止猜测。

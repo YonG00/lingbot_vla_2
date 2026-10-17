@@ -145,6 +145,7 @@ class EvalResult:
     eval_seconds: float = 0.0
     action_keys: List[str] = field(default_factory=list)
     baseline_fingerprint: Optional[str] = None
+    ee_metrics: Dict[str, float] = field(default_factory=dict)
 
     @property
     def gmean_mse(self) -> Optional[float]:
@@ -175,6 +176,7 @@ class EvalResult:
             per_traj_mse=per_traj, mse=mse, baseline_mse=base,
             nmse=self.nmse, r2=None, metric_valid=valid, n_trajs=int(self.n_traj),
             wall_time_s=float(self.eval_seconds),
+            ee_metrics=dict(self.ee_metrics),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -188,6 +190,7 @@ class EvalResult:
             "frames": self.frames, "dims": self.dims,
             "eval_seconds": self.eval_seconds, "action_keys": list(self.action_keys),
             "baseline_fingerprint": self.baseline_fingerprint,
+            **({"ee_metrics": dict(self.ee_metrics)} if self.ee_metrics else {}),
         }
 
 
