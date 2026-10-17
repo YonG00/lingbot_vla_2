@@ -17,6 +17,19 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#35（2026-10-17）低噪 FM 与末端 FK 一致性监督，🧪 CPU 与当前仿真几何部分验证，bf16 兼容/精度未通过，GPU 待验证。**
+**本次提交边界：** 只归档独立 FP32 FK 计算模块、关节名预检、功能测试与文档。`configuration_lingbot_vla.py`、`modeling_lingbot_vla_v2.py`、`utils/arguments.py`、`tasks/vla/train_lingbotvla.py` 的 FK 模型/训练接线仍为本地未提交候选修改，待修复 bf16 问题后单独验收和提交。下述完整行为是候选设计，不代表本次提交已提供 FK 训练入口。
+低噪 FM 默认关闭；开启后 25% 的训练时间采样落在 `[0.001,0.2]`。FK 默认关闭且必须依赖低噪 FM，只在 `t <= ee_fk_time_max` 对 `x_hat = x_t - t * v_t` 与 GT 动作做可微 FK 对齐，分位置、姿态、夹爪三项加权监督。动作布局和归一化统计从真实 `FeatureTransform` 提取，多数据集不一致时拒绝启动。JSON chain spec 必须按 RoboTwin 的关节名、顺序、TCP 坐标口径核对，禁止猜测。
+
+**改动本意四问：**
+
+1. **不变量：** 默认两个开关均不改变旧训练；FK 开启时没有已核对的 spec、布局或归一化不一致就启动失败；GT 不接收梯度；低噪关闭时不额外消耗 RNG。
+2. **出错症状：** 启动日志缺 `[ee_fk] enabled`、训练中缺 `ee_fk/*` 指标，或真实轨迹 FK 对拍出现系统性 TCP/左右臂偏移；这些分别指向接线缺失和资产口径错误。
+3. **快速回滚：** 新进程关闭 `ee_fk_loss_enabled`；完全回滚低噪则再关闭 `low_noise_fm_enabled`。代码回滚为本条涉及的模型、配置、参数、训练接线和 `lingbotvla/losses/ee_fk.py` 文件。
+4. **验证入口：** `python -m py_compile` 覆盖修改文件；`tests/ee_fk/test_ee_fk.py` 验证纯计算与梯度；`tests/ee_fk/README.md` 统一测试意图、诊断命令、判据与历史证据；`tools/auto_learning_pipeline/ee_fk_spec_check.py` 核对左右六轴名称和顺序；训练机还必须做真实 RoboTwin/SAPIEN 多帧对拍和 GPU smoke，未完成前不得宣称可训练。
+
+**当前证据：** 修改文件通过语法编译和 `git diff --check`；服务器隔离目录 FK/低噪 CPU 回归 **8 passed / 5.19 s**。真实资产候选 spec 与 SAPIEN/RoboTwin 200 组同关节角几何对拍通过，位置最大误差 `6.42135e-7 m`、姿态最大误差 `8.83176e-7 rad`；梯度有限、GT 无梯度、padding 屏蔽通过。**未通过：** solver 转 bf16 后与 FP32 动作类型冲突；bf16 后再转 FP32 仍带来最大 `2.273 mm` 几何误差。历史 HDF5 100 帧的关节与记录末端最大差 `36.463 mm`，采集/保存时序口径待核对。保持 FK 关闭，未改训练逻辑、未部署/提交。完整证据与复现见 `tests/ee_fk/VALIDATION_2026-10-17.md`。测试按功能归档到 `tests/ee_fk/`，包含单测、诊断源码、说明、原始小型 reference 和结果；路径调整不改变计算方法。
+
 **#34（2026-10-16）低噪 FM + 目标变化窗口采样，🧪 本地 CPU 部分验证，未提交、未上机。**
 低噪 FM 默认关闭；开启后 25% 时间样本取 `[0.001,0.2]`，不改变显式指定的评测时间。
 新增 `sample_scan_method=hardness|target_change_window`，历史 `hardness_scan_enabled` 为总开关。

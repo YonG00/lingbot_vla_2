@@ -1,0 +1,91 @@
+RUN ['-m', 'pytest', 'tests/ee_fk/test_ee_fk.py', 'tests/test_low_noise_fm.py', '-q']
+........                                                                 [100%]
+8 passed in 9.18s
+RUN ['/tmp/lingbot_fk_cpu_20j8mzne/tests/ee_fk/diagnostics/lingbot_fk_extra_cpu_checks.py']
+norm_gradient identity finite True gt_detached True masked_zero True
+norm_gradient bounds_99_woclip finite True gt_detached True masked_zero True
+norm_gradient meanstd finite True gt_detached True masked_zero True
+bf16_buffers_loss RuntimeError expected scalar type BFloat16 but found Float
+actual_normalizer_parity action.arm.position max_abs_error 2.0014256452149937e-07
+actual_normalizer_parity action.effector.position max_abs_error 4.820708687791608e-08
+RUN ['/tmp/lingbot_fk_cpu_20j8mzne/tests/ee_fk/diagnostics/lingbot_fk_asset_compare.py']
+{
+  "samples": 200,
+  "arms": {
+    "left": {
+      "position_m": {
+        "mean": 3.303952098576701e-07,
+        "p95": 4.777675712830387e-07,
+        "max": 6.421345801754796e-07
+      },
+      "angle_rad": {
+        "mean": 3.513987678616104e-07,
+        "p95": 5.960658313597378e-07,
+        "max": 8.613077397967572e-07
+      }
+    },
+    "right": {
+      "position_m": {
+        "mean": 1.7284087050484231e-07,
+        "p95": 3.115239053386176e-07,
+        "max": 4.969598421666888e-07
+      },
+      "angle_rad": {
+        "mean": 4.303926743887132e-07,
+        "p95": 7.136808903851488e-07,
+        "max": 8.83176255683793e-07
+      }
+    }
+  },
+  "passed": true,
+  "real_chain_gradient_finite": true,
+  "real_chain_gradient_nonzero": true,
+  "masked_gradient_zero": true
+}
+RUN ['/tmp/lingbot_fk_cpu_20j8mzne/tests/ee_fk/diagnostics/lingbot_fk_recorded_pose_compare.py']
+{
+  "samples": 100,
+  "quaternion_convention": "wxyz",
+  "arms": {
+    "left": {
+      "position_m": {
+        "mean": 0.003883050987496972,
+        "p95": 0.017050107941031456,
+        "max": 0.03646302968263626
+      },
+      "angle_rad": {
+        "mean": 0.008657409809529781,
+        "p95": 0.03390493616461754,
+        "max": 0.09985189139842987
+      }
+    },
+    "right": {
+      "position_m": {
+        "mean": 0.002169848419725895,
+        "p95": 0.013390927575528622,
+        "max": 0.027133798226714134
+      },
+      "angle_rad": {
+        "mean": 0.0045458367094397545,
+        "p95": 0.022389547899365425,
+        "max": 0.03573565185070038
+      }
+    }
+  },
+  "passed": false
+}
+RUN ['/tmp/lingbot_fk_cpu_20j8mzne/tests/ee_fk/diagnostics/lingbot_fk_precision_probe.py']
+{
+  "left": {
+    "position_roundtrip_max_m": 0.0022728738840669394,
+    "angle_roundtrip_max_rad": 0.0022393837571144104
+  },
+  "right": {
+    "position_roundtrip_max_m": 0.002259720815345645,
+    "angle_roundtrip_max_rad": 0.002242298098281026
+  }
+}
+ARCHIVED_REPORT_MATCH parity_report.json
+ARCHIVED_REPORT_MATCH recorded_parity_report.json
+ARCHIVED_REPORT_MATCH precision_report.json
+ARCHIVE_CHECK_PASSED /tmp/lingbot_fk_archive_check__q571p6q

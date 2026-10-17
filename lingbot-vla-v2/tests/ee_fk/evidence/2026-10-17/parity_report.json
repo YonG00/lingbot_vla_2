@@ -1,0 +1,33 @@
+{
+  "samples": 200,
+  "arms": {
+    "left": {
+      "position_m": {
+        "mean": 3.303952098576701e-07,
+        "p95": 4.777675712830387e-07,
+        "max": 6.421345801754796e-07
+      },
+      "angle_rad": {
+        "mean": 3.513987678616104e-07,
+        "p95": 5.960658313597378e-07,
+        "max": 8.613077397967572e-07
+      }
+    },
+    "right": {
+      "position_m": {
+        "mean": 1.7284087050484231e-07,
+        "p95": 3.115239053386176e-07,
+        "max": 4.969598421666888e-07
+      },
+      "angle_rad": {
+        "mean": 4.303926743887132e-07,
+        "p95": 7.136808903851488e-07,
+        "max": 8.83176255683793e-07
+      }
+    }
+  },
+  "passed": true,
+  "real_chain_gradient_finite": true,
+  "real_chain_gradient_nonzero": true,
+  "masked_gradient_zero": true
+}

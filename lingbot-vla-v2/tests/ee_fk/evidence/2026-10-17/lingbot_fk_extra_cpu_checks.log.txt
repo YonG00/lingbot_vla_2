@@ -1,0 +1,6 @@
+norm_gradient identity finite True gt_detached True masked_zero True
+norm_gradient bounds_99_woclip finite True gt_detached True masked_zero True
+norm_gradient meanstd finite True gt_detached True masked_zero True
+bf16_buffers_loss RuntimeError expected scalar type BFloat16 but found Float
+actual_normalizer_parity action.arm.position max_abs_error 2.0014256452149937e-07
+actual_normalizer_parity action.effector.position max_abs_error 4.820708687791608e-08

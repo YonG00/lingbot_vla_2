@@ -42,6 +42,7 @@
 | 校验 eval 批处理 B1 一致性 | `problem_reproduction/eval_batch_b1_parity_check.py` |
 | 定位部署侧加载问题 | `problem_reproduction/deploy_load_probe.py` |
 | 复核离线 replay 结论 | `problem_reproduction/replay_offline_verify.py` |
+| 核对 FK spec 与 RoboTwin 左右六轴名称/顺序 | `auto_learning_pipeline/ee_fk_spec_check.py` |
 | 收集开环评测结果 | `collect_open_loop.py`（官方） |
 | 单卡开环自检 | `open_loop_selfcheck.py`（官方） |
 | 打审计包（存档证据） | `misc/make_audit_pkg.sh` |
