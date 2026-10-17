@@ -63,6 +63,14 @@ def add_ee_arguments(parser):
         parser.add_argument(f"--ee-{name}-weight", type=float)
 
 
+def add_training_freeze_arguments(parser):
+    parser.add_argument(
+        "--freeze-vision-encoder", dest="freeze_vision_encoder",
+        action=argparse.BooleanOptionalAction, default=None,
+        help="是否冻结视觉编码器；默认继承启动器历史值，--no-freeze-vision-encoder 开启全量视觉训练",
+    )
+
+
 def read_json(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -254,7 +262,10 @@ def build_plan(args):
         "train.step_offset": 0, "train.train_expert_only": False,
         "train.seed": cfg.get("seed", 3), "train.open_loop_eval_steps": 0,
         "train.smoke_no_checkpoint": False, "train.auto_learning_baseline": "",
-        "train.freeze_vision_encoder": True, "train.enable_mixed_precision": False,
+        "train.freeze_vision_encoder": (
+            True if getattr(args, "freeze_vision_encoder", None) is None
+            else args.freeze_vision_encoder
+        ), "train.enable_mixed_precision": False,
         "train.enable_fp32": False, "train.use_compile": False,
         "train.rmpad": False, "train.rmpad_with_pos_ids": False,
         "train.disk_guard": True, "train.disk_guard_margin": 1.1, "train.disk_check_interval": 50,
@@ -278,6 +289,7 @@ def build_plan(args):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     add_ee_arguments(p)
+    add_training_freeze_arguments(p)
     p.add_argument("--model", type=Path, required=True)
     p.add_argument("--train-config", type=Path, required=True,
                    help="来源训练 run 的 lingbotvla_cli.yaml（含原归一化路径/动作配置）")

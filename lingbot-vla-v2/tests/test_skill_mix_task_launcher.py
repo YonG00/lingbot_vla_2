@@ -77,6 +77,13 @@ class LauncherTests(unittest.TestCase):
         self.assertIsNone(plan["training_config"]["model"]["vlm_repo_id"])
         self.assertTrue(plan["training_config"]["model"]["post_training"])
 
+    def test_vision_encoder_freeze_is_explicit_and_can_be_disabled(self):
+        self.args.freeze_vision_encoder = False
+        plan = launcher.build_plan(self.args)
+        self.assertFalse(plan["training_config"]["train"]["freeze_vision_encoder"])
+        cmd = plan["command"]
+        self.assertEqual(cmd[cmd.index("--train.freeze_vision_encoder") + 1], "false")
+
     def test_configurable_learning_and_explicit_replay(self):
         self.args.learning_tasks = ["put_object_cabinet"]
         self.args.replay_tasks = ["click_bell"]

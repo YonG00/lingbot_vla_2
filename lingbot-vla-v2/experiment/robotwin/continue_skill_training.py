@@ -88,6 +88,7 @@ def make_job(args):
         python=sys.executable, master_port=args.master_port)
     for attr in launcher.EE_ARGUMENTS:
         setattr(config, attr, getattr(args, attr, None))
+    config.freeze_vision_encoder = getattr(args, "freeze_vision_encoder", None)
     plan = launcher.build_plan(config)  # 同一 CPU 预检、来源配置与数据划分契约。
     command = [sys.executable, str(Path(launcher.__file__).resolve())]
     for flag in ("model", "train_config", "dataset_root", "qwen3vl", "out", "audit_report",
@@ -104,6 +105,11 @@ def make_job(args):
             command += [flag if value else "--no-" + attr.replace("_", "-")]
         else:
             command += [flag, str(value)]
+    if getattr(args, "freeze_vision_encoder", None) is not None:
+        command += [
+            "--freeze-vision-encoder" if args.freeze_vision_encoder
+            else "--no-freeze-vision-encoder"
+        ]
     command += ["--python", sys.executable, "--execute"]
     runtime = (args.runtime_dir or args.output_root / "skill_launches").expanduser().resolve()
     job = dict(command=command, output_dir=str(out), source_model=str(model), steps=args.steps,
@@ -206,6 +212,7 @@ def run_job(job):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     launcher.add_ee_arguments(parser)
+    launcher.add_training_freeze_arguments(parser)
     parser.add_argument("--from-hf", type=Path, help="来源 run/checkpoints/global_step_N/hf_ckpt")
     parser.add_argument("--steps", type=int, default=500, help="新增训练步数，默认500")
     parser.add_argument("--micro", type=int, default=24)
@@ -248,6 +255,11 @@ def main(argv=None):
             "eval_interval_steps", "min_steps_before_defer", "defer_retry_steps",
             "early_defer_on_overfit", "review_after_task_transitions",
             "refresh_hardness_on_continue")},
+        freeze_vision_encoder=plan.get("training_config", {}).get("train", {}).get(
+            "freeze_vision_encoder"),
+        ee_weights={key: plan.get("training_config", {}).get("train", {}).get(key) for key in (
+            "ee_fk_position_loss_weight", "ee_fk_orientation_loss_weight",
+            "ee_fk_gripper_loss_weight")},
         output_dir=job["output_dir"], log=job["log"], status_file=job["status_file"]),
         ensure_ascii=False, indent=2))
     if args.execute:

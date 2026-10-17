@@ -39,6 +39,7 @@ class ContinueSkillTests(unittest.TestCase):
             manifest=ROOT / "refs/al_artifacts/al/task_splits_50/manifest.json",
             learning_tasks=None, master_port=62510, runtime_dir=self.root / "launches")
         self.args.run_name = "cabinet_from1000_500"
+        self.args.freeze_vision_encoder = None
 
     def make_hf(self, model):
         model.mkdir(parents=True)
@@ -71,6 +72,14 @@ class ContinueSkillTests(unittest.TestCase):
         self.assertIn("cabinet_from1000_500", job["log"])
         self.assertEqual(job["command"][job["command"].index("--steps") + 1], "500")
         self.assertFalse(self.out.exists())
+
+    def test_continue_can_request_full_vision_training(self):
+        self.args.freeze_vision_encoder = False
+        with patch.object(entry.launcher, "build_plan", return_value={"config": {}}) as build:
+            job, _ = entry.make_job(self.args)
+        cfg = build.call_args.args[0]
+        self.assertFalse(cfg.freeze_vision_encoder)
+        self.assertIn("--no-freeze-vision-encoder", job["command"])
 
     def test_al_parameters_can_be_overridden_on_command_line(self):
         self.args.sample_scan = False

@@ -23,6 +23,7 @@
 |---|---|
 | 低噪 FM / 目标变化窗口采样 / 训练前事件报告 | `auto_learning/target_change_window_zh.md` |
 | AL固定步数训练为何不按数据epoch测评 | [epoch边界测试说明](../tests/al_epoch_schedule/README.md) |
+| place_object_stand EE续训方案与复现命令 | `auto_learning/stand_ee_continue_20261017_zh.md` |
 | 低噪 FM 与末端 FK 一致性监督 | `auto_learning/ee_fk_loss_zh.md` |
 | FK 测试意图、命令、真实资产对拍与历史证据 | [功能测试说明](../tests/ee_fk/README.md)、[首次验证](../tests/ee_fk/VALIDATION_2026-10-17.md)、[精度修复与val链路](../tests/ee_fk/VALIDATION_RUNTIME_2026-10-17.md)、[96G实机验收](../tests/ee_fk/VALIDATION_GPU_2026-10-17.md) |
 | 第一次跑通 AutoLearning | `auto_learning/auto_learning_overview_zh.md` |
