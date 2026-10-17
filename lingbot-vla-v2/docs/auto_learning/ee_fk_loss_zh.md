@@ -122,6 +122,8 @@ ee_fk/gripper_loss
 ee_fk/weighted_loss
 ```
 
+仪表盘每条有训练loss的历史记录下，会补三项 `EE训练@步号 未加权/该步`。取该步已写入TB的位置/姿态/夹爪原始loss，不冒充unit均值，也不把后续步的最新loss贴回旧记录；GAS>1时沿用训练器记录的最后一个micro-batch值。紧凑视图分两行避免截断，宽视图同样显示。没有指标的旧run及Step0基线不显示EE训练loss。
+
 快速回滚是在新进程中关闭 `--ee_fk_loss_enabled`；若仍需保留低噪 FM，则只关闭 FK 开关。要完全回到原训练时间分布，同时关闭 `--low_noise_fm_enabled`。这些开关在进程启动时读取，不能热切换当前训练。
 
 ## 独立 val 的末端误差

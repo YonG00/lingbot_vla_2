@@ -351,6 +351,23 @@ def ee_val_text(series, task):
     return f'Step {step}  位置 {position:.2f} mm  姿态 {angle:.2f}°  夹爪 {grip:.4f}'
 
 
+def ee_training_loss_text(series, step):
+    """Exact-step, unweighted training losses; never substitute a later step.
+
+    The caller only attaches this to a history row with a task unit_loss.
+    TB reports the last micro-batch when GAS>1; this is not a unit mean.
+    """
+    source = series.get('_training_ee') or {}
+    values = []
+    for name in ('position', 'orientation', 'gripper'):
+        value = dict(source.get(f'ee_fk/{name}_loss') or []).get(step)
+        if not isinstance(value, (int, float)) or not math.isfinite(value):
+            return None
+        values.append(value)
+    return (f'EE训练@{step} 未加权/该步: 位置 {values[0]:.5f} '
+            f'姿态 {values[1]:.5f} 夹爪 {values[2]:.5f}')
+
+
 def read_series(events: Path) -> Dict[str, Dict[str, List[Tuple[int, float]]]]:
     """收集**带 step 的逐任务指标序列**：`{指标名: {task: [(step, value), ...]}}`。
 
@@ -394,7 +411,7 @@ def read_series(events: Path) -> Dict[str, Dict[str, List[Tuple[int, float]]]]:
 _STATUS_ORDER = ('TRAINING', 'DEFER', 'PASS', 'CANDIDATE', 'EXHAUSTED', 'FORGOTTEN')
 
 
-def read_tb_latest(run_dir: Optional[Path]) -> Dict[str, Any]:
+def read_tb_latest(run_dir: Optional[Path], *, ee_series=None) -> Dict[str, Any]:
     """读 TensorBoard 的**最新标量** → `{tag: (step, value)}`（面板的"全实时"来源）。
 
     🔴 为什么加它（2026-10-12 用户要求"面板全部实时"）：
@@ -429,6 +446,9 @@ def read_tb_latest(run_dir: Optional[Path]) -> Dict[str, Any]:
                 continue
             if vals:
                 out[t] = (int(vals[-1].step), vals[-1].value)
+                if ee_series is not None and t in (
+                        'ee_fk/position_loss', 'ee_fk/orientation_loss', 'ee_fk/gripper_loss'):
+                    ee_series[t] = [(int(point.step), float(point.value)) for point in vals]
     except Exception as exc:  # noqa: BLE001 —— 读 TB 失败不该让面板失败
         print(f'  ⚠️ 读 TensorBoard 失败（{type(exc).__name__}: {str(exc)[:60]}）')
     return out
@@ -1221,6 +1241,10 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
             r_txt = f'{r:.2f}x' if isinstance(r, (int, float)) else '--'
             print('  ' + _fit(f'  {stp:>5}  G {g:.4f}  门槛 {th_txt}  {r_txt:>6}  '
                              f'loss {lo_txt}  {d}', W))
+            ee_loss = ee_training_loss_text(series, stp) if stp in los else None
+            if ee_loss:
+                label, values = ee_loss.split(': ', 1)
+                print(f'    {label}\n      {values}')
     print('=' * W)
     if trainers and len(trainers) > 1:
         print(_c(f'  机上另有 {len(trainers) - 1} 个训练器在跑（--trainers 看全部）', '33'))
@@ -1309,7 +1333,9 @@ def main() -> int:
     series = read_series(ev_path)
     trainers = discover_trainers()
     trainer = find_trainer(trainers, run)
-    tb = read_tb_latest(run_dir)
+    ee_series = {}
+    tb = read_tb_latest(run_dir, ee_series=ee_series)
+    series['_training_ee'] = ee_series
     log_progress = step_progress(train_log_path(run), cfg['interval'])  # type: ignore[arg-type]
     step, sit, nsamples, latest_sit, elapsed_s, eta_s = prefer_tensorboard_progress(
         log_progress, tb)
@@ -1517,6 +1543,9 @@ def render_wide(*, run: str, args, cfg, thresholds, target, trainer, trainers,
             print(f'   {st:>5}{g:>9.4f}{(f"{th:.4f}" if th else "—"):>9}'
                   f'{(f"{ratio:.2f}x" if ratio is not None else "—"):>7}'
                   f'{(f"{loss:.4f}" if loss is not None else "—"):>9}  {kind:<4}{delta}')
+            ee_loss = ee_training_loss_text(series, st) if loss is not None else None
+            if ee_loss:
+                print(f'     {ee_loss}')
             prev_ratio = ratio if ratio is not None else prev_ratio
             shown += 1
         if shown < 3:

@@ -17,6 +17,8 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#37 仪表盘历史三项EE训练loss已通过纯CPU和实机显示核验，移入 §2。**
+
 **#36 已完成实机短训、val、周期HF保存/重载和CUDA精度验收，已移入 §2。** 500步正式对照已启动，尚未完成，闭环效果待另测。
 
 **#35（2026-10-17）低噪 FM 与末端 FK 一致性监督，🧪 CPU 与当前仿真几何部分验证，bf16 兼容/精度未通过，GPU 待验证。**
@@ -141,6 +143,13 @@
 | **#22** 缓存复用与观测 | 让clear/reuse可对照，定位调用成本，避免盲目改变默认 | 默认仍清理；reuse只作用两个入口；GC与OOM回退不取消；不读/写模型或RNG；trace不改变原清理异常传播 | reuse下新增OOM/批大小降级、恢复审计失败、整段墙钟变慢；trace日志缺context/policy或诊断失败阻断清理 | `AL_CUDA_CACHE_POLICY=clear AL_CUDA_CACHE_TRACE=0`下次启动回原清理；本次无当前运行修改 | 本机运行 `tests/test_cuda_cache_policy.py`、`tests/test_al_cache_profile.py`；空闲GPU按A/B说明覆盖评测和周期存档，不能仅验函数 |
 
 ## §2 已验证（可不再惦记）
+
+**#37（2026-10-17）仪表盘历史增加三项EE训练loss，✅ 本地与服务器16项纯CPU测试、真实run紧凑/宽视图通过。** 只改只读面板，在同一次TB加载中提取 `ee_fk/{position,orientation,gripper}_loss` 序列，有unit_loss的历史步显示该步三项未加权值；不改训练器、不重启训练。
+
+- **不变量：** 精确步号对齐，不拿最新值覆盖历史；Step0基线不伪造训练loss；缺失/非有限/部分写入则不显示；不增加TB加载次数、不import torch、不调用GPU。
+- **症状：** 100步行出现120步loss、旧run崩溃、窄屏截掉夹爪或误认为unit平均/已加权值。
+- **回滚：** 面板回到 `7f66523` 版本；不重启训练。
+- **验证入口：** `tests/ee_fk/test_panel_ee_training.py`、`tests/test_al_panel_live_progress.py`；真实显示和torch未导入断言见 `tests/ee_fk/evidence/panel-2026-10-17/live_check.log.txt`。三项loss量纲不同，不能横向比绝对大小；GAS>1沿用训练器最后micro-batch记录，不冒充unit均值。val仍是独立物理误差指标。
 
 **#36（2026-10-17）FK精度隔离与val末端指标，✅ CPU和96G实机接口验收通过。代码 `7f66523`。** 运行期FP32几何独立于模型模块树，局部禁用autocast；val复用原完整去噪预测，增加按轨迹等权的位置RMSE(mm)、姿态角(度)、夹爪MAE与左右臂明细，贯通AL DTO、事件、TB和面板。历史GMSE/阈值/PASS保持。
 

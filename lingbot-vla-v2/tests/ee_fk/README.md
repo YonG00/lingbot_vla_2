@@ -16,6 +16,15 @@ tests/ee_fk/
 
 ## 测试分层
 
+### 仪表盘显示的纯CPU回归
+
+`test_panel_ee_training.py` 不导入torch或实际TensorBoard，使用事件读取替身验证同一步三项训练loss→紧凑/宽面板，覆盖最新值与历史步不同、旧run缺指标、零值、非有限值、Step0无训练loss和每次刷新只读一次TB。可在训练期间单独运行，不收集本目录其他重依赖测试：
+
+```bash
+python3 -m unittest discover -s tests/ee_fk -p test_panel_ee_training.py -v
+python3 -m unittest discover -s tests -p test_al_panel_live_progress.py -v
+```
+
 ### 0. 运行期接线回归
 
 文件：`test_runtime_and_metrics.py`。精度生命周期用小型模型验证父模块转 bf16 和 safetensors 权重往返不会改动 FP32 几何；再与已归档的200组 SAPIEN reference 比较。真实 val 方法复用模拟预测，核对不增加推理次数、旧 GMSE 完全一致、EE 屏蔽 padding。实际 AL DTO→scheduler→SummaryWriter→TensorBoard读取→事件流→面板构成一条 CPU 链路，并覆盖分片去重和不完整数据拒绝。

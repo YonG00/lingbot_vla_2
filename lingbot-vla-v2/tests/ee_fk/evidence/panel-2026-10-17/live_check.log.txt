@@ -1,0 +1,82 @@
+test_exact_step_missing_partial_zero_and_nonfinite (test_panel_ee_training.PanelEETrainingTests.test_exact_step_missing_partial_zero_and_nonfinite) ... ok
+test_real_reader_and_both_views_bind_ee_to_history_step (test_panel_ee_training.PanelEETrainingTests.test_real_reader_and_both_views_bind_ee_to_history_step) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.004s
+
+OK
+test_default_log_paths_cover_panel_and_start_script_layouts (test_al_panel_live_progress.ProgressSourceTests.test_default_log_paths_cover_panel_and_start_script_layouts) ... ok
+test_explicit_log_path_precedes_newer_fallback_logs (test_al_panel_live_progress.ProgressSourceTests.test_explicit_log_path_precedes_newer_fallback_logs) ... ok
+test_invalid_tensorboard_step_is_ignored (test_al_panel_live_progress.ProgressSourceTests.test_invalid_tensorboard_step_is_ignored) ... ok
+test_missing_tensorboard_keeps_log_progress (test_al_panel_live_progress.ProgressSourceTests.test_missing_tensorboard_keeps_log_progress) ... ok
+test_newer_log_step_wins_over_stale_tensorboard (test_al_panel_live_progress.ProgressSourceTests.test_newer_log_step_wins_over_stale_tensorboard) ... ok
+test_newer_tensorboard_step_and_steptime_win (test_al_panel_live_progress.ProgressSourceTests.test_newer_tensorboard_step_and_steptime_win) ... ok
+test_tensorboard_supplies_progress_when_log_missing (test_al_panel_live_progress.ProgressSourceTests.test_tensorboard_supplies_progress_when_log_missing) ... ok
+test_json_config_and_selection_show_before_first_unit_or_checkpoint (test_al_panel_live_progress.SkillPanelTests.test_json_config_and_selection_show_before_first_unit_or_checkpoint) ... ok
+test_legacy_yaml_keeps_goal_and_interval (test_al_panel_live_progress.SkillPanelTests.test_legacy_yaml_keeps_goal_and_interval) ... ok
+test_selection_beats_last_completed_task (test_al_panel_live_progress.SkillPanelTests.test_selection_beats_last_completed_task) ... ok
+test_detects_python_module_launcher (test_al_panel_live_progress.TrainerDiscoveryTests.test_detects_python_module_launcher) ... ok
+test_detects_torchrun_console_script_for_future_run_name (test_al_panel_live_progress.TrainerDiscoveryTests.test_detects_torchrun_console_script_for_future_run_name) ... ok
+test_output_argument_identifies_run_without_legacy_environment (test_al_panel_live_progress.TrainerDiscoveryTests.test_output_argument_identifies_run_without_legacy_environment) ... ok
+test_rejects_unrelated_process_command (test_al_panel_live_progress.TrainerDiscoveryTests.test_rejects_unrelated_process_command) ... ok
+
+----------------------------------------------------------------------
+Ran 14 tests in 0.007s
+
+OK
+ 池子（事件流推导）: TRAINING 1
+   ⚠️ 事件流仅作参考；完整池详情待 HF/pool_state 或 DCP 快照（不影响训练显示）
+AL al_stand_ee_lnfm_9680_add500_20261017_184252   固定步数 500（PASS…
+  通关    关闭状态转换；开环指标仅观察
+  进度    Step 247/500  1卡  GPU0  3.6s/it
+  用时    剩余约 0.3h（纯训练估计，另加评测/存档）
+  配置    任务扫描=关  样本扫描=开  评测每100步  存档每250步
+  池子    pass=0  defer=0  candidate=0  exhausted=0   (实时·TB)
+----------------------------------------------------------------
+  在训    place_object_stand   [事件流（无注册表快照）]
+  末端val Step 231  位置 34.62 mm  姿态 9.03°  夹爪 0.0327
+  左右定位  左 38.52 mm (step 231)  右 30.22 mm (step 231)
+  历史    最近 3 个 unit（倍率 ≤1.0 过线）
+      100  G 0.0069  门槛 0.0003  24.26x  loss 0.0607
+    EE训练@100 未加权/该步
+      位置 0.00039 姿态 0.01861 夹爪 0.00226
+      200  G 0.0066  门槛 0.0003  23.30x  loss 0.0570  ↓0.957
+    EE训练@200 未加权/该步
+      位置 0.00119 姿态 0.03060 夹爪 0.00206
+      231  G 0.0069  门槛 0.0003  24.19x  loss 0.0534  ↑+0.889
+    EE训练@231 未加权/该步
+      位置 0.00069 姿态 0.02402 夹爪 0.00111
+================================================================
+  参数: --pool 明细, --progress 进步, --traces N 轨迹, --wide 表格, --wat…
+
+ 池子（事件流推导）: TRAINING 1
+   ⚠️ 事件流仅作参考；完整池详情待 HF/pool_state 或 DCP 快照（不影响训练显示）
+==============================================================================
+ AL 仪表盘  run=al_stand_ee_lnfm_9680_add500_20261017_184252   固定步数=500（PASS关闭）
+ 门槛: gmean1_active4.json（50 任务）；每 100 步判定一次
+ 状态: 训练中（1 rank · GPU0） | Step 247 | 稳态 3.6s/it
+ 通关: 关闭状态转换；开环指标仅观察
+ 下一次判定: 再过 53 步（Step 300）
+----------------------------------------------------------------------------
+ 任务                               GMean        门槛      倍数  数据     距过线
+----------------------------------------------------------------------------
+ place_object_stand           0.0069   0.0003 24.19x  实测     差距大
+----------------------------------------------------------------------------
+ 表内 1/50 有数（实测 1）｜"已过线" 0 个（仅指标，非通关）
+ 末端val: place_object_stand  Step 231  位置 34.62 mm  姿态 9.03°  夹爪 0.0327
+----------------------------------------------------------------------------
+ 成长轨迹: place_object_stand（该任务自身历史，每 unit 一点）
+    step    GMean       门槛     倍率     loss  类型  变化
+       0   0.0163   0.0003 57.27x        —  基线  —（首次记录）
+     100   0.0069   0.0003 24.26x   0.0607  训后  ↓ 改善 33.014
+     EE训练@100 未加权/该步: 位置 0.00039 姿态 0.01861 夹爪 0.00226
+     200   0.0066   0.0003 23.30x   0.0570  训后  ↓ 改善 0.957
+     EE训练@200 未加权/该步: 位置 0.00119 姿态 0.03060 夹爪 0.00206
+     231   0.0069   0.0003 24.19x   0.0534  训后  ↑ 变差 +0.889
+     EE训练@231 未加权/该步: 位置 0.00069 姿态 0.02402 夹爪 0.00111
+   三次: 上一次=231 / 24.19x｜上上次=200 / 23.30x｜上上上次=100 / 24.26x
+----------------------------------------------------------------------------
+ 摘要: 通关 0/15 | 24.19x ↑ 在变差 | 57.27x→24.19x（改善58%）
+============================================================================
+
+PURE_CPU_TESTS=16; LIVE_COMPACT_WIDE=PASS; TORCH_IMPORTED=False
