@@ -1475,7 +1475,16 @@ def main():
         data_iterator = (iter(()) if _al_hook is not None
                          and _al_hook.scheduler.state.finished
                          else iter(train_dataloader))
-        for epoch_step in range(start_step, args.train.train_steps):
+        # AL samples an infinite weighted stream. With a fixed optimizer-step
+        # budget and no requested epoch saves, dataset length is not an eval
+        # boundary. Keep the iterator/unit intact until max_steps (or AL stop).
+        # Do not merely skip flush below: rebuilding an iterator mid-unit would
+        # discard prefetched batches while sampler accounting still includes them.
+        epoch_train_steps = args.train.train_steps
+        if (_al_hook is not None and args.train.max_steps is not None
+                and not args.train.save_epochs):
+            epoch_train_steps = start_step + max(0, args.train.max_steps - global_step)
+        for epoch_step in range(start_step, epoch_train_steps):
             # Unit 最后一步可能已触发 PASS/收工。下一轮切记**先检查再 ++step**，
             # 否则会把未训练的一个 optimizer step 错报成已完成。
             if _al_hook is not None and _al_hook.scheduler.state.finished:

@@ -191,3 +191,7 @@ PYTHONPATH=.:tests python -m unittest \
 2026-10-15 后续准备：按用户确认，旧训练 HF 只保留 `al_v79_poolfix_7300/checkpoints/global_step_9460`、`global_step_9680`；已删除旧 4300/7260/7300/9240 及空 9701，释放约 59.5 GiB，可用约 76.8 GiB，两份保留 HF 的分片头/索引/关键资源复核通过。清理日志在 `/data/al_cache/cleanup_old_ckpts_20261015.log`，清理后默认启动预检退出 0，未启动训练。用户随后将新实验保存周期由 200 改为 250，CPU 契约覆盖四次保存、同一步结束去重和非评测边界的周期触发。
 
 2026-10-15 同步前的机器检查：无训练进程，无 GPU，CPU 模式内存限额 2 GiB；文件系统可用约 18 GB，五份 6B BF16 HF 约需 60 GB，尚不满足完整实验存档容量要求。不自动清理历史产物；正式训练前须重新确认磁盘挂载与可用空间。生产分支 `e64388c` 上的既有 CPU 用例 `test_hf_export_dtype.py`、`test_state_machine.py`、`test_pass_thresholds.py` 共 49 项通过；这不是本次新代码的上机验收。
+
+## 固定步数与数据epoch的补充约定（2026-10-17）
+
+AL指定max_steps且save_epochs=0时，以剩余optimizer步数驱动内层循环，不把数据长度当作学习单元结束点。因此5561样本/GBS24的231步只是数据长度参考，正常测评应在100/200/300等unit边界；真正训练结束仍结算未满unit并存档。普通训练、未指定max_steps或显式epoch存档仍沿用原路径。说明与纯CPU契约见 [epoch边界测试](../../tests/al_epoch_schedule/README.md)。已启动的旧进程不会热切换此行为，需下次run使用修复。
