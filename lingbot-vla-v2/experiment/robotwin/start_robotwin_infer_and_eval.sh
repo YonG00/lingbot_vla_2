@@ -32,6 +32,8 @@
 #   --use_bf16          use bfloat16 inference (default: False)
 #   --use_fp32          use float32 inference (default: True; release reproduction setting)
 #   --use_compile       enable model compile in policy inference (default: True)
+#   --infer_noise_seed  fixed diffusion noise seed for every inference call;
+#                       omit for normal advancing random noise
 #   --task_config       RoboTwin task config (default: demo_clean, or $TASK_CONFIG)
 #   --keep_inference    keep inference servers resident after simulation
 #
@@ -61,6 +63,7 @@ test_num=""
 num_gpus=1
 num_per_gpu=1
 use_length=50
+infer_noise_seed="${LINGBOT_INFER_NOISE_SEED:-}"
 use_bf16=False
 use_fp32=True
 use_compile=True
@@ -90,6 +93,7 @@ while [[ $# -gt 0 ]]; do
         --num_gpus)          num_gpus="$2";          shift 2 ;;
         --num_per_gpu)       num_per_gpu="$2";       shift 2 ;;
         --use_length)        use_length="$2";        shift 2 ;;
+        --infer_noise_seed)  infer_noise_seed="$2";  shift 2 ;;
         --use_bf16)          use_bf16="$2";        shift 2 ;;
         --use_fp32)          use_fp32="$2";        shift 2 ;;
         --use_compile)       use_compile="$2";     shift 2 ;;
@@ -374,7 +378,15 @@ for slot in $(seq 0 $((num_slots-1))); do
         inference_script_for_module="${inference_script_for_module#${inference_workdir%/}/}"
     fi
     inference_module=$(echo "${inference_script_for_module}" | sed 's|/|.|g; s|\.py$||')
-    setsid bash -c "source ${conda_sh} && conda activate ${inference_env} && SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 python -m ${inference_module} \
+    noise_export=""
+    if [ -n "$infer_noise_seed" ]; then
+        if ! [[ "$infer_noise_seed" =~ ^-?[0-9]+$ ]]; then
+            echo "Error: --infer_noise_seed must be an integer" >&2
+            exit 2
+        fi
+        noise_export="export LINGBOT_INFER_NOISE_SEED=${infer_noise_seed} && "
+    fi
+    setsid bash -c "source ${conda_sh} && conda activate ${inference_env} && ${noise_export}SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0 python -m ${inference_module} \
         --model_path '${model_path}' \
         --use_length '${use_length}' \
         --use_bf16 "${use_bf16}" \

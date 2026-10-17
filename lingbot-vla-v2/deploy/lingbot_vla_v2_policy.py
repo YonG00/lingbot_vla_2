@@ -37,6 +37,23 @@ from deploy.fast_weight_load import (
 )
 import time
 import random
+import contextlib
+
+
+@contextlib.contextmanager
+def _inference_noise_context():
+    """Replay one diffusion seed per inference call when explicitly enabled."""
+    raw_seed = os.environ.get("LINGBOT_INFER_NOISE_SEED", "").strip()
+    if not raw_seed:
+        yield
+        return
+    try:
+        seed = int(raw_seed)
+    except ValueError as exc:
+        raise ValueError("LINGBOT_INFER_NOISE_SEED must be an integer") from exc
+    with torch.random.fork_rng(devices=[torch.cuda.current_device()]):
+        torch.manual_seed(seed)
+        yield
 
 def set_seed_everywhere(seed: int):
     """Sets the random seed for Python, NumPy, and PyTorch functions."""
@@ -80,14 +97,15 @@ class PolicyPreprocessMixin:
             observation['images'] = observation['images'].unsqueeze(0)
             observation['img_masks'] = observation['img_masks'].unsqueeze(0)
 
-        actions = self.model.sample_actions(
-            observation['images'].to(dtype=dtype, device=device),
-            observation['img_masks'].to(device=device),
-            observation['lang_tokens'].unsqueeze(0).to(device=device),
-            observation['lang_masks'].unsqueeze(0).to(device=device),
-            observation['state'].unsqueeze(0).to(dtype=dtype, device=device),
-            image_grid_thw=self._to_device_image_grid_thw(observation.get('image_grid_thw'), device),
-        )
+        with _inference_noise_context():
+            actions = self.model.sample_actions(
+                observation['images'].to(dtype=dtype, device=device),
+                observation['img_masks'].to(device=device),
+                observation['lang_tokens'].unsqueeze(0).to(device=device),
+                observation['lang_masks'].unsqueeze(0).to(device=device),
+                observation['state'].unsqueeze(0).to(dtype=dtype, device=device),
+                image_grid_thw=self._to_device_image_grid_thw(observation.get('image_grid_thw'), device),
+            )
         delta_time = time.time() - s1
         print(f'sample_actions cost {delta_time} s')
         observation['actions'] = actions.squeeze(0).to(dtype=torch.float32, device='cpu')
@@ -138,14 +156,15 @@ class PolicyPreprocessMixin:
         if capture_time:
             with torch.inference_mode():
                 for _ in range(3):
-                    _ = sample_compile_fn(
+                    with _inference_noise_context():
+                        _ = sample_compile_fn(
                             images.to(dtype=dtype, device=device),
                             img_masks.to(device=device),
                             lang_tokens.to(device=device),
                             lang_masks.to(device=device),
                             state.to(dtype=dtype, device=device),
                             image_grid_thw=self._to_device_image_grid_thw(image_grid_thw, device),
-                    )
+                        )
                 torch.cuda.synchronize()
 
                 iters = 5
@@ -153,27 +172,29 @@ class PolicyPreprocessMixin:
                 ends = [torch.cuda.Event(enable_timing=True) for _ in range(iters)]
                 for i in range(iters):
                     starts[i].record()
-                    actions = sample_compile_fn(
+                    with _inference_noise_context():
+                        actions = sample_compile_fn(
                                     images.to(dtype=dtype, device=device),
                                     img_masks.to(device=device),
                                     lang_tokens.to(device=device),
                                     lang_masks.to(device=device),
                                     state.to(dtype=dtype, device=device),
                                     image_grid_thw=self._to_device_image_grid_thw(image_grid_thw, device),
-                    )
+                        )
                     ends[i].record()
                 torch.cuda.synchronize()
                 gpu_times = [starts[i].elapsed_time(ends[i]) for i in range(iters)]
                 print(f"sample_actions avg time: {sum(gpu_times)/len(gpu_times):.4f} ms, min time: {min(gpu_times):.4f} ms, max time: {max(gpu_times):.4f} ms")
         else:
-            actions = sample_compile_fn(
-                            images.to(dtype=dtype, device=device),
-                            img_masks.to(device=device),
-                            lang_tokens.to(device=device),
-                            lang_masks.to(device=device),
-                            state.to(dtype=dtype, device=device),
-                            image_grid_thw=self._to_device_image_grid_thw(image_grid_thw, device),
-            )
+            with _inference_noise_context():
+                actions = sample_compile_fn(
+                    images.to(dtype=dtype, device=device),
+                    img_masks.to(device=device),
+                    lang_tokens.to(device=device),
+                    lang_masks.to(device=device),
+                    state.to(dtype=dtype, device=device),
+                    image_grid_thw=self._to_device_image_grid_thw(image_grid_thw, device),
+                )
 
         delta_time = time.time() - s1
         print(f"sample_actions batch={actions.shape[0]} cost {delta_time} s")
