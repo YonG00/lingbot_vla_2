@@ -79,8 +79,10 @@ class LauncherTests(unittest.TestCase):
 
     def test_vision_encoder_freeze_is_explicit_and_can_be_disabled(self):
         self.args.freeze_vision_encoder = False
+        self.args.gradient_checkpointing = True
         plan = launcher.build_plan(self.args)
         self.assertFalse(plan["training_config"]["train"]["freeze_vision_encoder"])
+        self.assertTrue(plan["training_config"]["train"]["enable_gradient_checkpointing"])
         cmd = plan["command"]
         self.assertEqual(cmd[cmd.index("--train.freeze_vision_encoder") + 1], "false")
 

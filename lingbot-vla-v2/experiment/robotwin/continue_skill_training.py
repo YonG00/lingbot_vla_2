@@ -89,6 +89,7 @@ def make_job(args):
     for attr in launcher.EE_ARGUMENTS:
         setattr(config, attr, getattr(args, attr, None))
     config.freeze_vision_encoder = getattr(args, "freeze_vision_encoder", None)
+    config.gradient_checkpointing = getattr(args, "gradient_checkpointing", None)
     plan = launcher.build_plan(config)  # 同一 CPU 预检、来源配置与数据划分契约。
     command = [sys.executable, str(Path(launcher.__file__).resolve())]
     for flag in ("model", "train_config", "dataset_root", "qwen3vl", "out", "audit_report",
@@ -109,6 +110,11 @@ def make_job(args):
         command += [
             "--freeze-vision-encoder" if args.freeze_vision_encoder
             else "--no-freeze-vision-encoder"
+        ]
+    if getattr(args, "gradient_checkpointing", None) is not None:
+        command += [
+            "--gradient-checkpointing" if args.gradient_checkpointing
+            else "--no-gradient-checkpointing"
         ]
     command += ["--python", sys.executable, "--execute"]
     runtime = (args.runtime_dir or args.output_root / "skill_launches").expanduser().resolve()
@@ -246,6 +252,12 @@ def main(argv=None):
     if args.from_hf is None:
         parser.error("--from-hf is required")
     job, plan = make_job(args)
+    command = plan.get("command", [])
+    def command_value(flag, default=None):
+        try:
+            return command[command.index(flag) + 1]
+        except (ValueError, IndexError):
+            return default
     print(json.dumps(dict(source_model=job["source_model"], added_steps=args.steps,
         micro=args.micro, gas=args.gas, tasks=plan["config"]["learning_task_names"],
         hardness_scan_enabled=plan["config"]["hardness_scan_enabled"], shutdown=args.shutdown,
@@ -255,9 +267,9 @@ def main(argv=None):
             "eval_interval_steps", "min_steps_before_defer", "defer_retry_steps",
             "early_defer_on_overfit", "review_after_task_transitions",
             "refresh_hardness_on_continue")},
-        freeze_vision_encoder=plan.get("training_config", {}).get("train", {}).get(
-            "freeze_vision_encoder"),
-        ee_weights={key: plan.get("training_config", {}).get("train", {}).get(key) for key in (
+        freeze_vision_encoder=command_value("--train.freeze_vision_encoder"),
+        gradient_checkpointing=command_value("--train.enable_gradient_checkpointing"),
+        ee_weights={key: command_value("--train." + key) for key in (
             "ee_fk_position_loss_weight", "ee_fk_orientation_loss_weight",
             "ee_fk_gripper_loss_weight")},
         output_dir=job["output_dir"], log=job["log"], status_file=job["status_file"]),

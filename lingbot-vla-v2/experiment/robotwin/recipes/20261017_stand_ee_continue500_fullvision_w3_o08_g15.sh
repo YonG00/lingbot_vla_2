@@ -6,7 +6,8 @@
 #   2. 解冻视觉编码器（修正上一轮 freeze_vision_encoder=true 的配置错误）。
 #   3. 保持 low_noise_fm + target_change_window + 独立 val。
 #   4. EE loss = position 3.0 / orientation 0.8 / gripper 1.5。
-#   5. micro=24, GAS=1, 新增500步，每250步保存BF16 HF，不写DCP。
+#   5. micro=20, GAS=1, GBS=20，新增500步，每250步保存BF16 HF，不写DCP。
+#   6. 开启 gradient checkpointing，给全量视觉训练留出反向传播显存。
 #
 # 默认只预览命令；EXECUTE=1 才会后台启动。SHUTDOWN=1 才允许正常结束后关机。
 set -euo pipefail
@@ -25,7 +26,7 @@ CMD=(
   "$ROOT/experiment/robotwin/continue_skill_training.py"
   --from-hf "$FROM_HF"
   --steps 500
-  --micro 24
+  --micro 20
   --gas 1
   --run-name "$RUN_NAME"
   --out "$OUT"
@@ -38,6 +39,7 @@ CMD=(
   --ee-orientation-weight 0.8
   --ee-gripper-weight 1.5
   --no-freeze-vision-encoder
+  --gradient-checkpointing
 )
 
 # The training environment path is explicit on the server; the fallback keeps

@@ -69,6 +69,11 @@ def add_training_freeze_arguments(parser):
         action=argparse.BooleanOptionalAction, default=None,
         help="是否冻结视觉编码器；默认继承启动器历史值，--no-freeze-vision-encoder 开启全量视觉训练",
     )
+    parser.add_argument(
+        "--gradient-checkpointing", dest="gradient_checkpointing",
+        action=argparse.BooleanOptionalAction, default=None,
+        help="显式启用/关闭梯度检查点；默认沿用来源配置",
+    )
 
 
 def read_json(path):
@@ -265,6 +270,10 @@ def build_plan(args):
         "train.freeze_vision_encoder": (
             True if getattr(args, "freeze_vision_encoder", None) is None
             else args.freeze_vision_encoder
+        ), "train.enable_gradient_checkpointing": (
+            source_args.get("train", {}).get("enable_gradient_checkpointing", False)
+            if getattr(args, "gradient_checkpointing", None) is None
+            else args.gradient_checkpointing
         ), "train.enable_mixed_precision": False,
         "train.enable_fp32": False, "train.use_compile": False,
         "train.rmpad": False, "train.rmpad_with_pos_ids": False,

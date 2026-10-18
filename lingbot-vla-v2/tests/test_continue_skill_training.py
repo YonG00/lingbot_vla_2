@@ -40,6 +40,7 @@ class ContinueSkillTests(unittest.TestCase):
             learning_tasks=None, master_port=62510, runtime_dir=self.root / "launches")
         self.args.run_name = "cabinet_from1000_500"
         self.args.freeze_vision_encoder = None
+        self.args.gradient_checkpointing = None
 
     def make_hf(self, model):
         model.mkdir(parents=True)
@@ -75,11 +76,24 @@ class ContinueSkillTests(unittest.TestCase):
 
     def test_continue_can_request_full_vision_training(self):
         self.args.freeze_vision_encoder = False
+        self.args.gradient_checkpointing = True
         with patch.object(entry.launcher, "build_plan", return_value={"config": {}}) as build:
             job, _ = entry.make_job(self.args)
         cfg = build.call_args.args[0]
         self.assertFalse(cfg.freeze_vision_encoder)
+        self.assertTrue(cfg.gradient_checkpointing)
         self.assertIn("--no-freeze-vision-encoder", job["command"])
+        self.assertIn("--gradient-checkpointing", job["command"])
+
+    def test_recipe_overrides_are_reported_from_effective_command(self):
+        command = ["--train.freeze_vision_encoder", "false",
+                   "--train.enable_gradient_checkpointing", "true",
+                   "--train.ee_fk_position_loss_weight", "3.0"]
+        def value(flag):
+            return command[command.index(flag) + 1]
+        self.assertEqual(value("--train.freeze_vision_encoder"), "false")
+        self.assertEqual(value("--train.enable_gradient_checkpointing"), "true")
+        self.assertEqual(value("--train.ee_fk_position_loss_weight"), "3.0")
 
     def test_al_parameters_can_be_overridden_on_command_line(self):
         self.args.sample_scan = False

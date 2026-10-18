@@ -22,16 +22,17 @@ train.ee_fk_gripper_loss_weight = 0.1
 | 起点 | `global_step_500/hf_ckpt` |
 | 新增步数 | 500 |
 | 视觉编码器 | 解冻，`freeze_vision_encoder=false` |
+| 梯度检查点 | 开启，降低全量视觉训练的激活显存 |
 | 低噪 FM | 保持开启 |
 | 样本窗口 | 保持 `target_change_window` |
 | EE position | `3.0` |
 | EE orientation | `0.8` |
 | EE gripper | `1.5` |
-| batch | micro=24, GAS=1, GBS=24 |
+| batch | micro=20, GAS=1, GBS=20 |
 | 评测/存档 | 每100步独立 val，每250步保存 BF16 HF，不写DCP |
 | PASS/复习 | 保持单任务实验关闭 |
 
-这次先观察解冻视觉和增大 EE 监督的联合效果；它不是严格单变量实验。结果应与 step500、step9680 用相同任务、相同 clean/unseen、相同 scene seed 和推理参数比较。
+上一版全量视觉训练在第1步反向时 OOM（约94.5 GiB已占用，仅剩433 MiB），所以本轮将 GBS 从24降为20，并开启 gradient checkpointing。这里仍是解冻视觉和增大 EE 监督的联合效果，不是严格单变量实验。结果应与 step500、step9680 用相同任务、相同 clean/unseen、相同 scene seed 和推理参数比较。
 
 ## 启动
 
