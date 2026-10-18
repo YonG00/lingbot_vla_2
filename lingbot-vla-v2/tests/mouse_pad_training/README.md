@@ -10,4 +10,4 @@ PYTHONPATH=.:tests python -m pytest -q \
 
 新启动文件使用独立training配置快照是因为原始9680 run缺少便捷续训所需的 `datasets.txt` 和 `al_config.json`；复用完整启动器及现有后台运行/最终HF核验/关机流程，不复制训练循环。
 
-本地通过情况见本轮改动台账；真实资产/数据对拍与GPU尚未验证。
+本地及服务器均33 passed、13 subtests passed；服务器真实资产预览退出0。见 [实机验证记录](VALIDATION_20261018.md)；鼠标数据完整对拍、新窗口覆盖率和GPU仍待实际启动验证。
