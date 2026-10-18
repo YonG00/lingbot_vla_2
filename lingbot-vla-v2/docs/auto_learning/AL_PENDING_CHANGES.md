@@ -17,6 +17,13 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#42（2026-10-18）原始step9680专练place_mouse_pad，⏳ 本地配方与CPU测试，未提交/同步/启动。** 新增日期启动文件（shell/Python）、独立单任务AL配置和说明文档。默认新增500步、micro20/GAS1、每250步HF；EE(3/.8/1.5)、低噪FM、连续抓取窗口开启。原始9680权重不依赖stand模型；40 train/10 val，任务episode800–849。
+
+- **不变量：** 仅鼠标任务train白名单，val不入训练；ViT两处冻结开关、expert-only和LoRA均显式关闭；子启动器重建时仍关闭；不导入旧池/旧概率；原始来源配置不改写；默认只预览，自动关机需 `--shutdown` 且最终HF完整。
+- **症状：** source_model含stand路径、train_ids出现800–849之外任务、子启动器重新冻结ViT、鼠标仍读stand窗口缓存、原始9680缺少datasets.txt导致便捷续训失败。
+- **回滚：** 不使用新recipe即可，不改旧启动器和旧run；`--steps`/`--micro`/`--gas`/`--gradient-checkpointing`/`--no-shutdown`仅新进程读取。若要禁用此实验，保留旧配置即可。
+- **验证入口：** `tests/mouse_pad_training/test_recipe.py`、既有启动器/续训CPU回归、shell `bash -n`、Python编译及默认 `--help`。实机只读取证确认9680 HF及来源CLI存在；GPU命令权限错误，未启动。测试说明与后续证据集中在 `tests/mouse_pad_training/`。
+
 **#40（2026-10-18）连续抓取目标变化窗口 + step500 起点750步续训配方，⏳ CPU回归/真机缓存重建待完成。** `target_change_window.py::scan_episode` 按夹爪数值方向识别闭合，只把闭合与同侧、闭合后2秒内且重新开爪前的首段腕部运动连成一个连续加权窗口；缺少提起时只覆盖闭合及短暂保持。缓存 schema 升为2，续训 recipe 给新run独立缓存并使用该规则。750步启动器允许末尾非100对齐的50步partial unit，以便100步周期验证后在750步正常结算。
 
 - **不变量：** 打开夹爪不创建抓取阶段；超过2秒或开爪后的腕部运动不匹配为提起；窗口概率仍通过原静态采样器归一化；缓存路径/权重/训练输出为新 run 独立目录，旧报告不覆写；step<=750时周期验证仍只在100/200/.../700，末尾partial unit在750完成；若方向一致的预测和真值都减相同输入状态再按物理尺度计算MSE，误差不变。
