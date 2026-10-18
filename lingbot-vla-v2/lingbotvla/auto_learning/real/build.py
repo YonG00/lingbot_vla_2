@@ -231,6 +231,12 @@ def build_auto_learning_parts(
         cat = type(cat)({t: cat.entry(t) for t in want}, meta=cat.meta,
                         episodes_per_task=cat.episodes_per_task, task_order=cat.task_order)
 
+    # 先派生运行划分，再按实际训练白名单构造 local_idx；原 manifest 保持40/10。
+    cat = cat.for_training(train_all_episodes=cfg.train_all_episodes)
+    if cfg.train_all_episodes and logger is not None:
+        logger.info_rank0("[auto_learning] train_all_episodes=True：全部回合训练；"
+                          "固定4条 train_monitor；无独立val/参考倍率/PASS判定")
+
     # ---- 回合 → dataset local_idx ----
     resolver = SampleResolver.from_dataset(train_dataset, task_of_episode=cat.task_of_episode)
     if cfg.hardness_scan_enabled and cfg.sample_scan_method == "target_change_window":
@@ -815,6 +821,9 @@ def _attach_pass_thresholds(
     3. 阈值表必须**覆盖 catalog 里全部任务**（缺的任务会被静默判成"永不 PASS"，
        白白烧算力）
     """
+    if cfg.train_all_episodes:
+        # 原成品参考线基于独立 val；全训练实验不加载、不比较这把尺子。
+        return
     from ..decision.thresholds import (
         PASS_METRIC_MSE, PASS_METRIC_GMEAN, PassThresholds, active_metric,
         verify_threshold_stat_compatible,

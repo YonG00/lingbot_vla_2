@@ -34,6 +34,8 @@ class AutoLearningConfig:
     replay_task_names: Optional[List[str]] = None
     task_scan_enabled: bool = True
     pass_transition_enabled: bool = True
+    # 可学性实验：原 train+val 全部训练，仅保留 train_monitor；不产生 val/PASS/gap。
+    train_all_episodes: bool = False
     hardness_scan_enabled: bool = True
     # 历史名称：hardness_scan_enabled 是两种样本扫描共用的总开关。
     sample_scan_method: str = "hardness"
@@ -206,9 +208,23 @@ class AutoLearningConfig:
 
     def validate(self) -> None:
         for key in ("task_scan_enabled", "pass_transition_enabled",
-                    "hardness_scan_enabled", "import_pool_state", "low_noise_fm_enabled"):
+                    "hardness_scan_enabled", "import_pool_state", "low_noise_fm_enabled",
+                    "train_all_episodes"):
             if type(getattr(self, key)) is not bool:
                 raise ValueError(f"{key} must be boolean")
+        if self.train_all_episodes:
+            incompatible = [key for key in (
+                "task_scan_enabled", "pass_transition_enabled", "pool_filter_by_gmean_ratio",
+                "review_after_task_transitions", "rescan_candidates_after_transition",
+                "early_defer_on_overfit", "defer_resample_retry", "import_pool_state",
+            ) if getattr(self, key)]
+            if incompatible:
+                raise ValueError(f"train_all_episodes requires disabled: {', '.join(incompatible)}")
+            if (type(self.max_global_steps) is not int or self.max_global_steps <= 0
+                    or self.min_steps_before_defer <= self.max_global_steps):
+                raise ValueError("train_all_episodes requires finite max_global_steps < min_steps_before_defer")
+            if self.active_train_probe_trajs != 4:
+                raise ValueError("train_all_episodes requires four fixed train monitor trajectories")
         if self.sample_scan_method not in ("hardness", "target_change_window"):
             raise ValueError("sample_scan_method must be hardness or target_change_window")
         if self.hardness_scan_enabled and self.sample_scan_method == "target_change_window":
@@ -326,7 +342,8 @@ class AutoLearningConfig:
             raise ValueError(
                 f"unsupported pass_metric: {self.pass_metric!r}（只能是 'nmse' / 'mse' / 'gmean_mse'）"
             )
-        if self.pass_metric in ("mse", "gmean_mse") and not self.pass_thresholds_file:
+        if (not self.train_all_episodes and self.pass_metric in ("mse", "gmean_mse")
+                and not self.pass_thresholds_file):
             raise ValueError(
                 "pass_metric='mse' / 'gmean_mse' 时必须同时给 pass_thresholds_file"
                 "（按任务的阈值表，由 tools/compute_pass_thresholds.py 产出）；"

@@ -17,6 +17,13 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#43（2026-10-18）鼠标50条全部训练 + 仅训练集拟合监控 + 位置EE权重10，🧪 本地CPU验证通过，未提交/未上机。** 用户明确将原10条val加入训练，保留4条训练轨迹每100步GMSE/EE监控，关闭独立val；新增 `train_all_episodes=false` 默认开关。新日期配方从原始9680新增500步，EE权重10/.8/1.5，ViT全量、低噪FM、连续窗口及250/500 HF沿用旧配方。
+
+- **不变量：** 原manifest不改；开启时train=原train∪val、val为空，白名单/实际local_idx/静态窗口缓存均覆盖全部50条；仅调用4条train_monitor；不伪造active_val、成品参考倍率、PASS、gap或泛化结论；默认关闭时40/10行为保持；禁止旧池导入及验证驱动状态迁移。
+- **症状：** 新run仍train=40、缓存只40条、出现active_val调用/倍率/“未过拟合”、worker丢失全训练开关、训练末因缺val报metric_invalid或DEFER。
+- **回滚：** 使用原 `20261018_place_mouse_pad_9680_ee_lnfm.sh`（40/10、位置权重3），新进程生效；不覆盖原run/缓存/manifest，无删除机制。50条训练模型不能再用原val声称独立验证。
+- **验证入口：** `tests/mouse_pad_training/` CPU契约（实际worker重建、catalog→resolver→采样→调度→事件流）、既有40/10回归和窗口预计算；GPU训练/闭环、服务器同步及提交push不在本次执行范围。左右臂50条仍为19/31，本轮不重配左右采样概率。当前本地证据为47 passed、28 subtests；旧模式回归182 passed、72 subtests。
+
 **#42（2026-10-18）原始step9680专练place_mouse_pad，🧪 已提交同步，实机CPU预览通过，未启动GPU训练。** 实现提交 `aba61f0`。新增日期启动文件（shell/Python）、独立单任务AL配置和说明文档。默认新增500步、micro20/GAS1、每250步HF；EE(3/.8/1.5)、低噪FM、连续抓取窗口开启。原始9680权重不依赖stand模型；40 train/10 val，任务episode800–849。
 
 - **不变量：** 仅鼠标任务train白名单，val不入训练；ViT两处冻结开关、expert-only和LoRA均显式关闭；子启动器重建时仍关闭；不导入旧池/旧概率；原始来源配置不改写；默认只预览，自动关机需 `--shutdown` 且最终HF完整。

@@ -774,30 +774,36 @@ class Scheduler:
         st.attempt_step = 0
         st.rescued = False
 
-        # 4 train + 4 val 的 attempt 基线（文档 §42）
+        # 默认4 train + 4 val；全训练实验只监控固定4条train，不借作独立val。
         tm = self.evaluator.evaluate(name, EvalSplit.TRAIN_MONITOR.value, pick.train_monitor_ids)
-        vm = self.evaluator.evaluate(name, EvalSplit.ACTIVE_VAL.value, pick.active_val_ids)
+        if al.train_all_episodes and self.logger is not None:
+            self.logger.log_text(st.global_step, "auto_learning/evaluation_mode", "train_monitor_only")
+        vm = None if al.train_all_episodes else self.evaluator.evaluate(
+            name, EvalSplit.ACTIVE_VAL.value, pick.active_val_ids)
         pick.current_train_nmse = tm.nmse
-        pick.current_val_nmse = vm.nmse
-        pick.current_val_mse = vm.mse
-        pick.current_val_gmean_mse = vm.gmean_mse
+        pick.current_val_nmse = None if vm is None else vm.nmse
+        pick.current_val_mse = None if vm is None else vm.mse
+        pick.current_val_gmean_mse = None if vm is None else vm.gmean_mse
         pick.current_train_gmean_mse = tm.gmean_mse
-        if not al.task_scan_enabled:
+        if al.train_all_episodes:
+            pick.metric_valid = is_finite_metric(tm.gmean_mse)
+        elif not al.task_scan_enabled:
             pick.metric_valid = vm.metric_valid and (
                 is_finite_metric(vm.gmean_mse) if al.pass_metric == "gmean_mse"
                 else is_finite_metric(vm.nmse))
         pick.prev_train_nmse = tm.nmse
-        pick.prev_val_nmse = vm.nmse
+        pick.prev_val_nmse = None if vm is None else vm.nmse
         # GMean 的"上一个 unit 值"（ratio 模式下 LP 用它算；非 ratio 模式只是多记两个数，
         # 不参与任何判定 ⇒ 既有行为不变）
-        pick.prev_val_gmean_mse = vm.gmean_mse
+        pick.prev_val_gmean_mse = None if vm is None else vm.gmean_mse
         pick.prev_train_gmean_mse = tm.gmean_mse
-        pick.train_val_gap_ratio = (
+        pick.train_val_gap_ratio = None if vm is None else (
             train_val_gap(vm.gmean_mse, tm.gmean_mse) if pool_filter_enabled(al)
             else train_val_gap(vm.nmse, tm.nmse))
         pick.last_eval_step = st.global_step
         self._record_eval(pick, tm, kind="active_train")
-        self._record_eval(pick, vm, kind="active_val")
+        if vm is not None:
+            self._record_eval(pick, vm, kind="active_val")
 
         # hardness 扫描（一个 attempt 入口扫一次，文档 §26）
         # 首次扫描含 train-mode 的 torch.compile / 预热（首跑实测该窗口 369 s，其中大部分是编译）
@@ -858,7 +864,7 @@ class Scheduler:
             "attempt": pick.attempt_count,
             "round": st.round,
             "baseline_train_nmse": tm.nmse,
-            "baseline_val_nmse": vm.nmse,
+            "baseline_val_nmse": None if vm is None else vm.nmse,
             "hardness_version": scan.version,
             "hardness_scanned_trajs": len(scan.scanned_traj_ids),
             "hardness_coverage": round(scan.coverage, 3),
@@ -956,20 +962,24 @@ class Scheduler:
         rec.total_task_steps += steps
 
         tm = self.evaluator.evaluate(name, EvalSplit.TRAIN_MONITOR.value, rec.train_monitor_ids)
-        vm = self.evaluator.evaluate(name, EvalSplit.ACTIVE_VAL.value, rec.active_val_ids)
+        vm = None if al.train_all_episodes else self.evaluator.evaluate(
+            name, EvalSplit.ACTIVE_VAL.value, rec.active_val_ids)
         self._record_eval(rec, tm, kind="active_train")
-        self._record_eval(rec, vm, kind="active_val")
+        if vm is not None:
+            self._record_eval(rec, vm, kind="active_val")
 
         rec.prev_train_nmse = rec.current_train_nmse
         rec.prev_val_nmse = rec.current_val_nmse
         rec.prev_val_gmean_mse = rec.current_val_gmean_mse
         rec.prev_train_gmean_mse = rec.current_train_gmean_mse
         rec.current_train_nmse = tm.nmse
-        rec.current_val_nmse = vm.nmse
-        rec.current_val_mse = vm.mse
-        rec.current_val_gmean_mse = vm.gmean_mse
+        rec.current_val_nmse = None if vm is None else vm.nmse
+        rec.current_val_mse = None if vm is None else vm.mse
+        rec.current_val_gmean_mse = None if vm is None else vm.gmean_mse
         rec.current_train_gmean_mse = tm.gmean_mse
-        if not al.task_scan_enabled:
+        if al.train_all_episodes:
+            rec.metric_valid = is_finite_metric(tm.gmean_mse)
+        elif not al.task_scan_enabled:
             rec.metric_valid = vm.metric_valid and (
                 is_finite_metric(vm.gmean_mse) if al.pass_metric == "gmean_mse"
                 else is_finite_metric(vm.nmse))
@@ -979,18 +989,17 @@ class Scheduler:
         #    永不收尾（一个任务被无限训练）。非 ratio 模式逐字不变。
         _gmean_scale = pool_filter_enabled(al) or (
             not al.task_scan_enabled and al.pass_metric == "gmean_mse")
-        rec.lp50 = (learning_progress(rec.prev_val_gmean_mse, rec.current_val_gmean_mse)
-                    if _gmean_scale else
-                    learning_progress(rec.prev_val_nmse, rec.current_val_nmse))
+        rec.lp50 = None if vm is None else (
+            learning_progress(rec.prev_val_gmean_mse, rec.current_val_gmean_mse)
+            if _gmean_scale else learning_progress(rec.prev_val_nmse, rec.current_val_nmse))
         rec.lp_train = (learning_progress(rec.prev_train_gmean_mse,
                                           rec.current_train_gmean_mse)
                         if _gmean_scale else
                         learning_progress(rec.prev_train_nmse, rec.current_train_nmse))
         gap_prev = rec.train_val_gap_ratio
-        rec.train_val_gap_ratio = (train_val_gap(rec.current_val_gmean_mse,
-                                                 rec.current_train_gmean_mse)
-                                   if _gmean_scale else
-                                   train_val_gap(rec.current_val_nmse, rec.current_train_nmse))
+        rec.train_val_gap_ratio = None if vm is None else (
+            train_val_gap(rec.current_val_gmean_mse, rec.current_train_gmean_mse)
+            if _gmean_scale else train_val_gap(rec.current_val_nmse, rec.current_train_nmse))
         rec.overfit = is_overfit(
             rec.lp_train,
             rec.lp50,
@@ -1054,6 +1063,12 @@ class Scheduler:
             "batches_built": result.batches_built,
             "unique_batches": result.unique_batches,
         }
+
+        if al.train_all_episodes:
+            # 保留历史表结构但把不可判定字段写null，避免False被误读成“未过拟合”。
+            for item in (row, event):
+                item.update(overfit=None, evaluation_mode="train_monitor_only",
+                            train_gmean_mse=rec.current_train_gmean_mse)
 
         # ---- 先把判定落地，再把这一行写盘（这样 coverage 反映的是判定之后的状态）----
         if decision == Decision.CONTINUE:
@@ -1448,12 +1463,16 @@ class Scheduler:
         lg.log_metrics(step, "current_skill/attempt", row["attempt"])
         lg.log_metrics(step, "current_skill/attempt_step", row["attempt_step"])
         lg.log_metrics(step, "current_skill/train_nmse", row["train_nmse"])
-        lg.log_metrics(step, "current_skill/val_nmse", row["val_nmse"])
-        lg.log_metrics(step, "diagnostics/current_task_val_nmse", row["val_nmse"])
         rec = self.registry.get(row["task"])
-        lg.log_metrics(step, "current_skill/val_mse", rec.current_val_mse)
-        lg.log_metrics(step, "current_skill/val_gmean_mse", rec.current_val_gmean_mse)
-        if self.al.pass_metric in ("mse", "gmean_mse"):
+        if self.al.train_all_episodes:
+            lg.log_metrics(step, "current_skill/train_gmean_mse", rec.current_train_gmean_mse)
+            lg.log_metrics(step, "current_skill/lp_train", rec.lp_train)
+        else:
+            lg.log_metrics(step, "current_skill/val_nmse", row["val_nmse"])
+            lg.log_metrics(step, "diagnostics/current_task_val_nmse", row["val_nmse"])
+            lg.log_metrics(step, "current_skill/val_mse", rec.current_val_mse)
+            lg.log_metrics(step, "current_skill/val_gmean_mse", rec.current_val_gmean_mse)
+        if not self.al.train_all_episodes and self.al.pass_metric in ("mse", "gmean_mse"):
             _, threshold = pass_line(self.al, row["task"])
             if threshold is not None and threshold > 0:
                 lg.log_metrics(step, f"current_skill/pass_threshold_{self.al.pass_metric}", threshold)
@@ -1464,9 +1483,10 @@ class Scheduler:
                         step, "current_skill/val_to_pass_threshold",
                         float(selected) / threshold,
                     )
-        lg.log_metrics(step, "current_skill/lp50", row["lp50"])
-        lg.log_metrics(step, "current_skill/train_val_gap_ratio", row["gap"])
-        lg.log_metrics(step, "current_skill/overfit", 1.0 if row["overfit"] else 0.0)
+        if not self.al.train_all_episodes:
+            lg.log_metrics(step, "current_skill/lp50", row["lp50"])
+            lg.log_metrics(step, "current_skill/train_val_gap_ratio", row["gap"])
+            lg.log_metrics(step, "current_skill/overfit", 1.0 if row["overfit"] else 0.0)
         lg.log_metrics(step, "system/global_samples_seen", self.state.global_samples_seen)
         lg.log_metrics(step, "sampling/total_samples", self.state.global_samples_seen)
         lg.log_metrics(step, "curriculum/units_completed", self.state.units_run)

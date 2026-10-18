@@ -225,27 +225,33 @@ def build_plan(args):
     for task in tasks:
         row = manifest["tasks"][task]
         train, val = row["train_ids"], row["val_ids"]
-        if (not train or not val or set(train) & set(val)
+        if (not train or not val or len(train + val) != len(set(train + val))
                 or len(set(train + val)) != row["n_total"]):
             raise ValueError(f"invalid train/val split: {task}")
-        train_ids.extend(train)
-        val_ids.extend(val)
-        counts[task] = dict(train=len(train), val=len(val))
+        selected_train = sorted(set(train + val)) if cfg.get("train_all_episodes", False) else list(train)
+        train_ids.extend(selected_train)
+        if not cfg.get("train_all_episodes", False):
+            val_ids.extend(val)
+        counts[task] = dict(train=len(selected_train), val=0 if cfg.get("train_all_episodes", False) else len(val))
     if len(set(train_ids + val_ids)) != len(train_ids + val_ids):
         raise ValueError("cross-task episode overlap")
-    thresholds = Path(cfg["pass_thresholds_file"])
-    if not thresholds.is_absolute():
-        thresholds = REPO / thresholds
-    reference = read_json(thresholds)
-    judge_n = max(cfg.get("global_scout_val_trajs", 2), cfg["active_val_probe_trajs"])
-    for task in tasks:
-        if reference["trajectory_ids"][task] != manifest["tasks"][task]["val_ids"][:judge_n]:
-            raise ValueError(f"reference/eval trajectories disagree: {task}")
-        if not math.isfinite(reference["tasks"][task]) or reference["tasks"][task] <= 0:
-            raise ValueError(f"invalid reference: {task}")
+    thresholds = None
+    if not cfg.get("train_all_episodes", False):
+        thresholds = Path(cfg["pass_thresholds_file"])
+        if not thresholds.is_absolute():
+            thresholds = REPO / thresholds
+        reference = read_json(thresholds)
+        judge_n = max(cfg.get("global_scout_val_trajs", 2), cfg["active_val_probe_trajs"])
+        for task in tasks:
+            if reference["trajectory_ids"][task] != manifest["tasks"][task]["val_ids"][:judge_n]:
+                raise ValueError(f"reference/eval trajectories disagree: {task}")
+            if not math.isfinite(reference["tasks"][task]) or reference["tasks"][task] <= 0:
+                raise ValueError(f"invalid reference: {task}")
     cfg.update(task_names=tasks, learning_task_names=list(learning), replay_task_names=list(replay),
                max_global_steps=args.steps, batch_size=args.micro * args.gas, new_ratio=args.new_ratio,
-               pass_thresholds_file=str(thresholds.resolve()), data_audit_file=str(args.audit_report.resolve()))
+               pass_thresholds_file=str(thresholds.resolve()) if thresholds else None,
+               data_audit_file=str(args.audit_report.resolve()))
+    AutoLearningConfig(**cfg)  # 再核对命令覆盖后的总步数/DEFER等组合，禁止扩大到无界训练。
     cfg["data_audit_instruction_patterns"] = {
         k: v for k, v in cfg.get("data_audit_instruction_patterns", {}).items() if k in tasks}
     out = args.out.resolve()
@@ -290,12 +296,14 @@ def build_plan(args):
         command += ["--" + key, str(value).lower() if isinstance(value, bool) else str(value)]
     source_files = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (
         model / "config.json", model / "model.safetensors.index.json", args.train_config,
-        args.manifest, thresholds, norm, model / "tokenizer.json", args.qwen3vl / "tokenizer.json")}
+        args.manifest, thresholds, norm, model / "tokenizer.json", args.qwen3vl / "tokenizer.json") if p is not None}
     return dict(config=cfg, training_config=run_config, command=command, train_ids=sorted(train_ids), counts=counts,
                 source_model=str(model), checkpoint_inventory=inventory, source_files=source_files,
                 tokenizer_validation=tokenizer_validation,
                 source_model_config=model_config,
-                note="fresh optimizer/LR/step; HF-only; historical finished-model reference reports only")
+                note=("fresh optimizer/LR/step; HF-only; train monitor only; no independent val/reference/PASS"
+                      if cfg.get("train_all_episodes", False) else
+                      "fresh optimizer/LR/step; HF-only; historical finished-model reference reports only"))
 
 
 def main(argv=None):

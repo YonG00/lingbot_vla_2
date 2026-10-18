@@ -2014,8 +2014,10 @@ class OpenLoopValidator:
         # True（默认）= 每个回合各自从首帧跳步（对齐官方 open_loop_eval.py）；
         # False = 在拼接序列上跳（旧行为，仅供 A/B 量化用）
         self.per_episode_stride = per_episode_stride
+        # `None` means use the historical defaults; an explicit empty list is
+        # meaningful for train-all experiments and must not silently restore val.
         self.train_monitor_ids = list(train_monitor_ids or DEFAULT_TRAIN_MONITOR_IDS)
-        self.val_ids = list(val_ids or DEFAULT_VAL_IDS)
+        self.val_ids = list(DEFAULT_VAL_IDS if val_ids is None else val_ids)
         self._ds_cache: Dict[str, Any] = {}
         self._ft_by_path: Dict[str, Any] = {}      # 每个评测集**自己的** feature_transform
         self._ft_aug_orig: Dict[int, tuple] = {}   # id(ft) -> (ft, 原始 image_augment)

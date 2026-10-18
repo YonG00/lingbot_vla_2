@@ -24,6 +24,7 @@
 | 低噪 FM / 目标变化窗口采样 / 训练前事件报告 | `auto_learning/target_change_window_zh.md` |
 | 相对输入状态动作表示与未来力监督边界 | `auto_learning/relative_action_representation_zh.md` |
 | 原始9680专练鼠标，500步全量ViT+EE+低噪FM | `auto_learning/place_mouse_pad_9680_zh.md`、[启动配方CPU测试](../tests/mouse_pad_training/README.md) |
+| 鼠标50条全量拟合、位置EE权重10、仅训练轨迹监控 | [实验说明](auto_learning/place_mouse_pad_all50_p10_zh.md)、[CPU测试](../tests/mouse_pad_training/README.md) |
 | 连续抓取窗口验证命令、覆盖率与验证边界 | [窗口测试说明](../tests/target_change_window/README.md) |
 | AL固定步数训练为何不按数据epoch测评 | [epoch边界测试说明](../tests/al_epoch_schedule/README.md) |
 | place_object_stand EE续训方案与复现命令 | `auto_learning/stand_ee_continue_20261017_zh.md` |

@@ -87,7 +87,7 @@ def config_fingerprint(al: Any, task_names: Sequence[str]) -> Dict[str, Any]:
     # 新选项只在偏离旧默认时写入，旧 DCP 指纹不变。
     for key, default in (("learning_task_names", None), ("replay_task_names", None),
                          ("task_scan_enabled", True), ("pass_transition_enabled", True),
-                         ("hardness_scan_enabled", True)):
+                         ("hardness_scan_enabled", True), ("train_all_episodes", False)):
         value = getattr(al, key, default)
         if value != default:
             fp[key] = value

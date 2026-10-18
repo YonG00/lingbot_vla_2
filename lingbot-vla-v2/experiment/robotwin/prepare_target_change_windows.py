@@ -71,6 +71,9 @@ def prepare(cfg, dataset_root, manifest, tasks, *, refresh=False):
         ):
             raise ValueError(f"invalid/cross-task train/val episodes: {task}")
         seen.update(train + val)
+        if cfg.train_all_episodes:
+            # 与实际训练白名单一致；扩大后旧40条缓存必须失效重建。
+            train = sorted(train + val)
         raw = prepare_task(
             cfg, root, task, train, fps, mapping, read_episode, refresh=refresh
         )

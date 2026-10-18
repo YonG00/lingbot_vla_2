@@ -39,6 +39,8 @@ def parser():
     p.add_argument("--ee-position-weight", type=float, default=3.0)
     p.add_argument("--ee-orientation-weight", type=float, default=0.8)
     p.add_argument("--ee-gripper-weight", type=float, default=1.5)
+    p.add_argument("--train-all-episodes", action=argparse.BooleanOptionalAction, default=False,
+                   help="把 manifest 的 train+val 共50条全部纳入训练；关闭独立 val/PASS/gap")
     p.add_argument("--gradient-checkpointing", action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--shutdown", action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--output-root", type=Path, default=Path("/data/outputs"))
@@ -51,13 +53,15 @@ def parser():
 
 
 def build_job(args):
-    name = args.run_name or f"al_mouse_pad_9680_ee_lnfm_add{args.steps}_{datetime.now():%Y%m%d_%H%M%S}"
+    label = f"all50_p{args.ee_position_weight:g}_" if args.train_all_episodes else ""
+    name = args.run_name or f"al_mouse_pad_{label}9680_ee_lnfm_add{args.steps}_{datetime.now():%Y%m%d_%H%M%S}"
     # Same filename contract as the existing continuation entry.
     import re
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,99}", name):
         raise ValueError("run-name must be 1-100 safe filename characters")
     cfg = launcher.read_json(args.al_config)
     cfg.update(task_names=[TASK], learning_task_names=[TASK], replay_task_names=[],
+               train_all_episodes=args.train_all_episodes,
                low_noise_fm_enabled=True, hardness_scan_enabled=True,
                sample_scan_method="target_change_window",
                target_change_cache_dir=str((args.cache_root / name).resolve()),
@@ -115,6 +119,7 @@ def main(argv=None):
         ee_weights=[args.ee_position_weight,args.ee_orientation_weight,args.ee_gripper_weight],
         gradient_checkpointing=args.gradient_checkpointing,
         sampling=plan["config"]["sample_scan_method"],
+        train_all_episodes=args.train_all_episodes,
         cache=plan["config"]["target_change_cache_dir"],
         output=job["output_dir"], log=job["log"], shutdown=args.shutdown,
     ), ensure_ascii=False, indent=2))

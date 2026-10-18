@@ -235,14 +235,17 @@ class TaskRegistry:
             #    它实际决定的是 **confirm 的条数**（原代码 `confirm_val_ids = val_ids[:max(scout, active)]`）。
             #    本文件下方 `active_val_ids` 又复用同一组 ⇒ 判定尺子与 confirm 是同一批轨迹。
             #    改名会牵动配置键/存档指纹（`SEMANTIC_KEYS` 含该键），故只在此标注，不重命名。
-            _judge_n = max(al.global_scout_val_trajs, al.active_val_probe_trajs)
+            _judge_n = (0 if al.train_all_episodes else
+                        max(al.global_scout_val_trajs, al.active_val_probe_trajs))
+            if al.train_all_episodes and val_ids:
+                raise ValueError("train_all_episodes requires a catalog with all episodes in train and no val")
             _require(len(val_ids), _judge_n, f"{name} 的 val 轨迹数")
             _require(len(train_ids), al.active_train_probe_trajs, f"{name} 的 train 轨迹数")
             records[name] = TaskRecord(
                 task_name=name,
                 train_traj_ids=train_ids,
                 val_traj_ids=val_ids,
-                scout_val_ids=val_ids[: al.global_scout_val_trajs],
+                scout_val_ids=[] if al.train_all_episodes else val_ids[: al.global_scout_val_trajs],
                 confirm_val_ids=val_ids[:_judge_n],
                 # 🔴 2026-10-11：判定尺子**不再单独取切片** —— 直接复用 confirm 的那一组。
                 #    原因：原先 active_val_ids=val_ids[:4] 与 confirm_val_ids=val_ids[:4]

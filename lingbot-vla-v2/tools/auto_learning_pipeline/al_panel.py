@@ -282,6 +282,7 @@ def run_cfg(run: str) -> Dict[str, object]:
                              ('pass_thresholds_file', 'thresholds'),
                              ('eval_interval_steps', 'interval'),
                              ('pass_transition_enabled', 'pass_enabled'),
+                             ('train_all_episodes', 'train_all_episodes'),
                              ('task_scan_enabled', 'task_scan'),
                              ('hardness_scan_enabled', 'hardness_scan')):
             if source in values:
@@ -337,14 +338,14 @@ def read_events(events: Path) -> Tuple[Dict[str, object], Dict[str, Dict[str, fl
     return last, per_task
 
 
-def ee_val_text(series, task):
+def ee_val_text(series, task, *, kind='active_val'):
     """Read one matching EE eval step from events, never from stale pool state."""
-    positions = (series.get('active_val_ee_position_rmse_mm') or {}).get(task) or []
+    positions = (series.get(kind + '_ee_position_rmse_mm') or {}).get(task) or []
     if not positions:
         return None
     step, position = positions[-1]
     def value(key):
-        return dict((series.get('active_val_ee_' + key) or {}).get(task) or []).get(step)
+        return dict((series.get(kind + '_ee_' + key) or {}).get(task) or []).get(step)
     angle, grip = value('orientation_mean_deg'), value('gripper_mae')
     if angle is None or grip is None:
         return None  # tolerate a partially appended event group
@@ -374,6 +375,29 @@ def history_threshold_text(steps, thresholds):
         value = next(iter(values))
         return (f'门槛 {value:.4g}' if isinstance(value, (int, float)) else '门槛 --'), False
     return '门槛有变化，逐行标注T', True
+
+
+def print_train_monitor_history(task, series):
+    """全训练模式只展示真实 active_train，绝不借用 val 字段或参考阈值。"""
+    print('  模式    全轨迹训练；固定4条训练拟合监控，无独立val')
+    ee_text = ee_val_text(series, task, kind='active_train')
+    if ee_text:
+        print(f'  末端train  {ee_text}')
+    for side, label in (('left', '左'), ('right', '右')):
+        seq = (series.get(f'active_train_ee_{side}_position_rmse_mm') or {}).get(task) or []
+        if seq:
+            print(f'  {label}臂train  {seq[-1][1]:.2f} mm (step {seq[-1][0]})')
+    seq = (series.get('active_train_gmean_mse') or {}).get(task) or []
+    losses = dict((series.get('unit_loss') or {}).get(task) or [])
+    if not seq:
+        print('  历史    尚无训练拟合记录')
+    for step, gmse in seq[-3:]:
+        loss = losses.get(step)
+        loss_text = f'{loss:.4f}' if isinstance(loss, (int, float)) else '--'
+        ee_loss = ee_training_loss_text(series, step) if step in losses else None
+        print(f'    {step:>5} train G {gmse:.6f} loss {loss_text}'
+              f'{"  " + ee_loss if ee_loss else ""}')
+    print('  说明    EE训练项为未加权/该步；训练拟合不代表闭环成功')
 
 
 def read_series(events: Path) -> Dict[str, Dict[str, List[Tuple[int, float]]]]:
@@ -1131,7 +1155,7 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
         row('池子', f'{_body}   {_c("(实时·TB)", "32")}')
     else:
         row('池子', _pool_line(records, derived_status))
-    if records:
+    if records and not cfg.get('train_all_episodes', False):
         att = {t: r for t, r in records.items()
                if isinstance((r or {}).get('attempt_count'), (int, float))
                and int((r or {}).get('attempt_count')) >= 1}
@@ -1179,6 +1203,11 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
         st = f'实时(事件流)；注册表快照仍停在 {_reg_training}'
     elif not st or st == '?':
         st = '事件流（无注册表快照）' if _live else '?'
+    if cfg.get('train_all_episodes', False):
+        row('在训', f'{cur}   [{st}]')
+        print_train_monitor_history(cur, series)
+        print('=' * W)
+        return
     r_now = _ratio(dict(rec, task_name=cur), thresholds) if rec else None
     r_best = _ratio(dict(rec, task_name=cur), thresholds, key='best_gmean_mse') if rec else None
     row('在训', f'{cur}   [{st}]')
@@ -1396,6 +1425,15 @@ def render_wide(*, run: str, args, cfg, thresholds, target, trainer, trainers,
     2026-10-12 起默认输出改为紧凑视图（终端只放得下一屏）；本函数保留全部细节，
     供需要逐任务核对时使用。**代码是从原 main() 整段搬来的，逻辑一字未改。**
     """
+    if cfg.get('train_all_episodes', False):
+        # 全训练模式没有逐任务val/门槛表，复用专用监控视图防止显示虚假倍率。
+        print_compact(run=run, target=target, passed=passed, newly=newly, boot=boot,
+            step=step, sit=sit, latest_sit=latest_sit, elapsed_s=elapsed_s, eta_s=eta_s,
+            trainer=trainer, trainers=trainers, records=records, thresholds=thresholds,
+            derived_status=derived_status, per_task=per_task, series=series,
+            dcp_name=dcp_name, dcp_step=dcp_step, tb=tb, cfg=cfg,
+            current_task=current_task, wide_hint=False)
+        return 0
     W = 76
     print('=' * 78)
     goal = f'目标 PASS={target}' if cfg.get('pass_enabled', True) else f'固定步数={cfg.get("max_steps") or "未知"}（PASS关闭）'

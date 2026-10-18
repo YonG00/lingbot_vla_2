@@ -43,6 +43,11 @@ def decide_after_unit(
     触发 rescue 后会被推后 `defer_retry_steps`（所以 `defer_retry_steps` 是**真的**在执行，
     不是写多少都只多跑一个单元）。
     """
+    if cfg.train_all_episodes:
+        # 此模式没有独立 val，不能报 metric_invalid 或按历史门槛毕业。
+        # 最大步数由 Scheduler 统一收工；配置强制 DEFER 预算大于该上限。
+        return Verdict(Decision.CONTINUE, "train_monitor_only",
+                       "仅训练集拟合监控，继续至最大训练步数；不判PASS/过拟合")
     val = record.current_val_nmse
     if cfg.pass_metric == "gmean_mse" and not is_finite_metric(record.current_val_gmean_mse):
         # A missing candidate geometric aggregate must not silently fall back to arithmetic MSE.

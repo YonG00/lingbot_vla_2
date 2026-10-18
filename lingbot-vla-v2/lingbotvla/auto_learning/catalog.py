@@ -143,6 +143,28 @@ class TaskCatalog:
     def __iter__(self):
         return iter(self._tasks.values())
 
+    def for_training(self, *, train_all_episodes: bool = False) -> "TaskCatalog":
+        """从已核验的原划分派生运行视图；不改 manifest，不伪造独立 val。
+
+        必须在 attach_samples 之前调用：白名单扩大后 local_idx 会重排，旧映射不可用。
+        """
+        if not train_all_episodes:
+            return self
+        problems = self.verify()
+        if problems:
+            raise ValueError("task split 自检未通过：" + "; ".join(map(str, problems)))
+        from dataclasses import replace
+        tasks = {
+            name: replace(entry,
+                train_traj_ids=sorted(entry.train_traj_ids + entry.val_traj_ids),
+                val_traj_ids=[], train_sample_ids=[], samples_by_traj={}, val_sample_ids=[],
+                sha256_train=None, sha256_val=None, val_ratio=0.0,
+                strategy="train_all_episodes")
+            for name, entry in self._tasks.items()
+        }
+        return TaskCatalog(tasks, meta={**self.meta, "train_all_episodes": True},
+                           episodes_per_task=self.episodes_per_task, task_order=self.task_order)
+
     # -- 自检 ---------------------------------------------------------------
     def verify(self) -> List[SplitProblem]:
         """划分自检；返回问题列表（空 = 全过）。**不需要数据集**。"""
@@ -152,7 +174,7 @@ class TaskCatalog:
             tr, va = list(e.train_traj_ids), list(e.val_traj_ids)
             if not tr:
                 problems.append(SplitProblem(name, "空 train", "train_ids 为空，训练集会是空的"))
-            if not va:
+            if not va and not self.meta.get("train_all_episodes", False):
                 problems.append(SplitProblem(name, "空 val", "val_ids 为空，评测集会是空的"))
             if len(set(tr)) != len(tr):
                 problems.append(SplitProblem(name, "train 有重复", f"{len(tr)} → {len(set(tr))}"))
