@@ -27,6 +27,14 @@ class RecipeRunNameTests(unittest.TestCase):
         self.assertIn("al_stand_ee_fullvision_w3_o08_g15_from500_add500_20261018_120000",result.stdout)
         self.assertNotIn("--execute",result.stdout)
 
+    def test_gradient_checkpointing_can_be_disabled_without_changing_other_recipe_args(self):
+        env = dict(os.environ, GRADIENT_CHECKPOINTING="0", PYTHON="/usr/bin/python3")
+        result = subprocess.run(["bash", str(RECIPE)], capture_output=True, text=True, env=env, check=True)
+        self.assertIn("gradient_checkpointing=0", result.stdout)
+        self.assertIn("--no-gradient-checkpointing", result.stdout)
+        self.assertIn("--no-freeze-vision-encoder", result.stdout)
+        self.assertIn("--ee-position-weight 3.0", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

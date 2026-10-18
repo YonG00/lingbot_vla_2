@@ -34,6 +34,8 @@ train.ee_fk_gripper_loss_weight = 0.1
 
 上一版全量视觉训练在第1步反向时 OOM（约94.5 GiB已占用，仅剩433 MiB），所以本轮将 GBS 从24降为20，并开启 gradient checkpointing。这里仍是解冻视觉和增大 EE 监督的联合效果，不是严格单变量实验。结果应与 step500、step9680 用相同任务、相同 clean/unseen、相同 scene seed 和推理参数比较。
 
+实测吞吐偏慢时，可设 `GRADIENT_CHECKPOINTING=0` 做单独吞吐对照；关闭会显著增加激活显存，96G卡上仍可能 OOM，且必须启动新进程生效。本次关闭后的run使用唯一新目录，不续写或覆盖之前的部分run。
+
 ## 启动
 
 启动文件：`experiment/robotwin/recipes/20261017_stand_ee_continue500_fullvision_w3_o08_g15.sh`。

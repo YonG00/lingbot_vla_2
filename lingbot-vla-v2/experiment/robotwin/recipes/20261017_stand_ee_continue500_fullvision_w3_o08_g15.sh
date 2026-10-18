@@ -7,7 +7,7 @@
 #   3. 保持 low_noise_fm + target_change_window + 独立 val。
 #   4. EE loss = position 3.0 / orientation 0.8 / gripper 1.5。
 #   5. micro=20, GAS=1, GBS=20，新增500步，每250步保存BF16 HF，不写DCP。
-#   6. 开启 gradient checkpointing，给全量视觉训练留出反向传播显存。
+#   6. gradient checkpointing 默认开启；GRADIENT_CHECKPOINTING=0 可关闭做吞吐对照。
 #
 # 默认只预览命令；EXECUTE=1 才会后台启动。SHUTDOWN=1 才允许正常结束后关机。
 set -euo pipefail
@@ -20,6 +20,7 @@ DEFAULT_RUN_NAME="al_stand_ee_fullvision_w3_o08_g15_from500_add500_${RUN_STAMP}"
 RUN_NAME="${RUN_NAME:-$DEFAULT_RUN_NAME}"
 OUT="${OUT:-/data/outputs/${RUN_NAME}}"
 RUNTIME_DIR="${RUNTIME_DIR:-/data/outputs/skill_launches}"
+GRADIENT_CHECKPOINTING="${GRADIENT_CHECKPOINTING:-1}"
 
 CMD=(
   "${PYTHON:-/data/miniconda3/envs/lingbotvla/bin/python}"
@@ -39,8 +40,12 @@ CMD=(
   --ee-orientation-weight 0.8
   --ee-gripper-weight 1.5
   --no-freeze-vision-encoder
-  --gradient-checkpointing
 )
+case "$GRADIENT_CHECKPOINTING" in
+  1|true|TRUE|yes|YES) CMD+=(--gradient-checkpointing) ;;
+  0|false|FALSE|no|NO) CMD+=(--no-gradient-checkpointing) ;;
+  *) echo "GRADIENT_CHECKPOINTING must be 0/1 (or false/true)" >&2; exit 2 ;;
+esac
 
 # The training environment path is explicit on the server; the fallback keeps
 # this file usable when copied into an activated environment.
@@ -51,7 +56,7 @@ if [[ "${SHUTDOWN:-0}" == "1" ]]; then
   CMD+=(--shutdown)
 fi
 
-printf 'Strategy: full vision + EE weights position=3.0 orientation=0.8 gripper=1.5\n'
+printf 'Strategy: full vision + EE weights position=3.0 orientation=0.8 gripper=1.5 + gradient_checkpointing=%s\n' "$GRADIENT_CHECKPOINTING"
 printf 'Source HF: %s\nOutput: %s\n' "$FROM_HF" "$OUT"
 printf 'Command:\n  '
 printf '%q ' "${CMD[@]}"
