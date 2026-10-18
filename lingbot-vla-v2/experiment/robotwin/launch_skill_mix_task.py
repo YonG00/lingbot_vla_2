@@ -170,8 +170,8 @@ def build_plan(args):
     tasks = list(learning) + list(replay)
     if not tasks or len(tasks) != len(set(tasks)):
         raise ValueError("learning / replay tasks must be nonempty, unique and disjoint")
-    if args.steps <= 0 or args.steps % cfg["eval_interval_steps"]:
-        raise ValueError("steps must be a positive multiple of eval_interval_steps")
+    if args.steps <= 0:
+        raise ValueError("steps must be positive")
     if cfg["min_steps_before_defer"] <= args.steps or cfg["early_defer_on_overfit"]:
         raise ValueError("experiment requires defer budget > total steps and early defer disabled")
     # 2026-10-16：**允许** `hardness_scan_enabled=true` —— 新增"周期存档后重扫"触发机制后，
@@ -283,6 +283,9 @@ def build_plan(args):
         "train.auto_learning_manifest": str(args.manifest.resolve()),
     }
     options.update(ee_training_options(args, source_args, cfg))
+    # Keep the reproducible snapshot consistent with effective CLI overrides.
+    for key in ("freeze_vision_encoder", "enable_gradient_checkpointing"):
+        run_config["train"][key] = options["train." + key]
     for key, value in options.items():
         command += ["--" + key, str(value).lower() if isinstance(value, bool) else str(value)]
     source_files = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (

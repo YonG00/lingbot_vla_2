@@ -26,6 +26,7 @@ class WindowSettings:
     release_ratio: float = 0.5
     persistence_frames: int = 2
     window_weight: float = 2.0
+    grasp_lift_max_delay_seconds: float = 2.0
 
     @classmethod
     def from_config(cls, cfg):
@@ -64,6 +65,13 @@ class WindowSettings:
             raise ValueError("release_ratio must be in (0,1)")
         if type(self.persistence_frames) is not int or self.persistence_frames < 1:
             raise ValueError("persistence_frames must be a positive integer")
+        if (
+            isinstance(self.grasp_lift_max_delay_seconds, bool)
+            or not isinstance(self.grasp_lift_max_delay_seconds, (int, float))
+            or not math.isfinite(self.grasp_lift_max_delay_seconds)
+            or self.grasp_lift_max_delay_seconds <= 0
+        ):
+            raise ValueError("grasp_lift_max_delay_seconds must be finite and positive")
 
 
 def joint_mapping(embodiment, wrist_names):
@@ -181,12 +189,110 @@ def scan_episode(rows, fps, mapping, settings):
         signals.append(dict(**joint, values=values, speed=speed, high=high, low=low))
     radius = math.ceil(settings.window_seconds * fps)
     windows = []
-    for event in sorted(events, key=lambda e: e["frame"]):
-        lo, hi = max(0, event["frame"] - radius), min(n - 1, event["frame"] + radius)
-        if windows and lo <= windows[-1][1] + 1:
-            windows[-1][1] = max(windows[-1][1], hi)
-        else:
+    # Keep ordinary/free-space motion local. Only a matched grasp phase below
+    # bridges the intervals; weighting every wrist motion dilutes this focus.
+    for event in events:
+        windows.append([
+            max(0, event["frame"] - radius),
+            min(n - 1, event["frame"] + radius),
+        ])
+    # Bridge the expert's hold interval: close, wait for the arm to lift, then
+    # keep sampling through the end of that lift motion. This is a command
+    # phase heuristic, not evidence that an object was actually grasped.
+    grasp_phases = []
+    sides = {signal["name"].split(":", 1)[0] for signal in signals}
+    for side in sorted(sides):
+        gripper_name = f"{side}:gripper_command"
+        gripper_events = sorted(
+            (event for event in events if event["signal"] == gripper_name),
+            key=lambda event: event["frame"],
+        )
+        wrist_names = {
+            signal["name"]
+            for signal in signals
+            if signal["name"].startswith(side + ":") and signal["kind"] == "wrist"
+        }
+        wrist_events = sorted(
+            (event for event in events if event["signal"] in wrist_names),
+            key=lambda event: event["frame"],
+        )
+        for close_start in (
+            event for event in gripper_events if event["kind"] == "start"
+        ):
+            close_stop = next(
+                (
+                    event
+                    for event in gripper_events
+                    if event["kind"] == "stop"
+                    and event["frame"] > close_start["frame"]
+                ),
+                None,
+            )
+            if close_stop is None or close_stop["value"] >= close_start["value"]:
+                continue
+            # Any new gripper transition starts another phase. Never bridge
+            # through release/regrasp to a later placement wrist motion.
+            open_start = next(
+                (
+                    event
+                    for event in gripper_events
+                    if event["kind"] == "start"
+                    and event["frame"] > close_stop["frame"]
+                ),
+                None,
+            )
+            lift_start = next(
+                (
+                    event
+                    for event in wrist_events
+                    if event["kind"] == "start"
+                    and event["frame"] >= close_stop["frame"]
+                    and (open_start is None or event["frame"] < open_start["frame"])
+                    and event["seconds"] - close_stop["seconds"]
+                    <= settings.grasp_lift_max_delay_seconds
+                ),
+                None,
+            )
+            lift_stop = None
+            if lift_start is not None:
+                lift_stop = next(
+                    (
+                        event
+                        for event in wrist_events
+                        if event["kind"] == "stop"
+                        and event["signal"] == lift_start["signal"]
+                        and event["frame"] > lift_start["frame"]
+                    ),
+                    None,
+                )
+            end_frame = (
+                lift_stop["frame"]
+                if lift_stop
+                else n - 1 if lift_start is not None else close_stop["frame"]
+            )
+            lo = max(0, close_start["frame"] - radius)
+            hi = min(n - 1, end_frame + radius)
+            if open_start is not None:
+                hi = min(hi, open_start["frame"] - 1)
+            grasp_phases.append(
+                dict(
+                    side=side,
+                    close_start=close_start["frame"],
+                    close_stop=close_stop["frame"],
+                    lift_start=lift_start["frame"] if lift_start else None,
+                    lift_stop=lift_stop["frame"] if lift_stop else None,
+                    window=[lo, hi],
+                )
+            )
             windows.append([lo, hi])
+    windows.sort()
+    merged_windows = []
+    for lo, hi in windows:
+        if merged_windows and lo <= merged_windows[-1][1] + 1:
+            merged_windows[-1][1] = max(merged_windows[-1][1], hi)
+        else:
+            merged_windows.append([lo, hi])
+    windows = merged_windows
     weights = [1.0] * n
     for lo, hi in windows:
         weights[lo : hi + 1] = [settings.window_weight] * (hi - lo + 1)
@@ -194,6 +300,7 @@ def scan_episode(rows, fps, mapping, settings):
         frame_ids=frames,
         timestamps=timestamps,
         events=events,
+        grasp_phases=grasp_phases,
         windows=windows,
         weights=weights,
         signals=signals,
@@ -223,7 +330,7 @@ def atomic_json(path, value):
 
 def cache_identity(cfg, fps, mapping):
     return dict(
-        schema=1,
+        schema=2,
         method="target_change_window",
         fps=fps,
         settings=asdict(WindowSettings.from_config(cfg)),
@@ -232,8 +339,8 @@ def cache_identity(cfg, fps, mapping):
 
 
 def validate_cache(raw, cfg):
-    if raw.get("schema") != 1 or raw.get("method") != "target_change_window":
-        raise ValueError("unsupported target-change cache schema")
+    if raw.get("schema") != 2 or raw.get("method") != "target_change_window":
+        raise ValueError("unsupported target-change cache schema; inspect then --refresh")
     if raw.get("settings") != asdict(WindowSettings.from_config(cfg)):
         raise ValueError(
             "target-change settings changed; run preparation with --refresh"
@@ -283,6 +390,11 @@ def prepare_task(
         window_frames=covered,
         coverage=covered / max(1, n),
         events=sum(len(e["events"]) for e in episodes.values()),
+        grasp_phases=sum(len(e["grasp_phases"]) for e in episodes.values()),
+        linked_grasp_phases=sum(
+            phase["lift_start"] is not None
+            for e in episodes.values() for phase in e["grasp_phases"]
+        ),
         window_probability_mass=(
             covered
             * cfg.target_change_window_weight
@@ -399,6 +511,13 @@ def write_report(raw, path, video_paths=None):
     ]
     for ep, data in raw["episodes"].items():
         parts.append(f"<section><h2>Episode {ep}</h2>")
+        if data.get("grasp_phases"):
+            summary = "; ".join(
+                f"{phase['side']} close={phase['close_start']}-{phase['close_stop']} "
+                f"lift={phase['lift_start']}-{phase['lift_stop']} window={phase['window']}"
+                for phase in data["grasp_phases"]
+            )
+            parts.append("<p>连续抓取阶段（控制目标推断，不代表实际接触）：" + html.escape(summary) + "</p>")
         for video in (video_paths or {}).get(int(ep), []):
             parts.append(
                 '<video controls preload="metadata" src="'

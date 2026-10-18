@@ -48,6 +48,7 @@ class AutoLearningConfig:
     target_change_release_ratio: float = 0.5
     target_change_persistence_frames: int = 2
     target_change_window_weight: float = 2.0
+    target_change_grasp_lift_max_delay_seconds: float = 2.0
     low_noise_fm_enabled: bool = False
     import_pool_state: bool = True
     # 缓存完整数据对拍报告；空值保持原启动流程。
@@ -223,6 +224,11 @@ class AutoLearningConfig:
                 or not math.isfinite(self.target_change_window_seconds)
                 or self.target_change_window_seconds < 0):
             raise ValueError("target_change_window_seconds must be finite and nonnegative")
+        if (not isinstance(self.target_change_grasp_lift_max_delay_seconds, (int, float))
+                or isinstance(self.target_change_grasp_lift_max_delay_seconds, bool)
+                or not math.isfinite(self.target_change_grasp_lift_max_delay_seconds)
+                or self.target_change_grasp_lift_max_delay_seconds <= 0):
+            raise ValueError("target_change_grasp_lift_max_delay_seconds must be finite and positive")
         if self.target_change_window_weight < 1:
             raise ValueError("target_change_window_weight must be at least 1")
         if (isinstance(self.target_change_release_ratio, bool)

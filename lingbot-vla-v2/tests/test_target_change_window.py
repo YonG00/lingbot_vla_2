@@ -50,6 +50,21 @@ def rows(ep=1, n=60, offset=100):
     return result
 
 
+def grasp_rows(
+    ep=1, n=60, offset=100, *, closing=True, lift_delay=14, open_again=False
+):
+    result = rows(ep, n, offset)
+    for i, row in enumerate(result):
+        state = row["observation.state"]
+        state[6] = max(0, min(1, 1 - (i - 15) / 10)) if closing else max(
+            0, min(1, (i - 15) / 10)
+        )
+        if closing and open_again and i >= 50:
+            state[6] = min(1, (i - 50) / 10)
+        state[4] = max(0, min(1, (i - 26 - lift_delay) / 5))
+    return result
+
+
 class TargetChangeTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -94,6 +109,44 @@ class TargetChangeTests(unittest.TestCase):
         self.assertAlmostEqual(raw["summary"]["window_probability_mass"], 42 / 81)
         self.assertTrue(all(w > 0 for w in ep["weights"]))
 
+    def test_grasp_phase_bridges_close_hold_and_initial_lift(self):
+        out = scan_episode(grasp_rows(), 20, MAPPING, WindowSettings())
+        phase = out["grasp_phases"][0]
+        self.assertEqual(
+            (phase["close_start"], phase["close_stop"], phase["lift_start"], phase["lift_stop"]),
+            (16, 26, 41, 46),
+        )
+        self.assertEqual(phase["window"], [11, 51])
+        self.assertEqual(out["windows"], [[11, 51]])
+        self.assertEqual(out["weights"][35], 2.0)
+
+    def test_opening_is_not_linked_as_grasp_and_late_lift_is_not_bridged(self):
+        opening = scan_episode(
+            grasp_rows(closing=False), 20, MAPPING, WindowSettings()
+        )
+        self.assertEqual(opening["grasp_phases"], [])
+        self.assertEqual(opening["weights"][33], 1.0)
+        late = scan_episode(
+            grasp_rows(lift_delay=50), 20, MAPPING, WindowSettings()
+        )
+        self.assertIsNone(late["grasp_phases"][0]["lift_start"])
+        self.assertEqual(late["grasp_phases"][0]["window"], [11, 31])
+
+    def test_wrist_motion_after_release_is_not_linked_as_the_grasp_lift(self):
+        out = scan_episode(
+            grasp_rows(n=100, lift_delay=45, open_again=True),
+            20,
+            MAPPING,
+            WindowSettings(),
+        )
+        phase = out["grasp_phases"][0]
+        self.assertIsNone(phase["lift_start"])
+        self.assertLess(phase["window"][1], 75)
+
+    def test_grasp_lift_delay_must_be_positive(self):
+        with self.assertRaisesRegex(ValueError, "grasp_lift_max_delay_seconds"):
+            WindowSettings(grasp_lift_max_delay_seconds=0).validate()
+
     def test_static_hold_and_single_spike_create_no_events(self):
         data = rows()
         for r in data:
@@ -118,6 +171,16 @@ class TargetChangeTests(unittest.TestCase):
         out = scan_episode(rows(), 20, MAPPING, WindowSettings(window_seconds=0))
         self.assertEqual(out["window_frames"], 2)
 
+    def test_free_space_wrist_motion_keeps_only_local_event_windows(self):
+        data = rows(n=100)
+        for i, row in enumerate(data):
+            row["observation.state"] = [0.0] * 14
+            row["observation.state"][4] = max(0, min(1, (i - 20) / 40))
+        out = scan_episode(data, 20, MAPPING, WindowSettings())
+        self.assertEqual(out["grasp_phases"], [])
+        self.assertEqual(out["weights"][40], 1.0)
+        self.assertEqual(out["weights"][21], 2.0)
+
     def test_bad_frames_timestamps_and_nonfinite_rejected(self):
         for key, value in [("frame_index", 100), ("timestamp", 100), ("index", 100)]:
             data = rows()
@@ -136,6 +199,7 @@ class TargetChangeTests(unittest.TestCase):
             ("target_change_release_ratio", True),
             ("target_change_window_weight", 0.5),
             ("target_change_window_seconds", float("inf")),
+            ("target_change_grasp_lift_max_delay_seconds", 0),
             ("target_change_persistence_frames", 1.5),
             ("low_noise_fm_enabled", "false"),
             ("sample_scan_method", "mixed"),
@@ -163,6 +227,17 @@ class TargetChangeTests(unittest.TestCase):
         path.write_text(json.dumps(data))
         with self.assertRaises(ValueError):
             self.prepare()
+
+    def test_old_cache_schema_requires_explicit_refresh(self):
+        self.prepare()
+        path = cache_path(self.cfg.target_change_cache_dir, "cabinet")
+        data = json.loads(path.read_text())
+        data["schema"] = 1
+        path.write_text(json.dumps(data))
+        with self.assertRaisesRegex(ValueError, "inspect then --refresh"):
+            self.prepare()
+        rebuilt = self.prepare(refresh=True)
+        self.assertEqual(rebuilt["schema"], 2)
 
     def test_sample_id_remap_uses_absolute_frame_and_episode(self):
         self.prepare()
@@ -195,7 +270,7 @@ class TargetChangeTests(unittest.TestCase):
             TargetChangeScanner(self.cfg, resolver).scan(rec, entry)
 
     def test_report_contains_curves_events_and_video_seek(self):
-        raw = self.prepare()
+        raw = self.prepare(getter=grasp_rows)
         path = self.root / "report.html"
         write_report(raw, path, {1: ["episode.mp4"]})
         report = path.read_text()
@@ -205,6 +280,7 @@ class TargetChangeTests(unittest.TestCase):
             "episode.mp4",
             "currentTime=0.8",
             "控制目标变化",
+            "连续抓取阶段",
         ):
             self.assertIn(text, report)
 

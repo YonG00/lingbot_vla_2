@@ -17,6 +17,21 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#40（2026-10-18）连续抓取目标变化窗口 + step500 起点750步续训配方，⏳ CPU回归/真机缓存重建待完成。** `target_change_window.py::scan_episode` 按夹爪数值方向识别闭合，只把闭合与同侧、闭合后2秒内且重新开爪前的首段腕部运动连成一个连续加权窗口；缺少提起时只覆盖闭合及短暂保持。缓存 schema 升为2，续训 recipe 给新run独立缓存并使用该规则。750步启动器允许末尾非100对齐的50步partial unit，以便100步周期验证后在750步正常结算。
+
+- **不变量：** 打开夹爪不创建抓取阶段；超过2秒或开爪后的腕部运动不匹配为提起；窗口概率仍通过原静态采样器归一化；缓存路径/权重/训练输出为新 run 独立目录，旧报告不覆写；step<=750时周期验证仍只在100/200/.../700，末尾partial unit在750完成；若方向一致的预测和真值都减相同输入状态再按物理尺度计算MSE，误差不变。
+- **症状：** HTML区间中闭合到抬起仍断开、开爪放置被标成抓取阶段、旧schema缓存静默复用、750步被启动器拒绝或最后50步不结算、启动文件覆盖旧run缓存、将relative target差误称作力。
+- **回滚：** 使用启动文件传 `--al-set sample_scan_method=hardness` 或 `--no-sample-scan`；窗口阈值通过 `target_change_grasp_lift_max_delay_seconds` 配置；代码级回滚本条涉及的scanner/config/tests/docs/recipe及step预算校验。只恢复启动器的100倍数限制时，750步配方不可用，但常见500/1000步仍可运行。
+- **验证证据：** 最终纯CPU回归 **52 passed, 22 subtests passed**；最终方案只桥接抓取阶段、普通腕部运动保留局部窗口，5561帧中3707帧覆盖（66.7%，旧窗口49.8%），40个闭合阶段找到腕部运动，权重2.0下理论概率质量80.0%；80.6%覆盖的全运动连续方案已撤回。配方 `bash -n` 和默认预览通过。750步允许最后50步正常收尾；启动器配置快照同步视觉冻结/gradient checkpointing开关，以便下次续训继承实际设置。真实schema2报告须启动时生成并人工检查，GPU训练与闭环收益仍待实测。
+
+**#41（2026-10-18）记录相对输入状态动作表示设想，不启用训练。** 见 `relative_action_representation_zh.md`：当前state是drive target，chunk action减锚点state是相对目标变化，不是actual qpos误差或力；若预测和GT同减同一state并在物理尺度算MSE，误差抵消。实际对照只通过feature transform/归一化参数化改变优化尺度，必须新run单变量检验。
+
+- **不变量：** 本条只记录实验建议，不开启 `subtract_state`、不改当前模型输入/动作输出、不改已在跑的训练。
+- **症状：** 训练配置出现 `subtract_state=true` 但设计目的写成力监督，或在原 checkpoint 上只改配置续训。
+- **回滚：** 无代码开关变更；若将来做实验，用独立 run 并恢复 `robotwin.yaml` 的原动作表示即可。
+- **验证入口：** 对比 `FeatureTransform.apply/unapply` 与 `configs/robot_configs/robotwin.yaml`；具体单变量验证方案见 `relative_action_representation_zh.md`。
+
+
 **#39（2026-10-17）AL固定步数训练跨越数据epoch，🧪 纯CPU验证通过，下一次训练生效。** 当前run在231步发生额外测评，证据为5561样本/GBS24=231步，每轮末无条件 `flush_partial_unit()` 将200之后31步结算。旧要求未落实，不能声称已关闭。修改 `train_lingbotvla.py::main` 的内层循环预算：AL启用、指定max_steps且save_epochs=0时按剩余optimizer步数循环，保留学习单元和迭代器跨数据长度边界；非AL、无max_steps或显式epoch存档保持原路径。
 
 - **不变量：** 不在231/462等数据长度边界提前结算unit；100步unit、max_steps/STOP/AL结束的最终flush、周期HF规则不变；保留同一迭代器，避免丢弃prefetch导致采样统计错位。

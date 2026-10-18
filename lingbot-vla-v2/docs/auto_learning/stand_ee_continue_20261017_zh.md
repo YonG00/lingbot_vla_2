@@ -1,5 +1,26 @@
 # place_object_stand step500 续训方案（2026-10-17）
 
+## 2026-10-18：连续抓取窗口，新增750步
+
+新启动文件为 `experiment/robotwin/recipes/20261018_stand_ee_continue750_contiguous_grasp.sh`。从早上全量视觉训练 `al_stand_ee_fullvision_w3_o08_g15_from500_add500_20261018_092225/checkpoints/global_step_500/hf_ckpt` 起步，新建优化器、LR调度和步号，新增750步。HF续训不是恢复原优化器状态；新run的step750对应这次新增750次更新。
+
+- 任务仅 `place_object_stand`；micro20、GAS1、GBS20；视觉塔解冻。
+- 保留低噪FM、EE三项权重 `3.0/0.8/1.5`、独立验证、关闭PASS/任务扫描/复习。
+- 100步一次验证，最终750步结算最后50步；250/500/750保存三份BF16 HF，无DCP，不运行删除监控。
+- gradient checkpointing 默认继承来源配置，可用 `GRADIENT_CHECKPOINTING=0/1` 显式覆盖。
+- 时间戳输出目录和窗口缓存为新run独立目录；旧窗口报告不覆盖，启动器在模型加载前生成schema2缓存。
+- 默认只预览，不读轨迹或写run；`EXECUTE=1`才后台启动。自动关机默认关闭，`SHUTDOWN=1`仅在正常结束且最终HF核验成功后生效。
+
+```bash
+cd /data/experiments/learn_skill_mix_task/lingbot-vla-v2
+bash experiment/robotwin/recipes/20261018_stand_ee_continue750_contiguous_grasp.sh
+
+# 后续同步代码、开卡并检查配置后执行：
+EXECUTE=1 SHUTDOWN=1 bash experiment/robotwin/recipes/20261018_stand_ee_continue750_contiguous_grasp.sh
+```
+
+相对动作表示只记录在 `relative_action_representation_zh.md`，本轮不启用。当前只有本地CPU检查，服务器配置/真实数据缓存预检与GPU验证尚待同步后完成。以下保留上一轮500步配方的历史说明。
+
 ## 背景
 
 上一轮 run 为 `al_stand_ee_lnfm_9680_add500_20261017_184252`。检查其 `trainer_config.json` 后确认：

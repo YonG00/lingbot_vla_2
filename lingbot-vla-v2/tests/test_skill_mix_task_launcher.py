@@ -77,14 +77,24 @@ class LauncherTests(unittest.TestCase):
         self.assertIsNone(plan["training_config"]["model"]["vlm_repo_id"])
         self.assertTrue(plan["training_config"]["model"]["post_training"])
 
+    def test_fixed_step_budget_can_end_with_a_partial_eval_unit(self):
+        self.args.steps = 750
+        plan = launcher.build_plan(self.args)
+        self.assertEqual(plan["config"]["max_global_steps"], 750)
+        self.assertEqual(
+            plan["command"][plan["command"].index("--train.max_steps") + 1],
+            "750",
+        )
+
     def test_vision_encoder_freeze_is_explicit_and_can_be_disabled(self):
         self.args.freeze_vision_encoder = False
         self.args.gradient_checkpointing = True
         plan = launcher.build_plan(self.args)
-        self.assertFalse(plan["training_config"]["train"]["freeze_vision_encoder"])
-        self.assertTrue(plan["training_config"]["train"]["enable_gradient_checkpointing"])
         cmd = plan["command"]
         self.assertEqual(cmd[cmd.index("--train.freeze_vision_encoder") + 1], "false")
+        self.assertEqual(cmd[cmd.index("--train.enable_gradient_checkpointing") + 1], "true")
+        self.assertFalse(plan["training_config"]["train"]["freeze_vision_encoder"])
+        self.assertTrue(plan["training_config"]["train"]["enable_gradient_checkpointing"])
 
     def test_configurable_learning_and_explicit_replay(self):
         self.args.learning_tasks = ["put_object_cabinet"]
