@@ -18,6 +18,8 @@ class RecipeRunNameTests(unittest.TestCase):
         self.assertIn("--ee-position-weight 3.0", result.stdout)
         self.assertIn("--ee-orientation-weight 0.8", result.stdout)
         self.assertIn("--ee-gripper-weight 1.5", result.stdout)
+        self.assertIn("--runtime-dir /data/outputs/skill_launches", result.stdout)
+        self.assertNotIn("/launch_runtime", result.stdout)
 
     def test_stamp_override_is_reproducible_and_does_not_execute(self):
         env = dict(os.environ, RUN_STAMP="20261018_120000", PYTHON="/usr/bin/python3")

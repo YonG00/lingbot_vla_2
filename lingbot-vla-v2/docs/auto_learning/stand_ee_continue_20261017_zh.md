@@ -37,7 +37,7 @@ train.ee_fk_gripper_loss_weight = 0.1
 
 启动文件：`experiment/robotwin/recipes/20261017_stand_ee_continue500_fullvision_w3_o08_g15.sh`。
 
-默认只打印预览。每次调用时自动用当前日期时间生成唯一的 `RUN_STAMP`、`RUN_NAME` 和 `OUT`，避免覆盖历史实验：
+默认只打印预览。每次调用时自动用当前日期时间生成唯一的 `RUN_STAMP`、`RUN_NAME` 和 `OUT`，避免覆盖历史实验。启动日志、job/status 文件放在独立的 `/data/outputs/skill_launches`，不占用待创建的训练输出目录：
 
 ```bash
 cd /data/experiments/learn_skill_mix_task/lingbot-vla-v2

@@ -18,6 +18,7 @@ RUN_STAMP="${RUN_STAMP:-$(date +%Y%m%d_%H%M%S)}"
 DEFAULT_RUN_NAME="al_stand_ee_fullvision_w3_o08_g15_from500_add500_${RUN_STAMP}"
 RUN_NAME="${RUN_NAME:-$DEFAULT_RUN_NAME}"
 OUT="${OUT:-/data/outputs/${RUN_NAME}}"
+RUNTIME_DIR="${RUNTIME_DIR:-/data/outputs/skill_launches}"
 
 CMD=(
   "${PYTHON:-/data/miniconda3/envs/lingbotvla/bin/python}"
@@ -28,7 +29,7 @@ CMD=(
   --gas 1
   --run-name "$RUN_NAME"
   --out "$OUT"
-  --runtime-dir "$OUT/launch_runtime"
+  --runtime-dir "$RUNTIME_DIR"
   --al-config "$SOURCE_RUN/al_config.json"
   --learning-tasks place_object_stand
   --ee-fk-loss
