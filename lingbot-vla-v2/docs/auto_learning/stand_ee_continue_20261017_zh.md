@@ -37,12 +37,21 @@ train.ee_fk_gripper_loss_weight = 0.1
 
 启动文件：`experiment/robotwin/recipes/20261017_stand_ee_continue500_fullvision_w3_o08_g15.sh`。
 
-默认只打印预览：
+默认只打印预览。每次调用时自动用当前日期时间生成唯一的 `RUN_STAMP`、`RUN_NAME` 和 `OUT`，避免覆盖历史实验：
 
 ```bash
 cd /data/experiments/learn_skill_mix_task/lingbot-vla-v2
 bash experiment/robotwin/recipes/20261017_stand_ee_continue500_fullvision_w3_o08_g15.sh
 ```
+
+默认命名格式：
+
+```text
+RUN_NAME=al_stand_ee_fullvision_w3_o08_g15_from500_add500_YYYYMMDD_HHMMSS
+OUT=/data/outputs/$RUN_NAME
+```
+
+复现某次启动时可显式传入 `RUN_STAMP`、`RUN_NAME` 或 `OUT`；平时不需要手动指定路径。
 
 确认预览中的 `freeze_vision_encoder=false`、三个 EE 权重和起点正确后再后台启动：
 

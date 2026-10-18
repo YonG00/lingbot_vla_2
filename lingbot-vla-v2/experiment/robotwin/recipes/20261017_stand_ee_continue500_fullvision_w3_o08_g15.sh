@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2026-10-17 / place_object_stand / step500 -> +500
+# place_object_stand / step500 -> +500; launch timestamp is generated at runtime.
 #
 # 调优策略：
 #   1. 从本次 step500 HF 继续，不重置任务数据口径。
@@ -14,8 +14,10 @@ set -euo pipefail
 ROOT="${ROOT:-/data/experiments/learn_skill_mix_task/lingbot-vla-v2}"
 FROM_HF="${FROM_HF:-/data/outputs/al_stand_ee_lnfm_9680_add500_20261017_184252/checkpoints/global_step_500/hf_ckpt}"
 SOURCE_RUN="${SOURCE_RUN:-/data/outputs/al_stand_ee_lnfm_9680_add500_20261017_184252}"
-OUT="${OUT:-/data/outputs/al_stand_ee_fullvision_w3_o08_g15_from500_add500_20261017}"
-RUN_NAME="${RUN_NAME:-al_stand_ee_fullvision_w3_o08_g15_from500_add500_20261017}"
+RUN_STAMP="${RUN_STAMP:-$(date +%Y%m%d_%H%M%S)}"
+DEFAULT_RUN_NAME="al_stand_ee_fullvision_w3_o08_g15_from500_add500_${RUN_STAMP}"
+RUN_NAME="${RUN_NAME:-$DEFAULT_RUN_NAME}"
+OUT="${OUT:-/data/outputs/${RUN_NAME}}"
 
 CMD=(
   "${PYTHON:-/data/miniconda3/envs/lingbotvla/bin/python}"
