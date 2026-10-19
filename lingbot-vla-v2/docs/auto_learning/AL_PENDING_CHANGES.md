@@ -17,6 +17,8 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#53 首次开卡短测修正（2026-10-19）：🧪 CPU契约通过，micro32/GAS1容量仍未知。** 服务器同步644c10f、CPU84 passed后首次探针在首步前退出：`static cache missing`，并非OOM。原因是探针走prepare-only而漏CPU窗口预备，且没有把本次plan的AL配置冻结给worker。现补`prepare_probe`按正式入口先准备同配置缓存、冻结AL、再materialize；worker继承正式入口隔离环境。增加CPU契约验证顺序、缓存路径与冻结AL一致；保留失败v1产物，以v2重测。CPU本地84 passed、1 skipped、36 subtests，服务器85 passed、36 subtests。用户明确GAS=1，只改micro；正式250/500 BF16 HF节奏不变。
+
 **#53（2026-10-19）FP32主参数/BF16计算与FP32评测准备，🧪 仅本地CPU通过，等用户开卡。** 用户要求停止#52并切换精度，随后指定先准备、后开卡测micro32/GAS1/GBS32。旧run停50步无HF、控制器及GPU进程已结束，旧评测关机已取消。新增默认关闭的`--fp32-master`经recipe/worker传递true/false精度开关，第一步更新后实际dtype审计；BF16 HF保持不变，FP32评测通过独立进程记录实际主参数/关键层dtype。独立3步探针不存档/不关机，正式仍500步/250与500两份HF，来源混训前鼠标step500。不变量：不伪称全FP32内核、不额外forward、不更改已有入口默认精度，不将micro容量等同累积GBS、不继承探针权重；症状：worker仍false/false、审计主参数BF16、动作专家未见BF16计算或评测未见FP32输出；回滚：新进程`--no-fp32-master --eval-precision bf16`或原入口；验证入口：`test_precision_path.py`及配方/续训CPU回归，本地83 passed、1 skipped、36 subtests，GPU dtype/容量未验证。原启动器写死精度已改为显式默认关闭开关；存档节奏没有改变。详见[容量测试准备](mouse_precision_capacity_zh.md)。当前未同步服务器、未启动新训练或GPU测试。
 
 **#52 GPU启动补记：🧪 已正常更新7/500步，终态待运行。** run `al_mouse_pad_primary50_g56_from_mouse500_add500_20261019_v1`，代码ac78f72，合并后运行CLI核验56/GAS1、GC、P10、三项0.004、max500/save250、50条且无辅助/Replay。约7.4s/步，采样设备91761/97887MiB；未OOM、未删新250。外层pipeline.shutdown=true、内层训练关机false；两份HF校验后才最终500模型3回合闭环与关机。这里只确认启动，不将未来存档/评测/关机记为已验证。详见[启动记录](mouse_primary50_train_eval_zh.md)。

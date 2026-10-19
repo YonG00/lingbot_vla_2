@@ -67,6 +67,34 @@ def test_probe_does_not_write_checkpoint_or_mutate_formal_command():
     assert changed[changed.index('--train.save_steps')+1] == '250'
 
 
+def test_probe_prepares_static_cache_and_uses_same_frozen_al_config(monkeypatch):
+    f = fixtures.MouseRecipeTests()
+    f.setUp()
+    try:
+        args = f.args
+        args.fp32_master, args.train_all_episodes = True, True
+        job, plan, snapshot = fixtures.recipe.build_job(args)
+        events = []
+        def cache(cfg, dataset, manifest, tasks):
+            assert cfg.target_change_cache_dir == plan['config']['target_change_cache_dir']
+            assert dataset == args.dataset_root
+            assert tasks == ['place_mouse_pad']
+            assert not Path(job['output_dir']).exists()
+            events.append('cache')
+        def materialize(command):
+            assert events == ['cache']
+            frozen = Path(command[command.index('--al-config')+1])
+            assert json.loads(frozen.read_text()) == plan['config']
+            assert json.loads(snapshot.read_text())['train']['enable_mixed_precision'] is True
+            assert '--prepare-only' in command and '--execute' not in command
+            events.append('worker')
+        monkeypatch.setattr(probe.recipe.launcher, 'main', materialize)
+        probe.prepare_probe(args, job, plan, snapshot, prepare_cache=cache)
+        assert events == ['cache', 'worker']
+    finally:
+        f.doCleanups()
+
+
 def test_new_recipe_defaults_to_requested_32_and_fp32_evaluation(monkeypatch):
     captured = []
     monkeypatch.setattr(entry.pipeline, 'main', lambda args: captured.extend(args))

@@ -28,7 +28,12 @@ def probe_command(command):
 
 
 def worker(job):
-    env = dict(os.environ, PYTHONPATH=str(PACKAGE), LINGBOT_PRECISION_AUDIT=job['audit'])
+    env = dict(os.environ, PYTHONPATH=str(PACKAGE), LINGBOT_PRECISION_AUDIT=job['audit'],
+               QWEN3VL_PATH=job['qwen3vl'], CUDA_VISIBLE_DEVICES='0',
+               AL_POOL_STATE_NO_IMPORT='1', AL_POOL_STATE_MIRROR='', AL_SCAN_SKIP_HARDNESS='0',
+               AL_HARDNESS_CACHE_FILE='', AL_HARDNESS_CACHE='', AL_SCOUT_CACHE_MODE='off',
+               AL_SCOUT_CACHE_FILE='', AL_HARDNESS_SELFTEST_IDS='0',
+               HF_HUB_OFFLINE='1', HF_DATASETS_OFFLINE='1', TRANSFORMERS_OFFLINE='1')
     rc = subprocess.run(job['command'], cwd=PACKAGE, env=env, check=False).returncode
     report = dict(returncode=rc, micro=job['micro'], gas=job['gas'], gbs=job['micro']*job['gas'])
     audit = Path(job['audit'])
@@ -41,6 +46,23 @@ def worker(job):
     report['passed'] = rc == 0 and report['last_step'] == 3 and audit.exists()
     recipe.continuation.write_json(job['result'], report)
     return 0 if report['passed'] else 1
+
+
+def prepare_probe(args, job, plan, snapshot, prepare_cache=None):
+    if prepare_cache is None:
+        from experiment.robotwin.prepare_target_change_windows import prepare as prepare_cache
+    # Match the production launch order: static CPU cache first, then frozen
+    # AL/training snapshots, then materialize the exact worker configuration.
+    prepare_cache(recipe.launcher.AutoLearningConfig(**plan['config']), args.dataset_root,
+                  recipe.launcher.read_json(args.manifest), plan['config']['task_names'])
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    recipe.continuation.write_json(snapshot, plan['training_config'])
+    frozen_al = Path(job['job_file']).with_suffix('.al.json')
+    recipe.continuation.write_json(frozen_al, plan['config'])
+    command = list(job['command'][2:])
+    command[command.index('--al-config')+1] = str(frozen_al)
+    command[command.index('--execute')] = '--prepare-only'
+    recipe.launcher.main(command)
 
 
 def main(argv=None):
@@ -59,20 +81,17 @@ def main(argv=None):
     output = Path(job['output_dir'])
     probe = dict(command=probe_command(plan['command']), micro=args.micro, gas=args.gas,
                  audit=str(output/'precision_audit.json'), result=str(output/'probe_result.json'),
-                 log=job['log'])
+                 log=job['log'], qwen3vl=str(parsed.qwen3vl.resolve()))
     print(json.dumps(probe, indent=2))
     if not args.execute:
         return 0
     active = subprocess.check_output(['nvidia-smi','--query-compute-apps=pid','--format=csv,noheader'],text=True).strip()
     if active:
         raise RuntimeError('GPU非空闲，不启动探针')
-    if output.exists() or snapshot.exists() or Path(job['log']).exists():
+    if (output.exists() or snapshot.exists() or Path(job['log']).exists()
+            or Path(job['job_file']).with_suffix('.al.json').exists()):
         raise FileExistsError('探针产物已存在')
-    snapshot.parent.mkdir(parents=True, exist_ok=True)
-    recipe.continuation.write_json(snapshot, plan['training_config'])
-    prepare = list(job['command'][2:])
-    prepare[prepare.index('--execute')] = '--prepare-only'
-    recipe.launcher.main(prepare)
+    prepare_probe(parsed, job, plan, snapshot)
     path = output / 'probe_job.json'
     recipe.continuation.write_json(path, probe)
     with Path(job['log']).open('x') as log:
