@@ -22,3 +22,11 @@ python experiment/robotwin/recipes/20261019_place_mouse_pad_primary50_train_eval
 容量检查按两份HF权重×1.1加3GiB计算（含额外评测余量）；不自动删除。用户仅条件授权容量不足时删除新混训run的step250，容量足够则保留。存档节奏仍须用户明确允许才改。
 
 CPU契约：`PYTHONPATH=.:tests python -m pytest -q tests/mouse_pad_training/test_train_eval_pipeline.py`。覆盖训练/存档/评测失败不关机、正常零成功评测后关机、250/500验证顺序、结果/回合/视频/渲染完整性检查；不执行真实训练或关机。GPU终态必须以实际状态文件为准。
+
+## 2026-10-19启动记录
+
+正式run：`al_mouse_pad_primary50_g56_from_mouse500_add500_20261019_v1`，启动代码`ac78f72`。本地73 passed、1 skipped（缺torch装配项）、36 subtests；服务器74 passed、36 subtests，真实配置CPU预览及仿真子入口帮助命令正常退出。预检空余39.86GiB、预算29.13GiB，未删除新250或其他产物。
+
+实际GPU已完成7/500更新，稳定约7.4s/步，采样时设备91761/97887MiB，未OOM。运行配置与CLI确认：micro/global56、GAS1、GC=true、EE位置10、三项视觉0.004、max500/save250、全量ViT；train_ids恰为800–849，辅助及Replay关闭。pipeline状态`training`、shutdown=true，内层training_job.shutdown=false，自动评测3回合，仅最终500模型。
+
+`trainer_config.json`是被CLI覆盖前的基础配置，不能据此判定实际batch或EE；本次合并后的`lingbotvla_cli.yaml`及运行日志分别确认56与10。启动过程与最终评测/关机是不同阶段：当前只验证到训练正常更新，250/500存档、3回合评测及关机终态仍待运行。
