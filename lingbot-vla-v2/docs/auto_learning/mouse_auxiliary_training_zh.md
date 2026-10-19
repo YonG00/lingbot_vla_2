@@ -1,6 +1,6 @@
 # 鼠标主任务＋辅助示范混合续训
 
-本入口继续继承 `al_mouse_pad_9680_ee_lnfm_add500_20261018_150402` 的step500模型权重；默认新增500步，新优化器/LR/步号。目标是学习鼠标抓取和放置，辅助不限同型号、同目的地，始终保留原始任务指令和完整轨迹。
+本入口继续继承 `al_mouse_pad_9680_ee_lnfm_add500_20261018_150402` 的step500模型权重；默认新增1000步、开启梯度检查点，新优化器/LR/步号。目标是学习鼠标抓取和放置，辅助不限同型号、同目的地，始终保留原始任务指令和完整轨迹。
 
 ## 配方与入口
 
@@ -9,11 +9,12 @@
 | 主任务 | place_mouse_pad原train+val，共50条/7466帧 |
 | 辅助 | 审核清单47条/7762帧，真实来源5个任务 |
 | 总白名单 | 97条/15228帧，只有审核中的辅助episode被纳入 |
-| 主辅配额 | 70:30；micro20/GAS1时每步14主＋6辅 |
+| 主辅配额 | 70:30；默认micro48/GAS1，跨步累计70:30（单步整数配额轮转） |
 | 辅助池内 | 先等概率选episode，再在episode内按阶段权重抽锚点，批内同episode不重复帧 |
 | 阶段权重 | 目标鼠标臂的控制候选窗口3倍，向前补闭爪前1秒；其他帧1倍 |
+| 梯度检查点 | 默认开启；batch48/GAS1，经32与48实测选择 |
 | 其余 | EE位置10/姿态0.8/夹爪1.5、低噪FM、全量ViT、主任务原窗口2倍策略保持 |
-| 评测/存档 | 固定4条主任务train_monitor，step0及每100步；250/500各一份BF16 HF，无DCP |
+| 评测/存档 | 固定4条主任务train_monitor，step0及每100步；每250步及最终1000步BF16 HF，无DCP |
 
 默认仅CPU预览，不创建训练run、模型前后向或启动GPU任务：
 
@@ -81,7 +82,7 @@ CPU验收工具会生成独立主任务窗口缓存并实际抽样，不生成�
 
 独立低内存训练装配验收通过：`/data/outputs/object_audits/mouse_mix_20261019_cpu_assembly_v1/preflight.json` 的 `runtime_assembly_checked=true`，主任务调度器与联合97条resolver正确；使用实际Parquet列适配器，不宣称与LeRobot全依赖同进程装配通过。
 
-服务器原始证据：`/data/outputs/object_audits/mouse_mix_20261019_cpu_v2/preflight.json`；本地生成副本在 `artifacts/data_audits/mouse/20261019_mix_cpu_v2/`，不随Git提交。2GB无卡实例上的后续重复检查曾被内存限制杀掉，失败日志保留于 `/tmp/mouse_mix_cpu_final.log` 和 `/tmp/mouse_mix_split_probe.log`；不将其算作通过，97条chunk结果采用上述此前成功批次。GPU模型加载、首次更新、250/500 HF写出与闭环收益仍待开卡验证。
+服务器原始证据：`/data/outputs/object_audits/mouse_mix_20261019_cpu_v2/preflight.json`；本地生成副本在 `artifacts/data_audits/mouse/20261019_mix_cpu_v2/`，不随Git提交。2GB无卡实例上的后续重复检查曾被内存限制杀掉，失败日志保留于 `/tmp/mouse_mix_cpu_final.log` 和 `/tmp/mouse_mix_split_probe.log`；不将其算作通过，97条chunk结果采用上述此前成功批次。GPU模型加载、首次更新、周期/1000步HF写出与闭环收益仍待开卡验证。
 
 | 组合 | CPU证据 |
 |---|---|
@@ -92,3 +93,28 @@ CPU验收工具会生成独立主任务窗口缓存并实际抽样，不生成�
 | 辅助权重1 / 3 | 分别验证均匀帧分布 / 阶段采样偏置；episode均衡保持 |
 
 全部输入证据和审核记录均可追溯，但CPU通过不代表模型在新混合数据上一定提升。最终以固定clean种子的鼠标抓起、抬升、放置及原任务成功率评估。
+
+## 待开卡的batch效率对比（2026-10-19）
+
+只在用户开卡且GPU空闲后执行。保持同一step500来源、97条数据、70:30策略及GAS=1；先测micro32并确认梯度检查点实际启用、梯度/参数更新正常，再依据峰值显存余量决定是否测试48。每档先预热，再采集至少20个稳定更新步，记录samples/s、step耗时中位数/高分位、GPU峰值allocated/reserved及设备显存占用，评测和HF保存耗时单列；比较时不将加载、预热、评测、存档混入稳定训练吞吐。短测使用独立run，不覆盖来源、不自动关机、不把短测权重接成正式来源。正式新增1000步：单GPU GAS1时batch32/48分别对应32000/48000个样本槽位；70:30配额跨步补齐。较大batch的更新次数与优化效果需结合训练监控判断，不能只按samples/s推断收益。
+
+以稳定吞吐与显存安全余量共同选batch；当前没有32/48的GPU实测结果。该段为测前方案；完成实测后默认改为48/GAS1。正式run仍从原step500启动，短测后再确定batch。梯度检查点可用 `--no-gradient-checkpointing` 回退，步数用 `--steps` 覆盖。
+
+GPU首档实测：batch32/GAS1、梯度检查点开启、30步完成，取11–30步平均4.9695s/步、6.4393样本/s；峰值allocated59.93GiB、reserved63.28GiB，nvidia-smi66063MiB。每步梯度范数有限且大于0，正常经过optimizer.step，末步GradNorm1.1875；短测无模型存档。32档结果位于 `/data/outputs/mouse_aux_gc_b32_probe_20261019_v1/benchmark_result.json`。后续48已完成并选为默认，见下表。
+
+### GPU短测结论
+
+同一step500来源、真实97条联合数据、EE10/.8/1.5、全量ViT、梯度检查点开启、GAS1，各30个实际optimizer更新，丢弃前10步后统计20步。两档均正常退出且梯度范数有限、非零；没有模型存档，也不将短测权重接入正式训练。
+
+| micro / GBS | 平均步耗时 | 样本/s | 峰值allocated | 峰值reserved | nvidia-smi峰值 |
+|---|---:|---:|---:|---:|---:|
+| 32 | 4.9695s | 6.4393 | 59.93GiB | 63.28GiB | 66063MiB |
+| 48 | 6.6953s | 7.1692 | 76.22GiB | 79.71GiB | 82887MiB |
+
+48吞吐提高11.34%，选为默认。显卡总97887MiB，48档设备显存余量15000MiB；30步通过不能保证所有更长指令/长期碎片峰值，正式运行仍须监控。32→48线性外推micro72 reserved约104.36GiB，高于设备约95.59GiB，因此未跑micro72，不把外推当实测。GBS72可由micro36×GAS2构成，但会改变每次更新样本量和吞吐，未经测试，不作为当前默认。
+
+48档证据：`/data/outputs/mouse_aux_gc_b48_probe_20261019_v1/{benchmark_result.json,benchmark_train.log,benchmark_command.json}`；本地生成副本在 `artifacts/data_audits/mouse/20261019_gpu_batch/`。日志中的训练总步数475/317是读取器epoch长度，实际max_steps均30；性能取StepTime，不使用包含加载/预热的总walltime。短测LR按30步预算变化，仅用于性能验证，不认证1000步优化效果。
+
+正式配置：新增1000步、batch48/GAS1，总48000样本槽位，主33600/辅14400；仍继承原step500模型。每250步存一份HF共4份，当前29GiB不足；正式训练未启动，需先解决存档容量，不能直接沿用此前“开卡即启动”结论。
+
+关闭梯度检查点的历史参考：上一轮鼠标step500 run的实际 `lingbotvla_cli.yaml` 与provenance命令均为micro20/GAS1、checkpoint=false、enable_fp32=false；不能使用来源 `trainer_config.json` 中24/FP32旧值推断实际运行。11–30步均值3.5707s、5.6011样本/s；11–499步排除每100步监控边界共485步，均值4.050567s、4.9376样本/s。新48档相同早期20步吞吐高约28%；数据组合与EE权重不同，不是隔离checkpoint开关的受控对比。

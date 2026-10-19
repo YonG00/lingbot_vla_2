@@ -195,4 +195,23 @@ class AuxiliaryTests(unittest.TestCase):
         self.assertEqual(len(parts.resolver),1960)
         self.assertEqual(len(parts.auxiliary_pool.allowed),360)
 
+    def test_auxiliary_entry_1000_steps_checkpointing_and_explicit_overrides(self):
+        path=Path(fixtures.recipe.__file__).parent/'20261019_place_mouse_pad_mouse_aux.py'
+        spec=importlib.util.spec_from_file_location('mouse_aux_entry_test',path)
+        entry=importlib.util.module_from_spec(spec);spec.loader.exec_module(entry)
+        with patch.object(entry.recipe,'main',side_effect=fixtures.recipe.parser().parse_args):
+            defaults=entry.main([])
+            override=entry.main(['--steps','40','--no-gradient-checkpointing','--micro','32'])
+        self.assertEqual(defaults.steps,1000)
+        self.assertTrue(defaults.gradient_checkpointing)
+        self.assertEqual((defaults.micro,defaults.gas),(48,1))
+        self.assertEqual((override.steps,override.gradient_checkpointing,override.micro),(40,False,32))
+        self.args.steps=defaults.steps;self.args.gradient_checkpointing=defaults.gradient_checkpointing
+        self.args.micro=32
+        job,plan,_=fixtures.recipe.build_job(self.args)
+        self.assertEqual(job['steps'],1000)
+        cmd=plan['command']
+        self.assertEqual(cmd[cmd.index('--train.enable_gradient_checkpointing')+1],'true')
+        self.assertEqual(plan['config']['batch_size'],32)
+
 if __name__=='__main__':unittest.main()
