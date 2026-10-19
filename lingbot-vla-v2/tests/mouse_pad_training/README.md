@@ -1,5 +1,7 @@
 # 鼠标单任务启动配方：CPU契约
 
+Blackwell评测渲染的独立CPU契约：`test_render_runtime.py`（不导入torch/SAPIEN）。部署与GPU验证见[去噪运行库说明](../../docs/auto_learning/robotwin_render_runtime_zh.md)。
+
 ```bash
 PYTHONPATH=.:tests python -m pytest -q \
   tests/mouse_pad_training/test_recipe.py \

@@ -21,6 +21,7 @@
 
 | 我要做什么 | 读哪篇 |
 |---|---|
+| Blackwell评测出现OIDN错误、策略输入有颗粒噪声 | [去噪运行库修复与验证](auto_learning/robotwin_render_runtime_zh.md) |
 | 指定目标物筛选辅助episode、视频核验与白名单 | `auto_learning/object_episode_selection_zh.md` |
 | 2026-10-19 鼠标全库初筛实测与47条候选 | `auto_learning/mouse_auxiliary_scan_20261019_zh.md` |
 | 鼠标主50＋辅助47混合续训与CPU验证 | [混训说明](auto_learning/mouse_auxiliary_training_zh.md) |

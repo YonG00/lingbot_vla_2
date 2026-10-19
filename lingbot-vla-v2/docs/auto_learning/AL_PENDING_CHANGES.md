@@ -195,6 +195,8 @@
 
 ## §2 已验证（可不再惦记）
 
+**#51（2026-10-19）Blackwell评测OIDN兼容修复，✅ 静态与400步闭环渲染验证通过；抓取仍失败。** SAPIEN 3.0.0b1自带OIDN2.0.1加载CUDA插件但设备枚举0；隔离2.5.1能识别RTX PRO 6000 Blackwell。`envs/render_runtime.py`在SAPIEN导入前预载独立库并替代旧预载shim；默认仅发现仓库`.runtime/oidn-2.5.1`时启用，显式`ROBOTWIN_OIDN_LIBRARY_DIR`可指定。目录/版本/CUDA检查失败立即报错。不变量：SAPIEN/物理/相机/32spp/模型不变，site-packages/生产目录不改；症状：缺启动标记、maps出现2.0.1或OIDN Error；回滚：新进程`ROBOTWIN_OIDN_LIBRARY_DIR=bundled`（恢复旧缺陷）。验证：CPU契约本地/服务器7 passed；本地配方及启动续训回归62 passed、1 skipped、36 subtests。同seed静态三视角/真实策略输入颗粒消失，实际闭环maps仅2.5.1；新step500/seed100000/noise0/chunk50完整400步8次forward，OIDN Error=0，但成功0/1、鼠标最大抬升0.0724mm。原评测客户端hash不变；测试结束无GPU进程。证据及安装/回滚见[运行库说明](robotwin_render_runtime_zh.md)。不把渲染修复等同策略能力提升。
+
 **#38（2026-10-17）面板历史单行布局，✅ 本地/服务器纯CPU与实际run显示通过。** 每条历史占一行，门槛移到标题，EE列依次为位置/姿态/夹爪；标题说明未乘权重、取该训练步。历史门槛有变化时逐行T标明，不套用新门槛。只读面板；不重启训练。
 
 - **不变量：** EE步号绑定不变，不丢夹爪、不逐行重复门槛；旧run兼容，变动门槛不误导。
