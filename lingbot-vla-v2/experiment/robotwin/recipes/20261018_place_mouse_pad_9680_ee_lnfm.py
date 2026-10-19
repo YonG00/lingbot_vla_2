@@ -6,6 +6,7 @@ import argparse
 from datetime import datetime
 import importlib.util
 import json
+import math
 from pathlib import Path
 import shlex
 import sys
@@ -43,6 +44,8 @@ def parser():
     p.add_argument("--train-all-episodes", action=argparse.BooleanOptionalAction, default=False,
                    help="把 manifest 的 train+val 共50条全部纳入训练；关闭独立 val/PASS/gap")
     p.add_argument("--gradient-checkpointing", action=argparse.BooleanOptionalAction, default=False)
+    p.add_argument("--alignment-loss-scale", type=float, default=1.0,
+                   help="对来源中当前深度/未来深度/视频loss权重乘同一倍率，不改变内部视频损失配比")
     p.add_argument("--shutdown", action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--output-root", type=Path, default=Path("/data/outputs"))
     p.add_argument("--runtime-dir", type=Path, default=Path("/data/outputs/skill_launches"))
@@ -58,6 +61,8 @@ def parser():
 
 
 def build_job(args):
+    if not math.isfinite(args.alignment_loss_scale) or args.alignment_loss_scale <= 0:
+        raise ValueError("alignment-loss-scale must be finite and positive")
     label = f"all50_p{args.ee_position_weight:g}_" if args.train_all_episodes else ""
     name = args.run_name or f"al_mouse_pad_{label}9680_ee_lnfm_add{args.steps}_{datetime.now():%Y%m%d_%H%M%S}"
     # Same filename contract as the existing continuation entry.
@@ -94,6 +99,17 @@ def build_job(args):
         freeze_vision_encoder=False, gradient_checkpointing=args.gradient_checkpointing,
     )
     plan = launcher.build_plan(plan_args)
+    if args.alignment_loss_scale != 1.0:
+        align = plan['training_config']['train'].get('align_params', {})
+        video = align.get('video', {})
+        if not align.get('use_future_video') or not align.get('depth', {}).get('use_future_depth'):
+            raise ValueError('alignment scaling requires enabled depth/future-depth/video supervision')
+        for container, key in ((align, 'depth_loss_weight'), (align, 'future_depth_loss_weight'),
+                               (video, 'future_video_loss_weight')):
+            value = container.get(key)
+            if not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                raise ValueError(f'explicit positive source alignment weight required: {key}')
+            container[key] = value * args.alignment_loss_scale
     # Two independent visual freeze switches exist. The dedicated source
     # snapshot disables both, and LoRA, before the ordinary launcher rebuilds
     # its plan in the worker. Model weights still come exclusively from --model.

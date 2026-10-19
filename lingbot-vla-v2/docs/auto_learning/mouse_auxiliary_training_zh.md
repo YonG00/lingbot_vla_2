@@ -1,6 +1,6 @@
 # 鼠标主任务＋辅助示范混合续训
 
-本入口继续继承 `al_mouse_pad_9680_ee_lnfm_add500_20261018_150402` 的step500模型权重；默认新增750步、开启梯度检查点，新优化器/LR/步号。目标是学习鼠标抓取和放置，辅助不限同型号、同目的地，始终保留原始任务指令和完整轨迹。
+本入口继续继承 `al_mouse_pad_9680_ee_lnfm_add500_20261018_150402` 的step500模型权重；默认新增500步、开启梯度检查点，新优化器/LR/步号。目标是学习鼠标抓取和放置，辅助不限同型号、同目的地，始终保留原始任务指令和完整轨迹。
 
 ## 配方与入口
 
@@ -9,12 +9,12 @@
 | 主任务 | place_mouse_pad原train+val，共50条/7466帧 |
 | 辅助 | 审核清单47条/7762帧，真实来源5个任务 |
 | 总白名单 | 97条/15228帧，只有审核中的辅助episode被纳入 |
-| 主辅配额 | 70:30；默认micro56/GAS1，跨步累计70:30（单步整数配额轮转） |
+| 主辅配额 | 70:30；默认micro48/GAS1，跨步累计70:30（单步整数配额轮转） |
 | 辅助池内 | 先等概率选episode，再在episode内按阶段权重抽锚点，批内同episode不重复帧 |
 | 阶段权重 | 目标鼠标臂的控制候选窗口3倍，向前补闭爪前1秒；其他帧1倍 |
-| 梯度检查点 | 默认开启；batch56/GAS1，经32/48/56实测选择 |
-| 其余 | EE位置10/姿态0.8/夹爪1.5、低噪FM、全量ViT、主任务原窗口2倍策略保持 |
-| 评测/存档 | 固定4条主任务train_monitor，step0及每100步；仅750步最终BF16 HF，无DCP（本轮容量预算一份） |
+| 梯度检查点 | 默认开启；batch48/GAS1，用户指定适配84GB新卡 |
+| 其余 | EE位置12/姿态0.8/夹爪1.5、低噪FM、全量ViT、主任务原窗口2倍策略保持 |
+| 评测/存档 | 固定4条主任务train_monitor，step0及每100步；250/500步各一份BF16 HF，无DCP（用户明确指定） |
 
 默认仅CPU预览，不创建训练run、模型前后向或启动GPU任务：
 
@@ -23,13 +23,13 @@ cd /data/experiments/learn_skill_mix_task/lingbot-vla-v2
 bash experiment/robotwin/recipes/20261019_place_mouse_pad_mouse_aux.sh
 ```
 
-开卡、GPU空闲及容量检查通过后，显式启动；默认不关机：
+开卡、GPU空闲及容量检查通过后，显式启动；默认在最终HF校验成功后自动关机：
 
 ```bash
-bash experiment/robotwin/recipes/20261019_place_mouse_pad_mouse_aux.sh --execute --no-shutdown
+bash experiment/robotwin/recipes/20261019_place_mouse_pad_mouse_aux.sh --execute
 ```
 
-需要成功核验最终HF后关机时显式选择 `--shutdown`。本轮交付没有启动训练。输出名称含 `all50_aux0.7_p10_from_mouse500`，与旧all50实验隔离。每次新run仍使用独立窗口缓存；旧run/缓存/原始数据不覆盖。
+可显式选择 `--no-shutdown` 保持机器开机；训练失败或最终HF校验失败不关机。输出名称含 `all50_aux0.7_p12_from_mouse500`，与旧all50实验隔离。每次新run仍使用独立窗口缓存；旧run/缓存/原始数据不覆盖。
 
 可覆盖 `--auxiliary-manifest`、`--auxiliary-primary-ratio`、`--auxiliary-grasp-weight`、`--auxiliary-approach-seconds`，以及已有 `--steps/--micro/--gas/--model/--train-config`。辅助配置必须配合train_all_episodes、单个主任务、关闭Replay与PASS/复习等使用；非法组合在CPU准备阶段拒绝。主辅比例不能改用 `--new-ratio`，它仍是既有NEW/Replay接口。
 
@@ -126,3 +126,9 @@ GPU首档实测：batch32/GAS1、梯度检查点开启、30步完成，取11–3
 56档最终实测：30步正常退出，11–30步平均7.475s、7.4916样本/s，中位7.473s、p95 7.504s；峰值allocated84.34GiB、reserved88.05GiB、设备91425MiB，余6462MiB。相较48吞吐提高4.50%，选56/GAS1；梯度检查点日志确认开启，末步GradNorm0.7266。证据 `/data/outputs/mouse_aux_gc_b56_probe_20261019_v1/benchmark_result.json`。正式750步共42000槽位，主29400/辅12600；仍从原step500，最终只存一份HF。
 
 正式运行已启动：`al_mouse_pad_aux56_gc_from500_add750_20261019_1220`（代码31184db）。服务器运行目录 `/data/outputs/al_mouse_pad_aux56_gc_from500_add750_20261019_1220`；日志 `/data/outputs/skill_launches/al_mouse_pad_aux56_gc_from500_add750_20261019_1220.log`，同名 `.status.json` 记录运行/最终校验状态。启动验收完成4个实际更新，约7.4s/步、reserved88.05GiB，实际CLI文件与97条白名单核验通过。750步最终HF与效果仍待完成后检查。
+
+### 84GB卡中断后重训（用户2026-10-19授权）
+
+旧750步run日志止于427步，无检查点，无法恢复这些更新；保留其日志。新run从原鼠标step500权重重训500步，48/GAS1，主50＋辅助47、70:30、梯度检查点和其他采样策略保持。位置EE由10升至12，姿态0.8/夹爪1.5保持；当前深度、未来深度及视频外层权重各由0.004提高25%至0.005，视频内部MSE/cosine等配比保持。`--alignment-loss-scale 1.25` 仅在准备来源训练配置快照时应用一次，worker读取快照不重复相乘，原始HF和来源配置不改。
+
+存档恢复为每250步HF（250和500两份），经用户明确授权；以后任何保存节奏/保留策略变动必须再次获得用户明确允许，已写入根AGENTS.md。剩余约64GiB，启动容量按两份实际权重核算。默认开启成功后自动关机：仅训练退出0且最终HF资产/张量清单校验通过后调用既有关机流程，失败保留服务器。84GB新卡为RTX 6000D，85651MiB；旧96GB卡的48档显存结果仅作参考，需确认新run实际峰值。

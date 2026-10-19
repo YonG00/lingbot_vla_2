@@ -199,25 +199,50 @@ class AuxiliaryTests(unittest.TestCase):
         self.assertEqual(len(parts.resolver),1960)
         self.assertEqual(len(parts.auxiliary_pool.allowed),360)
 
-    def test_auxiliary_entry_750_steps_checkpointing_and_explicit_overrides(self):
+    def test_auxiliary_entry_restart_defaults_and_explicit_overrides(self):
         path=Path(fixtures.recipe.__file__).parent/'20261019_place_mouse_pad_mouse_aux.py'
         spec=importlib.util.spec_from_file_location('mouse_aux_entry_test',path)
         entry=importlib.util.module_from_spec(spec);spec.loader.exec_module(entry)
         with patch.object(entry.recipe,'main',side_effect=fixtures.recipe.parser().parse_args):
             defaults=entry.main([])
-            override=entry.main(['--steps','40','--no-gradient-checkpointing','--micro','32'])
-        self.assertEqual((defaults.steps,defaults.hf_save_steps),(750,750))
+            override=entry.main(['--steps','40','--no-gradient-checkpointing','--micro','32','--no-shutdown'])
+        self.assertEqual((defaults.steps,defaults.hf_save_steps),(500,250))
         self.assertTrue(defaults.gradient_checkpointing)
-        self.assertEqual((defaults.micro,defaults.gas),(56,1))
+        self.assertEqual((defaults.micro,defaults.gas),(48,1))
+        self.assertEqual((defaults.ee_position_weight,defaults.alignment_loss_scale),(12,1.25))
+        self.assertTrue(defaults.shutdown);self.assertFalse(override.shutdown)
         self.assertEqual((override.steps,override.gradient_checkpointing,override.micro),(40,False,32))
         self.args.steps=defaults.steps;self.args.gradient_checkpointing=defaults.gradient_checkpointing
         self.args.hf_save_steps=defaults.hf_save_steps
         self.args.micro=32
         job,plan,_=fixtures.recipe.build_job(self.args)
-        self.assertEqual(job['steps'],750)
+        self.assertEqual(job['steps'],500)
         cmd=plan['command']
-        self.assertEqual(cmd[cmd.index('--train.save_steps')+1],'750')
+        self.assertEqual(cmd[cmd.index('--train.save_steps')+1],'250')
         self.assertEqual(cmd[cmd.index('--train.enable_gradient_checkpointing')+1],'true')
         self.assertEqual(plan['config']['batch_size'],32)
+
+    def test_alignment_scale_survives_real_worker_rebuild(self):
+        source=fixtures.recipe.launcher.read_training_config(self.args.train_config)
+        source.setdefault('train',{})['align_params']={
+            'depth':{'use_future_depth':True},'use_future_video':True,
+            'depth_loss_weight':.004,'future_depth_loss_weight':.004,
+            'video':{'future_video_loss_weight':.004,'cosine_loss_weight':.2}}
+        self.args.train_config.write_text(json.dumps(source))
+        self.args.alignment_loss_scale=1.25;self.args.ee_position_weight=12
+        job,plan,snapshot=fixtures.recipe.build_job(self.args)
+        snapshot.parent.mkdir();snapshot.write_text(json.dumps(plan['training_config']))
+        al=snapshot.with_suffix('.al.json');al.write_text(json.dumps(plan['config']))
+        cmd=job['command'][2:];cmd[cmd.index('--al-config')+1]=str(al);cmd[cmd.index('--execute')]='--prepare-only'
+        with contextlib.redirect_stdout(io.StringIO()):fixtures.recipe.launcher.main(cmd)
+        actual=json.loads((Path(job['output_dir'])/'trainer_config.json').read_text())['train']['align_params']
+        self.assertEqual((actual['depth_loss_weight'],actual['future_depth_loss_weight'],actual['video']['future_video_loss_weight']),(.005,.005,.005))
+        self.assertEqual(actual['video']['cosine_loss_weight'],.2)
+        self.assertEqual(json.loads(self.args.train_config.read_text())['train']['align_params']['depth_loss_weight'],.004)
+        command=json.loads((Path(job['output_dir'])/'provenance.json').read_text())['command']
+        self.assertEqual(float(command[command.index('--train.ee_fk_position_loss_weight')+1]),12)
+        for scale in (0,float('nan')):
+            self.args.alignment_loss_scale=scale
+            with self.assertRaises(ValueError):fixtures.recipe.build_job(self.args)
 
 if __name__=='__main__':unittest.main()
