@@ -157,6 +157,8 @@ def checkpoint_inventory(model):
 
 
 def build_plan(args):
+    if getattr(args, "hf_save_steps", 250) < 1:
+        raise ValueError("hf_save_steps must be positive")
     cfg = getattr(args, "al_config_data", None) or read_json(args.al_config)
     AutoLearningConfig(**cfg)
     if cfg.get("sample_scan_method", "hardness") == "target_change_window" and cfg["hardness_scan_enabled"]:
@@ -282,7 +284,7 @@ def build_plan(args):
         "train.output_dir": str(out), "train.micro_batch_size": args.micro,
         "train.gradient_accumulation_steps": args.gas, "train.global_batch_size": args.micro * args.gas,
         "train.num_train_epochs": args.steps + 1, "train.max_steps": args.steps,
-        "train.save_steps": 250, "train.save_epochs": 0, "train.save_hf_weights": True,
+        "train.save_steps": getattr(args, "hf_save_steps", 250), "train.save_epochs": 0, "train.save_hf_weights": True,
         "train.async_save_hf_weights": False, "train.hf_pass_interval": 0,
         "train.hf_export_dtype": "bf16", "train.dcp_save_mode": "hf_only",
         "train.dcp_keep_last": 0, "train.enable_resume": False, "train.reset_step_counter": True,
@@ -306,7 +308,7 @@ def build_plan(args):
     }
     options.update(ee_training_options(args, source_args, cfg))
     # Keep the reproducible snapshot consistent with effective CLI overrides.
-    for key in ("freeze_vision_encoder", "enable_gradient_checkpointing"):
+    for key in ("freeze_vision_encoder", "enable_gradient_checkpointing", "save_steps"):
         run_config["train"][key] = options["train." + key]
     for key, value in options.items():
         command += ["--" + key, str(value).lower() if isinstance(value, bool) else str(value)]
@@ -343,6 +345,7 @@ def main(argv=None):
     p.add_argument("--replay-tasks", nargs="*")
     p.add_argument("--new-ratio", type=float, default=1.0)
     p.add_argument("--steps", type=int, default=1000)
+    p.add_argument("--hf-save-steps", type=int, default=250)
     p.add_argument("--micro", type=int, default=1)
     p.add_argument("--gas", type=int, default=10)
     p.add_argument("--python", default=sys.executable)

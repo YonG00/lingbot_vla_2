@@ -142,7 +142,11 @@ def check_machine(job, plan):
     parent = Path(job["output_dir"]).parent
     while not parent.exists():
         parent = parent.parent
-    count = math.ceil(job["steps"] / 250)
+    command = plan.get("command", [])
+    interval = int(command[command.index("--train.save_steps") + 1]) if "--train.save_steps" in command else 250
+    if interval < 1:
+        raise ValueError("HF save interval must be positive")
+    count = math.ceil(job["steps"] / interval)
     weight_bytes = sum(row["size"] for row in plan["checkpoint_inventory"])
     needed = math.ceil(count * weight_bytes * 1.1) + 1024**3
     free = shutil.disk_usage(parent).free

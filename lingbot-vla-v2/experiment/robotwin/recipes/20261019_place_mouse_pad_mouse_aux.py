@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""鼠标step500续练1000步：主50＋辅助47，70:30，梯度检查点开启；默认仅CPU预览。"""
+"""鼠标step500续练750步：主50＋辅助47，70:30，梯度检查点开启；默认仅CPU预览。"""
 from pathlib import Path
 import importlib.util
 import sys
@@ -13,7 +13,8 @@ APPROVED = HERE.parents[2]/'refs/data_manifests/mouse/20261019_train_v1/approved
 
 def main(argv=None):
     args = ['--auxiliary-manifest', str(APPROVED),
-            '--steps', '1000', '--gradient-checkpointing', '--micro', '48', '--gas', '1']
+            '--steps', '750', '--hf-save-steps', '750',
+            '--gradient-checkpointing', '--micro', '56', '--gas', '1']
     args.extend(sys.argv[1:] if argv is None else argv)
     return recipe.main(args)
 

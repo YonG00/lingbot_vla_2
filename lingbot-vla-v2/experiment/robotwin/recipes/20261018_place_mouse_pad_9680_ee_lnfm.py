@@ -34,6 +34,7 @@ def parser():
     p.add_argument("--manifest", type=Path, default=ROOT / "refs/al_artifacts/al/task_splits_50/manifest.json")
     p.add_argument("--ee-fk-spec", type=Path, default=ROOT / "configs/kinematics/robotwin_aloha_agilex_ee.json")
     p.add_argument("--steps", type=int, default=500)
+    p.add_argument("--hf-save-steps", type=int, default=250, help="HF周期步数；设为总步数时只在结束保存")
     p.add_argument("--micro", type=int, default=20)
     p.add_argument("--gas", type=int, default=1)
     p.add_argument("--ee-position-weight", type=float, default=3.0)
@@ -85,7 +86,7 @@ def build_job(args):
         manifest=args.manifest.resolve(), out=out,
         audit_report=(args.cache_root / name / "data_audit.json").resolve(),
         learning_tasks=[TASK], replay_tasks=[], steps=args.steps, micro=args.micro,
-        gas=args.gas, new_ratio=1.0, master_port=args.master_port, python=sys.executable,
+        gas=args.gas, hf_save_steps=args.hf_save_steps, new_ratio=1.0, master_port=args.master_port, python=sys.executable,
         ee_fk_loss=True, ee_fk_eval=True, ee_fk_spec=args.ee_fk_spec,
         ee_position_weight=args.ee_position_weight,
         ee_orientation_weight=args.ee_orientation_weight,
@@ -103,7 +104,7 @@ def build_job(args):
     plan["command"] += ["--train.freeze_vit", "false", "--train.use_lora", "false"]
     command = [sys.executable, str(Path(launcher.__file__).resolve())]
     for flag in ("model", "dataset_root", "qwen3vl", "al_config", "manifest", "out",
-                 "audit_report", "steps", "micro", "gas", "master_port", "ee_fk_spec",
+                 "audit_report", "steps", "micro", "gas", "hf_save_steps", "master_port", "ee_fk_spec",
                  "ee_position_weight", "ee_orientation_weight", "ee_gripper_weight"):
         command += ["--" + flag.replace("_", "-"), str(getattr(plan_args, flag))]
     command += ["--train-config", str(training_snapshot), "--learning-tasks", TASK,

@@ -223,6 +223,16 @@ class ContinueSkillTests(unittest.TestCase):
                 with self.assertRaises(RuntimeError):
                     entry.check_machine(self.job(), {"checkpoint_inventory": [{"size": 12 * 1024**3}]})
 
+    def test_capacity_follows_effective_hf_interval(self):
+        job=self.job();job['steps']=750
+        plan={'checkpoint_inventory':[{'size':12*1024**3}],
+              'command':['--train.save_steps','750']}
+        with patch.object(entry.subprocess,'run',return_value=NS(stdout='')), \
+                patch.object(entry.shutil,'disk_usage',return_value=NS(free=29*1024**3)):
+            entry.check_machine(job,plan)
+            plan['command']=['--train.save_steps','250']
+            with self.assertRaises(RuntimeError):entry.check_machine(job,plan)
+
 
 if __name__ == "__main__":
     unittest.main()

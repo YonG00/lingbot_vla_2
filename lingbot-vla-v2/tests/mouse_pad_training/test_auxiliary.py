@@ -146,11 +146,15 @@ class AuxiliaryTests(unittest.TestCase):
         self.assertEqual(sum(r['n_new'] for r in sched.metrics_rows),7000);self.assertEqual(sum(r['n_auxiliary'] for r in sched.metrics_rows),3000)
         self.assertEqual(sched.registry.summary()['pass'],0)
     def test_real_worker_freezes_manifest(self):
+        self.args.steps=750;self.args.hf_save_steps=750
         job,plan,snapshot=fixtures.recipe.build_job(self.args);snapshot.parent.mkdir();snapshot.write_text(json.dumps(plan['training_config']));al=snapshot.with_suffix('.al.json');al.write_text(json.dumps(plan['config']))
         cmd=job['command'][2:];cmd[cmd.index('--al-config')+1]=str(al);cmd[cmd.index('--execute')]='--prepare-only'
         with contextlib.redirect_stdout(io.StringIO()):fixtures.recipe.launcher.main(cmd)
         out=Path(job['output_dir']);cfg=json.loads((out/'al_config.json').read_text());self.assertEqual(Path(cfg['auxiliary_manifest']),out/'auxiliary/approved.json')
         self.assertEqual((out/'auxiliary/approved.json').read_bytes(),(self.approved/'approved.json').read_bytes());self.assertEqual(json.loads((out/'train_ids.json').read_text()),sorted(self.lengths))
+        actual=json.loads((out/'provenance.json').read_text())
+        self.assertEqual(actual['command'][actual['command'].index('--train.save_steps')+1],'750')
+        self.assertEqual(actual['training_config']['train']['save_steps'],750)
 
     def test_real_loop_hook_drains_auxiliary_counts_without_prefetch(self):
         from lingbotvla.auto_learning.real.hook import AutoLearnLoopHook
@@ -195,22 +199,24 @@ class AuxiliaryTests(unittest.TestCase):
         self.assertEqual(len(parts.resolver),1960)
         self.assertEqual(len(parts.auxiliary_pool.allowed),360)
 
-    def test_auxiliary_entry_1000_steps_checkpointing_and_explicit_overrides(self):
+    def test_auxiliary_entry_750_steps_checkpointing_and_explicit_overrides(self):
         path=Path(fixtures.recipe.__file__).parent/'20261019_place_mouse_pad_mouse_aux.py'
         spec=importlib.util.spec_from_file_location('mouse_aux_entry_test',path)
         entry=importlib.util.module_from_spec(spec);spec.loader.exec_module(entry)
         with patch.object(entry.recipe,'main',side_effect=fixtures.recipe.parser().parse_args):
             defaults=entry.main([])
             override=entry.main(['--steps','40','--no-gradient-checkpointing','--micro','32'])
-        self.assertEqual(defaults.steps,1000)
+        self.assertEqual((defaults.steps,defaults.hf_save_steps),(750,750))
         self.assertTrue(defaults.gradient_checkpointing)
-        self.assertEqual((defaults.micro,defaults.gas),(48,1))
+        self.assertEqual((defaults.micro,defaults.gas),(56,1))
         self.assertEqual((override.steps,override.gradient_checkpointing,override.micro),(40,False,32))
         self.args.steps=defaults.steps;self.args.gradient_checkpointing=defaults.gradient_checkpointing
+        self.args.hf_save_steps=defaults.hf_save_steps
         self.args.micro=32
         job,plan,_=fixtures.recipe.build_job(self.args)
-        self.assertEqual(job['steps'],1000)
+        self.assertEqual(job['steps'],750)
         cmd=plan['command']
+        self.assertEqual(cmd[cmd.index('--train.save_steps')+1],'750')
         self.assertEqual(cmd[cmd.index('--train.enable_gradient_checkpointing')+1],'true')
         self.assertEqual(plan['config']['batch_size'],32)
 
