@@ -17,6 +17,8 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#53（2026-10-19）FP32主参数/BF16计算与FP32评测准备，🧪 仅本地CPU通过，等用户开卡。** 用户要求停止#52并切换精度，随后指定先准备、后开卡测micro32/GAS1/GBS32。旧run停50步无HF、控制器及GPU进程已结束，旧评测关机已取消。新增默认关闭的`--fp32-master`经recipe/worker传递true/false精度开关，第一步更新后实际dtype审计；BF16 HF保持不变，FP32评测通过独立进程记录实际主参数/关键层dtype。独立3步探针不存档/不关机，正式仍500步/250与500两份HF，来源混训前鼠标step500。不变量：不伪称全FP32内核、不额外forward、不更改已有入口默认精度，不将micro容量等同累积GBS、不继承探针权重；症状：worker仍false/false、审计主参数BF16、动作专家未见BF16计算或评测未见FP32输出；回滚：新进程`--no-fp32-master --eval-precision bf16`或原入口；验证入口：`test_precision_path.py`及配方/续训CPU回归，本地83 passed、1 skipped、36 subtests，GPU dtype/容量未验证。原启动器写死精度已改为显式默认关闭开关；存档节奏没有改变。详见[容量测试准备](mouse_precision_capacity_zh.md)。当前未同步服务器、未启动新训练或GPU测试。
+
 **#52 GPU启动补记：🧪 已正常更新7/500步，终态待运行。** run `al_mouse_pad_primary50_g56_from_mouse500_add500_20261019_v1`，代码ac78f72，合并后运行CLI核验56/GAS1、GC、P10、三项0.004、max500/save250、50条且无辅助/Replay。约7.4s/步，采样设备91761/97887MiB；未OOM、未删新250。外层pipeline.shutdown=true、内层训练关机false；两份HF校验后才最终500模型3回合闭环与关机。这里只确认启动，不将未来存档/评测/关机记为已验证。详见[启动记录](mouse_primary50_train_eval_zh.md)。
 
 **#52（2026-10-19）纯主任务50条GBS56与训练后闭环关机流水线，🧪 CPU与真实配置预检通过，GPU终态待验证。** 用户授权第2项从混训前鼠标step500训练，GBS56/GAS1、GC、500步、250/500 HF、EE10/.8/1.5、视觉三项0.004，无辅助；最终模型3回合闭环后关机。新增独立配方复用原续训worker，训练子任务强制不关机，250/500 HF均验证后评测；评测须正常退出、完成3回合、结果文件一致、3份非空视频及OIDN检查通过，0成功也属正常评测。异常保留机器。不变量：不覆盖原客户端、两份存档、权重来源独立、评测与训练串行、二者正常完成后才关机；症状：辅助仍启用、GBS非56、存档节奏变化、只训完就关机、渲染异常也关机；回滚：不执行新入口，或新进程`--no-shutdown`；验证入口：`tests/mouse_pad_training/test_train_eval_pipeline.py`加既有配方/续训契约、真实CPU预览及训练启动配置核验。本地73 passed、1 skipped、36 subtests；服务器74 passed、36 subtests。真实预览50/0、56/1、source500/.004/P10通过，仿真子入口`--help`正常退出并加载OIDN2.5.1；CPU预检发现/data符号链接与真实路径的来源比较误报，已统一resolve并补契约。实际空余39.86GiB，预算29.13GiB（两份HF含评测余量），不删除新250。GPU启动及500步/3回合/关机终态后续记录于[说明](mouse_primary50_train_eval_zh.md)。
@@ -40,7 +42,7 @@
 - **不变量：** 原manifest不改；开启时train=原train∪val、val为空，白名单/实际local_idx/静态窗口缓存均覆盖全部50条；仅调用4条train_monitor；不伪造active_val、成品参考倍率、PASS、gap或泛化结论；默认关闭时40/10行为保持；禁止旧池导入及验证驱动状态迁移。
 - **症状：** 新run仍train=40、缓存只40条、出现active_val调用/倍率/“未过拟合”、worker丢失全训练开关、训练末因缺val报metric_invalid或DEFER。
 - **回滚：** 使用原 `20261018_place_mouse_pad_9680_ee_lnfm.sh`（40/10、位置权重3），新进程生效；不覆盖原run/缓存/manifest，无删除机制。50条训练模型不能再用原val声称独立验证。
-- **验证入口：** `tests/mouse_pad_training/` CPU契约（实际worker重建、catalog→resolver→采样→调度→事件流）、既有40/10回归和窗口预计算；GPU训练/闭环、服务器同步及提交push不在本次执行范围。左右臂50条仍为19/31，本轮不重配左右采样概率。当前本地证据为47 passed、28 subtests；旧模式回归182 passed、72 subtests。
+- **验证入口：** `tests/mouse_pad_training/` CPU契约（实际worker重建、catalog→resolver→采样→调度→事件流）、既有40/10回归和窗口预计算；GPU训练/闭环、服务器同步及提交push不在本次执行范围。左右臂50条仍为19/31，本轮不重配左右采样概率。当前本地证据为47 passed、28 subtests；旧模式回归183 passed、72 subtests。
 
 **#42（2026-10-18）原始step9680专练place_mouse_pad，🧪 已提交同步，实机CPU预览通过，未启动GPU训练。** 实现提交 `aba61f0`。新增日期启动文件（shell/Python）、独立单任务AL配置和说明文档。默认新增500步、micro20/GAS1、每250步HF；EE(3/.8/1.5)、低噪FM、连续抓取窗口开启。原始9680权重不依赖stand模型；40 train/10 val，任务episode800–849。
 

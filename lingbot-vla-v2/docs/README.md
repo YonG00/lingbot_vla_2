@@ -21,6 +21,7 @@
 
 | 我要做什么 | 读哪篇 |
 |---|---|
+| FP32主参数/BF16计算→BF16 HF→FP32评测，以及96G微批容量测试 | [精度与容量准备](auto_learning/mouse_precision_capacity_zh.md) |
 | 鼠标纯主任务50条GBS56续练、结束后3回合闭环及关机 | [训练评测流水线](auto_learning/mouse_primary50_train_eval_zh.md) |
 | Blackwell评测出现OIDN错误、策略输入有颗粒噪声 | [去噪运行库修复与验证](auto_learning/robotwin_render_runtime_zh.md) |
 | 指定目标物筛选辅助episode、视频核验与白名单 | `auto_learning/object_episode_selection_zh.md` |

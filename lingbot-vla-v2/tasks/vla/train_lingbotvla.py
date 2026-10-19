@@ -1484,6 +1484,10 @@ def main():
         if (_al_hook is not None and args.train.max_steps is not None
                 and not args.train.save_epochs):
             epoch_train_steps = start_step + max(0, args.train.max_steps - global_step)
+        precision_audit = None
+        if os.environ.get('LINGBOT_PRECISION_AUDIT') and global_step == 0:
+            from lingbotvla.utils.precision_audit import PrecisionAudit
+            precision_audit = PrecisionAudit(model, optimizer, os.environ['LINGBOT_PRECISION_AUDIT'])
         for epoch_step in range(start_step, epoch_train_steps):
             # Unit 最后一步可能已触发 PASS/收工。下一轮切记**先检查再 ++step**，
             # 否则会把未训练的一个 optimizer step 错报成已完成。
@@ -1701,7 +1705,11 @@ def main():
             else:
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm, foreach=True)
 
+            if precision_audit is not None:
+                precision_audit.before_step()
             optimizer.step()
+            if precision_audit is not None:
+                precision_audit.after_step()
             lr_scheduler.step()
             optimizer.zero_grad()
             if _al_hook is not None:

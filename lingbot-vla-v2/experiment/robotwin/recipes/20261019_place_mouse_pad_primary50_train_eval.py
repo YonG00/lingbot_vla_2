@@ -29,7 +29,11 @@ PACKAGE = recipe.ROOT
 
 def validate_plan(args, job, plan):
     assert args.steps == 500 and args.hf_save_steps == 250, '此入口固定500步、250/500两份存档'
-    assert args.micro == 56 and args.gas == 1 and args.gradient_checkpointing
+    assert args.micro > 0 and args.gas > 0 and args.gradient_checkpointing
+    if not getattr(args, 'fp32_master', False):
+        assert args.micro * args.gas == 56
+    assert plan['training_config']['train']['enable_mixed_precision'] == bool(getattr(args, 'fp32_master', False))
+    assert plan['training_config']['train']['enable_fp32'] is False
     assert args.train_all_episodes and not args.auxiliary_manifest and not plan.get('auxiliary')
     assert plan['counts']['place_mouse_pad'] == {'train': 50, 'val': 0}
     assert args.ee_position_weight == 10 and args.ee_orientation_weight == .8 and args.ee_gripper_weight == 1.5
@@ -72,6 +76,15 @@ def validate_evaluation(directory, episodes, client_sha):
                 oidn_errors=0, videos=[str(p) for p in videos])
 
 
+def evaluation_server_command(model, port, precision):
+    fp32 = precision == 'fp32'
+    entry = ([str(PACKAGE / 'experiment/robotwin/precision_eval_server.py')] if fp32
+             else ['-m', 'deploy.lingbot_vla_v2_policy'])
+    return [sys.executable, '-u', *entry, '--model_path', str(model),
+            '--use_length', '50', '--chunk_ret', 'True', '--use_bf16', str(not fp32),
+            '--use_fp32', str(fp32), '--use_compile', 'False', '--port', str(port)]
+
+
 def evaluate(config, model):
     directory = Path(config['eval_dir'])
     directory.mkdir(parents=True, exist_ok=False)
@@ -88,9 +101,10 @@ def evaluate(config, model):
                HF_HUB_OFFLINE='1', HF_DATASETS_OFFLINE='1', TRANSFORMERS_OFFLINE='1',
                SETUPTOOLS_SCM_PRETEND_VERSION='0.0.0', PYTHONUNBUFFERED='1')
     env.pop('LINGBOTVLA_TRAINING_CONFIG', None)
-    server_cmd = [sys.executable, '-u', '-m', 'deploy.lingbot_vla_v2_policy',
-                  '--model_path', str(model), '--use_length', '50', '--chunk_ret', 'True',
-                  '--use_bf16', 'True', '--use_fp32', 'False', '--use_compile', 'False', '--port', str(port)]
+    fp32_eval = config.get('eval_precision', 'bf16') == 'fp32'
+    env['LINGBOT_DEPLOY_FAST_LOAD'] = '0'
+    env['LINGBOT_EVAL_PRECISION_AUDIT'] = str(directory / 'precision_audit.json')
+    server_cmd = evaluation_server_command(model, port, config.get('eval_precision', 'bf16'))
     sim_cmd = [simpy, '-u', str(HERE), '--sim-client', str(robo),
                '--config', 'policy/ACT/deploy_policy.yml', '--overrides',
                '--task_name', 'place_mouse_pad', '--task_config', 'demo_clean',
@@ -127,6 +141,11 @@ def evaluate(config, model):
         if hashlib.sha256(client.read_bytes()).hexdigest() != original_sha:
             raise RuntimeError('评测客户端被更改')
         result = validate_evaluation(directory, config['episodes'], original_sha)
+        if fp32_eval:
+            audit = json.loads((directory / 'precision_audit.json').read_text())
+            if set(audit['parameter_numel_by_dtype']) != {'torch.float32'} or not audit['forward_samples']:
+                raise RuntimeError('FP32评测实际dtype审计失败')
+            result['precision_audit'] = audit
         continuation.write_json(directory / 'summary.json', result)
         return result
     finally:
@@ -144,6 +163,8 @@ def run_pipeline(config):
         # Inner worker must never shut down before the closed-loop evaluation.
         if config['training_job']['shutdown']:
             raise RuntimeError('训练子任务不得直接关机')
+        if config.get('fp32_master'):
+            os.environ['LINGBOT_PRECISION_AUDIT'] = str(Path(config['training_job']['output_dir']) / 'precision_audit.json')
         if continuation.run_job(config['training_job']) != 0:
             raise RuntimeError('训练或最终存档校验失败')
         continuation.verify_final(dict(config['training_job'], steps=250))
@@ -172,6 +193,7 @@ def main(argv=None):
                         train_all_episodes=True, ee_position_weight=10., micro=56,
                         gradient_checkpointing=True)
     parser.add_argument('--closed-loop-episodes', type=int, default=3)
+    parser.add_argument('--eval-precision', choices=('bf16', 'fp32'), default='bf16')
     parser.add_argument('--sim-python', default='/data/miniconda3/envs/RoboTwin/bin/python')
     parser.add_argument('--robotwin-root', type=Path, default=PACKAGE.parent / 'RoboTwin-lingbot')
     args = parser.parse_args(argv)
@@ -180,6 +202,7 @@ def main(argv=None):
     validate_plan(args, job, plan)
     job['shutdown'] = False
     config = dict(training_job=job, shutdown=args.shutdown, episodes=args.closed_loop_episodes,
+                  fp32_master=args.fp32_master, eval_precision=args.eval_precision,
                   robotwin_root=str(args.robotwin_root.resolve()), sim_python=args.sim_python,
                   qwen3vl=str(args.qwen3vl), eval_dir=str(Path(job['output_dir']) / 'closed_loop_eval'),
                   pipeline_status=str(args.runtime_dir / f'{args.run_name}.pipeline.status.json'))

@@ -24,7 +24,7 @@ def test_source_identity_accepts_symlink_alias_but_rejects_other_model(tmp_path,
         ee_position_weight=10., ee_orientation_weight=.8, ee_gripper_weight=1.5,
         alignment_loss_scale=1., closed_loop_episodes=3)
     plan = dict(counts={'place_mouse_pad': {'train': 50, 'val': 0}}, auxiliary=None,
-        training_config={'train': {'align_params': dict(depth_loss_weight=.004,
+        training_config={'train': {'enable_mixed_precision': False, 'enable_fp32': False, 'align_params': dict(depth_loss_weight=.004,
         future_depth_loss_weight=.004, video={'future_video_loss_weight': .004})}})
     pipeline.validate_plan(args, {'source_model': str(real / 'checkpoints/global_step_500/hf_ckpt')}, plan)
     with pytest.raises(AssertionError):

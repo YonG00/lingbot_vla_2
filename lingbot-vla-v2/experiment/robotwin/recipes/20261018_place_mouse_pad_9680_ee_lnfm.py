@@ -44,6 +44,7 @@ def parser():
     p.add_argument("--train-all-episodes", action=argparse.BooleanOptionalAction, default=False,
                    help="把 manifest 的 train+val 共50条全部纳入训练；关闭独立 val/PASS/gap")
     p.add_argument("--gradient-checkpointing", action=argparse.BooleanOptionalAction, default=False)
+    p.add_argument('--fp32-master', action=argparse.BooleanOptionalAction, default=False)
     p.add_argument("--alignment-loss-scale", type=float, default=1.0,
                    help="对来源中当前深度/未来深度/视频loss权重乘同一倍率，不改变内部视频损失配比")
     p.add_argument("--shutdown", action=argparse.BooleanOptionalAction, default=False)
@@ -97,6 +98,7 @@ def build_job(args):
         ee_orientation_weight=args.ee_orientation_weight,
         ee_gripper_weight=args.ee_gripper_weight,
         freeze_vision_encoder=False, gradient_checkpointing=args.gradient_checkpointing,
+        fp32_master=args.fp32_master,
     )
     plan = launcher.build_plan(plan_args)
     if args.alignment_loss_scale != 1.0:
@@ -128,6 +130,8 @@ def build_job(args):
                 "--no-freeze-vision-encoder",
                 "--gradient-checkpointing" if args.gradient_checkpointing else "--no-gradient-checkpointing",
                 "--python", sys.executable, "--execute"]
+    if args.fp32_master:
+        command += ['--fp32-master']
     job = dict(command=command, source_model=str(args.model.resolve()), output_dir=str(out),
                steps=args.steps, shutdown=args.shutdown, log=str(runtime / f"{name}.log"),
                job_file=str(runtime / f"{name}.json"), status_file=str(runtime / f"{name}.status.json"))

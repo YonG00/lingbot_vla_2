@@ -90,8 +90,11 @@ def make_job(args):
         setattr(config, attr, getattr(args, attr, None))
     config.freeze_vision_encoder = getattr(args, "freeze_vision_encoder", None)
     config.gradient_checkpointing = getattr(args, "gradient_checkpointing", None)
+    config.fp32_master = getattr(args, 'fp32_master', False)
     plan = launcher.build_plan(config)  # 同一 CPU 预检、来源配置与数据划分契约。
     command = [sys.executable, str(Path(launcher.__file__).resolve())]
+    if config.fp32_master:
+        command += ['--fp32-master']
     for flag in ("model", "train_config", "dataset_root", "qwen3vl", "out", "audit_report",
                  "al_config", "manifest", "steps", "micro", "gas", "master_port"):
         command += ["--" + flag.replace("_", "-"), str(getattr(config, flag))]

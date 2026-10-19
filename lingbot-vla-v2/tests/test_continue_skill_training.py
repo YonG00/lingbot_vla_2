@@ -17,6 +17,13 @@ SPEC.loader.exec_module(entry)
 
 
 class ContinueSkillTests(unittest.TestCase):
+    def test_fp32_master_reaches_plan_and_rebuilt_worker(self):
+        self.args.fp32_master = True
+        with patch.object(entry.launcher, 'build_plan', return_value={}) as build:
+            job, _ = entry.make_job(self.args)
+        self.assertIs(build.call_args.args[0].fp32_master, True)
+        self.assertIn('--fp32-master', job['command'])
+
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)

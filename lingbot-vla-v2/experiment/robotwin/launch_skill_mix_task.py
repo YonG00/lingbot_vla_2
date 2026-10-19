@@ -64,6 +64,8 @@ def add_ee_arguments(parser):
 
 
 def add_training_freeze_arguments(parser):
+    parser.add_argument('--fp32-master', action=argparse.BooleanOptionalAction, default=False,
+                        help='FP32主参数与BF16 FSDP前向；不启用全FP32计算')
     parser.add_argument(
         "--freeze-vision-encoder", dest="freeze_vision_encoder",
         action=argparse.BooleanOptionalAction, default=None,
@@ -298,7 +300,7 @@ def build_plan(args):
             source_args.get("train", {}).get("enable_gradient_checkpointing", False)
             if getattr(args, "gradient_checkpointing", None) is None
             else args.gradient_checkpointing
-        ), "train.enable_mixed_precision": False,
+        ), "train.enable_mixed_precision": bool(getattr(args, 'fp32_master', False)),
         "train.enable_fp32": False, "train.use_compile": False,
         "train.rmpad": False, "train.rmpad_with_pos_ids": False,
         "train.disk_guard": True, "train.disk_guard_margin": 1.1, "train.disk_check_interval": 50,
@@ -308,7 +310,8 @@ def build_plan(args):
     }
     options.update(ee_training_options(args, source_args, cfg))
     # Keep the reproducible snapshot consistent with effective CLI overrides.
-    for key in ("freeze_vision_encoder", "enable_gradient_checkpointing", "save_steps"):
+    for key in ("freeze_vision_encoder", "enable_gradient_checkpointing", "save_steps",
+                "enable_mixed_precision", "enable_fp32"):
         run_config["train"][key] = options["train." + key]
     for key, value in options.items():
         command += ["--" + key, str(value).lower() if isinstance(value, bool) else str(value)]
