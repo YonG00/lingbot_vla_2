@@ -149,6 +149,7 @@ class AutoLearningParts:
     baseline_store: Any = None
     config_path: Optional[str] = None  # `--train.auto_learning` 指向的 yaml（scout 指纹要用）
     notes: Dict[str, Any] = field(default_factory=dict)
+    auxiliary_pool: Any = None
 
 
 def load_auto_learning_config(path: str) -> AutoLearningConfig:
@@ -217,6 +218,7 @@ def build_auto_learning_parts(
 
     # ---- task split（严格自检：划分正确 / 无泄漏 / 分块结构）----
     cat = catalog_from_task_split(manifest_path, strict=True)
+    full_catalog = cat
     problems = cat.verify()
     if problems:
         raise RuntimeError(
@@ -238,7 +240,16 @@ def build_auto_learning_parts(
                           "固定4条 train_monitor；无独立val/参考倍率/PASS判定")
 
     # ---- 回合 → dataset local_idx ----
-    resolver = SampleResolver.from_dataset(train_dataset, task_of_episode=cat.task_of_episode)
+    auxiliary = None
+    if cfg.auxiliary_manifest:
+        from ..sampling.auxiliary import AuxiliaryPool
+        auxiliary = AuxiliaryPool(cfg, full_catalog, cat,
+                                  dataset_root=cfg.target_change_dataset_root,
+                                  manifest_path=manifest_path)
+        mapping_catalog = auxiliary.catalog
+    else:
+        mapping_catalog = cat
+    resolver = SampleResolver.from_dataset(train_dataset, task_of_episode=mapping_catalog.task_of_episode)
     if cfg.hardness_scan_enabled and cfg.sample_scan_method == "target_change_window":
         node = train_dataset
         children = getattr(node, "_datasets", None)
@@ -252,9 +263,17 @@ def build_auto_learning_parts(
                 or Path(actual_root).resolve() != Path(cfg.target_change_dataset_root).resolve()):
             raise ValueError("target-change source root differs from actual training dataset")
     cat = cat.attach_samples(resolver)
+    if auxiliary is not None:
+        auxiliary.bind(resolver)
+        mapping_catalog = mapping_catalog.attach_samples(resolver)
+        if logger is not None:
+            logger.info_rank0(f"[auxiliary] primary={cfg.auxiliary_primary_ratio} "
+                              f"pool={auxiliary.summary()}; original source tasks/instructions retained")
+    else:
+        mapping_catalog = cat
     if cfg.data_audit_file:
         from ..data_audit import audit_dataset
-        audit = audit_dataset(cat, resolver, train_dataset, cfg)
+        audit = audit_dataset(mapping_catalog, resolver, train_dataset, cfg)
         if logger is not None:
             logger.info_rank0(f"[data_audit] {'缓存身份核对通过' if audit['cached'] else '完整对拍通过'}: "
                               f"{audit['tasks']}；report={cfg.data_audit_file}")
@@ -316,6 +335,7 @@ def build_auto_learning_parts(
         manifest_path=manifest_path, baseline_path=baseline_path, baseline_store=store,
         config_path=config_path,
         notes={"n_tasks": len(cat)},
+        auxiliary_pool=auxiliary,
     )
 
 
@@ -625,7 +645,12 @@ def finish_auto_learning(
         log.info_rank0(f'[pool_state] {_pool_note}')
 
     # ---- Sampler（scheduler.rng 是唯一权威随机源）----
-    batch_sampler = BatchSampler(cfg, parts.resolver, cat, scheduler.rng)
+    if cfg.auxiliary_manifest:
+        from ..sampling.auxiliary import AuxiliaryBatchSampler
+        batch_sampler = AuxiliaryBatchSampler(cfg, parts.resolver, cat, scheduler.rng,
+                                              parts.auxiliary_pool)
+    else:
+        batch_sampler = BatchSampler(cfg, parts.resolver, cat, scheduler.rng)
     sampler = AutoLearnSampler(batch_sampler, batch_size=cfg.batch_size)
     parts.lazy_sampler.bind(sampler)
 

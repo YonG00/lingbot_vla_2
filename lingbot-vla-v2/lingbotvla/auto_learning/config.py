@@ -36,6 +36,11 @@ class AutoLearningConfig:
     pass_transition_enabled: bool = True
     # 可学性实验：原 train+val 全部训练，仅保留 train_monitor；不产生 val/PASS/gap。
     train_all_episodes: bool = False
+    # 独立辅助池；默认关闭，不使用PASS/Replay语义。
+    auxiliary_manifest: Optional[str] = None
+    auxiliary_primary_ratio: float = 0.7
+    auxiliary_grasp_weight: float = 3.0
+    auxiliary_approach_seconds: float = 1.0
     hardness_scan_enabled: bool = True
     # 历史名称：hardness_scan_enabled 是两种样本扫描共用的总开关。
     sample_scan_method: str = "hardness"
@@ -207,6 +212,18 @@ class AutoLearningConfig:
         self.validate()
 
     def validate(self) -> None:
+        if self.auxiliary_manifest:
+            if (not self.train_all_episodes or self.new_ratio != 1.0
+                    or self.replay_task_names != [] or len(self.learning_task_names or []) != 1):
+                raise ValueError("auxiliary requires all-episode single primary, new_ratio=1 and no Replay")
+        for key, low, high in (("auxiliary_primary_ratio", 0, 1),
+                               ("auxiliary_grasp_weight", 1, None),
+                               ("auxiliary_approach_seconds", 0, None)):
+            v = getattr(self, key)
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+                raise ValueError(f"{key} must be finite")
+            if (high is not None and not low < v < high) or (high is None and v < low):
+                raise ValueError(f"invalid {key}")
         for key in ("task_scan_enabled", "pass_transition_enabled",
                     "hardness_scan_enabled", "import_pool_state", "low_noise_fm_enabled",
                     "train_all_episodes"):

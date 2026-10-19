@@ -1,0 +1,282 @@
+{
+  "target": "mouse",
+  "keywords": [
+    "mice",
+    "mouse",
+    "鼠标"
+  ],
+  "object_ids": [
+    "047_mouse"
+  ],
+  "possible_tasks": [
+    "place_a2b_left",
+    "place_a2b_right",
+    "place_mouse_pad",
+    "place_object_scale",
+    "place_object_stand",
+    "put_object_cabinet"
+  ],
+  "rules_sha256": "d71c54d55acb309164a1f8b7ec01e122ec1f5f40fe2c31d991a9281188250c2b",
+  "control_window_settings": {
+    "window_seconds": 0.25,
+    "gripper_speed": 0.1,
+    "wrist_speed": 0.2,
+    "release_ratio": 0.5,
+    "persistence_frames": 2,
+    "window_weight": 2.0,
+    "grasp_lift_max_delay_seconds": 2.0
+  },
+  "content": [
+    {
+      "path": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30/meta/info.json",
+      "sha256": "ed99eff664b96fc21ed167838b0eff35b90339fb4c84416cc0b7215d7222f061"
+    },
+    {
+      "path": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30/meta/tasks.parquet",
+      "sha256": "bd8d25facdf516feff8fa8c0352917d2ba888fed8fc464bf53eae26d2aa791ac"
+    },
+    {
+      "path": "/root/autodl-tmp/data/experiments/learn_skill_mix_task/lingbot-vla-v2/refs/al_artifacts/al/task_splits_50/manifest.json",
+      "sha256": "14407192a32390c06ef02f946d5e2a984947dba8f046fc600e80c9f2618e9bb9"
+    },
+    {
+      "path": "/root/autodl-tmp/data/code/RoboTwin-lingbot/assets/embodiments/aloha-agilex/config.yml",
+      "sha256": "a4f043d2d4b44cca5ec47fb498a3194da3f87ff9530dcbfdcee1539a44423d57"
+    },
+    {
+      "path": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30/meta/episodes/chunk-000/file-000.parquet",
+      "sha256": "8ff04cb8f0b3614f805d91c075b10de3ec7421046b1d691933b5401d5a06a58f"
+    },
+    {
+      "path": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30/meta/episodes/chunk-001/file-000.parquet",
+      "sha256": "13c4077fc6aff2355e06e39f2f713ce9cd1cd4ee458a19c03cb03cef01b0df0e"
+    },
+    {
+      "path": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30/meta/episodes/chunk-002/file-000.parquet",
+      "sha256": "b9ae750050a325f0b18c28b95d7b5d7dfcd4f1042327599540a7f34588f197bb"
+    },
+    {
+      "path": "/root/autodl-tmp/data/experiments/learn_skill_mix_task/RoboTwin-lingbot/envs/place_a2b_left.py",
+      "sha256": "8603f48febcb5b5b534dc7d973ac4651264ebb9c6fb60f199d4d2adc9e14d7cd"
+    },
+    {
+      "path": "/root/autodl-tmp/data/experiments/learn_skill_mix_task/RoboTwin-lingbot/envs/place_a2b_right.py",
+      "sha256": "1225e32207912e15855deff8aa9d4fd2cf425b4c5eeaeaf1eb795daaba4ac6ae"
+    },
+    {
+      "path": "/root/autodl-tmp/data/experiments/learn_skill_mix_task/RoboTwin-lingbot/envs/place_mouse_pad.py",
+      "sha256": "369bf399d0fd6a2687abb7d80b8feb6101c8b5405d33f9de63bbbdaaea7b73d0"
+    },
+    {
+      "path": "/root/autodl-tmp/data/experiments/learn_skill_mix_task/RoboTwin-lingbot/envs/place_object_scale.py",
+      "sha256": "555f04a2a2fa0a41ad8dfccd771579d1cc2686fc65ad6c7ef297c98f4c9ba310"
+    },
+    {
+      "path": "/root/autodl-tmp/data/experiments/learn_skill_mix_task/RoboTwin-lingbot/envs/place_object_stand.py",
+      "sha256": "0b4db3a679230ff3732b9bfdfcfaba3437bd5f942043de9921240118849e3fe8"
+    },
+    {
+      "path": "/root/autodl-tmp/data/experiments/learn_skill_mix_task/RoboTwin-lingbot/envs/put_object_cabinet.py",
+      "sha256": "1de25dd513b4ad29e158440eefb28fb050be95d557c7df1b87578168ff35a7b2"
+    }
+  ],
+  "data": [
+    {
+      "path": "data/chunk-000/file-000.parquet",
+      "size": 707685,
+      "mtime_ns": 1789101444000000000
+    },
+    {
+      "path": "data/chunk-000/file-001.parquet",
+      "size": 1737291,
+      "mtime_ns": 1789101444000000000
+    },
+    {
+      "path": "data/chunk-000/file-002.parquet",
+      "size": 1371338,
+      "mtime_ns": 1789101444000000000
+    },
+    {
+      "path": "data/chunk-000/file-003.parquet",
+      "size": 778513,
+      "mtime_ns": 1789101444000000000
+    },
+    {
+      "path": "data/chunk-000/file-004.parquet",
+      "size": 1623612,
+      "mtime_ns": 1789101444000000000
+    },
+    {
+      "path": "data/chunk-000/file-005.parquet",
+      "size": 1269566,
+      "mtime_ns": 1789101444000000000
+    },
+    {
+      "path": "data/chunk-000/file-006.parquet",
+      "size": 1008898,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-000/file-007.parquet",
+      "size": 1915722,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-000/file-008.parquet",
+      "size": 907575,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-000/file-009.parquet",
+      "size": 2676809,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-001/file-000.parquet",
+      "size": 2287301,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-001/file-001.parquet",
+      "size": 1402017,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-001/file-002.parquet",
+      "size": 1495828,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-001/file-003.parquet",
+      "size": 1208491,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-001/file-004.parquet",
+      "size": 2065743,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-001/file-005.parquet",
+      "size": 2621907,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-001/file-006.parquet",
+      "size": 1278040,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-001/file-007.parquet",
+      "size": 2207527,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-001/file-008.parquet",
+      "size": 2739390,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-001/file-009.parquet",
+      "size": 1527188,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-002/file-000.parquet",
+      "size": 943654,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-002/file-001.parquet",
+      "size": 1170649,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-002/file-002.parquet",
+      "size": 1732851,
+      "mtime_ns": 1789101446000000000
+    },
+    {
+      "path": "data/chunk-002/file-003.parquet",
+      "size": 1328563,
+      "mtime_ns": 1789101448000000000
+    },
+    {
+      "path": "data/chunk-002/file-004.parquet",
+      "size": 1971557,
+      "mtime_ns": 1789101448000000000
+    }
+  ],
+  "videos": [
+    {
+      "path": "videos/observation.images.cam_high/chunk-000/file-000.mp4",
+      "size": 209182611,
+      "mtime_ns": 1789088020000000000
+    },
+    {
+      "path": "videos/observation.images.cam_high/chunk-000/file-002.mp4",
+      "size": 209186756,
+      "mtime_ns": 1789088070000000000
+    },
+    {
+      "path": "videos/observation.images.cam_high/chunk-000/file-003.mp4",
+      "size": 185866212,
+      "mtime_ns": 1789089578000000000
+    },
+    {
+      "path": "videos/observation.images.cam_high/chunk-000/file-008.mp4",
+      "size": 207883722,
+      "mtime_ns": 1789089214000000000
+    },
+    {
+      "path": "videos/observation.images.cam_high/chunk-000/file-010.mp4",
+      "size": 209192550,
+      "mtime_ns": 1789088446000000000
+    },
+    {
+      "path": "videos/observation.images.cam_high/chunk-000/file-011.mp4",
+      "size": 165206251,
+      "mtime_ns": 1789089654000000000
+    },
+    {
+      "path": "videos/observation.images.cam_left_wrist/chunk-000/file-000.mp4",
+      "size": 152294530,
+      "mtime_ns": 1789089498000000000
+    },
+    {
+      "path": "videos/observation.images.cam_left_wrist/chunk-000/file-001.mp4",
+      "size": 160639635,
+      "mtime_ns": 1789089580000000000
+    },
+    {
+      "path": "videos/observation.images.cam_left_wrist/chunk-000/file-003.mp4",
+      "size": 208376616,
+      "mtime_ns": 1789089276000000000
+    },
+    {
+      "path": "videos/observation.images.cam_left_wrist/chunk-000/file-005.mp4",
+      "size": 159205636,
+      "mtime_ns": 1789089656000000000
+    },
+    {
+      "path": "videos/observation.images.cam_right_wrist/chunk-000/file-000.mp4",
+      "size": 160839817,
+      "mtime_ns": 1789089500000000000
+    },
+    {
+      "path": "videos/observation.images.cam_right_wrist/chunk-000/file-001.mp4",
+      "size": 208965290,
+      "mtime_ns": 1789089326000000000
+    },
+    {
+      "path": "videos/observation.images.cam_right_wrist/chunk-000/file-004.mp4",
+      "size": 208497507,
+      "mtime_ns": 1789089136000000000
+    },
+    {
+      "path": "videos/observation.images.cam_right_wrist/chunk-000/file-006.mp4",
+      "size": 201551923,
+      "mtime_ns": 1789089658000000000
+    }
+  ]
+}

@@ -116,14 +116,15 @@ class SampleRef:
 
 @dataclass
 class BatchComposition:
-    """一个 batch 的构成：new_slots 个当前任务样本 + replay_slots 个旧任务样本。"""
+    """当前主任务NEW、旧任务Replay和可选审核辅助槽位；三种来源独立记账。"""
 
     new: List[SampleRef] = field(default_factory=list)
     old: List[SampleRef] = field(default_factory=list)
+    auxiliary: List[SampleRef] = field(default_factory=list)
 
     @property
     def refs(self) -> List[SampleRef]:
-        return self.new + self.old
+        return self.new + self.old + self.auxiliary
 
     @property
     def n_new(self) -> int:

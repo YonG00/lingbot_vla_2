@@ -17,3 +17,7 @@ PYTHONPATH=.:tests python -m pytest -q \
 全轨迹入口默认继承 `al_mouse_pad_9680_ee_lnfm_add500_20261018_150402` 的step500 HF和对应训练配置，新增500步；文件名9680仅表示历史祖先。契约检查默认来源及显式覆盖来源、输出名称，旧40/10入口仍默认原始9680。
 
 本次step500来源调整：本地及服务器均41 passed、26 subtests passed；服务器真实资产预览确认50/0和EE10/.8/1.5。仅CPU预览，未启动训练；当前盘余4.8GiB，正式训练前需解决HF存档空间。服务器按文件同步，保留已有仿真修改，Git HEAD尚未更新为本地提交。
+
+## 鼠标辅助混训CPU契约
+
+`PYTHONPATH=.:tests python -m pytest -q tests/mouse_pad_training/test_auxiliary.py` 验证联合映射、70:30累计配额、episode均匀采样、阶段加权、预取排除、恢复身份及实际Hook/调度。训练装配测试依赖torch，本地缺依赖时跳过，训练机CPU执行。真实97条数据及每条尾部action chunk由 `tools/acceptance_checks/mouse_auxiliary_cpu_preflight.py --output-dir <新目录> --check-dataset-chunks` 验证。当前结果及启动方式以[混训说明](../../docs/auto_learning/mouse_auxiliary_training_zh.md)为准，上文历史空间和Git状态不代表当前状态。

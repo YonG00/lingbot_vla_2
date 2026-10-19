@@ -1205,6 +1205,14 @@ def print_compact(*, run: str, target: int, passed: int, newly, boot, step, sit,
         st = '事件流（无注册表快照）' if _live else '?'
     if cfg.get('train_all_episodes', False):
         row('在训', f'{cur}   [{st}]')
+        if cfg.get('auxiliary_manifest'):
+            ratio = float(cfg.get('auxiliary_primary_ratio', .7))
+            text = f'配额 主{ratio:.0%}/辅{1-ratio:.0%}；辅助按episode均衡'
+            primary_seen = (tb or {}).get('sampling/primary_samples_per_unit')
+            auxiliary_seen = (tb or {}).get('sampling/auxiliary_samples_per_unit')
+            if primary_seen and auxiliary_seen and primary_seen[0] == auxiliary_seen[0]:
+                text += f'；最近unit实际 {int(primary_seen[1])}/{int(auxiliary_seen[1])}'
+            row('辅助池', text)
         print_train_monitor_history(cur, series)
         print('=' * W)
         return

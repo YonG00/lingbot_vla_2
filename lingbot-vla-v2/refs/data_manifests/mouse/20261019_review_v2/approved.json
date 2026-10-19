@@ -1,0 +1,1803 @@
+{
+  "schema": 1,
+  "target": "mouse",
+  "dataset_fingerprint": "de2ffbd434374b52ed7e4254b9d7a77e3e56d6161f373b7892e273652683d6ce",
+  "episodes": [
+    {
+      "episode_index": 210,
+      "source_task": "place_a2b_left",
+      "instructions": [
+        "Drop the dark gray mouse on the left side of the slanted soap with smooth surface"
+      ],
+      "length": 156,
+      "absolute_range": [
+        37105,
+        37261
+      ],
+      "review": {
+        "episode_index": 210,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_210.jpg全程8帧总览与final_210.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=149。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 55,
+            "close_stop": 69,
+            "lift_start": 94,
+            "lift_stop": 117,
+            "window": [
+              51,
+              121
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 215,
+      "source_task": "place_a2b_left",
+      "instructions": [
+        "Stick the compact matte gray computer mouse on the left of the thin metallic phone"
+      ],
+      "length": 154,
+      "absolute_range": [
+        37840,
+        37994
+      ],
+      "review": {
+        "episode_index": 215,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_215.jpg全程8帧总览与final_215.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=147。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 52,
+            "close_stop": 66,
+            "lift_start": 91,
+            "lift_stop": 115,
+            "window": [
+              48,
+              119
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 223,
+      "source_task": "place_a2b_left",
+      "instructions": [
+        "Use the right arm to set the dark gray mouse with smooth texture left of the bread loaf with square shape"
+      ],
+      "length": 150,
+      "absolute_range": [
+        39013,
+        39163
+      ],
+      "review": {
+        "episode_index": 223,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_223.jpg全程8帧总览与final_223.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=143。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 53,
+            "close_stop": 67,
+            "lift_start": 92,
+            "lift_stop": 111,
+            "window": [
+              49,
+              115
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 242,
+      "source_task": "place_a2b_left",
+      "instructions": [
+        "Use the left arm, move the smooth plastic mouse left of the pink car with purple windows"
+      ],
+      "length": 144,
+      "absolute_range": [
+        41833,
+        41977
+      ],
+      "review": {
+        "episode_index": 242,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_242.jpg全程8帧总览与final_242.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=137。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 50,
+            "close_stop": 64,
+            "lift_start": 94,
+            "lift_stop": 105,
+            "window": [
+              46,
+              109
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 701,
+      "source_task": "place_a2b_right",
+      "instructions": [
+        "Use the left arm to set the palm-fitting mouse right of the lightweight red stapler."
+      ],
+      "length": 139,
+      "absolute_range": [
+        126638,
+        126777
+      ],
+      "review": {
+        "episode_index": 701,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_701.jpg全程8帧总览与final_701.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 51,
+            "close_stop": 65,
+            "lift_start": 91,
+            "lift_stop": 102,
+            "window": [
+              47,
+              106
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 707,
+      "source_task": "place_a2b_right",
+      "instructions": [
+        "Use the right arm to position the mouse with curved top to the round bread with braided top's right."
+      ],
+      "length": 147,
+      "absolute_range": [
+        127511,
+        127658
+      ],
+      "review": {
+        "episode_index": 707,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_707.jpg全程8帧总览与final_707.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=140。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 50,
+            "close_stop": 64,
+            "lift_start": 90,
+            "lift_stop": 109,
+            "window": [
+              46,
+              113
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 708,
+      "source_task": "place_a2b_right",
+      "instructions": [
+        "Position the computer mouse directly to the right of the tea box with printed leaves."
+      ],
+      "length": 145,
+      "absolute_range": [
+        127658,
+        127803
+      ],
+      "review": {
+        "episode_index": 708,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_708.jpg全程8帧总览与final_708.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=138。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 52,
+            "close_stop": 66,
+            "lift_start": 91,
+            "lift_stop": 107,
+            "window": [
+              48,
+              111
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 712,
+      "source_task": "place_a2b_right",
+      "instructions": [
+        "Grab the plastic mouse with the left arm and place it right of the light gray soap bar."
+      ],
+      "length": 156,
+      "absolute_range": [
+        128250,
+        128406
+      ],
+      "review": {
+        "episode_index": 712,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_712.jpg全程8帧总览与final_712.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=149。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 54,
+            "close_stop": 68,
+            "lift_start": 93,
+            "lift_stop": 118,
+            "window": [
+              50,
+              122
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 721,
+      "source_task": "place_a2b_right",
+      "instructions": [
+        "Make sure the dark mouse with slight textured sides is placed right of the black box with rectangular shape."
+      ],
+      "length": 144,
+      "absolute_range": [
+        129540,
+        129684
+      ],
+      "review": {
+        "episode_index": 721,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_721.jpg全程8帧总览与final_721.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=137。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 52,
+            "close_stop": 66,
+            "lift_start": 91,
+            "lift_stop": 107,
+            "window": [
+              48,
+              111
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 741,
+      "source_task": "place_a2b_right",
+      "instructions": [
+        "Move the mouse with ergonomic design to the toycar with white roof and teal body's right using the right arm"
+      ],
+      "length": 152,
+      "absolute_range": [
+        132506,
+        132658
+      ],
+      "review": {
+        "episode_index": 741,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_741.jpg全程8帧总览与final_741.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=145。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 50,
+            "close_stop": 64,
+            "lift_start": 91,
+            "lift_stop": 115,
+            "window": [
+              46,
+              119
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 746,
+      "source_task": "place_a2b_right",
+      "instructions": [
+        "Position the rounded computer mouse to the right of the toycar with glossy finish."
+      ],
+      "length": 149,
+      "absolute_range": [
+        133240,
+        133389
+      ],
+      "review": {
+        "episode_index": 746,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_746.jpg全程8帧总览与final_746.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=142。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 51,
+            "close_stop": 65,
+            "lift_start": 91,
+            "lift_stop": 110,
+            "window": [
+              47,
+              114
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1800,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Take the plastic mouse with smooth finish and place it over the electronicscale small and rectangular"
+      ],
+      "length": 144,
+      "absolute_range": [
+        392381,
+        392525
+      ],
+      "review": {
+        "episode_index": 1800,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1800.jpg全程8帧总览与final_1800.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=137。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 49,
+            "close_stop": 63,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              45,
+              67
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1804,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Set the rounded top mouse with glossy logo onto the electronicscale with small LCD screen after grabbing"
+      ],
+      "length": 135,
+      "absolute_range": [
+        392968,
+        393103
+      ],
+      "review": {
+        "episode_index": 1804,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1804.jpg全程8帧总览与final_1804.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=128。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 49,
+            "close_stop": 63,
+            "lift_start": 92,
+            "lift_stop": 102,
+            "window": [
+              45,
+              106
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1806,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Lift the gray mouse and position it on the electronicscale with circular gold ring"
+      ],
+      "length": 162,
+      "absolute_range": [
+        393248,
+        393410
+      ],
+      "review": {
+        "episode_index": 1806,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1806.jpg全程8帧总览与final_1806.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=155。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 54,
+            "close_stop": 68,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              50,
+              72
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1808,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Put the plastic mouse on the compact electronicscale without mention of arm"
+      ],
+      "length": 145,
+      "absolute_range": [
+        393549,
+        393694
+      ],
+      "review": {
+        "episode_index": 1808,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1808.jpg全程8帧总览与final_1808.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=138。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 53,
+            "close_stop": 67,
+            "lift_start": 96,
+            "lift_stop": 110,
+            "window": [
+              49,
+              114
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1810,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Move the plastic mouse to the electronicscale and leave it there."
+      ],
+      "length": 140,
+      "absolute_range": [
+        393840,
+        393980
+      ],
+      "review": {
+        "episode_index": 1810,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1810.jpg全程8帧总览与final_1810.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=133。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 50,
+            "close_stop": 64,
+            "lift_start": 93,
+            "lift_stop": 105,
+            "window": [
+              46,
+              109
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1811,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Lift the compact oval-shaped mouse and position it on the electronicscale with a glass display"
+      ],
+      "length": 149,
+      "absolute_range": [
+        393980,
+        394129
+      ],
+      "review": {
+        "episode_index": 1811,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1811.jpg全程8帧总览与final_1811.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=142。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 53,
+            "close_stop": 67,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              49,
+              71
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1812,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Pick up the mouse with two buttons and a scroll wheel and drop it on the electronicscale with digital screen"
+      ],
+      "length": 150,
+      "absolute_range": [
+        394129,
+        394279
+      ],
+      "review": {
+        "episode_index": 1812,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1812.jpg全程8帧总览与final_1812.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=143。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 53,
+            "close_stop": 67,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              49,
+              71
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1813,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Pick the oval-shaped mouse up and set it on the electronicscale with black display screen."
+      ],
+      "length": 139,
+      "absolute_range": [
+        394279,
+        394418
+      ],
+      "review": {
+        "episode_index": 1813,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1813.jpg全程8帧总览与final_1813.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 51,
+            "close_stop": 65,
+            "lift_start": 93,
+            "lift_stop": 105,
+            "window": [
+              47,
+              109
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1815,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Using the left arm, grab the small computer mouse and put it on the handheld electronicscale"
+      ],
+      "length": 141,
+      "absolute_range": [
+        394570,
+        394711
+      ],
+      "review": {
+        "episode_index": 1815,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1815.jpg全程8帧总览与final_1815.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=134。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 50,
+            "close_stop": 64,
+            "lift_start": 94,
+            "lift_stop": 106,
+            "window": [
+              46,
+              110
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1819,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Move the mouse with two buttons and wheel to the electronicscale white main body and leave it there."
+      ],
+      "length": 159,
+      "absolute_range": [
+        395142,
+        395301
+      ],
+      "review": {
+        "episode_index": 1819,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1819.jpg全程8帧总览与final_1819.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=152。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 53,
+            "close_stop": 67,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              49,
+              71
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1821,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Carry the compact oval-shaped mouse with one arm to the medium electronicscale with gold top"
+      ],
+      "length": 144,
+      "absolute_range": [
+        395443,
+        395587
+      ],
+      "review": {
+        "episode_index": 1821,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1821.jpg全程8帧总览与final_1821.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=137。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 53,
+            "close_stop": 67,
+            "lift_start": 95,
+            "lift_stop": 109,
+            "window": [
+              49,
+              113
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1822,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Use the right arm to lift the mouse with ergonomic design and place on the electronicscale red accents."
+      ],
+      "length": 139,
+      "absolute_range": [
+        395587,
+        395726
+      ],
+      "review": {
+        "episode_index": 1822,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1822.jpg全程8帧总览与final_1822.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 50,
+            "close_stop": 64,
+            "lift_start": 93,
+            "lift_stop": 105,
+            "window": [
+              46,
+              109
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1825,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Using the left arm, grab the dark mouse with slight textured sides and place on the electronicscale with flat rectangular base"
+      ],
+      "length": 144,
+      "absolute_range": [
+        396017,
+        396161
+      ],
+      "review": {
+        "episode_index": 1825,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1825.jpg全程8帧总览与final_1825.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=137。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 55,
+            "close_stop": 69,
+            "lift_start": 98,
+            "lift_stop": 108,
+            "window": [
+              51,
+              112
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1829,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Place the mouse with ergonomic design carefully on the handheld electronicscale using the right arm"
+      ],
+      "length": 148,
+      "absolute_range": [
+        396617,
+        396765
+      ],
+      "review": {
+        "episode_index": 1829,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1829.jpg全程8帧总览与final_1829.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=141。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 53,
+            "close_stop": 67,
+            "lift_start": 97,
+            "lift_stop": 113,
+            "window": [
+              49,
+              117
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1834,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Grab the smooth dark gray computer mouse, then place it smoothly on the electronicscale with small LCD screen"
+      ],
+      "length": 141,
+      "absolute_range": [
+        397350,
+        397491
+      ],
+      "review": {
+        "episode_index": 1834,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1834.jpg全程8帧总览与final_1834.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=134。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 52,
+            "close_stop": 66,
+            "lift_start": 94,
+            "lift_stop": 106,
+            "window": [
+              48,
+              110
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1838,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Use the right arm to lift the ergonomic mouse onto the white body electronicscale"
+      ],
+      "length": 148,
+      "absolute_range": [
+        397920,
+        398068
+      ],
+      "review": {
+        "episode_index": 1838,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1838.jpg全程8帧总览与final_1838.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=141。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 52,
+            "close_stop": 66,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              48,
+              70
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1844,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Lift the small mouse with smooth surface and drop it onto the electronicscale with circular gold ring"
+      ],
+      "length": 141,
+      "absolute_range": [
+        398791,
+        398932
+      ],
+      "review": {
+        "episode_index": 1844,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1844.jpg全程8帧总览与final_1844.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=134。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 49,
+            "close_stop": 63,
+            "lift_start": 93,
+            "lift_stop": 106,
+            "window": [
+              45,
+              110
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 1849,
+      "source_task": "place_object_scale",
+      "instructions": [
+        "Take the oval-shaped mouse for computer use and place it over the electronicscale with digital screen"
+      ],
+      "length": 139,
+      "absolute_range": [
+        399508,
+        399647
+      ],
+      "review": {
+        "episode_index": 1849,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_1849.jpg全程8帧总览与final_1849.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 50,
+            "close_stop": 64,
+            "lift_start": 92,
+            "lift_stop": 105,
+            "window": [
+              46,
+              109
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 2300,
+      "source_task": "place_object_stand",
+      "instructions": [
+        "Pick the mouse for cursor control and position it on the rectangular brown stand for items"
+      ],
+      "length": 137,
+      "absolute_range": [
+        500071,
+        500208
+      ],
+      "review": {
+        "episode_index": 2300,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2300.jpg全程8帧总览与final_2300.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=130。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 51,
+            "close_stop": 65,
+            "lift_start": 88,
+            "lift_stop": 101,
+            "window": [
+              47,
+              105
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 2301,
+      "source_task": "place_object_stand",
+      "instructions": [
+        "Set the gray mouse in position on the smooth black displaystand."
+      ],
+      "length": 134,
+      "absolute_range": [
+        500208,
+        500342
+      ],
+      "review": {
+        "episode_index": 2301,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2301.jpg全程8帧总览与final_2301.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=127。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 51,
+            "close_stop": 65,
+            "lift_start": 87,
+            "lift_stop": 99,
+            "window": [
+              47,
+              103
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 2303,
+      "source_task": "place_object_stand",
+      "instructions": [
+        "Pick the compact oval-shaped mouse and place it carefully onto the smooth black hollow displaystand."
+      ],
+      "length": 138,
+      "absolute_range": [
+        500479,
+        500617
+      ],
+      "review": {
+        "episode_index": 2303,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2303.jpg全程8帧总览与final_2303.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=131。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 53,
+            "close_stop": 67,
+            "lift_start": 89,
+            "lift_stop": 103,
+            "window": [
+              49,
+              107
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 2309,
+      "source_task": "place_object_stand",
+      "instructions": [
+        "Take the mouse with sleek design with the right arm and put it on the medium displaystand."
+      ],
+      "length": 137,
+      "absolute_range": [
+        501316,
+        501453
+      ],
+      "review": {
+        "episode_index": 2309,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2309.jpg全程8帧总览与final_2309.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=130。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 52,
+            "close_stop": 66,
+            "lift_start": 88,
+            "lift_stop": 102,
+            "window": [
+              48,
+              106
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 2313,
+      "source_task": "place_object_stand",
+      "instructions": [
+        "Position the rounded gray mouse on the rectangular displaystand with the left arm"
+      ],
+      "length": 139,
+      "absolute_range": [
+        501873,
+        502012
+      ],
+      "review": {
+        "episode_index": 2313,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2313.jpg全程8帧总览与final_2313.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 52,
+            "close_stop": 66,
+            "lift_start": 89,
+            "lift_stop": 103,
+            "window": [
+              48,
+              107
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 2316,
+      "source_task": "place_object_stand",
+      "instructions": [
+        "Move the gray mouse with smooth surface to the smooth black hollow displaystand and set it there."
+      ],
+      "length": 137,
+      "absolute_range": [
+        502291,
+        502428
+      ],
+      "review": {
+        "episode_index": 2316,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2316.jpg全程8帧总览与final_2316.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=130。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 51,
+            "close_stop": 65,
+            "lift_start": 88,
+            "lift_stop": 102,
+            "window": [
+              47,
+              106
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 2324,
+      "source_task": "place_object_stand",
+      "instructions": [
+        "Pick up the mouse with ergonomic design and set it on the smooth black rectangular displaystand."
+      ],
+      "length": 139,
+      "absolute_range": [
+        503402,
+        503541
+      ],
+      "review": {
+        "episode_index": 2324,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2324.jpg全程8帧总览与final_2324.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 52,
+            "close_stop": 66,
+            "lift_start": 88,
+            "lift_stop": 104,
+            "window": [
+              48,
+              108
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 2335,
+      "source_task": "place_object_stand",
+      "instructions": [
+        "Lift the mouse with curved ergonomic shape and position it on the smooth brown displaystand"
+      ],
+      "length": 136,
+      "absolute_range": [
+        504937,
+        505073
+      ],
+      "review": {
+        "episode_index": 2335,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2335.jpg全程8帧总览与final_2335.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=129。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 51,
+            "close_stop": 65,
+            "lift_start": 87,
+            "lift_stop": 101,
+            "window": [
+              47,
+              105
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 2342,
+      "source_task": "place_object_stand",
+      "instructions": [
+        "With the right arm, pick the rounded gray mouse and position it on the hollow black displaystand"
+      ],
+      "length": 139,
+      "absolute_range": [
+        505905,
+        506044
+      ],
+      "review": {
+        "episode_index": 2342,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2342.jpg全程8帧总览与final_2342.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 54,
+            "close_stop": 68,
+            "lift_start": 90,
+            "lift_stop": 104,
+            "window": [
+              50,
+              108
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 2346,
+      "source_task": "place_object_stand",
+      "instructions": [
+        "Transfer the palm-fitting mouse using the right arm to the medium-sized displaystand with smooth finish."
+      ],
+      "length": 143,
+      "absolute_range": [
+        506463,
+        506606
+      ],
+      "review": {
+        "episode_index": 2346,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2346.jpg全程8帧总览与final_2346.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=136。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "right",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "right",
+            "close_start": 59,
+            "close_stop": 73,
+            "lift_start": 95,
+            "lift_stop": 108,
+            "window": [
+              55,
+              112
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false
+      }
+    },
+    {
+      "episode_index": 2353,
+      "source_task": "put_object_cabinet",
+      "instructions": [
+        "Slide open the drawer of the cabinet with angled sides before putting the dark ergonomic mouse for computer navigation inside."
+      ],
+      "length": 273,
+      "absolute_range": [
+        507830,
+        508103
+      ],
+      "review": {
+        "episode_index": 2353,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2353.jpg全程8帧总览与final_2353.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=266。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 49,
+            "close_stop": 63,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              45,
+              67
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false,
+        "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+      }
+    },
+    {
+      "episode_index": 2375,
+      "source_task": "put_object_cabinet",
+      "instructions": [
+        "Set the mouse with scroll wheel into the rectangular slanted cabinet's drawer after opening it."
+      ],
+      "length": 262,
+      "absolute_range": [
+        513764,
+        514026
+      ],
+      "review": {
+        "episode_index": 2375,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2375.jpg全程8帧总览与final_2375.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=255。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 49,
+            "close_stop": 63,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              45,
+              67
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false,
+        "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+      }
+    },
+    {
+      "episode_index": 2376,
+      "source_task": "put_object_cabinet",
+      "instructions": [
+        "Pull open the rectangular slanted cabinet's drawer and place the smooth plastic mouse inside it."
+      ],
+      "length": 269,
+      "absolute_range": [
+        514026,
+        514295
+      ],
+      "review": {
+        "episode_index": 2376,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2376.jpg全程8帧总览与final_2376.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=262。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 49,
+            "close_stop": 63,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              45,
+              67
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false,
+        "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+      }
+    },
+    {
+      "episode_index": 2379,
+      "source_task": "put_object_cabinet",
+      "instructions": [
+        "Pull open the drawer of the medium-sized cabinet and move the gray mouse into it."
+      ],
+      "length": 266,
+      "absolute_range": [
+        514835,
+        515101
+      ],
+      "review": {
+        "episode_index": 2379,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2379.jpg全程8帧总览与final_2379.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=259。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 50,
+            "close_stop": 64,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              46,
+              68
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false,
+        "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+      }
+    },
+    {
+      "episode_index": 2382,
+      "source_task": "put_object_cabinet",
+      "instructions": [
+        "Open the drawer of the gray and wood cabinet and drop the dark ergonomic mouse for computer navigation inside."
+      ],
+      "length": 260,
+      "absolute_range": [
+        515641,
+        515901
+      ],
+      "review": {
+        "episode_index": 2382,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2382.jpg全程8帧总览与final_2382.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=253。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 49,
+            "close_stop": 63,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              45,
+              67
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false,
+        "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+      }
+    },
+    {
+      "episode_index": 2383,
+      "source_task": "put_object_cabinet",
+      "instructions": [
+        "Open the drawer of the rectangular slanted cabinet and move the mouse with curved ergonomic shape into it."
+      ],
+      "length": 267,
+      "absolute_range": [
+        515901,
+        516168
+      ],
+      "review": {
+        "episode_index": 2383,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2383.jpg全程8帧总览与final_2383.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=260。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 49,
+            "close_stop": 63,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              45,
+              67
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false,
+        "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+      }
+    },
+    {
+      "episode_index": 2387,
+      "source_task": "put_object_cabinet",
+      "instructions": [
+        "Set the gray mouse into the smooth-surface cabinet's drawer after opening it."
+      ],
+      "length": 273,
+      "absolute_range": [
+        516974,
+        517247
+      ],
+      "review": {
+        "episode_index": 2387,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2387.jpg全程8帧总览与final_2387.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=266。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 48,
+            "close_stop": 62,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              44,
+              66
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false,
+        "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+      }
+    },
+    {
+      "episode_index": 2399,
+      "source_task": "put_object_cabinet",
+      "instructions": [
+        "Open the drawer of the cabinet with gray sides and move the dark mouse with slight textured sides into the drawer."
+      ],
+      "length": 269,
+      "absolute_range": [
+        520214,
+        520483
+      ],
+      "review": {
+        "episode_index": 2399,
+        "decision": "approved",
+        "reviewer": "Codex",
+        "evidence": "逐条查看episode_2399.jpg全程8帧总览与final_2399.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=262。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+        "manipulated_target_verified": true,
+        "demonstration_success_verified": true,
+        "phase_windows": {},
+        "mouse_arm": "left",
+        "success_evidence_kind": "visual_demonstration_review",
+        "original_check_success_verified": false,
+        "control_grasp_candidates": [
+          {
+            "side": "left",
+            "close_start": 49,
+            "close_stop": 63,
+            "lift_start": null,
+            "lift_stop": null,
+            "window": [
+              45,
+              67
+            ]
+          }
+        ],
+        "phase_boundaries_verified": false,
+        "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+      }
+    }
+  ],
+  "training_ready": false,
+  "note": "本轮仅筛选；训练接入尚未实现。无窗口表示完整轨迹，不自动产生阶段权重。"
+}

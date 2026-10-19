@@ -254,6 +254,22 @@ def build_plan(args):
     AutoLearningConfig(**cfg)  # 再核对命令覆盖后的总步数/DEFER等组合，禁止扩大到无界训练。
     cfg["data_audit_instruction_patterns"] = {
         k: v for k, v in cfg.get("data_audit_instruction_patterns", {}).items() if k in tasks}
+    auxiliary_summary = None
+    if cfg.get('auxiliary_manifest'):
+        from lingbotvla.auto_learning.catalog import TaskCatalog
+        from lingbotvla.auto_learning.sampling.auxiliary import AuxiliaryPool, preflight_pool, primary_quota, full_catalog_for_auxiliary
+        cfg['auxiliary_manifest'] = str(Path(cfg['auxiliary_manifest']).resolve())
+        cfg['target_change_dataset_root'] = str(args.dataset_root.resolve())
+        full = full_catalog_for_auxiliary(args.manifest)
+        primary = TaskCatalog({t:full.entry(t) for t in tasks}, meta=full.meta,
+                              task_order=full.task_order).for_training(train_all_episodes=True)
+        pool = AuxiliaryPool(AutoLearningConfig(**cfg), full, primary,
+                             dataset_root=args.dataset_root, manifest_path=args.manifest)
+        auxiliary_summary = preflight_pool(pool, args.dataset_root)
+        auxiliary_summary['primary_ratio'] = cfg['auxiliary_primary_ratio']
+        train_ids.extend(pool.records)
+        auxiliary_summary['local_batch_primary_step0'] = primary_quota(
+                args.micro*args.gas, 1, 0, cfg['auxiliary_primary_ratio'], 0)
     out = args.out.resolve()
     command = [args.python, "-m", "torch.distributed.run", "--nproc_per_node=1",
                f"--master_port={args.master_port}", "tasks/vla/train_lingbotvla.py",
@@ -297,7 +313,11 @@ def build_plan(args):
     source_files = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (
         model / "config.json", model / "model.safetensors.index.json", args.train_config,
         args.manifest, thresholds, norm, model / "tokenizer.json", args.qwen3vl / "tokenizer.json") if p is not None}
+    if cfg.get('auxiliary_manifest'):
+        for p in (Path(cfg['auxiliary_manifest']), Path(cfg['auxiliary_manifest']).with_name('source_identity.json')):
+            source_files[str(p)] = hashlib.sha256(p.read_bytes()).hexdigest()
     return dict(config=cfg, training_config=run_config, command=command, train_ids=sorted(train_ids), counts=counts,
+                auxiliary=auxiliary_summary,
                 source_model=str(model), checkpoint_inventory=inventory, source_files=source_files,
                 tokenizer_validation=tokenizer_validation,
                 source_model_config=model_config,
@@ -344,6 +364,14 @@ def main(argv=None):
         prepare(AutoLearningConfig(**plan["config"]), args.dataset_root,
                 read_json(args.manifest), plan["config"]["task_names"])
     args.out.mkdir(parents=True, exist_ok=False)
+    if plan['config'].get('auxiliary_manifest'):
+        import shutil
+        original = Path(plan['config']['auxiliary_manifest'])
+        frozen = args.out/'auxiliary'
+        frozen.mkdir()
+        for name in ('approved.json','source_identity.json'):
+            shutil.copy2(original if name == 'approved.json' else original.with_name(name), frozen/name)
+        plan['config']['auxiliary_manifest'] = str((frozen/'approved.json').resolve())
     for name, value in (("al_config.json", plan["config"]), ("trainer_config.json", plan["training_config"]),
                         ("train_ids.json", plan["train_ids"]),
                         ("provenance.json", plan)):

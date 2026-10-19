@@ -21,6 +21,10 @@
 
 | 我要做什么 | 读哪篇 |
 |---|---|
+| 指定目标物筛选辅助episode、视频核验与白名单 | `auto_learning/object_episode_selection_zh.md` |
+| 2026-10-19 鼠标全库初筛实测与47条候选 | `auto_learning/mouse_auxiliary_scan_20261019_zh.md` |
+| 鼠标主50＋辅助47混合续训与CPU验证 | [混训说明](auto_learning/mouse_auxiliary_training_zh.md) |
+| 鼠标47条辅助示范视觉审核及后续混训边界 | `auto_learning/mouse_auxiliary_review_zh.md` |
 | 低噪 FM / 目标变化窗口采样 / 训练前事件报告 | `auto_learning/target_change_window_zh.md` |
 | 相对输入状态动作表示与未来力监督边界 | `auto_learning/relative_action_representation_zh.md` |
 | 原始9680专练鼠标，500步全量ViT+EE+低噪FM | `auto_learning/place_mouse_pad_9680_zh.md`、[启动配方CPU测试](../tests/mouse_pad_training/README.md) |

@@ -11,6 +11,8 @@
 
 | 我要做什么 | 跑哪个 |
 |---|---|
+| 鼠标混训真实数据CPU整链验收（含动作块边界） | `acceptance_checks/mouse_auxiliary_cpu_preflight.py`；使用独立输出目录，`--check-dataset-chunks`需训练环境 |
+| 按目标物筛选辅助episode、核对v3视频并生成审核队列 | `select_object_episodes.py`；说明见 `docs/auto_learning/object_episode_selection_zh.md` |
 | 划分 50 个任务的训练/评测集合 | `task_split.py`（官方） |
 | 生成课程顺序 manifest | `build_robotwin_curriculum_manifest.py`（官方）+ `robotwin_curriculum.py`（官方） |
 | 准备阶段数据（phase1/2） | `prepare_phase.py`（官方） |

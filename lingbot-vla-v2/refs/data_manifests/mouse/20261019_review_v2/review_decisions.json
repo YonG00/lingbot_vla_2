@@ -1,0 +1,3062 @@
+{
+  "dataset_fingerprint": "de2ffbd434374b52ed7e4254b9d7a77e3e56d6161f373b7892e273652683d6ce",
+  "decisions": [
+    {
+      "episode_index": 200,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 201,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 202,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 203,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 204,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 205,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 206,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 207,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 208,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 209,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 210,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_210.jpg全程8帧总览与final_210.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=149。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 55,
+          "close_stop": 69,
+          "lift_start": 94,
+          "lift_stop": 117,
+          "window": [
+            51,
+            121
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 211,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 212,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 213,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 214,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 215,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_215.jpg全程8帧总览与final_215.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=147。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 52,
+          "close_stop": 66,
+          "lift_start": 91,
+          "lift_stop": 115,
+          "window": [
+            48,
+            119
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 216,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 217,
+      "decision": "rejected",
+      "reviewer": "Codex",
+      "evidence": "原始指令与episode_217.jpg八帧总览一致：移动盒子，鼠标作为位置参照物",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 218,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 219,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 220,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 221,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 222,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 223,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_223.jpg全程8帧总览与final_223.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=143。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 53,
+          "close_stop": 67,
+          "lift_start": 92,
+          "lift_stop": 111,
+          "window": [
+            49,
+            115
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 224,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 225,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 226,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 227,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 228,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 229,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 230,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 231,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 232,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 233,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 234,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 235,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 236,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 237,
+      "decision": "rejected",
+      "reviewer": "Codex",
+      "evidence": "原始指令与episode_237.jpg八帧总览一致：移动咖啡盒，鼠标作为位置参照物",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 238,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 239,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 240,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 241,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 242,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_242.jpg全程8帧总览与final_242.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=137。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 50,
+          "close_stop": 64,
+          "lift_start": 94,
+          "lift_stop": 105,
+          "window": [
+            46,
+            109
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 243,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 244,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 245,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 246,
+      "decision": "rejected",
+      "reviewer": "Codex",
+      "evidence": "原始指令与episode_246.jpg八帧总览一致：移动肥皂，鼠标作为位置参照物",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 247,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 248,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 249,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 700,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 701,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_701.jpg全程8帧总览与final_701.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 51,
+          "close_stop": 65,
+          "lift_start": 91,
+          "lift_stop": 102,
+          "window": [
+            47,
+            106
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 702,
+      "decision": "rejected",
+      "reviewer": "Codex",
+      "evidence": "原始指令与episode_702.jpg八帧总览一致：移动肥皂，鼠标作为位置参照物",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 703,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 704,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 705,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 706,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 707,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_707.jpg全程8帧总览与final_707.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=140。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 50,
+          "close_stop": 64,
+          "lift_start": 90,
+          "lift_stop": 109,
+          "window": [
+            46,
+            113
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 708,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_708.jpg全程8帧总览与final_708.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=138。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 52,
+          "close_stop": 66,
+          "lift_start": 91,
+          "lift_stop": 107,
+          "window": [
+            48,
+            111
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 709,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 710,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 711,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 712,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_712.jpg全程8帧总览与final_712.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=149。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 54,
+          "close_stop": 68,
+          "lift_start": 93,
+          "lift_stop": 118,
+          "window": [
+            50,
+            122
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 713,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 714,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 715,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 716,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 717,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 718,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 719,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 720,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 721,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_721.jpg全程8帧总览与final_721.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=137。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 52,
+          "close_stop": 66,
+          "lift_start": 91,
+          "lift_stop": 107,
+          "window": [
+            48,
+            111
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 722,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 723,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 724,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 725,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 726,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 727,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 728,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 729,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 730,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 731,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 732,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 733,
+      "decision": "rejected",
+      "reviewer": "Codex",
+      "evidence": "原始指令与episode_733.jpg八帧总览一致：移动玩具车，鼠标作为位置参照物",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 734,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 735,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 736,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 737,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 738,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 739,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 740,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 741,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_741.jpg全程8帧总览与final_741.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=145。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 50,
+          "close_stop": 64,
+          "lift_start": 91,
+          "lift_stop": 115,
+          "window": [
+            46,
+            119
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 742,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 743,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 744,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 745,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 746,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_746.jpg全程8帧总览与final_746.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=142。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 51,
+          "close_stop": 65,
+          "lift_start": 91,
+          "lift_stop": 110,
+          "window": [
+            47,
+            114
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 747,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 748,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 749,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1800,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1800.jpg全程8帧总览与final_1800.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=137。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 49,
+          "close_stop": 63,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            45,
+            67
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1801,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1802,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1803,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1804,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1804.jpg全程8帧总览与final_1804.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=128。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 49,
+          "close_stop": 63,
+          "lift_start": 92,
+          "lift_stop": 102,
+          "window": [
+            45,
+            106
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1805,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1806,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1806.jpg全程8帧总览与final_1806.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=155。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 54,
+          "close_stop": 68,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            50,
+            72
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1807,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1808,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1808.jpg全程8帧总览与final_1808.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=138。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 53,
+          "close_stop": 67,
+          "lift_start": 96,
+          "lift_stop": 110,
+          "window": [
+            49,
+            114
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1809,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1810,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1810.jpg全程8帧总览与final_1810.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=133。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 50,
+          "close_stop": 64,
+          "lift_start": 93,
+          "lift_stop": 105,
+          "window": [
+            46,
+            109
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1811,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1811.jpg全程8帧总览与final_1811.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=142。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 53,
+          "close_stop": 67,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            49,
+            71
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1812,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1812.jpg全程8帧总览与final_1812.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=143。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 53,
+          "close_stop": 67,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            49,
+            71
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1813,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1813.jpg全程8帧总览与final_1813.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 51,
+          "close_stop": 65,
+          "lift_start": 93,
+          "lift_stop": 105,
+          "window": [
+            47,
+            109
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1814,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1815,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1815.jpg全程8帧总览与final_1815.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=134。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 50,
+          "close_stop": 64,
+          "lift_start": 94,
+          "lift_stop": 106,
+          "window": [
+            46,
+            110
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1816,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1817,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1818,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1819,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1819.jpg全程8帧总览与final_1819.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=152。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 53,
+          "close_stop": 67,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            49,
+            71
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1820,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1821,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1821.jpg全程8帧总览与final_1821.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=137。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 53,
+          "close_stop": 67,
+          "lift_start": 95,
+          "lift_stop": 109,
+          "window": [
+            49,
+            113
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1822,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1822.jpg全程8帧总览与final_1822.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 50,
+          "close_stop": 64,
+          "lift_start": 93,
+          "lift_stop": 105,
+          "window": [
+            46,
+            109
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1823,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1824,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1825,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1825.jpg全程8帧总览与final_1825.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=137。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 55,
+          "close_stop": 69,
+          "lift_start": 98,
+          "lift_stop": 108,
+          "window": [
+            51,
+            112
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1826,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1827,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1828,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1829,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1829.jpg全程8帧总览与final_1829.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=141。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 53,
+          "close_stop": 67,
+          "lift_start": 97,
+          "lift_stop": 113,
+          "window": [
+            49,
+            117
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1830,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1831,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1832,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1833,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1834,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1834.jpg全程8帧总览与final_1834.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=134。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 52,
+          "close_stop": 66,
+          "lift_start": 94,
+          "lift_stop": 106,
+          "window": [
+            48,
+            110
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1835,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1836,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1837,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1838,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1838.jpg全程8帧总览与final_1838.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=141。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 52,
+          "close_stop": 66,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            48,
+            70
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1839,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1840,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1841,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1842,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1843,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1844,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1844.jpg全程8帧总览与final_1844.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=134。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 49,
+          "close_stop": 63,
+          "lift_start": 93,
+          "lift_stop": 106,
+          "window": [
+            45,
+            110
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 1845,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1846,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1847,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1848,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 1849,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_1849.jpg全程8帧总览与final_1849.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 50,
+          "close_stop": 64,
+          "lift_start": 92,
+          "lift_stop": 105,
+          "window": [
+            46,
+            109
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 2300,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2300.jpg全程8帧总览与final_2300.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=130。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 51,
+          "close_stop": 65,
+          "lift_start": 88,
+          "lift_stop": 101,
+          "window": [
+            47,
+            105
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 2301,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2301.jpg全程8帧总览与final_2301.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=127。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 51,
+          "close_stop": 65,
+          "lift_start": 87,
+          "lift_stop": 99,
+          "window": [
+            47,
+            103
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 2302,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2303,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2303.jpg全程8帧总览与final_2303.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=131。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 53,
+          "close_stop": 67,
+          "lift_start": 89,
+          "lift_stop": 103,
+          "window": [
+            49,
+            107
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 2304,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2305,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2306,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2307,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2308,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2309,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2309.jpg全程8帧总览与final_2309.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=130。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 52,
+          "close_stop": 66,
+          "lift_start": 88,
+          "lift_stop": 102,
+          "window": [
+            48,
+            106
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 2310,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2311,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2312,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2313,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2313.jpg全程8帧总览与final_2313.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 52,
+          "close_stop": 66,
+          "lift_start": 89,
+          "lift_stop": 103,
+          "window": [
+            48,
+            107
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 2314,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2315,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2316,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2316.jpg全程8帧总览与final_2316.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=130。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 51,
+          "close_stop": 65,
+          "lift_start": 88,
+          "lift_stop": 102,
+          "window": [
+            47,
+            106
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 2317,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2318,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2319,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2320,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2321,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2322,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2323,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2324,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2324.jpg全程8帧总览与final_2324.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 52,
+          "close_stop": 66,
+          "lift_start": 88,
+          "lift_stop": 104,
+          "window": [
+            48,
+            108
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 2325,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2326,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2327,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2328,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2329,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2330,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2331,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2332,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2333,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2334,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2335,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2335.jpg全程8帧总览与final_2335.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=129。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 51,
+          "close_stop": 65,
+          "lift_start": 87,
+          "lift_stop": 101,
+          "window": [
+            47,
+            105
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 2336,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2337,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2338,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2339,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2340,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2341,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2342,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2342.jpg全程8帧总览与final_2342.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=132。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 54,
+          "close_stop": 68,
+          "lift_start": 90,
+          "lift_stop": 104,
+          "window": [
+            50,
+            108
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 2343,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2344,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2345,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2346,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2346.jpg全程8帧总览与final_2346.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=136。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "right",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "right",
+          "close_start": 59,
+          "close_stop": 73,
+          "lift_start": 95,
+          "lift_stop": 108,
+          "window": [
+            55,
+            112
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false
+    },
+    {
+      "episode_index": 2347,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2348,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2349,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2350,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2351,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2352,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2353,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2353.jpg全程8帧总览与final_2353.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=266。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 49,
+          "close_stop": 63,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            45,
+            67
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false,
+      "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+    },
+    {
+      "episode_index": 2354,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2355,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2356,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2357,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2358,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2359,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2360,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2361,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2362,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2363,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2364,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2365,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2366,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2367,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2368,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2369,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2370,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2371,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2372,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2373,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2374,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2375,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2375.jpg全程8帧总览与final_2375.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=255。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 49,
+          "close_stop": 63,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            45,
+            67
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false,
+      "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+    },
+    {
+      "episode_index": 2376,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2376.jpg全程8帧总览与final_2376.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=262。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 49,
+          "close_stop": 63,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            45,
+            67
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false,
+      "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+    },
+    {
+      "episode_index": 2377,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2378,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2379,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2379.jpg全程8帧总览与final_2379.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=259。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 50,
+          "close_stop": 64,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            46,
+            68
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false,
+      "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+    },
+    {
+      "episode_index": 2380,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2381,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2382,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2382.jpg全程8帧总览与final_2382.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=253。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 49,
+          "close_stop": 63,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            45,
+            67
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false,
+      "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+    },
+    {
+      "episode_index": 2383,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2383.jpg全程8帧总览与final_2383.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=260。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 49,
+          "close_stop": 63,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            45,
+            67
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false,
+      "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+    },
+    {
+      "episode_index": 2384,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2385,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2386,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2387,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2387.jpg全程8帧总览与final_2387.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=266。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 48,
+          "close_stop": 62,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            44,
+            66
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false,
+      "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+    },
+    {
+      "episode_index": 2388,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2389,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2390,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2391,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2392,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2393,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2394,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2395,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2396,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2397,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2398,
+      "decision": "pending",
+      "reviewer": "",
+      "evidence": "",
+      "manipulated_target_verified": false,
+      "demonstration_success_verified": false,
+      "phase_windows": {}
+    },
+    {
+      "episode_index": 2399,
+      "decision": "approved",
+      "reviewer": "Codex",
+      "evidence": "逐条查看episode_2399.jpg全程8帧总览与final_2399.jpg末尾三视角各2帧；可见鼠标被抓持搬运并放至原任务目的地；抓鼠标臂末尾state/action夹爪命令均为1，release_open95_frame=262。这是视觉示范质量审核，不是仿真check_success或物体位姿认证。",
+      "manipulated_target_verified": true,
+      "demonstration_success_verified": true,
+      "phase_windows": {},
+      "mouse_arm": "left",
+      "success_evidence_kind": "visual_demonstration_review",
+      "original_check_success_verified": false,
+      "control_grasp_candidates": [
+        {
+          "side": "left",
+          "close_start": 49,
+          "close_stop": 63,
+          "lift_start": null,
+          "lift_stop": null,
+          "window": [
+            45,
+            67
+          ]
+        }
+      ],
+      "phase_boundaries_verified": false,
+      "notes": "左臂操作鼠标；右臂拉抽屉且末尾握把手。不把右臂闭爪/运动当鼠标阶段；左臂抬升较晚，现有2秒关联可能漏掉。"
+    }
+  ]
+}

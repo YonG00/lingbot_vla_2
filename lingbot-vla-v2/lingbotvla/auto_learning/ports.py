@@ -115,6 +115,9 @@ class TrainResult:
     per_step_losses: List[float] = field(default_factory=list)
     batches_built: int = 0
     unique_batches: int = 0
+    auxiliary_slot_counts: Dict[str, int] = field(default_factory=dict)
+    auxiliary_episode_counts: Dict[int, int] = field(default_factory=dict)
+    auxiliary_phase_counts: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass

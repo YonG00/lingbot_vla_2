@@ -76,6 +76,15 @@ def config_fingerprint(al: Any, task_names: Sequence[str]) -> Dict[str, Any]:
                           if k != "target_total_passed_tasks"
                           or getattr(al, k, None) is not None}
     fp["task_names"] = list(task_names)
+    if getattr(al, 'auxiliary_manifest', None):
+        import hashlib
+        from pathlib import Path
+        fp['auxiliary'] = {
+            'manifest_sha256': hashlib.sha256(Path(al.auxiliary_manifest).read_bytes()).hexdigest(),
+            'primary_ratio': al.auxiliary_primary_ratio,
+            'grasp_weight': al.auxiliary_grasp_weight,
+            'approach_seconds': al.auxiliary_approach_seconds,
+        }
     if getattr(al, "low_noise_fm_enabled", False):
         fp["low_noise_fm_enabled"] = True
     if getattr(al, "sample_scan_method", "hardness") != "hardness":

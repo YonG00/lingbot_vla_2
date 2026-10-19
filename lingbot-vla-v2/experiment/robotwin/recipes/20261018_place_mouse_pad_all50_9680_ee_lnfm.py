@@ -29,7 +29,8 @@ def main(argv=None):
     if parsed.run_name is None:
         # 根据实际来源命名；显式覆盖模型时也不冒称源自step500。
         source = "mouse500" if parsed.model == SOURCE_RUN / "checkpoints/global_step_500/hf_ckpt" else "custom"
-        name = (f"al_mouse_pad_all50_p{parsed.ee_position_weight:g}_from_{source}"
+        auxiliary = f"_aux{parsed.auxiliary_primary_ratio:g}" if parsed.auxiliary_manifest else ""
+        name = (f"al_mouse_pad_all50{auxiliary}_p{parsed.ee_position_weight:g}_from_{source}"
                 f"_ee_lnfm_add{parsed.steps}_{datetime.now():%Y%m%d_%H%M%S}")
         args += ["--run-name", name]
     return recipe.main(args)

@@ -254,6 +254,9 @@ class AutoLearnLoopHook:
         # observe the same GLOBAL NEW/Replay counts on every rank.
         new_counts = dict(stats.new_slot_counts_by_task)
         old_counts = dict(stats.old_slot_counts_by_task)
+        auxiliary_counts = dict(stats.auxiliary_slot_counts_by_task)
+        auxiliary_episodes = dict(stats.auxiliary_episode_counts)
+        auxiliary_phases = dict(stats.auxiliary_phase_counts)
         samples_seen = stats.samples_seen
         if self.cfg.new_ratio is not None and int(getattr(self.cfg, "_ratio_dp_size", 1)) > 1:
             from collections import Counter
@@ -269,12 +272,16 @@ class AutoLearnLoopHook:
                 raise RuntimeError("ratio mode: DP group size mismatch")
             gathered = [None] * dp_size
             dist.all_gather_object(
-                gathered, (stats.steps, samples_seen, new_counts, old_counts),
+                gathered, (stats.steps, samples_seen, new_counts, old_counts,
+                           auxiliary_counts, auxiliary_episodes, auxiliary_phases),
                 group=dp_group)
             if any(int(item[0]) != stats.steps for item in gathered):
                 raise RuntimeError("ratio mode: DP ranks consumed different optimizer steps")
             new_counts = dict(sum((Counter(item[2]) for item in gathered), Counter()))
             old_counts = dict(sum((Counter(item[3]) for item in gathered), Counter()))
+            auxiliary_counts = dict(sum((Counter(item[4]) for item in gathered), Counter()))
+            auxiliary_episodes = dict(sum((Counter(item[5]) for item in gathered), Counter()))
+            auxiliary_phases = dict(sum((Counter(item[6]) for item in gathered), Counter()))
             samples_seen = sum(int(item[1]) for item in gathered)
             if samples_seen != stats.steps * int(self.cfg._ratio_global_batch_size):
                 raise RuntimeError("ratio mode: global sample accounting mismatch")
@@ -284,6 +291,9 @@ class AutoLearnLoopHook:
             samples_seen=samples_seen,
             old_slot_counts=old_counts,
             new_slot_counts=new_counts,
+            auxiliary_slot_counts=auxiliary_counts,
+            auxiliary_episode_counts=auxiliary_episodes,
+            auxiliary_phase_counts=auxiliary_phases,
             per_step_losses=list(self._unit_losses),
             batches_built=stats.steps,
             # 🔴 review v0.2 #9：按**真实 batch 组成**去重，不是「不同 loss 值数量」

@@ -32,3 +32,6 @@ log.txt
 
 # Auto Learning 测试临时目录
 .tmp_auto_learning/
+
+# 目标物数据审计生成产物；审核清单单独保存在refs/data_manifests中
+/lingbot-vla-v2/artifacts/data_audits/

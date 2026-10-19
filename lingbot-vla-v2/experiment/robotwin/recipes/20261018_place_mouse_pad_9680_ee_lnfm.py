@@ -47,6 +47,10 @@ def parser():
     p.add_argument("--runtime-dir", type=Path, default=Path("/data/outputs/skill_launches"))
     p.add_argument("--cache-root", type=Path, default=Path("/data/al_cache"))
     p.add_argument("--run-name")
+    p.add_argument("--auxiliary-manifest", type=Path)
+    p.add_argument("--auxiliary-primary-ratio", type=float, default=0.7)
+    p.add_argument("--auxiliary-grasp-weight", type=float, default=3.0)
+    p.add_argument("--auxiliary-approach-seconds", type=float, default=1.0)
     p.add_argument("--master-port", type=int, default=62510)
     p.add_argument("--execute", action="store_true")
     return p
@@ -66,6 +70,11 @@ def build_job(args):
                sample_scan_method="target_change_window",
                target_change_cache_dir=str((args.cache_root / name).resolve()),
                data_audit_instruction_patterns={TASK: "mouse"})
+    if args.auxiliary_manifest:
+        cfg.update(auxiliary_manifest=str(args.auxiliary_manifest.resolve()),
+                   auxiliary_primary_ratio=args.auxiliary_primary_ratio,
+                   auxiliary_grasp_weight=args.auxiliary_grasp_weight,
+                   auxiliary_approach_seconds=args.auxiliary_approach_seconds)
     out = (args.output_root / name).resolve()
     runtime = args.runtime_dir.resolve()
     training_snapshot = runtime / f"{name}.training.json"
@@ -120,6 +129,7 @@ def main(argv=None):
         gradient_checkpointing=args.gradient_checkpointing,
         sampling=plan["config"]["sample_scan_method"],
         train_all_episodes=args.train_all_episodes,
+        auxiliary=plan.get('auxiliary'),
         cache=plan["config"]["target_change_cache_dir"],
         output=job["output_dir"], log=job["log"], shutdown=args.shutdown,
     ), ensure_ascii=False, indent=2))

@@ -1064,6 +1064,12 @@ class Scheduler:
             "unique_batches": result.unique_batches,
         }
 
+        if al.auxiliary_manifest:
+            for item in (row, event):
+                item.update(n_auxiliary=sum(result.auxiliary_slot_counts.values()),
+                            auxiliary_tasks=dict(result.auxiliary_slot_counts),
+                            auxiliary_episodes=dict(result.auxiliary_episode_counts))
+                item['auxiliary_phases'] = dict(result.auxiliary_phase_counts)
         if al.train_all_episodes:
             # 保留历史表结构但把不可判定字段写null，避免False被误读成“未过拟合”。
             for item in (row, event):
@@ -1130,9 +1136,10 @@ class Scheduler:
             raise RuntimeError(f"Trainer 报告 steps={result.steps}，应为 {num_steps}")
         n_new = sum(result.new_slot_counts.values())
         n_old = sum(result.old_slot_counts.values())
-        if n_new + n_old != result.samples_seen:
+        n_auxiliary = sum(result.auxiliary_slot_counts.values())
+        if n_new + n_old + n_auxiliary != result.samples_seen:
             raise RuntimeError(
-                f"Trainer 计数不自洽：NEW({n_new}) + OLD({n_old}) "
+                f"Trainer 计数不自洽：NEW({n_new}) + OLD({n_old}) + AUX({n_auxiliary}) "
                 f"!= samples_seen({result.samples_seen})"
             )
 
@@ -1489,6 +1496,15 @@ class Scheduler:
             lg.log_metrics(step, "current_skill/overfit", 1.0 if row["overfit"] else 0.0)
         lg.log_metrics(step, "system/global_samples_seen", self.state.global_samples_seen)
         lg.log_metrics(step, "sampling/total_samples", self.state.global_samples_seen)
+        if self.al.auxiliary_manifest:
+            lg.log_metrics(step, 'sampling/primary_samples_per_unit', row['n_new'])
+            lg.log_metrics(step, 'sampling/auxiliary_samples_per_unit', row['n_auxiliary'])
+            for task, count in row['auxiliary_tasks'].items():
+                lg.log_metrics(step, 'sampling/auxiliary_task/'+task, count)
+            for ep, count in row['auxiliary_episodes'].items():
+                lg.log_metrics(step, 'sampling/auxiliary_episode/'+str(ep), count)
+            for phase, count in row['auxiliary_phases'].items():
+                lg.log_metrics(step, 'sampling/auxiliary_phase/'+phase, count)
         lg.log_metrics(step, "curriculum/units_completed", self.state.units_run)
         lg.log_metrics(step, "sampling/replay_samples_per_unit", row["n_old"])
         lg.log_metrics(step, "sampling/replay_distinct_tasks_per_unit", len(set(row["old_tasks"].split(","))) if row["old_tasks"] else 0)

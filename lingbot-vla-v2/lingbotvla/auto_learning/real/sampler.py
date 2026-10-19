@@ -44,8 +44,9 @@ def _composition_key(comp) -> tuple:
     🔴 review v0.2 #9：`unique_batches` 必须按**真实组成**去重，
     不能拿 `round(loss, 12)` 去重（那是「不同 loss 值数量」，命名会误导）。
     """
-    return (tuple(int(r.sample_id) for r in comp.new),
-            tuple(int(r.sample_id) for r in comp.old))
+    key = (tuple(int(r.sample_id) for r in comp.new),
+           tuple(int(r.sample_id) for r in comp.old))
+    return key + (tuple(int(r.sample_id) for r in comp.auxiliary),) if comp.auxiliary else key
 
 
 @dataclass
@@ -55,6 +56,10 @@ class UnitStats:
     steps: int = 0
     n_new: int = 0
     n_old: int = 0
+    n_auxiliary: int = 0
+    auxiliary_slot_counts_by_task: Counter = field(default_factory=Counter)
+    auxiliary_episode_counts: Counter = field(default_factory=Counter)
+    auxiliary_phase_counts: Counter = field(default_factory=Counter)
     samples_seen: int = 0
     new_slot_counts_by_task: Counter = field(default_factory=Counter)
     old_slot_counts_by_task: Counter = field(default_factory=Counter)
@@ -67,7 +72,7 @@ class UnitStats:
     _step_keys: set = field(default_factory=set, repr=False)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "steps": self.steps, "n_new": self.n_new, "n_old": self.n_old,
             "samples_seen": self.samples_seen,
             "new_slot_counts_by_task": dict(self.new_slot_counts_by_task),
@@ -78,13 +83,19 @@ class UnitStats:
                 if self.unique_replay_tasks_per_batch else 0.0),
             "unique_batches": self.unique_batches,
         }
+        if self.n_auxiliary:
+            result.update(n_auxiliary=self.n_auxiliary,
+                          auxiliary_slot_counts_by_task=dict(self.auxiliary_slot_counts_by_task),
+                          auxiliary_episode_counts=dict(self.auxiliary_episode_counts))
+            result['auxiliary_phase_counts'] = dict(self.auxiliary_phase_counts)
+        return result
 
     def check_invariants(self) -> List[str]:
         """返回违反的不变量（空 = 通过）。**每步与 unit 级都要查**。"""
         problems: List[str] = []
-        if self.n_new + self.n_old != self.samples_seen:
+        if self.n_new + self.n_old + self.n_auxiliary != self.samples_seen:
             problems.append(
-                f"n_new({self.n_new}) + n_old({self.n_old}) != samples_seen({self.samples_seen})")
+                f"n_new({self.n_new}) + n_old({self.n_old}) + auxiliary({self.n_auxiliary}) != samples_seen({self.samples_seen})")
         if self.steps and self.samples_seen % self.steps != 0:
             problems.append(f"samples_seen({self.samples_seen}) 不是 steps({self.steps}) 的整数倍")
         return problems
@@ -149,11 +160,17 @@ class AutoLearnSampler(_SamplerBase):
             st.steps += 1
             st.n_new += comp.n_new
             st.n_old += comp.n_old
+            st.n_auxiliary += len(comp.auxiliary)
             st.samples_seen += len(comp.refs)
             for r in comp.new:
                 st.new_slot_counts_by_task[r.task] += 1
             for r in comp.old:
                 st.old_slot_counts_by_task[r.task] += 1
+            for r in comp.auxiliary:
+                st.auxiliary_slot_counts_by_task[r.task] += 1
+                st.auxiliary_episode_counts[r.episode_id] += 1
+                phase = 'grasp_candidate' if r.sample_id in self.batch_sampler.pool.grasp_ids else 'other'
+                st.auxiliary_phase_counts[phase] += 1
             st.unique_replay_tasks_per_batch.append(len(comp.old_tasks))
             st._step_keys.add(_composition_key(comp))
         st.unique_batches = len(st._step_keys)
@@ -187,11 +204,17 @@ class AutoLearnSampler(_SamplerBase):
         st.steps += 1
         st.n_new += comp.n_new
         st.n_old += comp.n_old
+        st.n_auxiliary += len(comp.auxiliary)
         st.samples_seen += len(comp.refs)
         for r in comp.new:
             st.new_slot_counts_by_task[r.task] += 1
         for r in comp.old:
             st.old_slot_counts_by_task[r.task] += 1
+        for r in comp.auxiliary:
+            st.auxiliary_slot_counts_by_task[r.task] += 1
+            st.auxiliary_episode_counts[r.episode_id] += 1
+            phase = 'grasp_candidate' if r.sample_id in self.batch_sampler.pool.grasp_ids else 'other'
+            st.auxiliary_phase_counts[phase] += 1
         st.unique_replay_tasks_per_batch.append(len(comp.old_tasks))
         self._step_keys.add(_composition_key(comp))
         self._last_comp = comp
@@ -203,7 +226,7 @@ class AutoLearnSampler(_SamplerBase):
         ⚠️ **不**存 RNG 状态 —— RNG 是 scheduler 的**单一权威**（Stage A 的教训），
         由 `extra_state["auto_learning"]["sampler_rng"]` 统一保存/恢复。
         """
-        return {
+        state = {
             "version": 1,
             "batch_size": self._batch_size,
             "ratio_layout": (
@@ -214,10 +237,20 @@ class AutoLearnSampler(_SamplerBase):
             "batches_built": self.batch_sampler.n_batches,
             "unit_steps_done": self.stats.steps,
         }
+        if self.batch_sampler.cfg.auxiliary_manifest:
+            state['auxiliary'] = {
+                'manifest_sha256': self.batch_sampler.pool.manifest_sha256,
+                'primary_ratio': self.batch_sampler.cfg.auxiliary_primary_ratio,
+                'grasp_weight': self.batch_sampler.cfg.auxiliary_grasp_weight,
+                'approach_seconds': self.batch_sampler.cfg.auxiliary_approach_seconds,
+            }
+        return state
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         if not isinstance(state, dict):
             raise ValueError(f"sampler state 必须是 dict，实际 {type(state).__name__}")
+        if state.get('auxiliary') != self.state_dict().get('auxiliary'):
+            raise ValueError('auxiliary manifest/sampling policy changed on resume')
         if int(state.get("version", 0)) != 1:
             raise ValueError(f"sampler state 版本不符: {state.get('version')}")
         if int(state.get("batch_size", -1)) != self._batch_size:
