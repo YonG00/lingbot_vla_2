@@ -182,6 +182,21 @@ def test_cpu_operator_autocast_retains_fp32_optimizer_storage():
     assert all(v['momentum_buffer'].dtype == torch.float32 for v in optimizer.state.values())
 
 
+def test_fp32_flex_attention_backward_inside_outer_bf16_autocast():
+    torch = pytest.importorskip('torch')
+    pytest.importorskip('einops')
+    flex = load('flex_precision_cpu', 'lingbotvla/models/vla/lingbot_vla/flex_attention.py')
+    q = torch.randn(1, 2, 4, 8, requires_grad=True)
+    k = torch.randn(1, 2, 4, 8, requires_grad=True)
+    v = torch.randn(1, 2, 4, 8, requires_grad=True)
+    with torch.autocast('cpu', dtype=torch.bfloat16):
+        output, _ = flex.fp32_flex_attention(q, k, v, return_lse=True)
+        assert output.dtype == torch.float32
+        loss = output.square().sum()
+    loss.backward()
+    assert all(x.grad is not None and x.grad.dtype == torch.float32 and torch.isfinite(x.grad).all() for x in (q,k,v))
+
+
 @pytest.mark.parametrize('dtype,raises', [('torch.float32', False), ('torch.bfloat16', True)])
 def test_after_update_audits_real_optimizer_storage_and_preserves_parameters(tmp_path, monkeypatch, dtype, raises):
     tensor = Tensor(dtype, 20)

@@ -30,6 +30,14 @@ if Version(torch.__version__) > Version("2.5.0"):
         flex_attention,
     )
 
+def fp32_flex_attention(query, key, value, **kwargs):
+    # This implementation intentionally computes attention in FP32. Flex's
+    # custom autograd saves FP32 QKV; allowing outer autocast to change its
+    # dense output to BF16 breaks backward (Float @ BFloat16).
+    with torch.autocast(device_type=query.device.type, enabled=False):
+        return flex_attention(query.float(), key.float(), value.float(), **kwargs)
+
+
 # @torch.compile(dynamic=False)
 def flex_attention_forward(
     query_states: torch.Tensor,
@@ -109,7 +117,7 @@ def flex_attention_forward(
     )
 
     #  mask is applied inside the kernel, ideally more efficiently than score_mod.
-    attn_output, attention_weights = flex_attention(
+    attn_output, attention_weights = fp32_flex_attention(
         query_states,
         key_states,
         value_states,
@@ -213,7 +221,7 @@ def flex_attention_with_block_mask(
         key_states = F.pad(key_states, (0, 0, 0, pad_k), value=0.0)
         value_states = F.pad(value_states, (0, 0, 0, pad_k), value=0.0)
 
-    attn_output, _ = flex_attention(
+    attn_output, _ = fp32_flex_attention(
         query_states,
         key_states,
         value_states,

@@ -17,6 +17,8 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#53 Flex Attention autocast边界修正（2026-10-19）：🧪 CPU反向验证通过，CUDA重测待运行。** v3进入BF16前向后，在Flex Attention自定义反向报`expected scalar type Float but found BFloat16`，非OOM。该实现原本将QKV转FP32，外层autocast却让内部输出降到BF16，破坏其保存QKV/grad_out契约。仅在两个既有FP32 Flex子调用内关闭autocast，保持原FP32 attention语义、原后端与其他模块BF16不变；补真实CPU Flex反向契约。本地88 passed、3 skipped、36 subtests；服务器91 passed、36 subtests（真实CPU Flex反向已执行）。容量仍待完整更新重测。
+
 **#53 单卡实际计算dtype修正（2026-10-19）：🧪 CPU验证通过，GPU重测待运行。** micro32/GAS1 v2首次optimizer更新后审计主动失败，实际主参数/梯度/优化器状态均FP32，但四组关键Linear输出全FP32；非OOM，不能记为目标混精度容量通过。根因`parallel_state.fsdp_enabled = fsdp_size>1`，单卡跳过FSDP策略，原train前向无autocast。新增仅mixed=true/fp32=false/无FSDP时的CUDA BF16 autocast，保持默认BF16、全FP32及多卡FSDP路径不变；补分支CPU契约及真实CPU算子验证参数/梯度/动量FP32、计算BF16。本地88 passed、2 skipped、36 subtests；服务器90 passed、36 subtests（包含真实CPU算子验证）。实际GPU重测待执行，正式存档节奏不变。
 
 **#53 首次开卡短测修正（2026-10-19）：🧪 CPU契约通过，micro32/GAS1容量仍未知。** 服务器同步644c10f、CPU84 passed后首次探针在首步前退出：`static cache missing`，并非OOM。原因是探针走prepare-only而漏CPU窗口预备，且没有把本次plan的AL配置冻结给worker。现补`prepare_probe`按正式入口先准备同配置缓存、冻结AL、再materialize；worker继承正式入口隔离环境。增加CPU契约验证顺序、缓存路径与冻结AL一致；保留失败v1产物，以v2重测。CPU本地84 passed、1 skipped、36 subtests，服务器85 passed、36 subtests。用户明确GAS=1，只改micro；正式250/500 BF16 HF节奏不变。
