@@ -291,3 +291,13 @@
 - 用户授权HF改FP32，micro28/GAS1，仍500步、250/500存档；源mouse500与纯50条不变。
 - 启动器从训练快照继承HF导出dtype，正式入口明确FP32；容量预算按源BF16权重两倍计算。
 - 不变量：存档节奏与保留策略不变。出错症状：worker重建dtype丢失或磁盘预算不足。回滚：显式`--hf-export-dtype bf16`。验证：BF16/FP32快照到worker重建契约测试、运行时精度审计与存档报告。
+
+### #54 FP32来源续训与位置6/夹爪0实验（2026-10-19）
+
+- 状态：🧪 CPU整链通过，待正式运行。用户授权从最新纯主FP32 500步继续500步，FK夹爪权重1.5→0、位置10→6；姿态0.8、其余配置不变，250/500各存FP32 HF，两份完整后关机，不插入闭环评测。
+- 修改：`launch_skill_mix_task.checkpoint_inventory/build_plan`允许显式FP32主参数来源，`continue_skill_training.make_job/verify_final/run_job`按导出dtype校验并确认全部里程碑再关机；新配方继承原run配置，原始动作夹爪监督保留。
+- 本意与不变量：只改变新增FK位置与夹爪两项，不变更主动作损失、采样、学习率、batch或存档节奏；CPU逐项比较worker重建配置。
+- 出错症状：FP32来源被误拒、重建参数丢失、250缺失仍关机。快速回滚：不运行新入口，或显式恢复夹爪权重1.5。验证：`test_gripper_off.py`、`test_continue_skill_training.py`及运行时CLI/precision_audit。依赖：#53混精度及Flex修复；此次不改前向/反向数值实现。
+- 空间：用户授权删除旧混合run的250/500及上一轮纯主FP32的250，已删除；当前FP32 500和混合前mouse500保留，空闲69.22GiB。说明与命令见[实验文档](mouse_gripper_off_continuation_zh.md)。
+
+- #54 验证：服务器Python3.12 CPU回归97 passed、36 subtests；真实来源预检仅位置10→6、夹爪1.5→0及运行目录变化，其余训练配置、50条轨迹、归一化一致。CPU契约暴露快照未同步EE覆盖值，已同步全部显式train选项到快照，实际CLI优先级不变。本地py_compile通过，Python3.12无pytest，未冒充本地完整测试。

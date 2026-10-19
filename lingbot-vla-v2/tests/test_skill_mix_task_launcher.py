@@ -274,6 +274,15 @@ class LauncherTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "fresh output"):
             launcher.build_plan(self.args)
 
+    def test_fp32_source_requires_explicit_fp32_master_mode(self):
+        self.write_shard("F32")
+        with self.assertRaisesRegex(ValueError, "BF16"):
+            launcher.build_plan(self.args)
+        self.args.fp32_master = True
+        plan = launcher.build_plan(self.args)
+        self.assertEqual(plan['checkpoint_inventory'][0]['dtypes'], ['F32'])
+        self.assertTrue(plan['training_config']['train']['enable_mixed_precision'])
+
 
 if __name__ == "__main__":
     unittest.main()

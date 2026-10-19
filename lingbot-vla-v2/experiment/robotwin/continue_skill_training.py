@@ -125,6 +125,11 @@ def make_job(args):
                shutdown=args.shutdown, log=str(runtime / f"{name}.log"),
                job_file=str(runtime / f"{name}.json"),
                status_file=str(runtime / f"{name}.status.json"))
+    train = plan.get("training_config", source_cfg).get("train", {})
+    interval = int(train.get("save_steps", 250))
+    job.update(hf_export_dtype=train.get("hf_export_dtype", "bf16"),
+               fp32_master=config.fp32_master,
+               verify_steps=sorted(set(range(interval, args.steps + 1, interval)) | {args.steps}))
     return job, plan
 
 
@@ -151,7 +156,7 @@ def check_machine(job, plan):
         raise ValueError("HF save interval must be positive")
     count = math.ceil(job["steps"] / interval)
     weight_bytes = sum(row["size"] for row in plan["checkpoint_inventory"])
-    needed = math.ceil(count * weight_bytes * 1.1) + 1024**3
+    needed = math.ceil(count * weight_bytes * 1.1) + 3 * 1024**3
     free = shutil.disk_usage(parent).free
     if free < needed:
         raise RuntimeError(f"not enough disk for {count} HF checkpoints: "
@@ -183,7 +188,15 @@ def verify_final(job):
     for name in ("config.json", "tokenizer.json", "tokenizer_config.json"):
         if not (model / name).is_file():
             raise RuntimeError(f"final checkpoint asset missing: {model / name}")
-    launcher.checkpoint_inventory(model)
+    dtype = job.get("hf_export_dtype")
+    if dtype is None:
+        config = Path(job["output_dir"]) / "lingbotvla_cli.yaml"
+        dtype = launcher.read_training_config(config).get("train", {}).get("hf_export_dtype", "bf16") if config.is_file() else "bf16"
+    allowed = {"bf16": ("BF16",), "fp32": ("F32",), "fp16": ("F16",),
+               "native": ("BF16", "F32", "F16", "F64")}
+    if dtype not in allowed:
+        raise ValueError(f"unsupported HF export dtype: {dtype}")
+    launcher.checkpoint_inventory(model, allowed_float_dtypes=allowed[dtype])
     source = launcher.read_json(Path(job["source_model"]) / "model.safetensors.index.json")
     final = launcher.read_json(model / "model.safetensors.index.json")
     if set(source["weight_map"]) != set(final["weight_map"]):
@@ -196,6 +209,8 @@ def run_job(job):
                   output_dir=job["output_dir"])
     write_json(job["status_file"], status)
     try:
+        if job.get("fp32_master"):
+            os.environ["LINGBOT_PRECISION_AUDIT"] = str(Path(job["output_dir"]) / "precision_audit.json")
         result = subprocess.run(job["command"], cwd=launcher.REPO, check=False)
         status["returncode"] = result.returncode
         if result.returncode != 0:
@@ -203,8 +218,11 @@ def run_job(job):
             write_json(job["status_file"], status)
             print("训练失败，保留服务器，不自动关机。", flush=True)
             return 1
-        final = verify_final(job)
-        status.update(state="complete", training_complete=True, final_hf=str(final))
+        milestones = sorted(set(job.get("verify_steps", [job["steps"]])) | {job["steps"]})
+        verified = [str(verify_final(dict(job, steps=step))) for step in milestones]
+        final = verified[-1]
+        status.update(state="complete", training_complete=True, final_hf=str(final),
+                      verified_hfs=verified)
         write_json(job["status_file"], status)
         print(f"训练正常结束，最终 HF 已校验：{final}", flush=True)
         if job["shutdown"]:

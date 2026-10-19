@@ -49,11 +49,12 @@ class ContinueSkillTests(unittest.TestCase):
         self.args.freeze_vision_encoder = None
         self.args.gradient_checkpointing = None
 
-    def make_hf(self, model):
+    def make_hf(self, model, dtype="BF16"):
         model.mkdir(parents=True)
-        header = json.dumps(dict(weight=dict(dtype="BF16", shape=[1], data_offsets=[0, 2]))).encode()
+        width = 4 if dtype == 'F32' else 2
+        header = json.dumps(dict(weight=dict(dtype=dtype, shape=[1], data_offsets=[0, width]))).encode()
         (model / "model.safetensors.index.json").write_text(json.dumps(dict(weight_map={"weight": "part.safetensors"})))
-        (model / "part.safetensors").write_bytes(struct.pack("<Q", len(header)) + header + bytes(2))
+        (model / "part.safetensors").write_bytes(struct.pack("<Q", len(header)) + header + bytes(width))
         for name in ("config.json", "tokenizer.json", "tokenizer_config.json"):
             (model / name).write_text("{}")
 
@@ -182,6 +183,28 @@ class ContinueSkillTests(unittest.TestCase):
         self.assertEqual(run.call_count, 2)
         self.assertEqual(run.call_args.args[0], ["bash", "/usr/bin/shutdown"])
         self.assertTrue(entry.launcher.read_json(self.root / "status.json")["training_complete"])
+
+    def test_fp32_exports_are_verified_before_shutdown(self):
+        self.make_hf(self.final, 'F32')
+        middle = self.out / 'checkpoints/global_step_250/hf_ckpt'
+        self.make_hf(middle, 'F32')
+        job = dict(self.job(shutdown=True), hf_export_dtype='fp32', verify_steps=[250, 500])
+        rc, run = self.run_job(job)
+        self.assertEqual(rc, 0)
+        self.assertEqual(run.call_args.args[0], ['bash', '/usr/bin/shutdown'])
+        status = entry.launcher.read_json(self.root / 'status.json')
+        self.assertEqual(status['verified_hfs'], [str(middle), str(self.final)])
+
+    def test_missing_intermediate_or_wrong_export_dtype_prevents_shutdown(self):
+        self.make_hf(self.final, 'F32')
+        job = dict(self.job(shutdown=True), hf_export_dtype='fp32', verify_steps=[250, 500])
+        rc, run = self.run_job(job)
+        self.assertEqual(rc, 1)
+        self.assertEqual(run.call_count, 1)
+        self.make_hf(self.out / 'checkpoints/global_step_250/hf_ckpt', 'BF16')
+        rc, run = self.run_job(job)
+        self.assertEqual(rc, 1)
+        self.assertEqual(run.call_count, 1)
 
     def test_training_failure_never_shuts_down_even_with_checkpoint_present(self):
         self.make_hf(self.final)

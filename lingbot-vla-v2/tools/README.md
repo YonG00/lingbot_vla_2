@@ -32,7 +32,7 @@
 | 48G 卡冒烟（不存 ckpt / TB10） | `acceptance_checks/run_smoke_nosave_48g.sh`、`run_smoke_tb10_48g.sh`、`run_smoke_tb10_48g_v2.sh` |
 | 开环评测预检冒烟 | `acceptance_checks/preflight_smoke.sh` |
 | **看 AL 训练进度 / 通关 / 每任务倍率变化** | `auto_learning_pipeline/al_panel.py` |
-| **从单技能实验 HF 存档便捷续练（可选完成后关机）** | `experiment/robotwin/continue_skill_training.py`；默认预览，`--execute` 后台运行，`--shutdown` 仅在训练与最终 HF 校验成功后执行关机 |
+| **从单技能实验 HF 存档便捷续练（可选完成后关机）** | `experiment/robotwin/continue_skill_training.py`；默认预览，`--execute` 后台运行，`--shutdown` 仅在训练与约定里程碑HF校验成功后执行关机；显式FP32主参数模式可读FP32来源 |
 | 监控周期 HF，满 4 份删除最早一份、保留最近 3 份 | `auto_learning_pipeline/al_checkpoint_watch.py`（默认预览；`--apply` 清理；`--once` 单次检查；跳过 DCP/未完成存档，`--protect` 保护输入存档） |
 | 校验 AL B0 适配层 | `auto_learning_pipeline/al_b0_verify.py` |
 | AL B1 回归 | `auto_learning_pipeline/al_b1_regression.sh` |

@@ -118,7 +118,7 @@ def validate_tokenizer_compatibility(source, selected):
         ignored_runtime_settings=runtime)
 
 
-def checkpoint_inventory(model):
+def checkpoint_inventory(model, *, allowed_float_dtypes=("BF16",)):
     index_path = model / "model.safetensors.index.json"
     index = read_json(index_path)
     expected = index["weight_map"]
@@ -153,8 +153,10 @@ def checkpoint_inventory(model):
                               dtypes=sorted(dtypes)))
     if seen != expected:
         raise ValueError("checkpoint tensor headers disagree with index weight_map")
-    if any(t in {"F32", "F16"} for row in inventory for t in row["dtypes"]):
-        raise ValueError("this experiment requires a BF16 source checkpoint")
+    floats = {"BF16", "F16", "F32", "F64"}
+    if any(t in floats and t not in allowed_float_dtypes
+           for row in inventory for t in row["dtypes"]):
+        raise ValueError(f"checkpoint requires floating dtype in {sorted(allowed_float_dtypes)}")
     return inventory
 
 
@@ -196,7 +198,9 @@ def build_plan(args):
     for path in (args.train_config, args.dataset_root / "meta", args.qwen3vl):
         if not path.exists():
             raise ValueError(f"missing input: {path}")
-    inventory = checkpoint_inventory(model)
+    inventory = checkpoint_inventory(
+        model, allowed_float_dtypes=("BF16", "F32")
+        if getattr(args, "fp32_master", False) else ("BF16",))
     model_config = read_json(model / "config.json")
     source_args = read_training_config(args.train_config)
     norm = source_args.get("data", {}).get("norm_stats_file")
@@ -310,9 +314,9 @@ def build_plan(args):
     }
     options.update(ee_training_options(args, source_args, cfg))
     # Keep the reproducible snapshot consistent with effective CLI overrides.
-    for key in ("freeze_vision_encoder", "enable_gradient_checkpointing", "save_steps",
-                "enable_mixed_precision", "enable_fp32"):
-        run_config["train"][key] = options["train." + key]
+    for key, value in options.items():
+        if key.startswith("train."):
+            run_config["train"][key.removeprefix("train.")] = value
     for key, value in options.items():
         command += ["--" + key, str(value).lower() if isinstance(value, bool) else str(value)]
     source_files = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (
