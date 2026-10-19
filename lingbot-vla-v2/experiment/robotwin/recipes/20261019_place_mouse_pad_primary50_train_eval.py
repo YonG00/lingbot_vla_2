@@ -193,12 +193,15 @@ def main(argv=None):
                         train_all_episodes=True, ee_position_weight=10., micro=56,
                         gradient_checkpointing=True)
     parser.add_argument('--closed-loop-episodes', type=int, default=3)
+    parser.add_argument('--hf-export-dtype', choices=('bf16', 'fp32'), default='bf16')
     parser.add_argument('--eval-precision', choices=('bf16', 'fp32'), default='bf16')
     parser.add_argument('--sim-python', default='/data/miniconda3/envs/RoboTwin/bin/python')
     parser.add_argument('--robotwin-root', type=Path, default=PACKAGE.parent / 'RoboTwin-lingbot')
     args = parser.parse_args(argv)
     args.run_name = args.run_name or f'al_mouse_pad_primary50_g56_from_mouse500_add500_{datetime.now():%Y%m%d_%H%M%S}'
     job, plan, snapshot = recipe.build_job(args)
+    plan["training_config"]["train"]["hf_export_dtype"] = args.hf_export_dtype
+    plan["command"][plan["command"].index("--train.hf_export_dtype") + 1] = args.hf_export_dtype
     validate_plan(args, job, plan)
     job['shutdown'] = False
     config = dict(training_job=job, shutdown=args.shutdown, episodes=args.closed_loop_episodes,
@@ -216,6 +219,10 @@ def main(argv=None):
     # Budget two HFs via the existing guard, plus 2 GiB for eval/logs.
     import shutil
     weight_bytes = sum(row['size'] for row in plan['checkpoint_inventory'])
+    # Source HF is BF16; FP32 exports need twice its payload. Atomic rename
+    # publishes the temporary directory without another full disk copy.
+    if args.hf_export_dtype == 'fp32':
+        weight_bytes *= 2
     required = int(2 * weight_bytes * 1.1) + 3 * 1024**3
     free = shutil.disk_usage(Path(job['output_dir']).parent).free
     if free < required:

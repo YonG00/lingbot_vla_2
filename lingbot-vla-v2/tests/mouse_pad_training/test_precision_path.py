@@ -26,11 +26,15 @@ server = load('server_cpu', 'experiment/robotwin/precision_eval_server.py')
 entry = load('fp32_cpu', 'experiment/robotwin/recipes/20261019_place_mouse_pad_primary50_fp32_master.py')
 
 
-def test_fp32_flags_survive_recipe_snapshot_and_worker_rebuild():
+@pytest.mark.parametrize("export_dtype", ["bf16", "fp32"])
+def test_fp32_flags_survive_recipe_snapshot_and_worker_rebuild(export_dtype):
     f = fixtures.MouseRecipeTests()
     f.setUp()
     try:
         args = f.args
+        config = json.loads(args.train_config.read_text())
+        config.setdefault("train", {})["hf_export_dtype"] = export_dtype
+        args.train_config.write_text(json.dumps(config))
         args.fp32_master = True
         args.micro, args.gas = 32, 1
         args.train_all_episodes = True
@@ -52,7 +56,8 @@ def test_fp32_flags_survive_recipe_snapshot_and_worker_rebuild():
         assert rebuilt['train']['enable_fp32'] is False
         cmd = plan['command']
         assert cmd[cmd.index('--train.global_batch_size')+1] == '32'
-        assert cmd[cmd.index('--train.hf_export_dtype')+1] == 'bf16'
+        assert cmd[cmd.index('--train.hf_export_dtype')+1] == export_dtype
+        assert rebuilt['train']['hf_export_dtype'] == export_dtype
     finally:
         f.doCleanups()
 
@@ -95,12 +100,12 @@ def test_probe_prepares_static_cache_and_uses_same_frozen_al_config(monkeypatch)
         f.doCleanups()
 
 
-def test_new_recipe_defaults_to_requested_32_and_fp32_evaluation(monkeypatch):
+def test_new_recipe_defaults_to_requested_28_and_fp32_evaluation(monkeypatch):
     captured = []
     monkeypatch.setattr(entry.pipeline, 'main', lambda args: captured.extend(args))
     entry.main([])
     assert '--execute' not in captured and '--shutdown' not in captured
-    assert captured[captured.index('--micro')+1] == '32'
+    assert captured[captured.index('--micro')+1] == '28'
     assert captured[captured.index('--gas')+1] == '1'
     assert captured[captured.index('--eval-precision')+1] == 'fp32'
     assert '--fp32-master' in captured

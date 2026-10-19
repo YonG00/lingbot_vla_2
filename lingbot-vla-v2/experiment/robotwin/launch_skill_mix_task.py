@@ -288,7 +288,7 @@ def build_plan(args):
         "train.num_train_epochs": args.steps + 1, "train.max_steps": args.steps,
         "train.save_steps": getattr(args, "hf_save_steps", 250), "train.save_epochs": 0, "train.save_hf_weights": True,
         "train.async_save_hf_weights": False, "train.hf_pass_interval": 0,
-        "train.hf_export_dtype": "bf16", "train.dcp_save_mode": "hf_only",
+        "train.hf_export_dtype": source_args.get("train", {}).get("hf_export_dtype", "bf16"), "train.dcp_save_mode": "hf_only",
         "train.dcp_keep_last": 0, "train.enable_resume": False, "train.reset_step_counter": True,
         "train.step_offset": 0, "train.train_expert_only": False,
         "train.seed": cfg.get("seed", 3), "train.open_loop_eval_steps": 0,

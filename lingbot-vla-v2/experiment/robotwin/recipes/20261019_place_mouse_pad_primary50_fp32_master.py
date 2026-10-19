@@ -1,4 +1,4 @@
-"""纯主50条：FP32主参数/BF16计算→BF16 HF→FP32评测；首档micro32/GAS1。"""
+"""纯主50条：FP32主参数/BF16计算→FP32 HF→FP32评测；正式micro28/GAS1。"""
 import importlib.util
 from pathlib import Path
 import sys
@@ -11,7 +11,7 @@ spec.loader.exec_module(pipeline)
 
 
 def main(argv=None):
-    args = ['--fp32-master', '--micro', '32', '--gas', '1', '--eval-precision', 'fp32']
+    args = ['--fp32-master', '--micro', '28', '--gas', '1', '--eval-precision', 'fp32', '--hf-export-dtype', 'fp32']
     extra = list(sys.argv[1:] if argv is None else argv)
     if '--run-name' not in extra:
         args += ['--run-name', f'al_mouse_pad_primary50_fp32master_add500_{datetime.now():%Y%m%d_%H%M%S}']

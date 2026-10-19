@@ -50,3 +50,13 @@ python experiment/robotwin/recipes/20261019_place_mouse_pad_primary50_fp32_maste
 v2首次optimizer更新后，审计记录主参数/梯度/优化器状态均为FP32，但视觉、语言、动作专家和输出头采样Linear输出全部FP32，审计主动失败。峰值reserved77.66GiB只属于这个非目标路径，不算FP32主参数/BF16计算容量通过。原因是`parallel_state.fsdp_enabled = fsdp_size > 1`，单卡跳过FSDP mixed policy；此前仅打开mixed开关并不会自动启用BF16计算。
 
 现仅对mixed=true、fp32=false、fsdp_enabled=false的训练前向添加CUDA BF16 autocast。默认BF16、显式FP32和多卡FSDP分支保持原行为；CPU测试包括真实Linear前向BF16、主参数/梯度/SGD动量FP32。更新后本地88 passed、2 skipped、36 subtests；服务器90 passed、36 subtests，实际CUDA重测待运行。仍从micro32/GAS1开始，不修改正式存档节奏。
+
+## 正式训练配置（2026-10-19，用户确认）
+
+FP32主权重、BF16前向，HF保存FP32，评测加载FP32。micro28/GAS1/GBS28，梯度checkpoint开启。纯主任务50条，从混合前mouse500继续500步，第250、500步保存，最终自动闭环评测3轮，正常完成后关机，异常保持机器在线。
+
+micro28和30均通过3步；31、32在第2步OOM。30采样设备显存峰值97073MiB，用户选择28留余量。首步审计中的约77GiB不是整段训练峰值。
+
+FP32 HF约23.8GiB/份；两份按双倍源BF16文件大小再加10%及3GiB预算，约55.3GiB；启动前空闲约69.3GiB。导出先写临时目录，再原子重命名，不额外复制整份目录。HF不含优化器状态。
+
+改动本意：保持训练主参数与存档精度一致；异常症状为HF导出dtype回落BF16或容量预检低估；快速回滚为入口显式传`--hf-export-dtype bf16`；验证入口为`tests/mouse_pad_training/test_precision_path.py`及实际存档精度报告。
