@@ -1,5 +1,7 @@
 # 鼠标单任务启动配方：CPU契约
 
+训练后3回合闭环与关机门控：`test_train_eval_pipeline.py`，覆盖失败保留机器、正常零成功评测后允许关机，详见[流水线说明](../../docs/auto_learning/mouse_primary50_train_eval_zh.md)。
+
 Blackwell评测渲染的独立CPU契约：`test_render_runtime.py`（不导入torch/SAPIEN）。部署与GPU验证见[去噪运行库说明](../../docs/auto_learning/robotwin_render_runtime_zh.md)。
 
 ```bash

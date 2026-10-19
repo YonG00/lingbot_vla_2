@@ -21,6 +21,7 @@
 
 | 我要做什么 | 读哪篇 |
 |---|---|
+| 鼠标纯主任务50条GBS56续练、结束后3回合闭环及关机 | [训练评测流水线](auto_learning/mouse_primary50_train_eval_zh.md) |
 | Blackwell评测出现OIDN错误、策略输入有颗粒噪声 | [去噪运行库修复与验证](auto_learning/robotwin_render_runtime_zh.md) |
 | 指定目标物筛选辅助episode、视频核验与白名单 | `auto_learning/object_episode_selection_zh.md` |
 | 2026-10-19 鼠标全库初筛实测与47条候选 | `auto_learning/mouse_auxiliary_scan_20261019_zh.md` |
