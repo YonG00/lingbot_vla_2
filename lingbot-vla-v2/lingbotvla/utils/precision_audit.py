@@ -1,7 +1,17 @@
 """Optional first-update dtype audit. Importing this file does not import torch."""
 import json
+from contextlib import nullcontext
 from collections import Counter
 from pathlib import Path
+
+
+def training_precision_context(mixed_precision, fp32_compute, fsdp_enabled, torch_module=None):
+    """Single-card execution skips FSDP policies and needs explicit autocast."""
+    if not mixed_precision or fp32_compute or fsdp_enabled:
+        return nullcontext()
+    if torch_module is None:
+        import torch as torch_module
+    return torch_module.autocast(device_type='cuda', dtype=torch_module.bfloat16)
 
 
 def tensor_inventory(tensors):

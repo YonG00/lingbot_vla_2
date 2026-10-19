@@ -1599,7 +1599,11 @@ def main():
                             future_video_target_rgb = future_pil_images
                         depth_forward_time = time.time() - depth_start_time
 
-                with model_fwd_context:
+                from lingbotvla.utils.precision_audit import training_precision_context
+                with model_fwd_context, training_precision_context(
+                    args.train.enable_mixed_precision, args.train.enable_fp32,
+                    get_parallel_state().fsdp_enabled,
+                ):
                     model_outputs = model(
                         **micro_batch,
                         depth_targets=depth_targets,

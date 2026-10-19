@@ -42,3 +42,11 @@ python experiment/robotwin/recipes/20261019_place_mouse_pad_primary50_fp32_maste
 ## 本次验证状态
 
 本地CPU回归83 passed、1 skipped（缺torch装配项）、36 subtests。覆盖参数传递与worker重建、共享dtype计数、更新后主参数检查、FP32评测开关、评测记录不增加forward或改变返回值，以及探针不覆盖正式存档参数。新代码尚未同步至服务器，也未执行服务器/GPU验证；不能把CPU通过写成精度或容量已实测。
+
+## 后续开卡实测进展（GAS固定1）
+
+上述为准备阶段记录。开卡后服务器CPU84项通过，micro32首轮v1因静态窗口缓存缺失而未开始更新；已补CPU缓存准备及冻结AL契约，服务器85项通过。v1不是OOM。
+
+v2首次optimizer更新后，审计记录主参数/梯度/优化器状态均为FP32，但视觉、语言、动作专家和输出头采样Linear输出全部FP32，审计主动失败。峰值reserved77.66GiB只属于这个非目标路径，不算FP32主参数/BF16计算容量通过。原因是`parallel_state.fsdp_enabled = fsdp_size > 1`，单卡跳过FSDP mixed policy；此前仅打开mixed开关并不会自动启用BF16计算。
+
+现仅对mixed=true、fp32=false、fsdp_enabled=false的训练前向添加CUDA BF16 autocast。默认BF16、显式FP32和多卡FSDP分支保持原行为；CPU测试包括真实Linear前向BF16、主参数/梯度/SGD动量FP32。更新后本地88 passed、2 skipped、36 subtests；服务器90 passed、36 subtests，实际CUDA重测待运行。仍从micro32/GAS1开始，不修改正式存档节奏。

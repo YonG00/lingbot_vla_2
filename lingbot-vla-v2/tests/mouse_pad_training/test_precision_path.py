@@ -150,6 +150,38 @@ def test_dtype_inventory_deduplicates_shared_parameters_and_nested_states():
     assert audit.tensor_inventory(audit.state_tensors({'a': [tensor, Tensor('torch.int64', 1)]})) == {'torch.float32': 20, 'torch.int64': 1}
 
 
+@pytest.mark.parametrize('mixed,fp32,fsdp,active', [(True,False,False,True),
+    (False,False,False,False), (True,True,False,False), (True,False,True,False)])
+def test_only_single_card_mixed_training_needs_explicit_autocast(mixed, fp32, fsdp, active):
+    from contextlib import nullcontext
+    calls = []
+    def autocast(**kwargs):
+        calls.append(kwargs)
+        return nullcontext()
+    with audit.training_precision_context(mixed, fp32, fsdp,
+            torch_module=NS(autocast=autocast, bfloat16='bf16')):
+        pass
+    assert calls == ([{'device_type':'cuda','dtype':'bf16'}] if active else [])
+
+
+def test_cpu_operator_autocast_retains_fp32_optimizer_storage():
+    torch = pytest.importorskip('torch')
+    linear = torch.nn.Linear(4, 3).float()
+    optimizer = torch.optim.SGD(linear.parameters(), lr=.01, momentum=.9)
+    def autocast(device_type, dtype):
+        assert device_type == 'cuda'
+        return torch.autocast('cpu', dtype=dtype)
+    adapter = NS(autocast=autocast, bfloat16=torch.bfloat16)
+    with audit.training_precision_context(True, False, False, torch_module=adapter):
+        output = linear(torch.ones(2, 4))
+        assert output.dtype == torch.bfloat16
+        loss = output.float().square().mean()
+    loss.backward()
+    assert all(p.dtype == torch.float32 and p.grad.dtype == torch.float32 for p in linear.parameters())
+    optimizer.step()
+    assert all(v['momentum_buffer'].dtype == torch.float32 for v in optimizer.state.values())
+
+
 @pytest.mark.parametrize('dtype,raises', [('torch.float32', False), ('torch.bfloat16', True)])
 def test_after_update_audits_real_optimizer_storage_and_preserves_parameters(tmp_path, monkeypatch, dtype, raises):
     tensor = Tensor(dtype, 20)
