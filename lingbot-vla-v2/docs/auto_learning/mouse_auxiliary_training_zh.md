@@ -124,3 +124,5 @@ GPU首档实测：batch32/GAS1、梯度检查点开启、30步完成，取11–3
 用户在56档测试时将正式预算改为750步，并授权测试通过后直接启动。新增 `--hf-save-steps` 参数，旧入口默认250不变；辅助入口默认750（与本次总步数相同），仅保留最终一份HF，避免29GiB余量下创建三份HF。容量预判读取实际训练命令的save_steps，训练快照与worker命令同值；显式覆盖总步数时可同步覆盖保存间隔。上文1000步及每250步保存为历史测试方案，不代表本次正式配置。不会删除历史产物，不自动关机。
 
 56档最终实测：30步正常退出，11–30步平均7.475s、7.4916样本/s，中位7.473s、p95 7.504s；峰值allocated84.34GiB、reserved88.05GiB、设备91425MiB，余6462MiB。相较48吞吐提高4.50%，选56/GAS1；梯度检查点日志确认开启，末步GradNorm0.7266。证据 `/data/outputs/mouse_aux_gc_b56_probe_20261019_v1/benchmark_result.json`。正式750步共42000槽位，主29400/辅12600；仍从原step500，最终只存一份HF。
+
+正式运行已启动：`al_mouse_pad_aux56_gc_from500_add750_20261019_1220`（代码31184db）。服务器运行目录 `/data/outputs/al_mouse_pad_aux56_gc_from500_add750_20261019_1220`；日志 `/data/outputs/skill_launches/al_mouse_pad_aux56_gc_from500_add750_20261019_1220.log`，同名 `.status.json` 记录运行/最终校验状态。启动验收完成4个实际更新，约7.4s/步、reserved88.05GiB，实际CLI文件与97条白名单核验通过。750步最终HF与效果仍待完成后检查。
