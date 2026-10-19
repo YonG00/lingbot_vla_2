@@ -6,7 +6,7 @@
 
 | 项目 | 本轮设置 |
 |---|---|
-| 起点 | 原始 step9680，新优化器/LR/步号 |
+| 起点 | 鼠标单任务 `al_mouse_pad_9680_ee_lnfm_add500_20261018_150402` 的 step500 HF；继承已学模型权重，新优化器/LR/步号 |
 | 训练数据 | episode 800–849共50条，5970+1496=7466帧 |
 | 步数/批量 | 新增500步，micro20/GAS1/GBS20 |
 | 模型范围 | ViT和其余模型全量训练，无LoRA |
@@ -32,12 +32,14 @@ bash experiment/robotwin/recipes/20261018_place_mouse_pad_all50_9680_ee_lnfm.sh
 bash experiment/robotwin/recipes/20261018_place_mouse_pad_all50_9680_ee_lnfm.sh --execute --shutdown
 ```
 
-不关机用 `--execute --no-shutdown`；最大新增步数可用 `--steps 1000`，其他常用参数为 `--micro`、`--gas`、`--gradient-checkpointing`、`--ee-position-weight`。默认起点仍是原始9680；若显式更改 `--model`，应同时检查预览中的实际source_model，不可根据run名称推断来源。旧40/10入口保持默认位置权重3，便于回退。
+不关机用 `--execute --no-shutdown`；最大新增步数可用 `--steps 1000`，其他常用参数为 `--micro`、`--gas`、`--gradient-checkpointing`、`--ee-position-weight`。默认从上一轮鼠标step500继续学，新增500步后累计经历两轮各500步；新run仍从0计数，存档为250/500，不是750/1000。HF没有优化器状态，本轮不是DCP完整断点恢复，不导入旧池或采样表。
+
+启动文件名中的9680保留为历史祖先标识；实际来源以预览 `source_model` 为准。默认训练配置也取自该鼠标run的 `lingbotvla_cli.yaml`。若显式更改 `--model`，可同时用 `--train-config` 指定相匹配的来源配置，默认输出名称改标 `from_custom`。旧40/10入口仍从原始9680开始，默认位置权重3。
 
 输出、启动日志和缓存使用当前日期时间，不覆盖旧实验：
 
 ```text
-/data/outputs/al_mouse_pad_all50_p10_9680_ee_lnfm_add500_<日期时间>/
+/data/outputs/al_mouse_pad_all50_p10_from_mouse500_ee_lnfm_add500_<日期时间>/
 /data/outputs/skill_launches/<run名>.log
 /data/al_cache/<run名>/target_change_window/place_mouse_pad.json
 ```

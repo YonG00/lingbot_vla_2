@@ -78,8 +78,20 @@ class AllEpisodesTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
         with patch.object(module.recipe, 'main', return_value=0) as run:
             self.assertEqual(module.main(['--steps', '750']), 0)
-        self.assertEqual(run.call_args.args[0],
-                         ['--train-all-episodes', '--ee-position-weight', '10.0', '--steps', '750'])
+        forwarded = module.recipe.parser().parse_args(run.call_args.args[0])
+        self.assertEqual(forwarded.model, module.SOURCE_RUN / 'checkpoints/global_step_500/hf_ckpt')
+        self.assertEqual(forwarded.train_config, module.SOURCE_RUN / 'lingbotvla_cli.yaml')
+        self.assertEqual(forwarded.steps, 750)
+        self.assertTrue(forwarded.train_all_episodes)
+        self.assertEqual(forwarded.ee_position_weight, 10.0)
+        self.assertIn('from_mouse500', forwarded.run_name)
+        with patch.object(module.recipe, 'main', return_value=0) as run:
+            module.main(['--model', str(self.fixture.model), '--train-config', str(self.fixture.train),
+                         '--steps', '250'])
+        overridden = module.recipe.parser().parse_args(run.call_args.args[0])
+        self.assertEqual(overridden.model, self.fixture.model)
+        self.assertEqual(overridden.train_config, self.fixture.train)
+        self.assertIn('from_custom', overridden.run_name)
         self.args.run_name = None
         job, _, _ = recipe.build_job(self.args)
         self.assertIn('all50_p10', job['output_dir'])

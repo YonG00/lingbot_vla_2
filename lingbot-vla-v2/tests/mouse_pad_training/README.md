@@ -13,3 +13,7 @@ PYTHONPATH=.:tests python -m pytest -q \
 本地及服务器均33 passed、13 subtests passed；服务器真实资产预览退出0。见 [实机验证记录](VALIDATION_20261018.md)；鼠标数据完整对拍、新窗口覆盖率和GPU仍待实际启动验证。
 
 全轨迹拟合实验见 `test_all_episodes.py` 和 [实验说明](../../docs/auto_learning/place_mouse_pad_all50_p10_zh.md)：原40条 train 与10条 val 合并为50条训练，固定4条 `train_monitor`，每100步只记录训练拟合 GMSE/EE。它不产生 `active_val`、PASS、阈值倍率、train-val gap 或泛化结论。
+
+全轨迹入口默认继承 `al_mouse_pad_9680_ee_lnfm_add500_20261018_150402` 的step500 HF和对应训练配置，新增500步；文件名9680仅表示历史祖先。契约检查默认来源及显式覆盖来源、输出名称，旧40/10入口仍默认原始9680。
+
+本次step500来源调整：本地及服务器均41 passed、26 subtests passed；服务器真实资产预览确认50/0和EE10/.8/1.5。仅CPU预览，未启动训练；当前盘余4.8GiB，正式训练前需解决HF存档空间。服务器按文件同步，保留已有仿真修改，Git HEAD尚未更新为本地提交。

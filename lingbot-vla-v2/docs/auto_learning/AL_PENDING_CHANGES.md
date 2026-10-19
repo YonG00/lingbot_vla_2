@@ -17,6 +17,8 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#44（2026-10-18）鼠标全50条入口改从上一轮鼠标step500继承权重，🧪 本地CPU验证通过。** `20261018_place_mouse_pad_all50_9680_ee_lnfm.py::main` 默认模型及训练配置改取 `al_mouse_pad_9680_ee_lnfm_add500_20261018_150402`；新run名标记 `from_mouse500`。不变量：继承step500模型，新增500步，仍用新优化器/LR/步号，50条训练、EE10/.8/1.5、250/500 HF不变；旧40/10入口不变，不导入旧池。症状：预览source_model仍指原始9680、来源配置不对应、输出名称错称原始模型。回滚：启动时显式 `--model /data/outputs/al_v79_poolfix_7300/checkpoints/global_step_9680/hf_ckpt --train-config /data/outputs/al_v79_poolfix_7300/lingbotvla_cli.yaml`；参数仅新进程读取。验证入口：`tests/mouse_pad_training`及启动器/续训测试，本地41 passed、26 subtests；服务器真实step500资产CPU预览通过：train=50/val=0、EE10/.8/1.5、source_model为指定鼠标step500；服务器同组41 passed、26 subtests。已按文件同步到独立实验目录（保留服务器已有仿真改动，Git HEAD仍为aba61f0，不能仅凭HEAD判定同步状态），本条未提交push、未启动训练。服务器当前可用空间4.8GiB，不足写出两份HF，正式训练前须解决空间。
+
 **#43（2026-10-18）鼠标50条全部训练 + 仅训练集拟合监控 + 位置EE权重10，🧪 本地CPU验证通过，未提交/未上机。** 用户明确将原10条val加入训练，保留4条训练轨迹每100步GMSE/EE监控，关闭独立val；新增 `train_all_episodes=false` 默认开关。新日期配方从原始9680新增500步，EE权重10/.8/1.5，ViT全量、低噪FM、连续窗口及250/500 HF沿用旧配方。
 
 - **不变量：** 原manifest不改；开启时train=原train∪val、val为空，白名单/实际local_idx/静态窗口缓存均覆盖全部50条；仅调用4条train_monitor；不伪造active_val、成品参考倍率、PASS、gap或泛化结论；默认关闭时40/10行为保持；禁止旧池导入及验证驱动状态迁移。
