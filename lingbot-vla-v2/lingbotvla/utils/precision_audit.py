@@ -6,8 +6,8 @@ from pathlib import Path
 
 
 def training_precision_context(mixed_precision, fp32_compute, fsdp_enabled, torch_module=None):
-    """Single-card execution skips FSDP policies and needs explicit autocast."""
-    if not mixed_precision or fp32_compute or fsdp_enabled:
+    """Single-card BF16 compute needs autocast for FP32 data, for either storage dtype."""
+    if fp32_compute or fsdp_enabled:
         return nullcontext()
     if torch_module is None:
         import torch as torch_module

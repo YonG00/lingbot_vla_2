@@ -121,7 +121,7 @@ def prepare(args):
     print('PREPARED', args.out, 'NO_TRAINING_STARTED', flush=True)
 
 
-def cpu_check(out):
+def cpu_check(out, *, expected_steps=500, expected_fp32=True, expected_mixed=True, expected_export='fp32'):
     import ast
     import types
     import typing
@@ -161,8 +161,9 @@ def cpu_check(out):
     cfg = json.loads((out / 'trainer_config.json').read_text())
     t = cfg['train']
     assert not any(t[k] for k in ('auto_learning', 'low_noise_fm_enabled', 'ee_fk_loss_enabled', 'ee_fk_eval_enabled', 'use_lora', 'train_expert_only', 'freeze_vision_encoder'))
-    assert t['max_steps'] == 500 and t['save_steps'] == 250 and t['gradient_accumulation_steps'] == 1
-    assert t['enable_mixed_precision'] and t['enable_fp32'] and t['hf_export_dtype'] == 'fp32'
+    assert t['max_steps'] == expected_steps and t['save_steps'] == 250 and t['gradient_accumulation_steps'] == 1
+    assert t['enable_mixed_precision'] == expected_mixed and t['enable_fp32'] == expected_fp32
+    assert t['hf_export_dtype'] == expected_export
     assert parsed.train.auto_learning is None and parsed.train.global_batch_size == t['micro_batch_size']
     config = LingbotVLAV2Config(**{**cfg['model'], **t})
     # Execute original sampling method and prove no replacement RNG path is called.

@@ -156,8 +156,8 @@ def test_dtype_inventory_deduplicates_shared_parameters_and_nested_states():
 
 
 @pytest.mark.parametrize('mixed,fp32,fsdp,active', [(True,False,False,True),
-    (False,False,False,False), (True,True,False,False), (True,False,True,False)])
-def test_only_single_card_mixed_training_needs_explicit_autocast(mixed, fp32, fsdp, active):
+    (False,False,False,True), (True,True,False,False), (True,False,True,False)])
+def test_single_card_bf16_compute_needs_explicit_autocast(mixed, fp32, fsdp, active):
     from contextlib import nullcontext
     calls = []
     def autocast(**kwargs):

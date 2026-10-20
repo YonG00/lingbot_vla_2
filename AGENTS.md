@@ -44,6 +44,8 @@
 | **怎么改代码才不出事**（讨论 → 清单 → 逐条执行 → 提交；改动本意四问；验证矩阵） | 技能 **`lingbot-code-changes`** |
 | **改动台账**（改了什么 / 为什么 / 是否已上机验证 / 怎么回滚；`AL_*` 开关总表） | `lingbot-vla-v2/docs/auto_learning/AL_PENDING_CHANGES.md` |
 | 单技能实验 / 指定学习与 Replay 任务 / 无 PASS 与扫描 / HF-only | `lingbot-vla-v2/docs/auto_learning/skill_mix_task_experiment_zh.md` |
+| adjust_bottle 采用的实验基准 / 配置快照 / 复用训练评测入口 | `lingbot-vla-v2/docs/auto_learning/adjust_bottle_bf16_baseline_zh.md` |
+| adjust_bottle 三项方法开关 / 标准组与增强组串行训练评测 | `lingbot-vla-v2/docs/auto_learning/adjust_bottle_paired_control_zh.md` |
 | AL 上手 / 概念 / 启动命令 | `lingbot-vla-v2/README_AUTOLEARNING.md`、`docs/auto_learning/auto_learning_overview_zh.md`、`auto_learning_launch_guide_zh.md` |
 | 已知坑与自查表 | `lingbot-vla-v2/docs/auto_learning/auto_learning_pitfalls_zh.md` |
 | 文档总索引（按"想做什么"查） | `lingbot-vla-v2/docs/README.md` |

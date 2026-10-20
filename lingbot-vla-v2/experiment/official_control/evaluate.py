@@ -30,6 +30,8 @@ def stop(process):
 
 def execute(job):
     destination = Path(job['destination'])
+    episodes = int(job.get('episodes', 10))
+    assert episodes > 0
     status = destination / 'status.json'
     server = simulation = None
     def state(value, **extra):
@@ -59,7 +61,7 @@ def execute(job):
                        '--train_config_name', 'official_control', '--seed', '0', '--policy_name', 'ACT',
                        '--port', str(port), '--robo_name', 'robotwin', '--video_fps', '10',
                        '--eval_video_log', 'False', '--eval_global_view_log', 'True', '--global_view_fps', '2',
-                       '--output_dir', str(destination / 'results'), '--test_num', '10']
+                       '--output_dir', str(destination / 'results'), '--test_num', str(episodes)]
         (destination / 'commands.json').write_text(json.dumps(dict(server=server_command, simulation=sim_command), indent=2))
         state('starting')
         with (destination / 'server.log').open('x') as slog, (destination / 'sim.log').open('x') as elog:
@@ -84,23 +86,27 @@ def execute(job):
             assert simulation.wait(timeout=3600) == 0, 'simulation failed'
         clean = re.sub(r'\x1b\[[0-9;]*m', '', (destination / 'sim.log').read_text(errors='replace'))
         rates = re.findall(r'Success rate:\s*(\d+)/(\d+).*?current seed:\s*(\d+)', clean)
-        assert len(rates) == 10 and int(rates[-1][1]) == 10, 'incomplete episodes'
+        assert len(rates) == episodes and int(rates[-1][1]) == episodes, 'incomplete episodes'
         assert 'OIDN 2.5.1 CUDA=' in clean and 'OIDN Error' not in clean, 'renderer check failed'
         seeds = [int(row[2]) for row in rates]
-        assert len(set(seeds)) == 10
+        assert len(set(seeds)) == episodes
+        if job.get('expected_seeds') is not None:
+            assert seeds == job['expected_seeds'], 'scene seeds differ from recorded baseline'
         baseline = destination.parent / '9680/summary.json'
-        if job['label'] != '9680':
+        if job.get('reference_summary'):
+            assert seeds == json.loads(Path(job['reference_summary']).read_text())['seeds'], 'scene seeds differ between paired models'
+        elif job.get('require_baseline', True) and job['label'] != '9680':
             assert seeds == json.loads(baseline.read_text())['seeds'], 'scene seeds differ from baseline'
         results = destination / 'results/adjust_bottle'
         videos = list(results.glob('episode*_global.mp4'))
-        assert len(videos) == 10 and all(p.stat().st_size for p in videos), 'missing video'
+        assert len(videos) == episodes and all(p.stat().st_size for p in videos), 'missing video'
         rate = float((results / '_result.txt').read_text().strip().splitlines()[-1])
-        assert abs(rate - int(rates[-1][0]) / 10) < 1e-6
+        assert abs(rate - int(rates[-1][0]) / episodes) < 1e-6
         precision = json.loads((destination / 'precision_audit.json').read_text())
         assert set(precision['parameter_numel_by_dtype']) == {'torch.float32'} and precision['forward_samples']
         assert hashlib.sha256(client.read_bytes()).hexdigest() == client_hash
         summary = dict(state='complete', task='adjust_bottle', label=job['label'], model=job['model'],
-                       successes=int(rates[-1][0]), episodes=10, success_rate=rate, seeds=seeds,
+                       successes=int(rates[-1][0]), episodes=episodes, success_rate=rate, seeds=seeds,
                        oidn_errors=0, client_sha256=client_hash, dtype='float32', action_chunk=50)
         (destination / 'summary.json').write_text(json.dumps(summary, indent=2))
         state('complete', summary=summary)

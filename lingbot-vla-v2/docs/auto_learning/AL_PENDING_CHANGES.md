@@ -17,11 +17,9 @@
 
 ## §1 待验证（改了但没上机跑过）
 
-**#57 对照开启编译并恢复8个数据进程（2026-10-20）：🧪 CPU复验和三步GPU通过。** 按用户要求`use_compile=true`，撤销准备器保守的`num_workers=4`改回初始8；`AL_DYNAMO_CACHE_SIZE_LIMIT=0`跳过本项目缓存上限调优。micro28/GAS1不变，峰值分配81.761GiB/预留91.799GiB；第2/3步StepTime9.866/7.676s，仅短探针，不推断长期吞吐。部分Qwen3-VL nonzero发生graph break。独立目录初次基线因漏接根目录.runtime回退旧OIDN，已停止污染评测并保留日志、接入原有2.5.1运行库；7条CPU加载契约通过，新基线日志已枚举Blackwell CUDA。**不变量**：核心模型hash、数据50条和250/500存档不变；**症状**：配置compile=false/workers非8、OIDN错误或基线未完成；**回滚**：新进程配置compile=false、num_workers=4，不能在已运行训练中改；**验证入口**：`gpu_probe_compile.log`、`cpu_compile_check.log`与`pipeline_compile.status.json`。正式500步仍待基线完成后自动启动，补丁未提交。
 
-**#56 FP32对照探针观测functional动作输出（2026-10-20）：🧪 CPU与三步GPU探针通过，正式训练待启动。** 原动作输出走`_fp32_linear/F.linear`，跳过`nn.Linear`模块hook，首个optimizer更新后因动作输出记录为空误判失败（非OOM）。仅在探针进程包裹原functional调用、记录返回值并恢复，不改模型文件/训练损失。新增CPU契约证明输出与输入/权重梯度逐值不变，1 test通过。96GB RTX PRO 6000 Blackwell上micro28/GAS1跑完3步，参数/梯度/优化器浮点状态及四组输出F32；首更新峰值分配76.965GiB/预留77.660GiB，完整3步83.584GiB/90.525GiB。不变量：forward与梯度不变、三核心快照hash不变；症状：action_out缺失、非F32记录；回滚：撤回`gpu_smoke.py`观测补丁，仅影响探针；验证入口：`python -m unittest experiment.official_control.test_audit_contract -v`与探针`summary.json`。已同步独立目录，补丁尚未提交。
 
-**#55 adjust_bottle标准方法对照（2026-10-20）：🧪 CPU整链通过，GPU待测。** 新分支 `official_adjust_bottle_control` 恢复初始快照86f6728的configuration/modeling v1/v2，新增独立准备器，不走AL，关闭窗口/EE/低噪声；50条示范，从9680训练500步，250/500保存FP32 HF。深度与视频、Muon和原学习率保留。动机：排除自定义算法后检验基础单任务学习链。不是上游官方发布复现，保留数据/HF工程兼容修复，单卡batch也不同。服务器实际参数解析、50回合7156帧及逐回合图像/动作/mask检查通过，原FM采样逐值一致；新增3步FP32审计探针与固定种子10回合评测入口，尚未执行GPU。无卡0.5CPU配额时，CPU检查限制单线程，避免248线程争用。**不变量**：核心hash与快照一致、AL为空、EE/低噪声false、存档250/500；**症状**：hash失败、出现AL/EE日志、episode不符；**回滚**：退出本实验并切回learn_skill_mix_task，独立目录不覆盖；**验证入口**：`python experiment/official_control/prepare_adjust_bottle.py --cpu-check`，GPU dtype/容量与闭环尚待验证。见[说明](adjust_bottle_official_control_zh.md)。
+
 
 **#53 Flex Attention autocast边界修正（2026-10-19）：🧪 CPU反向验证通过，CUDA重测待运行。** v3进入BF16前向后，在Flex Attention自定义反向报`expected scalar type Float but found BFloat16`，非OOM。该实现原本将QKV转FP32，外层autocast却让内部输出降到BF16，破坏其保存QKV/grad_out契约。仅在两个既有FP32 Flex子调用内关闭autocast，保持原FP32 attention语义、原后端与其他模块BF16不变；补真实CPU Flex反向契约。本地88 passed、3 skipped、36 subtests；服务器91 passed、36 subtests（真实CPU Flex反向已执行）。容量仍待完整更新重测。
 
@@ -213,6 +211,27 @@
 
 ## §2 已验证（可不再惦记）
 
+### #60 采用BF16基准并归档可复用入口（2026-10-20）
+
+✅ 已验证。用户在确认3/3后授权更新仓库。新增基准JSON快照（实际配置/存档/五组结果）、baseline_pipeline、test_baseline和专门说明；README/docs/AGENTS只增加入口指针。bf16_trial.prepare可从冻结快照准备，旧显式source方式保留；评测可额外核对expected_seeds，原默认行为不变。
+不变量：固定源9680、BF16/56/GAS1/200、三增强关闭、每250步与200最终保存、同3实际seed；生产分支/目录不变，不提交权重或凭据。症状：快照重建配置漂移、错误精度HF被接受、默认预览产生训练副作用、评测种子不符。回滚：不启baseline_pipeline，保留旧入口和旧模型；只对新进程生效。验证：服务器13项CPU测试通过，冻结快照重建实际50回合7156帧CPU整链通过；原成功run的200步BF16 HF和3/3闭环独立取证。新包装入口没有再跑一次GPU训练，不冒称完整流水线重跑验证。
+
+### #55–#59 adjust_bottle基准验收（2026-10-20）
+
+✅ 已验证，用户选择BF16/GBS56/200步作为本任务当前实验基准；不改变生产Task_Auto_Learning。
+标准FP32 250/500各2/3，增强FP32 250为1/3、500为2/3；BF16标准200为3/3，三实际seed相同、OIDN错误0。
+BF16最终HF1708张量完整，约11.88GiB；CPU整链、三步GPU dtype/梯度及正式200步/闭环均通过。
+新增冻结快照、可复用baseline_pipeline与专门说明；复用入口CPU契约验证与旧成功run证据分开记载。
+不变量/症状/回滚/验证入口见[基准专门说明](adjust_bottle_bf16_baseline_zh.md)。快照只保存配置和结果，不提交模型权重或凭据。
+以下保留#55–#58的历史阶段记录（其中待验证/未提交措辞是当时状态，以本段验收为准）：
+
+**#58 adjust_bottle两组自动配对队列（2026-10-20）：🧪 纯CPU契约通过，等待当前组训练结束。** 新增`experiment/paired_control/`准备器、3功能参数、独立窗口DataLoader注入、CPU/FK装配检查和串行队列；评测器新增可选episodes/reference参数，未提供时保持原10回合基线行为。标准组500步完成并核验两份HF后评3回合，再从9680在隔离目录开启EE3/.8/1.5、窗口2倍、LN-FM训练500步，250/500各存，最后相同3实际场景评测。其余配置逐项继承，未改当前训练配置/核心SHA；不启AL调度，不添加开环或早停。动机：直接比较三项增强组合与标准学习方法。**不变量**：当前组配置与核心不变、源9680、两份存档、同场景/精度/chunk；**症状**：queue failed、缓存坐标错误、EE未生效、非F32、缺存档、评测种子不同；**回滚**：只停新队列/其子任务，或新进程用`--no-ee-loss --no-window-sampling --no-ln-fm`，不影响当前组；**验证入口**：`python -m unittest experiment.paired_control.test_methods -v`本地/服务器5项通过（8种开关子组合）；队列`/data/outputs/adjust_bottle_paired_20261020/status.json`已等待父训练。Torch整链/探针推迟至当前训练和第一组评测结束，无并发GPU。见[说明](adjust_bottle_paired_control_zh.md)，尚未提交。
+**#57 对照开启编译并恢复8个数据进程（2026-10-20）：🧪 CPU复验和三步GPU通过。** 按用户要求`use_compile=true`，撤销准备器保守的`num_workers=4`改回初始8；`AL_DYNAMO_CACHE_SIZE_LIMIT=0`跳过本项目缓存上限调优。micro28/GAS1不变，峰值分配81.761GiB/预留91.799GiB；第2/3步StepTime9.866/7.676s，仅短探针，不推断长期吞吐。部分Qwen3-VL nonzero发生graph break。独立目录初次基线因漏接根目录.runtime回退旧OIDN，已停止污染评测并保留日志、接入原有2.5.1运行库；7条CPU加载契约通过，新基线日志已枚举Blackwell CUDA。**不变量**：核心模型hash、数据50条和250/500存档不变；**症状**：配置compile=false/workers非8、OIDN错误或基线未完成；**回滚**：新进程配置compile=false、num_workers=4，不能在已运行训练中改；**验证入口**：`gpu_probe_compile.log`、`cpu_compile_check.log`与`pipeline_compile.status.json`。正式500步仍待基线完成后自动启动，补丁未提交。
+**#56 FP32对照探针观测functional动作输出（2026-10-20）：🧪 CPU与三步GPU探针通过，正式训练待启动。** 原动作输出走`_fp32_linear/F.linear`，跳过`nn.Linear`模块hook，首个optimizer更新后因动作输出记录为空误判失败（非OOM）。仅在探针进程包裹原functional调用、记录返回值并恢复，不改模型文件/训练损失。新增CPU契约证明输出与输入/权重梯度逐值不变，1 test通过。96GB RTX PRO 6000 Blackwell上micro28/GAS1跑完3步，参数/梯度/优化器浮点状态及四组输出F32；首更新峰值分配76.965GiB/预留77.660GiB，完整3步83.584GiB/90.525GiB。不变量：forward与梯度不变、三核心快照hash不变；症状：action_out缺失、非F32记录；回滚：撤回`gpu_smoke.py`观测补丁，仅影响探针；验证入口：`python -m unittest experiment.official_control.test_audit_contract -v`与探针`summary.json`。已同步独立目录，补丁尚未提交。
+**#55 adjust_bottle标准方法对照（2026-10-20）：🧪 CPU整链通过，GPU待测。** 新分支 `official_adjust_bottle_control` 恢复初始快照86f6728的configuration/modeling v1/v2，新增独立准备器，不走AL，关闭窗口/EE/低噪声；50条示范，从9680训练500步，250/500保存FP32 HF。深度与视频、Muon和原学习率保留。动机：排除自定义算法后检验基础单任务学习链。不是上游官方发布复现，保留数据/HF工程兼容修复，单卡batch也不同。服务器实际参数解析、50回合7156帧及逐回合图像/动作/mask检查通过，原FM采样逐值一致；新增3步FP32审计探针与固定种子10回合评测入口，尚未执行GPU。无卡0.5CPU配额时，CPU检查限制单线程，避免248线程争用。**不变量**：核心hash与快照一致、AL为空、EE/低噪声false、存档250/500；**症状**：hash失败、出现AL/EE日志、episode不符；**回滚**：退出本实验并切回learn_skill_mix_task，独立目录不覆盖；**验证入口**：`python experiment/official_control/prepare_adjust_bottle.py --cpu-check`，GPU dtype/容量与闭环尚待验证。见[说明](adjust_bottle_official_control_zh.md)。
+
+
+
 **#51补测（2026-10-19）：✅ 修复后10步动作块完整400动作、40次推理，OIDN错误0，仍0/1。** 鼠标最大抬升0.1653mm、最终水平位移22.04mm；50步档分别0.0724mm/125.85mm。初始三相机/状态相同、指令/噪声seed相同，但首块预测不逐位相同，不能将单回合差异严格归因于动作块。两档均未稳定抓取；不启动训练、不改默认动作块。原客户端不变、GPU测试进程已清理。详情与耗时口径见[运行库说明](robotwin_render_runtime_zh.md)。
 
 **#51（2026-10-19）Blackwell评测OIDN兼容修复，✅ 静态与400步闭环渲染验证通过；抓取仍失败。** SAPIEN 3.0.0b1自带OIDN2.0.1加载CUDA插件但设备枚举0；隔离2.5.1能识别RTX PRO 6000 Blackwell。`envs/render_runtime.py`在SAPIEN导入前预载独立库并替代旧预载shim；默认仅发现仓库`.runtime/oidn-2.5.1`时启用，显式`ROBOTWIN_OIDN_LIBRARY_DIR`可指定。目录/版本/CUDA检查失败立即报错。不变量：SAPIEN/物理/相机/32spp/模型不变，site-packages/生产目录不改；症状：缺启动标记、maps出现2.0.1或OIDN Error；回滚：新进程`ROBOTWIN_OIDN_LIBRARY_DIR=bundled`（恢复旧缺陷）。验证：CPU契约本地/服务器7 passed；本地配方及启动续训回归62 passed、1 skipped、36 subtests。同seed静态三视角/真实策略输入颗粒消失，实际闭环maps仅2.5.1；新step500/seed100000/noise0/chunk50完整400步8次forward，OIDN Error=0，但成功0/1、鼠标最大抬升0.0724mm。原评测客户端hash不变；测试结束无GPU进程。证据及安装/回滚见[运行库说明](robotwin_render_runtime_zh.md)。不把渲染修复等同策略能力提升。
@@ -307,3 +326,15 @@
 - 空间：用户授权删除旧混合run的250/500及上一轮纯主FP32的250，已删除；当前FP32 500和混合前mouse500保留，空闲69.22GiB。说明与命令见[实验文档](mouse_gripper_off_continuation_zh.md)。
 
 - #54 验证：服务器Python3.12 CPU回归97 passed、36 subtests；真实来源预检仅位置10→6、夹爪1.5→0及运行目录变化，其余训练配置、50条轨迹、归一化一致。CPU契约暴露快照未同步EE覆盖值，已同步全部显式train选项到快照，实际CLI优先级不变。本地py_compile通过，Python3.12无pytest，未冒充本地完整测试。
+
+### #59 实施过程追记（历史状态，以§2验收为准）
+
+- 用户授权：从9680按官方方法训练，BF16、micro=GBS56/GAS1、200步；HF亦BF16导出，评测加载FP32。状态：入口语法检查通过，服务器后台执行前置检查，未宣称GPU通过。
+- 改动：`experiment/official_control/bf16_trial.py`独立准备/CPU/三步探针；`prepare_adjust_bottle.cpu_check`增加带默认值的期望精度/步数参数，原FP32调用默认不变。
+- 不变量：50条adjust_bottle、原始FM、EE与窗口/低噪FM关闭；save_steps=250原值不变、最终200步保存。原250/500存档不删；旧配置和模型核心不变。
+- 出错症状：`official_adjust_bottle_bf16_200_status.json`为failed，或探针dtype/有限梯度断言失败；此时不继续正式训练。
+- 回滚：不运行独立BF16入口；旧官方配置无需修改。禁止以降低dtype门槛或隐式减小batch掩盖探针失败。
+- 验证入口：新run的cpu_report.json、probe/precision_audit.json、probe/summary.json、verified_checkpoint.json及evaluation_200/summary.json。控制器先等前一轮250评测完成与GPU空闲，再CPU整链→GPU3步→训练200→验证BF16 HF→同种子3回合闭环；不自动关机。
+
+- #59 修复追记：首次三步探针0/3在Inductor addmm报Float/BFloat16冲突，未开始正式训练。`training_precision_context`原先对BF16参数模式直接nullcontext，导致FP32状态/动作输入与BF16线性层权重冲突；改为单卡BF16计算均使用autocast，FP32计算与FSDP路径不变，模型核心快照不改。CPU契约`experiment.official_control.test_bf16_context`真实BF16 Linear+FP32输入复现原错误，并验证修复后输出/参数/梯度BF16、梯度有限；服务器2 tests通过（8组合subtests），本地无torch跳过实际算子测试。旧探针移为probe_failed_initial保留，重试日志probe_retry.log。症状/回滚：若新路径异常，可还原precision_audit.py该条件，但原BF16配置将再次失败；禁止静默继续正式训练。
+- #59 GPU追记：autocast修复后首步前后向和更新通过，旧通用hook在编译后的action_out记录空dtype，探针按预期拒绝继续。新增仅审计用`observe_action_output`，用compiler.disable隔离观测副作用，真实输出/梯度CPU等价测试通过（服务器3 tests）。再次三步GBS56探针成功：6375906359个可训练参数及梯度均BF16，visual/language/action expert/action_out四处输出BF16；第2/3步9.530/8.920秒。正式200步由同一控制器继续，不宣称已完成或已闭环学会。

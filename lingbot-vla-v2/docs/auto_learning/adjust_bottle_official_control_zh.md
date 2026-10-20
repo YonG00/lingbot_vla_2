@@ -1,9 +1,13 @@
-# adjust_bottle 标准方法对照
+# adjust_bottle 标准方法对照（FP32历史实验）
 
 分支：`official_adjust_bottle_control`；独立机器目录：`/data/experiments/official_adjust_bottle_control`。
 保留原实验目录，禁止同步到生产 `/data/code`。
 
-## 实验口径
+当前采用的BF16/GBS56/200步基准、3/3闭环证据与新启动入口，见[专门说明](adjust_bottle_bf16_baseline_zh.md)。
+以下记录最初FP32/500步对照的设计与当时阶段，文中的“待验证/未启动”不代表当前状态。
+FP32的250/500均已完成且各2/3成功；原10回合9680预评测已由用户取消。
+
+## 历史实验口径
 
 从 `al_v79_poolfix_7300/checkpoints/global_step_9680/hf_ckpt` 起新的优化器和学习率调度，
 只训练 adjust_bottle 的全部50条示范、7156帧，500个优化器步，250/500各保存FP32 HF。
@@ -97,6 +101,15 @@ Inductor对Qwen3-VL部分nonzero算子graph break，不能称全模型无回退�
 新探针目录后缀`_v3_compile`，流水线状态改为`pipeline_compile.status.json`。
 独立目录初次基线遗漏根目录`.runtime`导致旧OIDN错误，该次已停止并保留为
 `evaluation/9680_oidn_failed`；根目录已链接已验证OIDN2.5.1，重做基线后才允许正式训练。
+
+### 用户取消训练前基线
+
+用户随后明确要求“没必要，直接开始训练”。已停止当前基线及其旧调度器，
+保留`evaluation/9680`中已完成的部分结果，不能标成完整10回合基线。
+正式训练已直接启动，调度入口`/tmp/adjust_direct_train20.py`，
+状态`direct_training.status.json`，日志`train.log`，目标500步和250/500保存不变。
+新的直接训练入口完成后验证两份FP32 HF；不再受基线完成状态约束。
+此前关于“基线完成才训练”的描述是被本次用户指令替代的历史计划。
 
 ## 空间清理记录
 

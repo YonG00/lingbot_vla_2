@@ -21,6 +21,8 @@
 
 | 我要做什么 | 读哪篇 |
 |---|---|
+| adjust_bottle当前采用基准、完整配方、存档位置与3/3闭环证据 | [BF16基准专门说明](auto_learning/adjust_bottle_bf16_baseline_zh.md) |
+| adjust_bottle标准组结束后3回合评测，再从9680开启EE/窗口/LN-FM训练500步并配对评测 | [自动配对队列](auto_learning/adjust_bottle_paired_control_zh.md) |
 | 从9680开始，关闭AL/窗口/EE/低噪声，做adjust_bottle标准方法对照 | [标准方法对照](auto_learning/adjust_bottle_official_control_zh.md) |
 | FP32主参数/BF16计算、BF16/FP32 HF与FP32评测，以及96G微批容量测试 | [精度与容量准备](auto_learning/mouse_precision_capacity_zh.md) |
 | 最新鼠标FP32 500步续训，FK位置6、夹爪0，存档后关机 | [夹爪辅助监督消融](auto_learning/mouse_gripper_off_continuation_zh.md) |
