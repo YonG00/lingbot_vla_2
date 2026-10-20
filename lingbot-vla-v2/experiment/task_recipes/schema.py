@@ -54,13 +54,22 @@ def _validate(raw):
     elif 'task_order' in t:raise ValueError('task_order only applies to sequential mode')
     integer(t['steps'],'steps')
     r=t.setdefault('replay',dict(fraction=0,tasks={}))
-    keys(r,['fraction','tasks'],'replay')
+    keys(r,['fraction','tasks','mode','switch_every_steps','pool_file','pool_snapshot'],'replay')
+    r.setdefault('mode','sample')
+    if r['mode'] not in ['sample','round_robin']:raise ValueError('invalid replay mode')
+    if r['mode']=='round_robin':
+        r.setdefault('switch_every_steps',10);integer(r['switch_every_steps'],'switch_every_steps')
+        if t['mode']=='mixed':raise ValueError('round_robin replay requires one main task per update')
+    elif 'switch_every_steps' in r:raise ValueError('switch_every_steps requires round_robin replay')
     f=r['fraction']
     if type(f) not in (int,float) or not math.isfinite(f) or not 0<=f<1:raise ValueError('replay fraction must be in [0,1)')
     if t['micro_batch_size']*t['gradient_accumulation_steps']*(1-f)<1:raise ValueError('every update must contain at least one main sample')
     if not isinstance(r['tasks'],dict) or bool(r['tasks'])!=(f>0):raise ValueError('replay tasks and fraction must agree')
-    if set(main)&set(r['tasks']):raise ValueError('main and replay tasks must not overlap')
+    if r['mode']=='sample' and set(main)&set(r['tasks']):raise ValueError('main and replay tasks must not overlap')
     for name,entry in r['tasks'].items():keys(entry,['weight'],'replay task');weight(entry['weight'],name)
+    if r['mode']=='round_robin' and f>0:
+        if any(x['weight']!=1 for x in r['tasks'].values()):raise ValueError('round_robin replay uses equal task weights')
+        if any(not(set(r['tasks'])-{task}) for task in main):raise ValueError('no replay task remains after excluding current main task')
     import re
     for name in list(main)+list(r['tasks']):
         if not re.fullmatch('[a-z][a-z0-9_]*',name):raise ValueError('invalid task name')

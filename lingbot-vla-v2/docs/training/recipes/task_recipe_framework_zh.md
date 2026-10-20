@@ -141,6 +141,8 @@ prepare生成`save_steps=0, save_at_steps=[...]`；训练器通过纯CPU的check
 
 ### 可选闭环补课
 
+旧任务复习另见[10%轮换复习](replay_rotation_zh.md)：历史≥1/3资格池，每N步一个复习任务，当前主任务自动排除。
+
 配方顶层可添加下面的配置；省略时默认关闭，`max_rounds`默认1：
 
 ```json

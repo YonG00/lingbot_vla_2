@@ -1,7 +1,7 @@
 # 训练与闭环评测流水
 
 记录范围：2026-10-20官方对照实验至当前补课；更早鼠标实验尚未回填，不表示没有训练。
-最近取证：2026-10-20 19:01:41（服务器日志时间，未转换时区）。
+最近取证：2026-10-21，R10训练、四份存档及闭环均已复核；各时间节点采用服务器日志时间。
 时间为首次/末次正式优化器更新日志时间，不含CPU检查、GPU探针、加载与闭环耗时。
 运行中记录仅表示该时间点进度。任务累计与各轮对照见[任务统计](task_training_statistics_zh.md)。
 
@@ -106,11 +106,25 @@ run：`/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m
 来源：R9的`checkpoints/global_step_500/hf_ckpt`，不继承被替换三任务流程的任何更新。
 课程：move_playingcard_away200→place_phone_stand200→place_object_scale200→rotate_qrcode200，共800步。
 200条27225帧，BF16/GBS56/GAS1，按任务边界200/400/600/800保存；最终仅四个训练任务各测3回合，共享服务。
-补课关闭、不自动关机。容量与真实数据CPU检查、三步GPU检查通过，正式训练已进入。
-进度快照：2026-10-20 22:58:30，已101/800，当前仅playingcard完成101步，其余任务未开始。
-[R9完整结果与R10进行中证据](../../../refs/training_records/20261020_R9_complete_R10_training.json)。
+补课关闭，未执行自动补课或关机。四任务各200步、共800步均已完成。
+正式更新日志：2026-10-20 22:49:54–23:59:43，800次更新耗时69分49秒；
+训练结束日志为2026-10-21 00:00:44（包含最终保存等收尾），两种时间口径不混用。
+
+| 任务 | 本轮训练步数 | step800闭环 | 实际种子 | OIDN错误 |
+|---|---:|---|---|---:|
+| move_playingcard_away | 200 | **1/3** | 100000、100001、100002 | 0 |
+| place_phone_stand | 200 | 0/3 | 100000、100001、100002 | 0 |
+| place_object_scale | 200 | 0/3 | 100000、100002、100003 | 0 |
+| rotate_qrcode | 200 | **1/3** | 100000、100001、100002 | 0 |
+
+200/400/600/800四份HF实际文件头与索引逐项一致，均1708张量、BF16。
+四项summary、逐回合日志及_result.txt一致；一次共享推理服务，server_pid=111709。
+评测模型均为本run的`checkpoints/global_step_800/hf_ckpt`，汇总`evaluation_800/summary.json`。
+[完整训练与闭环快照](../../../refs/training_records/20261021_R10_completed.json)；
+[实际HF、逐回合评测与存档清单复核](../../../refs/training_records/20261021_R10_final_audit.json)。
+playingcard和qrcode达到复习资格≥1/3，已追加至新版累计池；本轮训练本身复习比例仍为0。
 刚启动的`20261020_2244_playingcard_phone_scale_from_R9_bf16_m56_200each`因用户追加rotate_qrcode已停止控制器及所有子进程，
-不是另一个已完成实验，不能将其更新累计到R10。最终结果以R10的evaluation_800/summary.json为准，目前未产生。
+不是另一个已完成实验，不能将其更新累计到R10；它不作为新训练模型来源。
 
 ### 本次历史存档保留清单
 
@@ -138,6 +152,9 @@ run：`/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m
 | R5 | `place_container_plate_from_adjust_bf16_200_m56_add200_20261020` | `evaluation_200/summary.json` |
 | R6 | `sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020` | `evaluation_500/summary.json` |
 | R7 | R6目录下`remediation_round_1` | `<run>_pipeline/status.json`、`train.log`；最终`evaluation_300/summary.json` |
+| R8 | `sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020` | `evaluation_600/summary.json` |
+| R9 | `20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56` | `evaluation_500/summary.json` |
+| R10 | `20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each` | `evaluation_800/summary.json` |
 
 本次只读[证据快照](../../../refs/training_records/20261020_190141_completed_snapshot.json)包含配置来源、原始状态、评测summary与日志首末步。
 R1/R2评测结果补充自已归档的对照说明；快照未收集其外置评测队列。

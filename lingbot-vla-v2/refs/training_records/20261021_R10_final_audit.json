@@ -1,0 +1,237 @@
+{
+  "checkpoints": [
+    {
+      "path": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_200/hf_ckpt",
+      "tensors": 1708,
+      "dtypes": [
+        "BF16"
+      ]
+    },
+    {
+      "path": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_400/hf_ckpt",
+      "tensors": 1708,
+      "dtypes": [
+        "BF16"
+      ]
+    },
+    {
+      "path": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_600/hf_ckpt",
+      "tensors": 1708,
+      "dtypes": [
+        "BF16"
+      ]
+    },
+    {
+      "path": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800/hf_ckpt",
+      "tensors": 1708,
+      "dtypes": [
+        "BF16"
+      ]
+    }
+  ],
+  "evaluation": [
+    {
+      "task": "move_playingcard_away",
+      "summary": {
+        "state": "complete",
+        "task": "move_playingcard_away",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 111709,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "1",
+          "2",
+          "100001"
+        ],
+        [
+          "1",
+          "3",
+          "100002"
+        ]
+      ],
+      "result": "Timestamp: 2026-10-21 00:02:13\n\nInstruction Type: unseen\n\n0.3333333333333333"
+    },
+    {
+      "task": "place_phone_stand",
+      "summary": {
+        "state": "complete",
+        "task": "place_phone_stand",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 111709,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "0",
+          "2",
+          "100001"
+        ],
+        [
+          "0",
+          "3",
+          "100002"
+        ]
+      ],
+      "result": "Timestamp: 2026-10-21 00:04:49\n\nInstruction Type: unseen\n\n0.0"
+    },
+    {
+      "task": "place_object_scale",
+      "summary": {
+        "state": "complete",
+        "task": "place_object_scale",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100002,
+          100003
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 111709,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "0",
+          "2",
+          "100002"
+        ],
+        [
+          "0",
+          "3",
+          "100003"
+        ]
+      ],
+      "result": "Timestamp: 2026-10-21 00:08:28\n\nInstruction Type: unseen\n\n0.0"
+    },
+    {
+      "task": "rotate_qrcode",
+      "summary": {
+        "state": "complete",
+        "task": "rotate_qrcode",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 111709,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "0",
+          "2",
+          "100001"
+        ],
+        [
+          "1",
+          "3",
+          "100002"
+        ]
+      ],
+      "result": "Timestamp: 2026-10-21 00:11:59\n\nInstruction Type: unseen\n\n0.3333333333333333"
+    }
+  ],
+  "inventory": [
+    {
+      "path": "/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500",
+      "bytes": 12768173055
+    },
+    {
+      "path": "/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_500",
+      "bytes": 12768173055
+    },
+    {
+      "path": "/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_400",
+      "bytes": 12768173055
+    },
+    {
+      "path": "/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_200",
+      "bytes": 12768173055
+    },
+    {
+      "path": "/data/outputs/sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020/checkpoints/global_step_600",
+      "bytes": 12768173060
+    },
+    {
+      "path": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_600",
+      "bytes": 12768173059
+    },
+    {
+      "path": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_400",
+      "bytes": 12768173059
+    },
+    {
+      "path": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800",
+      "bytes": 12768173059
+    },
+    {
+      "path": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_200",
+      "bytes": 12768173059
+    }
+  ],
+  "free_bytes": 34691424256
+}

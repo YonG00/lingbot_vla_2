@@ -31,6 +31,7 @@ def build_plan(c):
     fraction=Fraction(str(r['fraction']))
     ordered=[name for name in t.get('task_order',[]) for _ in range(main[name]['steps'])]
     rows=[]
+    replay_order=list(r['tasks']);replay_cursor=0;replay_task=None;replay_used=0
     for step in range(t['steps']):
         review_n=int((step+1)*batch*fraction)-int(step*batch*fraction)
         counts=Counter()
@@ -44,13 +45,24 @@ def build_plan(c):
             counts[chosen]=batch-review_n
         else:
             for _ in range(batch-review_n):counts[frame_choice.next()]+=1
-        for _ in range(review_n):counts[replay.next()]+=1
+        if r.get('mode','sample')=='round_robin' and fraction>0:
+            if replay_task is None or replay_used>=r['switch_every_steps'] or replay_task==chosen:
+                for _ in replay_order:
+                    candidate=replay_order[replay_cursor%len(replay_order)];replay_cursor+=1
+                    if candidate!=chosen:
+                        replay_task=candidate;replay_used=0;break
+                else:raise ValueError('no eligible replay task')
+            if review_n:counts[replay_task]+=review_n
+            replay_used+=1
+        else:
+            for _ in range(review_n):counts[replay.next()]+=1
         rows.append(dict(step=step+1,main_task=chosen,samples_by_task=dict(counts),replay_samples=review_n))
+        if r.get('mode','sample')=='round_robin':rows[-1]['replay_task']=replay_task if review_n else None
     return dict(mode=t['mode'],global_batch_size=batch,steps=rows,recipe_sha256=digest(c))
 
 
 def task_groups(c,manifest):
-    tasks=list(c['train']['main_tasks'])+list(c['train']['replay']['tasks'])
+    tasks=list(dict.fromkeys(list(c['train']['main_tasks'])+list(c['train']['replay']['tasks'])))
     groups={};seen=set();frames=0
     for task in tasks:
         entry=manifest['tasks'][task]

@@ -1,6 +1,6 @@
 # 训练存档保留清单
 
-2026-10-20更新。所有运行根目录均在服务器`/data/outputs/`，该路径解析为`/root/autodl-tmp/data/outputs/`。
+2026-10-21更新。所有运行根目录均在服务器`/data/outputs/`，该路径解析为`/root/autodl-tmp/data/outputs/`。
 以清理完成报告、各run的verified_checkpoints及实际目录为依据；计划产物不当作已生成。
 
 | 实验 | run目录名 | 已保留HF存档 | 当前用途 |
@@ -8,9 +8,11 @@
 | R6 | `sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020` | `checkpoints/global_step_500/hf_ckpt` | 用户指定保留的历史模型 |
 | R8 | `sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020` | `checkpoints/global_step_600/hf_ckpt` | 用户指定保留；R9来源 |
 | R9 | `20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56` | `checkpoints/global_step_200/hf_ckpt`、`global_step_400/hf_ckpt`、`global_step_500/hf_ckpt`（均在checkpoints下） | 三份均已校验；最终500为R10来源 |
-| R10 | `20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each` | 尚未到首个保存点（进度快照101/800） | **计划**在200/400/600/800保存，不能写成已保存 |
+| R10 | `20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each` | `checkpoints/global_step_200/hf_ckpt`、`global_step_400/hf_ckpt`、`global_step_600/hf_ckpt`、`global_step_800/hf_ckpt`（均在checkpoints下） | 四份实际HF索引/头部已复核，最终800用于本轮闭环 |
 
-已校验的R6/R8/R9各份HF均为1708张量、BF16；评测FP32加载不改变HF存档dtype。
+已校验的R6/R8/R9/R10各份HF均为1708张量、BF16；评测FP32加载不改变HF存档dtype。
+本次只读取证，共9份global_step存档，剩余空间32.31GiB；未新增删除动作。
+[实际文件清单与R10完整性证据](../../../refs/training_records/20261021_R10_final_audit.json)。
 R6与R8两份是当次清理保留项，后续R9/R10已授权生成的新存档不受“仅保留两份历史模型”限制。
 
 ## 已删除旧存档

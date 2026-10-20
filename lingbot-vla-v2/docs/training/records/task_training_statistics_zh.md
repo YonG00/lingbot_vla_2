@@ -61,20 +61,21 @@ R7的cup+100/pot+200不计入R8继承累计。未完成的配额只记计划。
 R9 run：`/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56`。
 R9按任务保存200/400/500，最终仅测上述三个实际训练任务各3回合。
 
-### R10 四任务新课程（101/800进度快照）
+### R10 四任务新课程（800步与闭环已完成）
 
-2026-10-20 22:58:30服务器日志：来源R9-step500，未继承被替换三任务流程的更新。
+2026-10-21终态复核：来源R9-step500，四任务各200步已完成；未继承被替换三任务流程的更新。
 R9已训练的任务累计保持不变：adjust200、plate300、cup200、pot200、switch300、pillbottle400、stapler400。
 
 | 首训顺序 / 新任务 | R9继承累计 | R10本轮实际 / 当前累计 | 本轮配额 | 最终评测 |
 |---|---:|---|---:|---|
-| 8 move_playingcard_away | 0 | **101 / 101** | 200 | 待最终800测3回合 |
-| 9 place_phone_stand | 0 | 0 / 0 | 200 | 待最终800测3回合 |
-| 10 place_object_scale | 0 | 0 / 0 | 200 | 待最终800测3回合 |
-| 11 rotate_qrcode | 0 | 0 / 0 | 200 | 待最终800测3回合 |
+| 8 move_playingcard_away | 0 | **200 / 200** | 200 | **1/3** |
+| 9 place_phone_stand | 0 | **200 / 200** | 200 | 0/3 |
+| 10 place_object_scale | 0 | **200 / 200** | 200 | 0/3 |
+| 11 rotate_qrcode | 0 | **200 / 200** | 200 | **1/3** |
 
 run：`/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each`。
-按任务保存200/400/600/800，补课关闭。[存档保留清单](checkpoint_inventory_zh.md)。
+按任务200/400/600/800四份存档均已校验，补课未执行。[存档保留清单](checkpoint_inventory_zh.md)。
+playingcard与qrcode已加入历史≥1/3复习池，累计候选由12变14；phone与scale仅0/3，不加入。
 
 下表跨分支汇总计算投入，用于看花了多少训练；不表示任何一个模型继承了这些全部更新。
 
@@ -87,10 +88,10 @@ run：`/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m
 | turn_switch | **300**＝R8 200＋R9 100 | 无 |
 | move_pillbottle_pad | **400**＝R8 200＋R9 200 | 无 |
 | move_stapler_pad | **400**＝R8 200＋R9 200 | 无 |
-| move_playingcard_away | **101已完成**，R10计划200 | 无 |
-| place_phone_stand | 0，R10计划200 | 无 |
-| place_object_scale | 0，R10计划200 | 无 |
-| rotate_qrcode | 0，R10计划200 | 无 |
+| move_playingcard_away | **200**＝R10 200 | 无 |
+| place_phone_stand | **200**＝R10 200 | 无 |
+| place_object_scale | **200**＝R10 200 | 无 |
+| rotate_qrcode | **200**＝R10 200 | 无 |
 
 GBS不同，步数并不直接等价：R1/R2为28，其他为56。需要比较样本曝光时应再乘以各自GBS。
 后续新训练/补课在对应链的表格右侧追加列，保留来源分叉；补课完成后以真实step与闭环报告更新，不能只凭计划累加。

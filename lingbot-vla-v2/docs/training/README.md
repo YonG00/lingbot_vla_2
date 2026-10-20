@@ -15,6 +15,7 @@ JSON配置、数据清单和证据仍分别放configs、refs等工程目录，�
 
 | 文档 | 入口 |
 |---|---|
+| 10%复习样本、历史成功资格池及每N步轮换 | [轮换复习](recipes/replay_rotation_zh.md) |
 | 参数化训练配方框架 | [查看](recipes/task_recipe_framework_zh.md) |
 
 ## 实验方案与结果

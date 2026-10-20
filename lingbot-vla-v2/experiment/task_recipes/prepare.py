@@ -5,6 +5,7 @@ import shlex
 import sys
 from experiment.task_recipes.schema import validate,milestones,save_interval
 from experiment.task_recipes.planning import build_plan,task_groups,digest
+from experiment.task_recipes.replay_pool import resolve_pool
 
 ROOT=Path(__file__).resolve().parents[2]
 
@@ -15,7 +16,7 @@ def path(value):
 
 
 def preview(raw):
-    c=validate(raw)
+    c=validate(resolve_pool(raw,ROOT))
     for key in c['source']:c['source'][key]=str(path(c['source'][key]).resolve())
     c['output_dir']=str(path(c['output_dir']).resolve())
     c['data']['dataset_root']=str(path(c['data']['dataset_root']).resolve())

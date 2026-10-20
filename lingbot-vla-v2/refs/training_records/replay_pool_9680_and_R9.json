@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "qualification": "any historical closed-loop success rate >= 1/3",
+  "tasks": [
+    {
+      "task": "click_alarmclock",
+      "observations": [
+        {
+          "successes": 4,
+          "episodes": 4,
+          "source": "user_supplied_9680_per_task_screenshot",
+          "evidence_kind": "user_image_in_conversation"
+        }
+      ]
+    },
+    {
+      "task": "press_stapler",
+      "observations": [
+        {
+          "successes": 4,
+          "episodes": 4,
+          "source": "user_supplied_9680_per_task_screenshot",
+          "evidence_kind": "user_image_in_conversation"
+        }
+      ]
+    },
+    {
+      "task": "click_bell",
+      "observations": [
+        {
+          "successes": 3,
+          "episodes": 4,
+          "source": "user_supplied_9680_per_task_screenshot",
+          "evidence_kind": "user_image_in_conversation"
+        }
+      ]
+    },
+    {
+      "task": "open_microwave",
+      "observations": [
+        {
+          "successes": 3,
+          "episodes": 4,
+          "source": "user_supplied_9680_per_task_screenshot",
+          "evidence_kind": "user_image_in_conversation"
+        }
+      ]
+    },
+    {
+      "task": "shake_bottle",
+      "observations": [
+        {
+          "successes": 3,
+          "episodes": 4,
+          "source": "user_supplied_9680_per_task_screenshot",
+          "evidence_kind": "user_image_in_conversation"
+        }
+      ]
+    },
+    {
+      "task": "open_laptop",
+      "observations": [
+        {
+          "successes": 2,
+          "episodes": 4,
+          "source": "user_supplied_9680_per_task_screenshot",
+          "evidence_kind": "user_image_in_conversation"
+        }
+      ]
+    },
+    {
+      "task": "place_object_basket",
+      "observations": [
+        {
+          "successes": 2,
+          "episodes": 4,
+          "source": "user_supplied_9680_per_task_screenshot",
+          "evidence_kind": "user_image_in_conversation"
+        }
+      ]
+    },
+    {
+      "task": "shake_bottle_horizontally",
+      "observations": [
+        {
+          "successes": 2,
+          "episodes": 4,
+          "source": "user_supplied_9680_per_task_screenshot",
+          "evidence_kind": "user_image_in_conversation"
+        }
+      ]
+    },
+    {
+      "task": "adjust_bottle",
+      "observations": [
+        {
+          "successes": 3,
+          "episodes": 3,
+          "source": "R3/evaluation_200/summary.json",
+          "evidence_kind": "archived_run_summary"
+        }
+      ]
+    },
+    {
+      "task": "place_container_plate",
+      "observations": [
+        {
+          "successes": 1,
+          "episodes": 4,
+          "source": "user_supplied_9680_per_task_screenshot",
+          "evidence_kind": "user_image_in_conversation"
+        },
+        {
+          "successes": 2,
+          "episodes": 3,
+          "source": "R6/evaluation_500/place_container_plate/summary.json",
+          "evidence_kind": "archived_run_summary"
+        }
+      ]
+    },
+    {
+      "task": "place_empty_cup",
+      "observations": [
+        {
+          "successes": 1,
+          "episodes": 3,
+          "source": "R6/evaluation_500/place_empty_cup/summary.json",
+          "evidence_kind": "archived_run_summary"
+        }
+      ]
+    },
+    {
+      "task": "turn_switch",
+      "observations": [
+        {
+          "successes": 2,
+          "episodes": 3,
+          "source": "R9/evaluation_500/turn_switch/summary.json",
+          "evidence_kind": "archived_run_summary"
+        }
+      ]
+    },
+    {
+      "task": "place_a2b_right",
+      "observations": [
+        {
+          "successes": 1,
+          "episodes": 4,
+          "source": "user_supplied_9680_per_task_screenshot",
+          "evidence_kind": "user_image_in_conversation"
+        }
+      ]
+    }
+  ]
+}
