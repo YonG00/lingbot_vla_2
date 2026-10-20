@@ -60,7 +60,7 @@ def prepare(args):
     cfg['data'].update(train_path=str(args.out / 'datasets.txt'),
                        norm_stats_file=source['data']['norm_stats_file'],
                        episode_ids_file=str(args.out / 'train_ids.json'), image_augment=False,
-                       robot_config_root=str(ROOT / 'configs/robot_configs'), num_workers=4)
+                       robot_config_root=str(ROOT / 'configs/robot_configs'), num_workers=8)
     align = cfg['train']['align_params']
     old_align = source['train']['align_params']
     for key in ('moge_path', 'morgbd_path'):
@@ -75,7 +75,7 @@ def prepare(args):
                         reset_step_counter=True, train_expert_only=False, use_lora=False,
                         freeze_vision_encoder=False, enable_gradient_checkpointing=True,
                         enable_mixed_precision=True, enable_fp32=True, action_fp32=True,
-                        use_compile=False, auto_learning=None, auto_learning_manifest=None,
+                        use_compile=True, auto_learning=None, auto_learning_manifest=None,
                         auto_learning_baseline='', low_noise_fm_enabled=False,
                         ee_fk_loss_enabled=False, ee_fk_eval_enabled=False,
                         ee_fk_position_loss_weight=0., ee_fk_orientation_loss_weight=0.,
@@ -113,6 +113,7 @@ def prepare(args):
     script = '#!/usr/bin/env bash\nset -euo pipefail\n'
     script += 'export HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1\n'
     script += 'export QWEN3VL_PATH=' + shlex.quote(cfg['model']['tokenizer_path']) + '\n'
+    script += 'export AL_DYNAMO_CACHE_SIZE_LIMIT=0\n'  # disable our cache-limit override
     script += 'unset AL_VLM_ATTENTION LINGBOT_PRECISION_AUDIT LINGBOTVLA_TRAINING_CONFIG\n'
     script += 'cd ' + shlex.quote(str(ROOT)) + '\n'
     script += 'exec ' + shlex.join(command) + '\n'

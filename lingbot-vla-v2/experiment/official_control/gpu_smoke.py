@@ -13,6 +13,26 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 
+def instrument_fp32_action_output(policy, samples):
+    """Observe the original functional linear, which bypasses nn.Linear hooks."""
+    flow = policy.model
+    original = flow._fp32_linear
+    projection = flow.action_out_proj
+
+    def observed(module, inputs):
+        output = original(module, inputs)
+        if module is projection:
+            samples['model.action_out_proj.functional'] = dict(
+                weight=str(module.weight.dtype), inputs=[str(inputs.dtype)],
+                outputs=[str(output.dtype)])
+        return output
+
+    flow._fp32_linear = observed
+    def restore():
+        del flow._fp32_linear  # reveal the original class staticmethod again
+    return restore
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--out', type=Path, required=True, help='已通过CPU检查的正式输出目录')
@@ -50,6 +70,10 @@ def main():
     class FP32Audit(audit.PrecisionAudit):
         # Existing audit requires BF16 expert outputs; this control explicitly
         # checks FP32, using the same non-invasive forward hooks.
+        def __init__(self, model, optimizer, path):
+            super().__init__(model, optimizer, path)
+            self.restore_functional = instrument_fp32_action_output(model, self.data['forward_samples'])
+
         def before_step(self):
             super().before_step()
             if not self.done:
@@ -70,6 +94,7 @@ def main():
                 assert matches and all(set(r['outputs']) == {'torch.float32'} for r in matches), (bucket, matches)
             for handle in self.handles:
                 handle.remove()
+            self.restore_functional()
             self.done = True
             print('FP32_AUDIT_PASS', json.dumps(self.data), flush=True)
 

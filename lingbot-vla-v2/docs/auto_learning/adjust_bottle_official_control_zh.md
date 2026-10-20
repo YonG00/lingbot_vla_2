@@ -21,7 +21,8 @@ SHA256登记在 `experiment/official_control/snapshot_identity.json`。
 
 初始配置精度开关 `enable_mixed_precision=True, enable_fp32=True`，动作/状态FP32。
 实际各模块计算精度必须上GPU审计，不把开关名称当作全模型FP32计算的证明。
-micro=16、GAS=1仅为待测候选；单卡、GC开启、compile关闭均属于资源适配，
+默认准备入口micro=16、GAS=1，实际本轮用户指定micro28；单卡、GC开启属于资源适配，
+用户随后指定compile开启、数据加载进程8，已恢复这两项初始配置。
 不宣称复现原32卡GBS1024。当前不自动开始训练。
 
 保留的工程修改包括：LeRobot v3 episode过滤后的绝对/相对索引修复、显式归一化、
@@ -78,7 +79,26 @@ python experiment/official_control/gpu_smoke.py --out /data/outputs/official_adj
 回滚：停止本实验后切回 `learn_skill_mix_task`；原目录不受影响。
 验证入口：`prepare_adjust_bottle.py --cpu-check` 与运行时配置/dtype审计。
 
-## 空间清理
+## 2026-10-20 micro28开卡探针
+
+用户指定micro=28、GAS=1；新输出目录`/data/outputs/official_adjust_bottle_9680_m28_add500_20261020`。
+96GB RTX PRO 6000 Blackwell三步探针通过，参数/梯度/优化器浮点状态与视觉、语言、
+动作专家、动作输出均F32。第一步峰值分配76.965GiB、预留77.660GiB；完整三步
+分配83.584GiB、预留90.525GiB。第二/三步StepTime为5.682/5.552秒（仅短探针，非长期吞吐）。
+初次探针已更新1步后因functional输出层未触发模块hook而失败，保留原日志；
+修正仅观测手段，CPU输出与梯度不变契约通过，重试从9680重新起3步，没有继承探针权重。
+探针目录`/data/outputs/official_adjust_bottle_fp32_m28_smoke_20261020_v2`。
+后续流水线先做9680十回合基线，再从9680正式训练500步、验证250/500两份HF并评测。
+状态文件为新输出目录`pipeline_retry.status.json`，探针补丁尚未提交。
+
+用户随后要求开启compile并恢复数据加载进程8。该组合CPU复验及三步GPU探针通过，
+完整峰值分配81.761GiB、预留91.799GiB，micro28/GAS1不变。
+Inductor对Qwen3-VL部分nonzero算子graph break，不能称全模型无回退编译。
+新探针目录后缀`_v3_compile`，流水线状态改为`pipeline_compile.status.json`。
+独立目录初次基线遗漏根目录`.runtime`导致旧OIDN错误，该次已停止并保留为
+`evaluation/9680_oidn_failed`；根目录已链接已验证OIDN2.5.1，重做基线后才允许正式训练。
+
+## 空间清理记录
 
 用户最终指令为训练存档只保留9680。2026-10-20删除五份500/250训练存档，
 释放95.087 GiB；随后清理旧4050归档HF，再释放11.907 GiB，当前可用128.54 GiB。底座/教师/数据/评测记录保留。
