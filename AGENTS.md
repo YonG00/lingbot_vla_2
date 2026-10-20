@@ -6,7 +6,7 @@
 ## 0. 工程坐标（以当前仓库为准）
 
 - 仓库根：本文件所在目录（git 顶层）；Python 包在 `lingbot-vla-v2/`（package `lingbot-vla-v2`）。
-- **本地实验分支：`learn_skill_mix_task`**，由 `Task_Auto_Learning` 创建；生产基线仍为 `Task_Auto_Learning`。
+- **本地实验分支：`learn_skill_mix_task`**，由 `Task_Auto_Learning` 创建；另有标准方法对照分支 `official_adjust_bottle_control`，独立目录 `/data/experiments/official_adjust_bottle_control`，详见 `lingbot-vla-v2/docs/auto_learning/adjust_bottle_official_control_zh.md`；生产基线仍为 `Task_Auto_Learning`。
   实验使用独立服务器目录，提交/push/同步须获批；下方生产分支的 reset/push 指令不能用于同步本实验。
   其它分支（`main` / `feature/auto-learning-v1` / `feature/quick-eval-multigpu-v1` / `feature/rocm-adapt`）**不作为开发基线**，不要往里同步或合并。
 - **训练机：`ctrl`（AutoDL）**；代码在 `/data/code`；Python：`/data/miniconda3/envs/lingbotvla/bin/python`。

@@ -17,6 +17,8 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#55 adjust_bottle标准方法对照（2026-10-20）：🧪 CPU整链通过，GPU待测。** 新分支 `official_adjust_bottle_control` 恢复初始快照86f6728的configuration/modeling v1/v2，新增独立准备器，不走AL，关闭窗口/EE/低噪声；50条示范，从9680训练500步，250/500保存FP32 HF。深度与视频、Muon和原学习率保留。动机：排除自定义算法后检验基础单任务学习链。不是上游官方发布复现，保留数据/HF工程兼容修复，单卡batch也不同。服务器实际参数解析、50回合7156帧及逐回合图像/动作/mask检查通过，原FM采样逐值一致；新增3步FP32审计探针与固定种子10回合评测入口，尚未执行GPU。无卡0.5CPU配额时，CPU检查限制单线程，避免248线程争用。**不变量**：核心hash与快照一致、AL为空、EE/低噪声false、存档250/500；**症状**：hash失败、出现AL/EE日志、episode不符；**回滚**：退出本实验并切回learn_skill_mix_task，独立目录不覆盖；**验证入口**：`python experiment/official_control/prepare_adjust_bottle.py --cpu-check`，GPU dtype/容量与闭环尚待验证。见[说明](adjust_bottle_official_control_zh.md)。
+
 **#53 Flex Attention autocast边界修正（2026-10-19）：🧪 CPU反向验证通过，CUDA重测待运行。** v3进入BF16前向后，在Flex Attention自定义反向报`expected scalar type Float but found BFloat16`，非OOM。该实现原本将QKV转FP32，外层autocast却让内部输出降到BF16，破坏其保存QKV/grad_out契约。仅在两个既有FP32 Flex子调用内关闭autocast，保持原FP32 attention语义、原后端与其他模块BF16不变；补真实CPU Flex反向契约。本地88 passed、3 skipped、36 subtests；服务器91 passed、36 subtests（真实CPU Flex反向已执行）。容量仍待完整更新重测。
 
 **#53 单卡实际计算dtype修正（2026-10-19）：🧪 CPU验证通过，GPU重测待运行。** micro32/GAS1 v2首次optimizer更新后审计主动失败，实际主参数/梯度/优化器状态均FP32，但四组关键Linear输出全FP32；非OOM，不能记为目标混精度容量通过。根因`parallel_state.fsdp_enabled = fsdp_size>1`，单卡跳过FSDP策略，原train前向无autocast。新增仅mixed=true/fp32=false/无FSDP时的CUDA BF16 autocast，保持默认BF16、全FP32及多卡FSDP路径不变；补分支CPU契约及真实CPU算子验证参数/梯度/动量FP32、计算BF16。本地88 passed、2 skipped、36 subtests；服务器90 passed、36 subtests（包含真实CPU算子验证）。实际GPU重测待执行，正式存档节奏不变。

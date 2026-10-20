@@ -1,0 +1,9 @@
+{
+  "snapshot": "86f6728",
+  "meaning": "repository initial code snapshot, not independently verified upstream release",
+  "restored_sha256": {
+    "lingbotvla/models/vla/lingbot_vla/configuration_lingbot_vla.py": "37987af05ca8980debf5bfe81211cc2a9db1b2fb0e14e15076fa6497c5baf023",
+    "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla.py": "af6a365f05e4ccd7d2585368412be5d186a3afdabfc6e9eaf0c97e71a51037dc",
+    "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla_v2.py": "9b3c9a2ad6823f9d58da51b732477785a1e4db0d29db80e030e094c7b605e40c"
+  }
+}

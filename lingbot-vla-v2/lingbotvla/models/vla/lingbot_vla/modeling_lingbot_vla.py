@@ -1053,12 +1053,9 @@ class FlowMatching(nn.Module):
         )
 
     def sample_time(self, bsize, device):
-        from lingbotvla.utils.flow_time import low_noise_time_mixture
-
         time_beta = sample_beta(1.5, 1.0, bsize, device)
         time = time_beta * 0.999 + 0.001
-        time = time.to(dtype=torch.float32, device=device)
-        return low_noise_time_mixture(time, getattr(self.config, "low_noise_fm_enabled", False))
+        return time.to(dtype=torch.float32, device=device)
 
     def embed_prefix(
         self, images, img_masks, lang_tokens, lang_masks, vlm_causal, precompute_grid_thw=False

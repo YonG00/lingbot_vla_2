@@ -1,0 +1,161 @@
+"""adjust_bottle 对照评测入口；默认只打印计划，--execute才后台执行。"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import socket
+import subprocess
+import sys
+import time
+import urllib.request
+
+ROOT = Path(__file__).resolve().parents[2]
+HERE = Path(__file__).resolve()
+
+
+def stop(process):
+    if process is not None and process.poll() is None:
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.wait(timeout=20)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait(timeout=20)
+
+
+def execute(job):
+    destination = Path(job['destination'])
+    status = destination / 'status.json'
+    server = simulation = None
+    def state(value, **extra):
+        status.write_text(json.dumps(dict(state=value, **extra), indent=2))
+    try:
+        assert not subprocess.check_output(['nvidia-smi', '--query-compute-apps=pid', '--format=csv,noheader']).strip(), 'GPU busy'
+        robo = Path(job['robotwin'])
+        client = robo / 'script/eval_policy_client_lingbotvla.py'
+        client_hash = hashlib.sha256(client.read_bytes()).hexdigest()
+        with socket.socket() as sock:
+            sock.bind(('127.0.0.1', 0))
+            port = sock.getsockname()[1]
+        env = dict(os.environ, PYTHONPATH=str(ROOT), CUDA_VISIBLE_DEVICES='0',
+                   QWEN3VL_PATH=job['qwen'], LINGBOT_INFER_NOISE_SEED='0',
+                   HF_HUB_OFFLINE='1', HF_DATASETS_OFFLINE='1', TRANSFORMERS_OFFLINE='1',
+                   SETUPTOOLS_SCM_PRETEND_VERSION='0.0.0', PYTHONUNBUFFERED='1',
+                   LINGBOT_DEPLOY_FAST_LOAD='0',
+                   LINGBOT_EVAL_PRECISION_AUDIT=str(destination / 'precision_audit.json'))
+        for key in ('LINGBOTVLA_TRAINING_CONFIG', 'AL_VLM_ATTENTION', 'LINGBOT_PRECISION_AUDIT'):
+            env.pop(key, None)
+        server_command = [sys.executable, '-u', str(ROOT / 'experiment/robotwin/precision_eval_server.py'),
+                          '--model_path', job['model'], '--use_length', '50', '--chunk_ret', 'True',
+                          '--use_bf16', 'False', '--use_fp32', 'True', '--use_compile', 'False', '--port', str(port)]
+        sim_command = [job['sim_python'], '-u', str(HERE), '--sim-client', str(robo),
+                       '--config', 'policy/ACT/deploy_policy.yml', '--overrides',
+                       '--task_name', 'adjust_bottle', '--task_config', 'demo_clean',
+                       '--train_config_name', 'official_control', '--seed', '0', '--policy_name', 'ACT',
+                       '--port', str(port), '--robo_name', 'robotwin', '--video_fps', '10',
+                       '--eval_video_log', 'False', '--eval_global_view_log', 'True', '--global_view_fps', '2',
+                       '--output_dir', str(destination / 'results'), '--test_num', '10']
+        (destination / 'commands.json').write_text(json.dumps(dict(server=server_command, simulation=sim_command), indent=2))
+        state('starting')
+        with (destination / 'server.log').open('x') as slog, (destination / 'sim.log').open('x') as elog:
+            server = subprocess.Popen(server_command, cwd=ROOT, env=env, stdout=slog, stderr=subprocess.STDOUT, start_new_session=True)
+            started = time.monotonic()
+            while True:
+                assert server.poll() is None, 'inference server exited'
+                try:
+                    with urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=1) as response:
+                        if response.status == 200:
+                            break
+                except Exception:
+                    pass
+                if time.monotonic() - started > 600:
+                    raise TimeoutError('inference startup')
+                time.sleep(2)
+            site = subprocess.check_output([job['sim_python'], '-c', 'import site; print(site.getsitepackages()[0])'], text=True).strip()
+            simenv = dict(env, PYTHONPATH=os.pathsep.join([site, str(robo), str(robo / 'script')]),
+                          PYTHONNOUSERSITE='1', PYTHONWARNINGS='ignore::UserWarning')
+            state('evaluating')
+            simulation = subprocess.Popen(sim_command, cwd=robo, env=simenv, stdout=elog, stderr=subprocess.STDOUT, start_new_session=True)
+            assert simulation.wait(timeout=3600) == 0, 'simulation failed'
+        clean = re.sub(r'\x1b\[[0-9;]*m', '', (destination / 'sim.log').read_text(errors='replace'))
+        rates = re.findall(r'Success rate:\s*(\d+)/(\d+).*?current seed:\s*(\d+)', clean)
+        assert len(rates) == 10 and int(rates[-1][1]) == 10, 'incomplete episodes'
+        assert 'OIDN 2.5.1 CUDA=' in clean and 'OIDN Error' not in clean, 'renderer check failed'
+        seeds = [int(row[2]) for row in rates]
+        assert len(set(seeds)) == 10
+        baseline = destination.parent / '9680/summary.json'
+        if job['label'] != '9680':
+            assert seeds == json.loads(baseline.read_text())['seeds'], 'scene seeds differ from baseline'
+        results = destination / 'results/adjust_bottle'
+        videos = list(results.glob('episode*_global.mp4'))
+        assert len(videos) == 10 and all(p.stat().st_size for p in videos), 'missing video'
+        rate = float((results / '_result.txt').read_text().strip().splitlines()[-1])
+        assert abs(rate - int(rates[-1][0]) / 10) < 1e-6
+        precision = json.loads((destination / 'precision_audit.json').read_text())
+        assert set(precision['parameter_numel_by_dtype']) == {'torch.float32'} and precision['forward_samples']
+        assert hashlib.sha256(client.read_bytes()).hexdigest() == client_hash
+        summary = dict(state='complete', task='adjust_bottle', label=job['label'], model=job['model'],
+                       successes=int(rates[-1][0]), episodes=10, success_rate=rate, seeds=seeds,
+                       oidn_errors=0, client_sha256=client_hash, dtype='float32', action_chunk=50)
+        (destination / 'summary.json').write_text(json.dumps(summary, indent=2))
+        state('complete', summary=summary)
+        print(json.dumps(summary), flush=True)
+        return 0
+    except BaseException as error:
+        state('failed', error=repr(error))
+        raise
+    finally:
+        stop(simulation)
+        stop(server)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--label', choices=['9680', '250', '500'], required=True)
+    parser.add_argument('--execute', action='store_true')
+    args = parser.parse_args()
+    plan = json.loads((args.out / 'plan.json').read_text())
+    assert json.loads((args.out / 'cpu_report.json').read_text())['state'] == 'cpu_pass'
+    model = Path(plan['source_model']) if args.label == '9680' else args.out / f'checkpoints/global_step_{args.label}/hf_ckpt'
+    assert (model / 'model.safetensors.index.json').is_file()
+    directory = args.out / 'evaluation' / args.label
+    job = dict(label=args.label, model=str(model), destination=str(directory),
+               robotwin=str(ROOT.parent / 'RoboTwin-lingbot'),
+               qwen=json.loads((args.out / 'trainer_config.json').read_text())['model']['tokenizer_path'],
+               sim_python='/data/miniconda3/envs/RoboTwin/bin/python')
+    print(json.dumps(job, indent=2))
+    if args.execute:
+        if args.label != '9680':
+            assert (directory.parent / '9680/summary.json').is_file(), 'baseline evaluation required first'
+        directory.mkdir(parents=True, exist_ok=False)
+        path = directory / 'job.json'
+        path.write_text(json.dumps(job, indent=2))
+        with (directory / 'pipeline.log').open('x') as log:
+            process = subprocess.Popen(['setsid', 'nohup', sys.executable, '-u', str(HERE), '--job', str(path)],
+                        cwd=ROOT, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
+        print('EVALUATION_STARTED', process.pid, str(directory))
+
+
+if __name__ == '__main__':
+    if len(sys.argv) > 1 and sys.argv[1] == '--sim-client':
+        import random
+        import runpy
+        robo = Path(sys.argv[2])
+        os.chdir(robo)
+        sys.path[:0] = [str(robo), str(robo / 'script')]
+        random.seed(0)
+        import numpy as np
+        np.random.seed(0)
+        from envs.adjust_bottle import adjust_bottle
+        sys.argv = [str(robo / 'script/eval_policy_client_lingbotvla.py')] + sys.argv[3:]
+        runpy.run_path(sys.argv[0], run_name='__main__')
+    elif len(sys.argv) == 3 and sys.argv[1] == '--job':
+        raise SystemExit(execute(json.loads(Path(sys.argv[2]).read_text())))
+    else:
+        main()
