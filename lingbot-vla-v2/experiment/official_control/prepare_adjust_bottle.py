@@ -121,7 +121,7 @@ def prepare(args):
     print('PREPARED', args.out, 'NO_TRAINING_STARTED', flush=True)
 
 
-def cpu_check(out, *, expected_steps=500, expected_fp32=True, expected_mixed=True, expected_export='fp32'):
+def cpu_check(out, *, expected_steps=500, expected_fp32=True, expected_mixed=True, expected_export='fp32', expected_episodes=50, expected_save_steps=250, dataset_check=None):
     import ast
     import types
     import typing
@@ -161,7 +161,7 @@ def cpu_check(out, *, expected_steps=500, expected_fp32=True, expected_mixed=Tru
     cfg = json.loads((out / 'trainer_config.json').read_text())
     t = cfg['train']
     assert not any(t[k] for k in ('auto_learning', 'low_noise_fm_enabled', 'ee_fk_loss_enabled', 'ee_fk_eval_enabled', 'use_lora', 'train_expert_only', 'freeze_vision_encoder'))
-    assert t['max_steps'] == expected_steps and t['save_steps'] == 250 and t['gradient_accumulation_steps'] == 1
+    assert t['max_steps'] == expected_steps and t['save_steps'] == expected_save_steps and t['gradient_accumulation_steps'] == 1
     assert t['enable_mixed_precision'] == expected_mixed and t['enable_fp32'] == expected_fp32
     assert t['hf_export_dtype'] == expected_export
     assert parsed.train.auto_learning is None and parsed.train.global_batch_size == t['micro_batch_size']
@@ -199,7 +199,7 @@ def cpu_check(out, *, expected_steps=500, expected_fp32=True, expected_mixed=Tru
         if ep != previous:
             boundaries.append(idx)
         previous = ep
-    assert sorted(counts) == ids and len(counts) == 50
+    assert sorted(counts) == ids and len(counts) == expected_episodes
     checked = []
     for idx in boundaries:
         sample = dataset[idx]
@@ -207,10 +207,11 @@ def cpu_check(out, *, expected_steps=500, expected_fp32=True, expected_mixed=Tru
         assert torch.isfinite(sample['actions']).all() and torch.isfinite(sample['state']).all()
         checked.append(dict(index=idx, episode=int(raw[idx]['episode_index']),
                             frame=int(raw[idx]['frame_index'])))
-        print('CPU_EPISODE_PASS', len(checked), '/50', checked[-1], flush=True)
-    report = dict(state='cpu_pass', episodes=50, frames=len(dataset), boundary_samples=checked,
+        print('CPU_EPISODE_PASS', len(checked), '/', expected_episodes, checked[-1], flush=True)
+    extra = dataset_check(dataset, cfg) if dataset_check else {}
+    report = dict(state='cpu_pass', episodes=expected_episodes, frames=len(dataset), boundary_samples=checked,
                   original_beta_time_exact=True, al_enabled=False, ee_enabled=False,
-                  model_initialized=False, optimizer_steps=0, gpu_tested=False)
+                  model_initialized=False, optimizer_steps=0, gpu_tested=False, **extra)
     dump(out / 'cpu_report.json', report)
     print('CPU_CONTRACT_PASS', json.dumps(report), flush=True)
 

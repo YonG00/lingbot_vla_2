@@ -21,6 +21,7 @@
 
 | 我要做什么 | 读哪篇 |
 |---|---|
+| 从BF16-200续训三个任务，按任务均匀采样，400步后评8任务 | [三任务续训与保留能力评测](auto_learning/three_task_bf16_continuation_zh.md) |
 | adjust_bottle当前采用基准、完整配方、存档位置与3/3闭环证据 | [BF16基准专门说明](auto_learning/adjust_bottle_bf16_baseline_zh.md) |
 | adjust_bottle标准组结束后3回合评测，再从9680开启EE/窗口/LN-FM训练500步并配对评测 | [自动配对队列](auto_learning/adjust_bottle_paired_control_zh.md) |
 | 从9680开始，关闭AL/窗口/EE/低噪声，做adjust_bottle标准方法对照 | [标准方法对照](auto_learning/adjust_bottle_official_control_zh.md) |

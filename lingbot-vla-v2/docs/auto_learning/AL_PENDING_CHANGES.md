@@ -17,6 +17,12 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#62 多任务复用一次推理服务（2026-10-20）：🧪 服务器20项CPU回归通过，实际两任务评测启动。** 用户要求停止旧队列，仅评adjust_bottle/click_bell各3回合；已停止旧控制器、当前评测、服务与仿真进程组，旧结果保留。新增shared_evaluation跨任务共用同一模型/服务，evaluate.execute可接共享session，原单任务调用默认行为不变。不变量：只加载一次相同400模型、每回合reset、同FP32/chunk50/渲染检查，结束/异常仅会话所有者关服务；症状：PID变化、重复load、跨模型复用、审计/seed/渲染失败；回滚：新任务不使用共享session，旧单任务API保留；验证入口：test_shared_evaluation生命周期/异常清理/不同模型拒绝，以及新目录session/status/summary。尚未完成两个任务，不预报成功率。
+
+
+**#61 BF16-200续训三任务（2026-10-20）：🧪 服务器17项CPU契约、真实150回合整链、三步GPU通过，正式400步已启动。** 用户授权删除除9680/BF16-200外旧存档；已精确删除四份FP32 250/500，报告three_task_cleanup_20261020.json。新增three_task.py的任务等概率采样/准备/CPU装配与three_task_pipeline.py串行400步→200/400保存→仅400评8任务各3回合。通用CPU检查增加显式episodes/save_steps/数据回调，默认旧行为不变；评测增加task参数，默认adjust_bottle不变。不变量：来源BF16-200、150条24119帧、三任务各1/3、56/GAS1、BF16、200/400；症状：episode或概率质量不符、dtype/梯度/HF/seed/OIDN失败；回滚：不启新入口，旧基准独立保留；验证入口：test_three_task、cpu_report、probe/summary、verified_checkpoints、evaluation_400。无自动关机。详见[续训说明](three_task_bf16_continuation_zh.md)。
+
+
 
 
 
@@ -338,3 +344,9 @@ BF16最终HF1708张量完整，约11.88GiB；CPU整链、三步GPU dtype/梯度�
 
 - #59 修复追记：首次三步探针0/3在Inductor addmm报Float/BFloat16冲突，未开始正式训练。`training_precision_context`原先对BF16参数模式直接nullcontext，导致FP32状态/动作输入与BF16线性层权重冲突；改为单卡BF16计算均使用autocast，FP32计算与FSDP路径不变，模型核心快照不改。CPU契约`experiment.official_control.test_bf16_context`真实BF16 Linear+FP32输入复现原错误，并验证修复后输出/参数/梯度BF16、梯度有限；服务器2 tests通过（8组合subtests），本地无torch跳过实际算子测试。旧探针移为probe_failed_initial保留，重试日志probe_retry.log。症状/回滚：若新路径异常，可还原precision_audit.py该条件，但原BF16配置将再次失败；禁止静默继续正式训练。
 - #59 GPU追记：autocast修复后首步前后向和更新通过，旧通用hook在编译后的action_out记录空dtype，探针按预期拒绝继续。新增仅审计用`observe_action_output`，用compiler.disable隔离观测副作用，真实输出/梯度CPU等价测试通过（服务器3 tests）。再次三步GBS56探针成功：6375906359个可训练参数及梯度均BF16，visual/language/action expert/action_out四处输出BF16；第2/3步9.530/8.920秒。正式200步由同一控制器继续，不宣称已完成或已闭环学会。
+
+- #61 CPU验收：move_can_pot7568帧、place_container_plate7934帧、place_empty_cup8617帧；三者概率质量均严格1/3，实际StatefulDataLoader batch[56,50,55]通过。旧存档四份清理完成，保留两模型；新控制器在独立run后台执行，GPU/训练/闭环结果以状态文件逐阶段为准。
+
+- #61 GPU启动验收：三步56/GAS1完成，allocated77.6979GiB、reserved84.5898GiB，实际参数/梯度/四处前向BF16且梯度有限。控制器state=training、steps400、hf_steps[200,400]，6007已发现本轮run；最终HF与24回合闭环尚未完成，不作为已学会证据。
+
+- #61/#62终态：三任务正式400步完成、200/400 BF16 HF均验证；原8任务评测按用户要求中止，选测adjust_bottle2/3、click_bell3/3，两任务server_pid58398一致，model_loads=1、OIDN错误0。用户随后授权删除三任务400（日志与200存档保留），重新从原adjust_bottle BF16-200单训place_container_plate200步；新实验另起，不继承已删400。

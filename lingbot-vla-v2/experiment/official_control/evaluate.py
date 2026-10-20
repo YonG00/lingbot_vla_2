@@ -28,22 +28,31 @@ def stop(process):
             process.wait(timeout=20)
 
 
-def execute(job):
+def execute(job, shared=None):
     destination = Path(job['destination'])
     episodes = int(job.get('episodes', 10))
+    task = job.get('task', 'adjust_bottle')
+    assert re.fullmatch(r'[a-z][a-z0-9_]*', task), 'invalid task name'
     assert episodes > 0
     status = destination / 'status.json'
     server = simulation = None
     def state(value, **extra):
         status.write_text(json.dumps(dict(state=value, **extra), indent=2))
     try:
-        assert not subprocess.check_output(['nvidia-smi', '--query-compute-apps=pid', '--format=csv,noheader']).strip(), 'GPU busy'
+        if shared is None:
+            assert not subprocess.check_output(['nvidia-smi', '--query-compute-apps=pid', '--format=csv,noheader']).strip(), 'GPU busy'
+        else:
+            assert Path(shared['model']).resolve() == Path(job['model']).resolve(), 'shared model differs'
+            assert shared['process'].poll() is None, 'shared inference server exited'
         robo = Path(job['robotwin'])
         client = robo / 'script/eval_policy_client_lingbotvla.py'
         client_hash = hashlib.sha256(client.read_bytes()).hexdigest()
-        with socket.socket() as sock:
-            sock.bind(('127.0.0.1', 0))
-            port = sock.getsockname()[1]
+        if shared is not None:
+            port = shared['port']
+        else:
+            with socket.socket() as sock:
+                sock.bind(('127.0.0.1', 0))
+                port = sock.getsockname()[1]
         env = dict(os.environ, PYTHONPATH=str(ROOT), CUDA_VISIBLE_DEVICES='0',
                    QWEN3VL_PATH=job['qwen'], LINGBOT_INFER_NOISE_SEED='0',
                    HF_HUB_OFFLINE='1', HF_DATASETS_OFFLINE='1', TRANSFORMERS_OFFLINE='1',
@@ -52,12 +61,14 @@ def execute(job):
                    LINGBOT_EVAL_PRECISION_AUDIT=str(destination / 'precision_audit.json'))
         for key in ('LINGBOTVLA_TRAINING_CONFIG', 'AL_VLM_ATTENTION', 'LINGBOT_PRECISION_AUDIT'):
             env.pop(key, None)
+        if shared is not None:
+            env['LINGBOT_EVAL_PRECISION_AUDIT'] = str(shared['audit'])
         server_command = [sys.executable, '-u', str(ROOT / 'experiment/robotwin/precision_eval_server.py'),
                           '--model_path', job['model'], '--use_length', '50', '--chunk_ret', 'True',
                           '--use_bf16', 'False', '--use_fp32', 'True', '--use_compile', 'False', '--port', str(port)]
         sim_command = [job['sim_python'], '-u', str(HERE), '--sim-client', str(robo),
                        '--config', 'policy/ACT/deploy_policy.yml', '--overrides',
-                       '--task_name', 'adjust_bottle', '--task_config', 'demo_clean',
+                       '--task_name', task, '--task_config', 'demo_clean',
                        '--train_config_name', 'official_control', '--seed', '0', '--policy_name', 'ACT',
                        '--port', str(port), '--robo_name', 'robotwin', '--video_fps', '10',
                        '--eval_video_log', 'False', '--eval_global_view_log', 'True', '--global_view_fps', '2',
@@ -65,10 +76,13 @@ def execute(job):
         (destination / 'commands.json').write_text(json.dumps(dict(server=server_command, simulation=sim_command), indent=2))
         state('starting')
         with (destination / 'server.log').open('x') as slog, (destination / 'sim.log').open('x') as elog:
-            server = subprocess.Popen(server_command, cwd=ROOT, env=env, stdout=slog, stderr=subprocess.STDOUT, start_new_session=True)
+            if shared is None:
+                server = subprocess.Popen(server_command, cwd=ROOT, env=env, stdout=slog, stderr=subprocess.STDOUT, start_new_session=True)
+            else:
+                slog.write('Shared inference server pid=' + str(shared['process'].pid) + '\n')
             started = time.monotonic()
             while True:
-                assert server.poll() is None, 'inference server exited'
+                assert (server if shared is None else shared['process']).poll() is None, 'inference server exited'
                 try:
                     with urllib.request.urlopen(f'http://127.0.0.1:{port}/healthz', timeout=1) as response:
                         if response.status == 200:
@@ -97,17 +111,22 @@ def execute(job):
             assert seeds == json.loads(Path(job['reference_summary']).read_text())['seeds'], 'scene seeds differ between paired models'
         elif job.get('require_baseline', True) and job['label'] != '9680':
             assert seeds == json.loads(baseline.read_text())['seeds'], 'scene seeds differ from baseline'
-        results = destination / 'results/adjust_bottle'
+        results = destination / 'results' / task
         videos = list(results.glob('episode*_global.mp4'))
         assert len(videos) == episodes and all(p.stat().st_size for p in videos), 'missing video'
         rate = float((results / '_result.txt').read_text().strip().splitlines()[-1])
         assert abs(rate - int(rates[-1][0]) / episodes) < 1e-6
+        if shared is not None:
+            import shutil
+            shutil.copyfile(shared['audit'], destination / 'precision_audit.json')
         precision = json.loads((destination / 'precision_audit.json').read_text())
         assert set(precision['parameter_numel_by_dtype']) == {'torch.float32'} and precision['forward_samples']
         assert hashlib.sha256(client.read_bytes()).hexdigest() == client_hash
-        summary = dict(state='complete', task='adjust_bottle', label=job['label'], model=job['model'],
+        summary = dict(state='complete', task=task, label=job['label'], model=job['model'],
                        successes=int(rates[-1][0]), episodes=episodes, success_rate=rate, seeds=seeds,
                        oidn_errors=0, client_sha256=client_hash, dtype='float32', action_chunk=50)
+        if shared is not None:
+            summary.update(server_pid=shared['process'].pid, shared_server=True)
         (destination / 'summary.json').write_text(json.dumps(summary, indent=2))
         state('complete', summary=summary)
         print(json.dumps(summary), flush=True)
@@ -158,7 +177,9 @@ if __name__ == '__main__':
         random.seed(0)
         import numpy as np
         np.random.seed(0)
-        from envs.adjust_bottle import adjust_bottle
+        import importlib
+        task = sys.argv[sys.argv.index('--task_name') + 1]
+        importlib.import_module('envs.' + task)
         sys.argv = [str(robo / 'script/eval_policy_client_lingbotvla.py')] + sys.argv[3:]
         runpy.run_path(sys.argv[0], run_name='__main__')
     elif len(sys.argv) == 3 and sys.argv[1] == '--job':
