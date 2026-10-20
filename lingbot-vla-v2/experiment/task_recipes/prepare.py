@@ -41,7 +41,7 @@ def prepare(raw):
     model_bytes=sum(p.stat().st_size for p in source.glob('*.safetensors'))
     extra_saves=0
     if c['remediation']['enabled']:
-        worst_steps=200*len(c['evaluation']['tasks'])
+        worst_steps=100*len(c['evaluation']['tasks'])
         if c['checkpoint']['mode']=='task':per_round=len(c['evaluation']['tasks'])
         else:
             interval=c['checkpoint']['every_steps']

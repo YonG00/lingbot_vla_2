@@ -58,4 +58,4 @@ bash experiment/robotwin/recipes/20261018_place_mouse_pad_all50_9680_ee_lnfm.sh 
 
 ## 验证边界
 
-CPU测试及验证记录集中在 [mouse_pad_training](../../tests/mouse_pad_training/README.md)。本地测试用真实manifest、合成Parquet状态表、真实窗口预处理/采样/调度器验证接口与统计；模型训练使用替身，未验证GPU前后向或闭环成功率。服务器的实际50条新缓存覆盖率、模型加载、首次更新及HF写出仍需同步后核验。
+CPU测试及验证记录集中在 [mouse_pad_training](../../../../tests/mouse_pad_training/README.md)。本地测试用真实manifest、合成Parquet状态表、真实窗口预处理/采样/调度器验证接口与统计；模型训练使用替身，未验证GPU前后向或闭环成功率。服务器的实际50条新缓存覆盖率、模型加载、首次更新及HF写出仍需同步后核验。

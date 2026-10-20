@@ -12,6 +12,7 @@ sys.path.insert(0,str(ROOT))
 from experiment.task_recipes.prepare import preview,prepare
 from experiment.task_recipes.runtime import install,load_run
 from experiment.task_recipes.planning import confirmed_progress
+from experiment.task_recipes.naming import dated_run_path
 
 
 def worker(raw,launch):
@@ -32,7 +33,7 @@ def worker(raw,launch):
         state('prepare');prepare(c)
         logs=Path('/root/tf-logs')
         if logs.is_dir():
-            name=out.parent.name+'_'+out.name if out.name.startswith('remediation_round_') else out.name
+            name=out.name+'_'+out.parent.name if 'remediation_round_' in out.name else out.name
             link=logs/name
             assert not link.exists() and not link.is_symlink(),'TensorBoard link already exists'
             link.symlink_to(out/'runs',target_is_directory=True)
@@ -111,6 +112,7 @@ def main():
     if a.recipe is None:parser.error('--recipe required')
     raw=json.loads(a.recipe.read_text())
     if a.out:raw['output_dir']=str(a.out)
+    raw['output_dir']=dated_run_path(raw['output_dir'])
     c,p,groups,frames=preview(raw)
     if a.stage=='prepare':prepare(c);return
     from experiment.task_recipes.schema import milestones

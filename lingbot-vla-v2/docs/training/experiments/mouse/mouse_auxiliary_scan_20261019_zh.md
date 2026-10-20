@@ -13,10 +13,10 @@
 
 主任务另有50条、7466帧，不计入辅助。全任务元数据清点通过；主任务及可能来源的共300条实际状态数据校验通过，未发现帧/指令映射错误。原始metadata没有物体身份或成功标签。
 
-- [附初步审核记录的页面](../../artifacts/data_audits/mouse/20261019_scan_v1/review_annotated.html)：52条关键词候选均有八帧总览图；其余198条可能来源折叠保留。视频引用服务器路径，需相同数据挂载才能播放。
-- [47条指令语义候选](../../artifacts/data_audits/mouse/20261019_scan_v1/semantic_shortlist.json)：**仍待完整视频核验，不是训练白名单**。
-- [初步审核决定](../../artifacts/data_audits/mouse/20261019_scan_v1/review_decisions_initial.json)：5条排除，11条可见鼠标操作但完整成功未认证，其余pending。
-- [完整候选](../../artifacts/data_audits/mouse/20261019_scan_v1/candidates.jsonl)、[全库召回清点](../../artifacts/data_audits/mouse/20261019_scan_v1/inventory.jsonl)、[数据与规则指纹](../../artifacts/data_audits/mouse/20261019_scan_v1/source_identity.json)。
+- [附初步审核记录的页面](../../../../artifacts/data_audits/mouse/20261019_scan_v1/review_annotated.html)：52条关键词候选均有八帧总览图；其余198条可能来源折叠保留。视频引用服务器路径，需相同数据挂载才能播放。
+- [47条指令语义候选](../../../../artifacts/data_audits/mouse/20261019_scan_v1/semantic_shortlist.json)：**仍待完整视频核验，不是训练白名单**。
+- [初步审核决定](../../../../artifacts/data_audits/mouse/20261019_scan_v1/review_decisions_initial.json)：5条排除，11条可见鼠标操作但完整成功未认证，其余pending。
+- [完整候选](../../../../artifacts/data_audits/mouse/20261019_scan_v1/candidates.jsonl)、[全库召回清点](../../../../artifacts/data_audits/mouse/20261019_scan_v1/inventory.jsonl)、[数据与规则指纹](../../../../artifacts/data_audits/mouse/20261019_scan_v1/source_identity.json)。
 
 排除episode：217、237、246、702、733。原指令实际让机器人移动盒子/肥皂/玩具车，鼠标只作为放置位置的参照物；已对照各自八帧总览确认。
 

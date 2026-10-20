@@ -1,0 +1,61 @@
+# 训练文档导航
+
+训练相关内容统一放在这里；AL状态机、指标、缓存和系统排障继续放在[auto_learning](../auto_learning/README.md)。
+JSON配置、数据清单和证据仍分别放configs、refs等工程目录，不放docs。
+
+## 训练流水与任务统计
+
+| 文档 | 入口 |
+|---|---|
+| 任务训练步数与评测对照 | [查看](records/task_training_statistics_zh.md) |
+| 训练与闭环评测流水 | [查看](records/training_history_zh.md) |
+
+## 参数化课程与补课
+
+| 文档 | 入口 |
+|---|---|
+| 参数化训练配方框架 | [查看](recipes/task_recipe_framework_zh.md) |
+
+## 实验方案与结果
+
+| 文档 | 入口 |
+|---|---|
+| adjust_bottle 当前实验基准：BF16 / GBS56 / 200步 | [查看](experiments/adjust_bottle/adjust_bottle_bf16_baseline_zh.md) |
+| adjust_bottle 标准方法对照（FP32历史实验） | [查看](experiments/adjust_bottle/adjust_bottle_official_control_zh.md) |
+| adjust_bottle 两组训练后自动对照 | [查看](experiments/adjust_bottle/adjust_bottle_paired_control_zh.md) |
+| 鼠标辅助示范审核进展 | [查看](experiments/mouse/mouse_auxiliary_review_zh.md) |
+| 鼠标辅助数据初筛：2026-10-19 | [查看](experiments/mouse/mouse_auxiliary_scan_20261019_zh.md) |
+| 鼠标主任务＋辅助示范混合续训 | [查看](experiments/mouse/mouse_auxiliary_training_zh.md) |
+| 鼠标主任务：FK位置权重6与关闭夹爪辅助监督的续训 | [查看](experiments/mouse/mouse_gripper_off_continuation_zh.md) |
+| 鼠标FP32主参数与显存容量测试准备 | [查看](experiments/mouse/mouse_precision_capacity_zh.md) |
+| 鼠标纯主任务50条训练及闭环评测 | [查看](experiments/mouse/mouse_primary50_train_eval_zh.md) |
+| 原始 step9680：鼠标放置单任务，500步 | [查看](experiments/mouse/place_mouse_pad_9680_zh.md) |
+| 鼠标50条全量拟合实验 | [查看](experiments/mouse/place_mouse_pad_all50_p10_zh.md) |
+| place_container_plate：从adjust_bottle BF16-200单任务续训 | [查看](experiments/multi_task/place_container_plate_single_task_zh.md) |
+| 顺序续训：plate100 → cup200 → pot200 | [查看](experiments/multi_task/sequential_plate_cup_pot_zh.md) |
+| BF16-200基准续训三个任务 | [查看](experiments/multi_task/three_task_bf16_continuation_zh.md) |
+| place_object_stand step500 续训方案（2026-10-17） | [查看](experiments/stand/stand_ee_continue_20261017_zh.md) |
+
+## 数据筛选与统计
+
+| 文档 | 入口 |
+|---|---|
+| 指定目标物的episode筛选与审核 | [查看](data/object_episode_selection_zh.md) |
+| RoboTwin 50 类任务轨迹帧数统计 | [查看](data/robotwin_50_task_frames_zh.md) |
+
+## 闭环评测运行环境
+
+| 文档 | 入口 |
+|---|---|
+| RoboTwin Blackwell 评测去噪运行库 | [查看](evaluation/robotwin_render_runtime_zh.md) |
+
+## 目录约定
+
+- `records/`：跨实验流水、任务累计和逐轮闭环对照。
+- `recipes/`：课程表、采样、存档和补课框架的使用说明。
+- `experiments/`：按实验主题分组，保留当时配置、结果与证据边界。
+- `data/`：数据筛选、审核方法和规模统计。
+- `evaluation/`：闭环评测环境和运行方法。
+
+新增训练文档先加入本索引；系统改动仍登记[AL改动台账](../auto_learning/AL_PENDING_CHANGES.md)。
+运行目录新命名采用`YYYYMMDD_HHMM_说明`，如`20261020_2002_switch_pillbottle_stapler`；历史run保持原路径。

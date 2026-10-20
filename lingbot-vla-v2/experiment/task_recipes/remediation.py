@@ -1,6 +1,7 @@
 """闭环结果驱动的有限补课；异常结果不转换为失败样本。仅依赖标准库。"""
 from copy import deepcopy
 from pathlib import Path
+from experiment.task_recipes.naming import dated_run_path
 
 
 def curriculum(tasks, results, model):
@@ -13,8 +14,8 @@ def curriculum(tasks, results, model):
         r=by_task[task];successes=r.get('successes')
         if r.get('state')!='complete' or r.get('episodes')!=3 or type(successes) is not int or not 0<=successes<=3:
             raise ValueError('invalid closed-loop evaluation: '+task)
-        if successes<2:lessons.append(dict(task=task,successes=successes,steps=100 if successes==1 else 200))
-    # Stable order within a success group follows the user's evaluation task list.
+        if successes in (1,2):lessons.append(dict(task=task,successes=successes,steps=100))
+    # Prefer 2/3, then 1/3; equal scores preserve evaluation task order.
     return sorted(lessons,key=lambda x:-x['successes'])
 
 
@@ -22,7 +23,7 @@ def next_recipe(parent, previous_out, lessons, round_index):
     c=deepcopy(parent);previous_out=Path(previous_out)
     c['source']=dict(trainer_config=str(previous_out/'trainer_config.json'),
         checkpoint=str(previous_out/f"checkpoints/global_step_{parent['train']['steps']}/hf_ckpt"))
-    c['output_dir']=str(Path(c['output_dir'])/f'remediation_round_{round_index}')
+    c['output_dir']=dated_run_path(Path(c['output_dir'])/f'remediation_round_{round_index}')
     c['train'].update(mode='sequential',main_tasks={x['task']:dict(steps=x['steps'],weight=1) for x in lessons},
         task_order=[x['task'] for x in lessons],steps=sum(x['steps'] for x in lessons),replay=dict(fraction=0,tasks={}))
     c['evaluation']['checkpoints']=['final']
@@ -43,7 +44,7 @@ def run_rounds(c, results, execute, record):
         if not lessons:break
         child=next_recipe(current,out,lessons,number)
         # Keep round directories beside one another, never nested inside the last round.
-        child['output_dir']=str(Path(c['output_dir'])/f'remediation_round_{number}')
+        child['output_dir']=dated_run_path(Path(c['output_dir'])/f'remediation_round_{number}')
         record(number,lessons,child)
         results=execute(child)
         child_model=Path(child['output_dir'])/f"checkpoints/global_step_{child['train']['steps']}/hf_ckpt"

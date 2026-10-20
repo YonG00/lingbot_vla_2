@@ -30,9 +30,12 @@ class RemediationContracts(unittest.TestCase):
     def test_priority_and_all_pass_skip(self):
         c=self.config();r=self.results(c)
         lessons=curriculum(c['evaluation']['tasks'],r,r[0]['model'])
-        self.assertEqual([x['successes'] for x in lessons],[1,0])
-        self.assertEqual([x['steps'] for x in lessons],[100,200])
-        self.assertEqual(run_rounds(c,self.results(c,(2,3,2)),lambda _:self.fail(),lambda *a:self.fail()),[])
+        self.assertEqual([x['successes'] for x in lessons],[2,1])
+        self.assertEqual([x['steps'] for x in lessons],[100,100])
+        self.assertEqual(run_rounds(c,self.results(c,(3,3,3)),lambda _:self.fail(),lambda *a:self.fail()),[])
+        self.assertEqual(run_rounds(c,self.results(c,(0,0,0)),lambda _:self.fail(),lambda *a:self.fail()),[])
+        all_one=self.results(c,(1,1,1))
+        self.assertEqual([x['task'] for x in curriculum(c['evaluation']['tasks'],all_one,all_one[0]['model'])],c['evaluation']['tasks'])
 
     def test_error_missing_duplicate_and_wrong_model_rejected(self):
         c=self.config();good=self.results(c);model=good[0]['model']
@@ -49,7 +52,7 @@ class RemediationContracts(unittest.TestCase):
                 validate(child);children.append(child)
                 self.assertFalse(child['remediation']['enabled'])
                 self.assertEqual(child['evaluation']['tasks'],c['evaluation']['tasks'])
-                self.assertEqual(milestones(child),[300])
+                self.assertEqual(milestones(child),[200])
                 self.assertEqual(child['train']['replay']['fraction'],0)
                 return self.results(child)
             history=run_rounds(c,self.results(c),execute,lambda *args:records.append(args))

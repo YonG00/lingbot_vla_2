@@ -4,7 +4,7 @@
 
 鼠标操作臂为左25/右22。柜子任务8条均为左臂抓鼠标、右臂拉抽屉；右臂末尾夹爪闭合是在握把手，不能当成鼠标未释放。现有2秒闭爪→腕部运动关联会漏掉等待开抽屉后的抬升，后续阶段权重必须绑定目标臂，不可直接使用所有控制事件。
 
-新增机器产物放在 `artifacts/data_audits/mouse/20261019_review_v2/`，不继续写入docs。查看[视觉审核页面](../../artifacts/data_audits/mouse/20261019_review_v2/review.html)、[版本化审核清单](../../refs/data_manifests/mouse/20261019_review_v2/approved.json)。首次扫描产物也已移到 `artifacts/data_audits/mouse/20261019_scan_v1/`；JSON/HTML/图片内容哈希不变。图像和HTML为本地/服务器生成产物，不随Git提交；小型审核清单、审核决定及来源指纹在refs中版本化。
+新增机器产物放在 `artifacts/data_audits/mouse/20261019_review_v2/`，不继续写入docs。查看[视觉审核页面](../../../../artifacts/data_audits/mouse/20261019_review_v2/review.html)、[版本化审核清单](../../../../refs/data_manifests/mouse/20261019_review_v2/approved.json)。首次扫描产物也已移到 `artifacts/data_audits/mouse/20261019_scan_v1/`；JSON/HTML/图片内容哈希不变。图像和HTML为本地/服务器生成产物，不随Git提交；小型审核清单、审核决定及来源指纹在refs中版本化。
 
 `approved.json` 的 `training_ready=false`：数据审核和训练接口是两层；这是审核发布时状态；后续混合采样已接入并另发train_v1，见[混训说明](mouse_auxiliary_training_zh.md)，精确阶段边界仍未认证，未启动训练。审核清单不把控制候选窗口伪装成精确阶段标注。已有5条参照物假阳性保持排除，未命中关键词的198条可能来源仍待审核，不声称已穷尽鼠标数据。
 

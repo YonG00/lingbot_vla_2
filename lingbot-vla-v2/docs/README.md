@@ -12,7 +12,8 @@
 | 目录 | 装什么 | 文件数 |
 |---|---|---|
 | `docs/`（顶层） | **官方原有文档**（16 个 md + `config/`） | 17 |
-| `auto_learning/` | AutoLearning 流程：总览、启动、易错、门槛/倍率、TB 对照、多卡、设计稿、**实测记录** | 16 |
+| `auto_learning/` | AL系统机制、指标、状态机、缓存、多卡与排障 | 见目录索引 |
+| `training/` | 训练配方、实验、流水、任务统计、数据与闭环环境 | [统一导航](training/README.md) |
 | `rocm/` | AMD/ROCm 平台：实例重建恢复、使用指南、编译失败与 Triton 崩溃排查 | 4 |
 | `acceptance/` | 验收与评测口径：96G bf16 验收、闭环单卡、Eval 批处理闸门、编译调优 | 4 |
 | `archive/audit/` | **历史审计快照**（按日期打包的证据包，只读，勿当现行文档） | 61 |
@@ -21,30 +22,11 @@
 
 | 我要做什么 | 读哪篇 |
 |---|---|
-| 从plate200按plate100→cup200→pot200顺序续训500步 | [顺序续训配方](auto_learning/sequential_plate_cup_pot_zh.md) |
-| 按时间看训练来源、任务、耗时、评测及补课 | [训练流水](auto_learning/training_history_zh.md) |
-| 按任务看累计步数、各轮评测及补课对照 | [任务训练统计](auto_learning/task_training_statistics_zh.md) |
-| 只改配置指定主任务配额、复习比例、保存和共享评测列表 | [参数化配方框架](auto_learning/task_recipe_framework_zh.md) |
-| 从adjust_bottle BF16-200仅续训place_container_plate200步 | [单任务训练评测](auto_learning/place_container_plate_single_task_zh.md) |
-| 从BF16-200续训三个任务，按任务均匀采样，400步后评8任务 | [三任务续训与保留能力评测](auto_learning/three_task_bf16_continuation_zh.md) |
-| adjust_bottle当前采用基准、完整配方、存档位置与3/3闭环证据 | [BF16基准专门说明](auto_learning/adjust_bottle_bf16_baseline_zh.md) |
-| adjust_bottle标准组结束后3回合评测，再从9680开启EE/窗口/LN-FM训练500步并配对评测 | [自动配对队列](auto_learning/adjust_bottle_paired_control_zh.md) |
-| 从9680开始，关闭AL/窗口/EE/低噪声，做adjust_bottle标准方法对照 | [标准方法对照](auto_learning/adjust_bottle_official_control_zh.md) |
-| FP32主参数/BF16计算、BF16/FP32 HF与FP32评测，以及96G微批容量测试 | [精度与容量准备](auto_learning/mouse_precision_capacity_zh.md) |
-| 最新鼠标FP32 500步续训，FK位置6、夹爪0，存档后关机 | [夹爪辅助监督消融](auto_learning/mouse_gripper_off_continuation_zh.md) |
-| 鼠标纯主任务50条GBS56续练、结束后3回合闭环及关机 | [训练评测流水线](auto_learning/mouse_primary50_train_eval_zh.md) |
-| Blackwell评测出现OIDN错误、策略输入有颗粒噪声 | [去噪运行库修复与验证](auto_learning/robotwin_render_runtime_zh.md) |
-| 指定目标物筛选辅助episode、视频核验与白名单 | `auto_learning/object_episode_selection_zh.md` |
-| 2026-10-19 鼠标全库初筛实测与47条候选 | `auto_learning/mouse_auxiliary_scan_20261019_zh.md` |
-| 鼠标主50＋辅助47混合续训与CPU验证 | [混训说明](auto_learning/mouse_auxiliary_training_zh.md) |
-| 鼠标47条辅助示范视觉审核及后续混训边界 | `auto_learning/mouse_auxiliary_review_zh.md` |
+| 找训练方案、课程表、实验结果、训练流水和任务累计 | [训练文档统一入口](training/README.md) |
 | 低噪 FM / 目标变化窗口采样 / 训练前事件报告 | `auto_learning/target_change_window_zh.md` |
 | 相对输入状态动作表示与未来力监督边界 | `auto_learning/relative_action_representation_zh.md` |
-| 原始9680专练鼠标，500步全量ViT+EE+低噪FM | `auto_learning/place_mouse_pad_9680_zh.md`、[启动配方CPU测试](../tests/mouse_pad_training/README.md) |
-| 鼠标50条全量拟合、位置EE权重10、仅训练轨迹监控 | [实验说明](auto_learning/place_mouse_pad_all50_p10_zh.md)、[CPU测试](../tests/mouse_pad_training/README.md) |
 | 连续抓取窗口验证命令、覆盖率与验证边界 | [窗口测试说明](../tests/target_change_window/README.md) |
 | AL固定步数训练为何不按数据epoch测评 | [epoch边界测试说明](../tests/al_epoch_schedule/README.md) |
-| place_object_stand EE续训方案与复现命令 | `auto_learning/stand_ee_continue_20261017_zh.md` |
 | 低噪 FM 与末端 FK 一致性监督 | `auto_learning/ee_fk_loss_zh.md` |
 | FK 测试意图、命令、真实资产对拍与历史证据 | [功能测试说明](../tests/ee_fk/README.md)、[首次验证](../tests/ee_fk/VALIDATION_2026-10-17.md)、[精度修复与val链路](../tests/ee_fk/VALIDATION_RUNTIME_2026-10-17.md)、[96G实机验收](../tests/ee_fk/VALIDATION_GPU_2026-10-17.md) |
 | 第一次跑通 AutoLearning | `auto_learning/auto_learning_overview_zh.md` |

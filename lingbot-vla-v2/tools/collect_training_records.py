@@ -6,7 +6,7 @@ records=[]
 names.append('sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020')
 for name in names:
  p=base/name
- for out in [p]+list(p.glob('remediation_round_[0-9]')):
+ for out in [p]+list(p.glob('*remediation_round_[0-9]')):
   row=dict(run=str(out.resolve()),files={})
   for f in [out/'trainer_config.json',out/'recipe.json',out.with_name(out.name+'_pipeline')/'status.json']+list(out.glob('evaluation*/**/summary.json'))+list(out.glob('evaluation*/summary.json')):
    if f.exists() and str(f) not in row['files']:

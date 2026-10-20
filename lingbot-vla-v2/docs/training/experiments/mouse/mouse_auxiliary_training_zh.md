@@ -35,7 +35,7 @@ bash experiment/robotwin/recipes/20261019_place_mouse_pad_mouse_aux.sh --execute
 
 ## 数据与状态边界
 
-- 实际训练引用 [训练版本清单](../../refs/data_manifests/mouse/20261019_train_v1/approved.json)，来源为 [视觉审核版本](../../refs/data_manifests/mouse/20261019_review_v2/approved.json)。旧审核产物不覆盖，新版本显式标记供本训练接口使用；不把原审计的training_ready=false悄然解释成可训练。
+- 实际训练引用 [训练版本清单](../../../../refs/data_manifests/mouse/20261019_train_v1/approved.json)，来源为 [视觉审核版本](../../../../refs/data_manifests/mouse/20261019_review_v2/approved.json)。旧审核产物不覆盖，新版本显式标记供本训练接口使用；不把原审计的training_ready=false悄然解释成可训练。
 - 训练清单的training_ready=true表示可供显式启用的接口使用、CPU契约通过；不表示GPU/闭环效果已验证。视觉审核不是原始check_success、力觉或接触标签认证，精确阶段边界仍未认证。
 - `source_identity.json`与清单的指纹必须一致，启动时核对数据元信息内容SHA以及数据/视频的大小、mtime_ns，并核对原始任务manifest。大视频不是全量内容SHA；保留相同大小/mtime的篡改不在检测范围。
 - 联合数据集只构造一套local_idx。原任务名、episode和绝对帧坐标用于解析与审核，不复用旧采样ID。预览核对实际帧数、连续帧、时间戳和task_index/原指令。

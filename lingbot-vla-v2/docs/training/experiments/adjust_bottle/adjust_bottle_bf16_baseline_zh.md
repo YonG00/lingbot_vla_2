@@ -12,7 +12,7 @@
 - 闭环：`evaluation_200/summary.json`，**3/3成功**，实际场景种子`[100001,100002,100005]`。
 - `demo_clean`、FP32加载/推理、chunk50、推理noise seed0；同一服务加载一次连续测3回合，结束再下线。
 - OIDN2.5.1，OIDN错误0，三段全局视频在`evaluation_200/results/adjust_bottle/`。
-- 配置和结果已冻结在[`adjust_bottle_bf16_200.json`](../../experiment/official_control/baselines/adjust_bottle_bf16_200.json)，包含实际trainer配置、来源校验SHA、存档报告和前四组结果。模型大文件不提交Git。
+- 配置和结果已冻结在[`adjust_bottle_bf16_200.json`](../../../../experiment/official_control/baselines/adjust_bottle_bf16_200.json)，包含实际trainer配置、来源校验SHA、存档报告和前四组结果。模型大文件不提交Git。
 
 | 实验 | 精度/GBS/步数 | 同场景闭环成功 |
 |---|---|---:|

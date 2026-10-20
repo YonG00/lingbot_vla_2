@@ -106,9 +106,14 @@ python -m unittest experiment.task_recipes.test_contracts -v
 症状：冻结哈希、配额、dtype、DataLoader长度/状态或HF校验失败；
 回滚：不用`experiment/task_recipes/run.py`，原单任务和AL入口继续独立使用；新模块只在新进程读取，不能热改当前run。
 
-顺序模式的当前实验与来源、250/500存档约定见[顺序续训说明](sequential_plate_cup_pot_zh.md)。
+顺序模式的当前实验与来源、250/500存档约定见[顺序续训说明](../experiments/multi_task/sequential_plate_cup_pot_zh.md)。
 
 ### 两种存档模式
+
+新run目录统一采用`YYYYMMDD_HHMM_说明`，北京时间，例如`20261020_2002_switch_pillbottle_stapler`。
+统一CLI自动为未带前缀的output_dir/--out补前缀，并移除原末尾日期；显式已有前缀原样保留。
+同分钟同名仍拒绝覆盖。补课子run也采用时间前缀；pipeline和TensorBoard入口保留该前缀。
+此规则只作用于新启动目录，来源模型、历史run及当前运行目录不重命名。
 
 `checkpoint.mode`默认为`steps`，保留旧配方行为：
 
@@ -130,7 +135,7 @@ prepare生成`save_steps=0, save_at_steps=[...]`；训练器通过纯CPU的check
 三步GPU探针禁存档，显式步号列表也不得触发保存。
 开关与补课组合的四格均有CPU契约；真实200步任务边界落盘尚待本轮训练验证。
 
-本轮新课程：[switch/pillbottle/stapler 600步配置](../../configs/training_recipes/sequential_switch_pillbottle_stapler_600.json)。
+本轮新课程：[switch/pillbottle/stapler 600步配置](../../../configs/training_recipes/sequential_switch_pillbottle_stapler_600.json)。
 来源严格为R6-step500，三任务各200步，GBS56/BF16，最终三个新任务各3回合。
 用户因容量选择先训主课程、暂缓补课，当前配置remediation.enabled=false；不删除旧存档。
 
@@ -143,8 +148,8 @@ prepare生成`save_steps=0, save_at_steps=[...]`；训练器通过纯CPU的check
 ```
 
 开启前要求：复习比例为0、评测任务非空、每任务3回合，并包含最终存档评测。
-只使用最终模型的完整有效结果：1/3先补100步，0/3后补200步，2/3和3/3跳过。
-同分任务保持评测任务列表顺序；所有任务都无需补课时直接结束。
+当前规则（2026-10-20修订）：只使用最终模型完整有效结果，**1/3和2/3各补100步；0/3和3/3不补课**。
+2/3优先，再补1/3；同分任务保持评测任务列表顺序；所有任务都无需补课时直接结束。
 测评缺失、重复、模型路径不符或执行异常均中止，不作为0/3。
 
 每轮补课生成一份顺序课程表，从上一轮最终HF续训，沿用batch、精度及存档间隔，复习关闭。
@@ -154,11 +159,12 @@ prepare生成`save_steps=0, save_at_steps=[...]`；训练器通过纯CPU的check
 补完一轮后，闭环复测原配置的全部评测任务，达到轮次上限即结束，即使仍有失败也不继续。
 所有轮次沿用现有评测种子逻辑，没有新增独立种子组，不将三回合结果视为稳定掌握的证明。
 
-原训练开始前按“全部评测任务均需200步补课×最大轮数”预估额外存档空间；每轮启动再次检查，
+原训练开始前按“全部评测任务均需100步补课×最大轮数”预估额外存档空间；每轮启动再次检查，
 容量不足报错，不删除存档、不减少间隔。每轮含沿用间隔产生的中间存档及最终存档。
-子目录为`remediation_round_N`；课程表为`remediation_round_N_plan.json`；
+新补课子目录为`YYYYMMDD_HHMM_remediation_round_N`；课程表为`remediation_round_N_plan.json`；
 最终`remediation_summary.json`和pipeline状态保留各轮评测结果。
 每轮照常执行CPU检查、三步GPU检查、正式训练、HF校验、闭环评测。
 
 验证：`python3 -m unittest experiment.task_recipes.test_remediation`。
-本功能仅完成本地纯CPU契约测试，尚未做真实GPU补课及闭环串联验证；没有热更新当前服务器训练。
+历史R7已按旧规则完成真实GPU补课及三任务闭环，全部0/3后用户放弃该模型。
+本次“1/3与2/3补课，跳过0/3”修订只做本地纯CPU契约验证；没有热更新当前服务器训练，R8仍关闭补课。
