@@ -1,0 +1,60 @@
+{
+  "keep": [
+    "/root/autodl-tmp/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_500",
+    "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800"
+  ],
+  "verified": [
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_500",
+      "tensors": 1708,
+      "dtypes": [
+        "BF16"
+      ]
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800",
+      "tensors": 1708,
+      "dtypes": [
+        "BF16"
+      ]
+    }
+  ],
+  "delete": [
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_200",
+      "bytes": 12768173055
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_400",
+      "bytes": 12768173055
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_200",
+      "bytes": 12768173059
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_400",
+      "bytes": 12768173059
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_600",
+      "bytes": 12768173059
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500",
+      "bytes": 12768173055
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020/checkpoints/global_step_600",
+      "bytes": 12768173060
+    }
+  ],
+  "delete_bytes": 89377211402,
+  "free_before": 34680934400,
+  "state": "complete",
+  "remaining": [
+    "/root/autodl-tmp/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_500",
+    "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800"
+  ],
+  "free_after": 124058521600
+}

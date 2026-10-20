@@ -5,15 +5,13 @@
 
 | 实验 | run目录名 | 已保留HF存档 | 当前用途 |
 |---|---|---|---|
-| R6 | `sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020` | `checkpoints/global_step_500/hf_ckpt` | 用户指定保留的历史模型 |
-| R8 | `sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020` | `checkpoints/global_step_600/hf_ckpt` | 用户指定保留；R9来源 |
-| R9 | `20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56` | `checkpoints/global_step_200/hf_ckpt`、`global_step_400/hf_ckpt`、`global_step_500/hf_ckpt`（均在checkpoints下） | 三份均已校验；最终500为R10来源 |
-| R10 | `20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each` | `checkpoints/global_step_200/hf_ckpt`、`global_step_400/hf_ckpt`、`global_step_600/hf_ckpt`、`global_step_800/hf_ckpt`（均在checkpoints下） | 四份实际HF索引/头部已复核，最终800用于本轮闭环 |
+| R9 | `20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56` | **`checkpoints/global_step_500/hf_ckpt`** | 用户指定保留，R10来源 |
+| R10 | `20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each` | **`checkpoints/global_step_800/hf_ckpt`** | 用户指定保留，本轮最终闭环模型 |
 
-已校验的R6/R8/R9/R10各份HF均为1708张量、BF16；评测FP32加载不改变HF存档dtype。
-本次只读取证，共9份global_step存档，剩余空间32.31GiB；未新增删除动作。
-[实际文件清单与R10完整性证据](../../../refs/training_records/20261021_R10_final_audit.json)。
-R6与R8两份是当次清理保留项，后续R9/R10已授权生成的新存档不受“仅保留两份历史模型”限制。
+**当前仅以上两份ckpt存在**，删除前后均核对1708张量、BF16及实际HF分片头部/索引。
+用户2026-10-21最新指令替代此前保留R6/R8的约定，删除其他7份，释放83.24GiB。
+[本次完成清单与剩余空间](../../../refs/training_records/20261021_keep_R9_500_R10_800_completed.json)。
+此前9份存档的[历史审计](../../../refs/training_records/20261021_R10_final_audit.json)保留，用于说明训练时确实保存过；不代表目前仍保留。
 
 ## 已删除旧存档
 
@@ -23,12 +21,14 @@ R6与R8两份是当次清理保留项，后续R9/R10已授权生成的新存档�
 | R3 adjust_bottle BF16基准 | 200 |
 | R4 三任务混训 | 200（400此前已删除） |
 | R5 plate单任务 | 200 |
-| R6 顺序课程 | 250；500保留 |
+| R6 顺序课程 | 250、500，现无ckpt |
 | R7补课 | 250、300 |
-| R8新任务顺序课程 | 200、400；600保留 |
+| R8新任务顺序课程 | 200、400、600，现无ckpt |
+| R9 | 200、400；500保留 |
+| R10 | 200、400、600；800保留 |
 | R1/R2 FP32标准与增强对照 | 250、500此前已删除 |
 
-本次九份清理释放107.05GiB，报告：
+此前九份清理释放107.05GiB，报告：
 `/data/outputs/keep_R6_500_R8_600_cleanup_completed_20261020.json`。
 [精确清理清单](../../../refs/training_records/20261020_keep_R6_500_R8_600_cleanup_plan.json)。
 训练日志、闭环结果、视频、数据集和基础依赖模型保留；旧文档中的模型路径用于溯源，不保证可重新加载。
