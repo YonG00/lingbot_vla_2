@@ -10,10 +10,7 @@
 ## 目录一览
 
 | 目录 | 装什么 | 文件数 |
-|---|---|
-| 从plate200按plate100→cup200→pot200顺序续训500步 | [顺序续训配方](auto_learning/sequential_plate_cup_pot_zh.md) |
-| 只改配置指定主任务配额、复习比例、保存和共享评测列表 | [参数化配方框架](auto_learning/task_recipe_framework_zh.md) |
-| 从adjust_bottle BF16-200仅续训place_container_plate200步 | [单任务训练评测](auto_learning/place_container_plate_single_task_zh.md) |---|
+|---|---|---|
 | `docs/`（顶层） | **官方原有文档**（16 个 md + `config/`） | 17 |
 | `auto_learning/` | AutoLearning 流程：总览、启动、易错、门槛/倍率、TB 对照、多卡、设计稿、**实测记录** | 16 |
 | `rocm/` | AMD/ROCm 平台：实例重建恢复、使用指南、编译失败与 Triton 崩溃排查 | 4 |
@@ -24,6 +21,9 @@
 
 | 我要做什么 | 读哪篇 |
 |---|---|
+| 从plate200按plate100→cup200→pot200顺序续训500步 | [顺序续训配方](auto_learning/sequential_plate_cup_pot_zh.md) |
+| 只改配置指定主任务配额、复习比例、保存和共享评测列表 | [参数化配方框架](auto_learning/task_recipe_framework_zh.md) |
+| 从adjust_bottle BF16-200仅续训place_container_plate200步 | [单任务训练评测](auto_learning/place_container_plate_single_task_zh.md) |
 | 从BF16-200续训三个任务，按任务均匀采样，400步后评8任务 | [三任务续训与保留能力评测](auto_learning/three_task_bf16_continuation_zh.md) |
 | adjust_bottle当前采用基准、完整配方、存档位置与3/3闭环证据 | [BF16基准专门说明](auto_learning/adjust_bottle_bf16_baseline_zh.md) |
 | adjust_bottle标准组结束后3回合评测，再从9680开启EE/窗口/LN-FM训练500步并配对评测 | [自动配对队列](auto_learning/adjust_bottle_paired_control_zh.md) |
