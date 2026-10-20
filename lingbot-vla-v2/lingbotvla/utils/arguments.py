@@ -526,6 +526,10 @@ class TrainingArguments:
         default=1,
         metadata={"help": "Number of epochs between two checkpoint saves."},
     )
+    save_at_steps: Optional[List[int]] = field(
+        default=None,
+        metadata={"help": "Explicit optimizer checkpoint steps; None preserves save_steps interval. Recipe task boundaries use this list."},
+    )
     save_hf_weights: bool = field(
         default=True,
         metadata={"help": "Save the huggingface format weights to the last checkpoint dir."},

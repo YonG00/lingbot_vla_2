@@ -11,6 +11,7 @@
 
 | 我要做什么 | 跑哪个 |
 |---|---|
+| 只读取证已登记实验的来源、训练进度及闭环结果 | `collect_training_records.py`（标准库、无GPU；打印JSON快照，表格见docs中的训练流水与任务统计） |
 | FP32主参数/BF16计算的3步微批显存探针 | `experiment/robotwin/precision_batch_probe.py`（默认预览，须开卡后再加`--execute`；不存档/不关机） |
 | 鼠标混训真实数据CPU整链验收（含动作块边界） | `acceptance_checks/mouse_auxiliary_cpu_preflight.py`；使用独立输出目录，`--check-dataset-chunks`需训练环境 |
 | 按目标物筛选辅助episode、核对v3视频并生成审核队列 | `select_object_episodes.py`；说明见 `docs/auto_learning/object_episode_selection_zh.md` |

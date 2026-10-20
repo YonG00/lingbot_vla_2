@@ -39,6 +39,7 @@ from PIL import Image
 from tqdm import trange
 from torch.utils.tensorboard import SummaryWriter
 from lingbotvla.utils.async_tb_writer import AsyncTBWriter
+from lingbotvla.utils.checkpoint_schedule import checkpoint_due
 from lingbotvla.utils.tb_task_loss import accumulate_task_losses, mean_task_losses
 from lingbotvla.checkpoint import build_checkpointer
 from lingbotvla.data import (
@@ -1939,8 +1940,8 @@ def main():
             # always 的 DCP 仍必须在 unit 边界保存，保证 Scheduler/模型状态一致。
             _hf_periodic_direct = (args.train.save_hf_weights
                                    and args.train.dcp_save_mode in ("final_only", "hf_only"))
-            _save_due = bool(not args.train.smoke_no_checkpoint and
-                             args.train.save_steps and global_step % args.train.save_steps == 0)
+            _save_due = checkpoint_due(global_step, args.train.save_steps,
+                                       args.train.save_at_steps, args.train.smoke_no_checkpoint)
             if _hf_periodic_direct:
                 _al_deferred_save = False
             elif (_al_deferred_save and _al_hook is not None

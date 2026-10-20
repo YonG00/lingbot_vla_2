@@ -23,7 +23,7 @@ def validate(raw):
 
 def _validate(raw):
     c=deepcopy(raw)
-    keys(c,['version','source','data','output_dir','train','checkpoint','evaluation','runtime'],'recipe')
+    keys(c,['version','source','data','output_dir','train','checkpoint','evaluation','runtime','remediation'],'recipe')
     if type(c.get('version')) is not int or c['version']!=1:raise ValueError('recipe version must be 1')
     keys(c['source'],['trainer_config','checkpoint'],'source')
     if not all(isinstance(c['source'].get(k),str) and c['source'][k] for k in ['trainer_config','checkpoint']):raise ValueError('explicit source paths required')
@@ -64,8 +64,13 @@ def _validate(raw):
     import re
     for name in list(main)+list(r['tasks']):
         if not re.fullmatch('[a-z][a-z0-9_]*',name):raise ValueError('invalid task name')
-    cp=c['checkpoint'];keys(cp,['every_steps','save_final','hf_dtype'],'checkpoint')
-    integer(cp['every_steps'],'every_steps')
+    cp=c['checkpoint'];keys(cp,['mode','every_steps','save_final','hf_dtype'],'checkpoint')
+    cp.setdefault('mode','steps')
+    if cp['mode']=='steps':integer(cp['every_steps'],'every_steps')
+    elif cp['mode']=='task':
+        if t['mode']!='sequential':raise ValueError('task checkpoint mode requires sequential training')
+        if 'every_steps' in cp:raise ValueError('task checkpoint mode uses boundaries, not every_steps')
+    else:raise ValueError('checkpoint mode must be steps or task')
     if cp['save_final'] is not True or cp['hf_dtype']!='bf16':raise ValueError('v1 requires final BF16 HF; no silent precision/save change')
     e=c['evaluation'];keys(e,['tasks','episodes_per_task','checkpoints','shared_model_session'],'evaluation')
     if not isinstance(e['tasks'],list) or len(e['tasks'])!=len(set(e['tasks'])):raise ValueError('evaluation tasks must be unique list')
@@ -81,6 +86,15 @@ def _validate(raw):
         if type(n) is not int or n not in saves:raise ValueError('evaluation checkpoint is not saved')
         selected.append(n)
     if len(selected)!=len(set(selected)):raise ValueError('duplicate evaluation checkpoints')
+    remedial=c.setdefault('remediation',{})
+    keys(remedial,['enabled','max_rounds'],'remediation')
+    remedial.setdefault('enabled',False);remedial.setdefault('max_rounds',1)
+    if type(remedial['enabled']) is not bool:raise ValueError('remediation enabled must be boolean')
+    integer(remedial['max_rounds'],'remediation.max_rounds')
+    if remedial['enabled']:
+        if not e['tasks'] or e['episodes_per_task']!=3 or t['steps'] not in selected:
+            raise ValueError('remediation requires final checkpoint evaluation with three episodes per task')
+        if t['replay']['fraction']!=0:raise ValueError('remediation currently requires replay disabled')
     runtime=c.setdefault('runtime',{})
     keys(runtime,['shutdown_after_completion'],'runtime')
     if runtime.get('shutdown_after_completion',False) is not False:raise ValueError('v1 does not perform shutdown; request it separately')
@@ -89,5 +103,14 @@ def _validate(raw):
 
 
 def milestones(c):
+    if c['checkpoint'].get('mode','steps')=='task':
+        total=0;result=[]
+        for task in c['train']['task_order']:
+            total+=c['train']['main_tasks'][task]['steps'];result.append(total)
+        return result
     n=c['train']['steps'];interval=c['checkpoint']['every_steps']
     return sorted(set(list(range(interval,n+1,interval))+[n]))
+
+
+def save_interval(c):
+    return 0 if c['checkpoint'].get('mode','steps')=='task' else c['checkpoint']['every_steps']

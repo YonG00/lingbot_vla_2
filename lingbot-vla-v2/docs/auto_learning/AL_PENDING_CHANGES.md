@@ -17,6 +17,14 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#69 两种存档模式与R8顺序课程（2026-10-20）：🧪 本地/服务器30项CPU契约通过、真实150条19867帧CPU通过，三步GPU检查通过，正式600步训练已启动。** schema新增checkpoint.mode=steps/task；task只允许sequential且拒绝every_steps，milestones按任务累计边界；prepare生成save_at_steps、save_steps=0，训练器通过纯标准库checkpoint_due触发原HF-only出口。模式×补课四格、非等长100/300/500、旧间隔逐步回归及禁存档探针通过。不变量：切数据前保存、最终去重、旧steps逻辑不变；症状：漏200/400边界、探针出现HF、保存计划与trainer不一致；回滚：新启动配方checkpoint.mode=steps并指定every_steps，不能热改；验证：test_checkpoint_modes、cpu_report及未来verified_checkpoints。R8从R6-step500（非R7）按turn_switch→move_pillbottle_pad→move_stapler_pad各200，200/400/600保存，最终三任务各3轮。用户明确保留旧存档，先启动主课程、补课暂缓；容量闸门未降低，三步探针无DCP/HF输出，正式训练阶段已进入；200/400/600真实落盘待完成。
+
+**#68 训练流水与任务统计（2026-10-20）：🧪 服务器只读取证及本地表格/JSON检查。** 新增training_history_zh.md与task_training_statistics_zh.md，按时间登记来源/任务/正式步数/耗时/闭环/补课，按任务首训顺序横向比较训练与补课；`refs/training_records`存机器证据快照，`tools/collect_training_records.py`只读采集已登记run。不变量：当前模型继承累计不跨分支相加、250/500快照不重复累计、混训期望曝光不冒充实测步数、进行中不算计划完成；症状：累计大于继承链配额、未结束标最终成功；回滚：不使用新报表（不影响训练）；验证：快照JSON解析、表格列数、日志首末步与summary逐项核对。覆盖2026-10-20七次run，更早鼠标记录未回填；快照265/300，采集器不自动重写Markdown，后续按新快照更新。未改运行训练。
+
+**#67 补课300步仅最终保存（2026-10-20）：🧪 CPU契约通过。** 用户明确授权300步不需要250中间存档；`remediation.next_recipe`仅对总步数300且原间隔250改为间隔300，其他节奏不变。不变量：最终300必须保存，其余课程保存节奏不受影响；症状：新生成300步补课仍出现250保存计划；回滚：删除该特殊分支（启动前生效）；验证：test_remediation的milestones断言。当前已运行至69/300的首轮补课仍沿用250/300，避免重启丢进度；未热更新运行进程。
+
+**#66 闭环有限补课（2026-10-20）：🧪 本地26项CPU回归通过，真实GPU及闭环串联待验证。** `task_recipes/schema.py/remediation.py/run.py/prepare.py`新增顶层remediation.enabled（默认false）及max_rounds（默认1）。1/3先补100、0/3后补200，2/3及3/3跳过；每轮从上一最终HF独立启动顺序续训，新优化器，复测全部任务，轮数上限后结束。保留存档间隔及每轮最终存档，预预算最坏空间，不自动删除；评测异常不判0/3。不变量：默认关闭不续训、补课顺序/配额确定、最终复测有效、无递归失控；症状：缺失/重复/非完整评测结果报错、子pipeline.failed，母pipeline不得complete；快速回滚：启动前remediation.enabled=false（新进程读取，不能热改）；验证入口：`python3 -m unittest experiment.task_recipes.test_remediation experiment.task_recipes.test_contracts`，产物remediation_summary及每轮plan/status。依赖#64/#65与共享评测；不改正在运行训练，不宣称CPU模拟为GPU成功；没有更改现有配置的保存节奏。提交：待用户指令。
+
 **#65 顺序500步配方（2026-10-20）：🧪 CPU检查、三步GPU通过，正式训练已更新7/500。** 用户指定plate200来源，plate100/cup200/pot200顺序，250/500 BF16 HF，仅500闭环三任务各3；随后明确先用旧重载评测，不等待内存模型交接。新增sequential模式显式task_order及边界契约，不混复习、不重置阶段间优化器。CPU检查器GAS写死1的问题已参数化expected_gas并重跑真实GAS2装配成功，本次150回合loader500步通过。不变量：源模型、顺序/配额/保存、FP32仅推理不影响BF16 HF；症状：配方/步计划/HF/dtype失败；回滚：不用新配方，原plate200保留；验证：test_contracts、原始CPU重试日志、本次cpu/probe/verified/evaluation报告。详见顺序续训说明。
 
 

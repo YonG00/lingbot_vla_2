@@ -32,7 +32,8 @@ def worker(raw,launch):
         state('prepare');prepare(c)
         logs=Path('/root/tf-logs')
         if logs.is_dir():
-            link=logs/out.name
+            name=out.parent.name+'_'+out.name if out.name.startswith('remediation_round_') else out.name
+            link=logs/name
             assert not link.exists() and not link.is_symlink(),'TensorBoard link already exists'
             link.symlink_to(out/'runs',target_is_directory=True)
         here=str(Path(__file__).resolve())
@@ -64,7 +65,19 @@ def worker(raw,launch):
                     path=dest/'job.json';path.write_text(json.dumps(job,indent=2))
                     run([sys.executable,str(ROOT/'experiment/official_control/evaluate.py'),'--job',str(path)],dest/'pipeline.log')
                     results.append(json.loads((dest/'summary.json').read_text()))
-        state('complete',checkpoints=verified,evaluation=results,progress=confirmed_progress(p,c['train']['steps']),shutdown=False)
+        from experiment.task_recipes.remediation import run_rounds
+        def record_round(number,lessons,child):
+            state('remediation',round=number,curriculum=lessons,output_dir=child['output_dir'])
+            (out/f'remediation_round_{number}_plan.json').write_text(json.dumps(dict(curriculum=lessons,recipe=child),indent=2))
+        def execute_round(child):
+            child_launch=Path(child['output_dir']+'_pipeline');child_launch.mkdir(exist_ok=False)
+            (child_launch/'recipe.json').write_text(json.dumps(child,indent=2))
+            if worker(child,child_launch)!=0:raise RuntimeError('remediation round failed; see '+str(child_launch))
+            return json.loads((child_launch/'status.json').read_text())['evaluation']
+        remediation=run_rounds(c,results,execute_round,record_round)
+        (out/'remediation_summary.json').write_text(json.dumps(remediation,indent=2))
+        state('complete',checkpoints=verified,evaluation=results,remediation=remediation,
+            progress=confirmed_progress(p,c['train']['steps']),shutdown=False)
         return 0
     except BaseException as error:
         state('failed',error=repr(error));traceback.print_exc();return 1
@@ -103,7 +116,7 @@ def main():
     from experiment.task_recipes.schema import milestones
     print(json.dumps(dict(source=c['source'],output_dir=c['output_dir'],tasks={k:len(v) for k,v in groups.items()},frames=frames,
         optimizer_steps=c['train']['steps'],global_batch_size=p['global_batch_size'],hf_steps=milestones(c),
-        projected_progress=confirmed_progress(p,c['train']['steps']),evaluation=c['evaluation'],training_started=False),indent=2))
+        projected_progress=confirmed_progress(p,c['train']['steps']),evaluation=c['evaluation'],remediation=c['remediation'],training_started=False),indent=2))
     if a.execute:
         out=Path(c['output_dir']);assert not out.exists(),'refuse to overwrite run'
         launch=out.with_name(out.name+'_pipeline');launch.mkdir(parents=True,exist_ok=False)

@@ -1,0 +1,1000 @@
+[
+  {
+    "run": "/root/autodl-tmp/data/outputs/official_adjust_bottle_9680_m28_add500_20261020",
+    "files": {
+      "trainer_config.json": {
+        "source": "/data/outputs/al_v79_poolfix_7300/checkpoints/global_step_9680/hf_ckpt",
+        "train": {
+          "max_steps": 500,
+          "micro_batch_size": 28,
+          "global_batch_size": 28,
+          "save_steps": 250
+        }
+      }
+    },
+    "log_progress": {
+      "first": [
+        "10/20/2026 12:19:59",
+        "1",
+        "255"
+      ],
+      "last": [
+        "10/20/2026 12:57:37",
+        "500",
+        "255"
+      ]
+    }
+  },
+  {
+    "run": "/root/autodl-tmp/data/outputs/enhanced_adjust_bottle_9680_m28_add500_20261020",
+    "files": {
+      "trainer_config.json": {
+        "source": "/data/outputs/al_v79_poolfix_7300/checkpoints/global_step_9680/hf_ckpt",
+        "train": {
+          "max_steps": 500,
+          "micro_batch_size": 28,
+          "global_batch_size": 28,
+          "save_steps": 250
+        }
+      }
+    },
+    "log_progress": {
+      "first": [
+        "10/20/2026 13:19:28",
+        "1",
+        "255"
+      ],
+      "last": [
+        "10/20/2026 13:58:55",
+        "500",
+        "255"
+      ]
+    }
+  },
+  {
+    "run": "/root/autodl-tmp/data/outputs/official_adjust_bottle_9680_bf16_m56_add200_20261020",
+    "files": {
+      "trainer_config.json": {
+        "source": "/data/outputs/al_v79_poolfix_7300/checkpoints/global_step_9680/hf_ckpt",
+        "train": {
+          "max_steps": 200,
+          "micro_batch_size": 56,
+          "global_batch_size": 56,
+          "save_steps": 250
+        }
+      },
+      "evaluation_200/summary.json": {
+        "state": "complete",
+        "task": "adjust_bottle",
+        "label": "official_bf16_200",
+        "model": "/data/outputs/official_adjust_bottle_9680_bf16_m56_add200_20261020/checkpoints/global_step_200/hf_ckpt",
+        "successes": 3,
+        "episodes": 3,
+        "success_rate": 1.0,
+        "seeds": [
+          100001,
+          100002,
+          100005
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50
+      }
+    },
+    "log_progress": {
+      "first": [
+        "10/20/2026 14:40:30",
+        "1",
+        "127"
+      ],
+      "last": [
+        "10/20/2026 14:57:56",
+        "200",
+        "127"
+      ]
+    }
+  },
+  {
+    "run": "/root/autodl-tmp/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020",
+    "files": {
+      "trainer_config.json": {
+        "source": "/data/outputs/official_adjust_bottle_9680_bf16_m56_add200_20261020/checkpoints/global_step_200/hf_ckpt",
+        "train": {
+          "max_steps": 400,
+          "micro_batch_size": 56,
+          "global_batch_size": 56,
+          "save_steps": 200
+        }
+      },
+      "/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020_pipeline/status.json": {
+        "state": "stopped_by_user",
+        "task": "move_can_pot",
+        "completed": [
+          {
+            "state": "complete",
+            "task": "place_container_plate",
+            "label": "three_task_400",
+            "model": "/root/autodl-tmp/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/checkpoints/global_step_400/hf_ckpt",
+            "successes": 0,
+            "episodes": 3,
+            "success_rate": 0.0,
+            "seeds": [
+              100000,
+              100003,
+              100004
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50
+          },
+          {
+            "state": "complete",
+            "task": "place_empty_cup",
+            "label": "three_task_400",
+            "model": "/root/autodl-tmp/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/checkpoints/global_step_400/hf_ckpt",
+            "successes": 0,
+            "episodes": 3,
+            "success_rate": 0.0,
+            "seeds": [
+              100000,
+              100001,
+              100002
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50
+          }
+        ],
+        "replacement": "/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/evaluation_400_selected_adjust_bottle_click_bell",
+        "requested_tasks": [
+          "adjust_bottle",
+          "click_bell"
+        ]
+      },
+      "evaluation_400_selected_adjust_bottle_click_bell/summary.json": [
+        {
+          "state": "complete",
+          "task": "adjust_bottle",
+          "label": "three_task_400_selected",
+          "model": "/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/checkpoints/global_step_400/hf_ckpt",
+          "successes": 2,
+          "episodes": 3,
+          "success_rate": 0.6666666666666666,
+          "seeds": [
+            100001,
+            100002,
+            100005
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "server_pid": 58398,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "click_bell",
+          "label": "three_task_400_selected",
+          "model": "/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/checkpoints/global_step_400/hf_ckpt",
+          "successes": 3,
+          "episodes": 3,
+          "success_rate": 1.0,
+          "seeds": [
+            100000,
+            100001,
+            100002
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "server_pid": 58398,
+          "shared_server": true
+        }
+      ],
+      "evaluation_400_selected_adjust_bottle_click_bell/click_bell/summary.json": {
+        "state": "complete",
+        "task": "click_bell",
+        "label": "three_task_400_selected",
+        "model": "/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/checkpoints/global_step_400/hf_ckpt",
+        "successes": 3,
+        "episodes": 3,
+        "success_rate": 1.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 58398,
+        "shared_server": true
+      },
+      "evaluation_400_selected_adjust_bottle_click_bell/adjust_bottle/summary.json": {
+        "state": "complete",
+        "task": "adjust_bottle",
+        "label": "three_task_400_selected",
+        "model": "/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/checkpoints/global_step_400/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100001,
+          100002,
+          100005
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 58398,
+        "shared_server": true
+      },
+      "evaluation_400/summary.json": [
+        {
+          "state": "complete",
+          "task": "place_container_plate",
+          "label": "three_task_400",
+          "model": "/root/autodl-tmp/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/checkpoints/global_step_400/hf_ckpt",
+          "successes": 0,
+          "episodes": 3,
+          "success_rate": 0.0,
+          "seeds": [
+            100000,
+            100003,
+            100004
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50
+        },
+        {
+          "state": "complete",
+          "task": "place_empty_cup",
+          "label": "three_task_400",
+          "model": "/root/autodl-tmp/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/checkpoints/global_step_400/hf_ckpt",
+          "successes": 0,
+          "episodes": 3,
+          "success_rate": 0.0,
+          "seeds": [
+            100000,
+            100001,
+            100002
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50
+        }
+      ],
+      "evaluation_400/place_empty_cup/summary.json": {
+        "state": "complete",
+        "task": "place_empty_cup",
+        "label": "three_task_400",
+        "model": "/root/autodl-tmp/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/checkpoints/global_step_400/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50
+      },
+      "evaluation_400/place_container_plate/summary.json": {
+        "state": "complete",
+        "task": "place_container_plate",
+        "label": "three_task_400",
+        "model": "/root/autodl-tmp/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/checkpoints/global_step_400/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100003,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50
+      }
+    },
+    "log_progress": {
+      "first": [
+        "10/20/2026 15:31:04",
+        "1",
+        "430"
+      ],
+      "last": [
+        "10/20/2026 16:05:55",
+        "400",
+        "430"
+      ]
+    }
+  },
+  {
+    "run": "/root/autodl-tmp/data/outputs/place_container_plate_from_adjust_bf16_200_m56_add200_20261020",
+    "files": {
+      "trainer_config.json": {
+        "source": "/data/outputs/official_adjust_bottle_9680_bf16_m56_add200_20261020/checkpoints/global_step_200/hf_ckpt",
+        "train": {
+          "max_steps": 200,
+          "micro_batch_size": 56,
+          "global_batch_size": 56,
+          "save_steps": 200
+        }
+      },
+      "/data/outputs/place_container_plate_from_adjust_bf16_200_m56_add200_20261020_pipeline/status.json": {
+        "state": "complete",
+        "checkpoint": {
+          "path": "/root/autodl-tmp/data/outputs/place_container_plate_from_adjust_bf16_200_m56_add200_20261020/checkpoints/global_step_200/hf_ckpt",
+          "tensors": 1708,
+          "floating_dtype": "BF16"
+        },
+        "evaluation": {
+          "state": "complete",
+          "task": "place_container_plate",
+          "label": "single_task_200",
+          "model": "/root/autodl-tmp/data/outputs/place_container_plate_from_adjust_bf16_200_m56_add200_20261020/checkpoints/global_step_200/hf_ckpt",
+          "successes": 1,
+          "episodes": 3,
+          "success_rate": 0.3333333333333333,
+          "seeds": [
+            100000,
+            100003,
+            100004
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50
+        },
+        "shutdown": false
+      },
+      "evaluation_200/summary.json": {
+        "state": "complete",
+        "task": "place_container_plate",
+        "label": "single_task_200",
+        "model": "/root/autodl-tmp/data/outputs/place_container_plate_from_adjust_bf16_200_m56_add200_20261020/checkpoints/global_step_200/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100003,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50
+      }
+    },
+    "log_progress": {
+      "first": [
+        "10/20/2026 16:43:45",
+        "1",
+        "141"
+      ],
+      "last": [
+        "10/20/2026 17:00:19",
+        "200",
+        "141"
+      ]
+    }
+  },
+  {
+    "run": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020",
+    "files": {
+      "trainer_config.json": {
+        "source": "/root/autodl-tmp/data/outputs/place_container_plate_from_adjust_bf16_200_m56_add200_20261020/checkpoints/global_step_200/hf_ckpt",
+        "train": {
+          "max_steps": 500,
+          "micro_batch_size": 56,
+          "global_batch_size": 56,
+          "save_steps": 250
+        }
+      },
+      "recipe.json": {
+        "version": 1,
+        "source": {
+          "trainer_config": "/root/autodl-tmp/data/outputs/place_container_plate_from_adjust_bf16_200_m56_add200_20261020/trainer_config.json",
+          "checkpoint": "/root/autodl-tmp/data/outputs/place_container_plate_from_adjust_bf16_200_m56_add200_20261020/checkpoints/global_step_200/hf_ckpt"
+        },
+        "data": {
+          "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+        },
+        "output_dir": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020",
+        "train": {
+          "mode": "sequential",
+          "micro_batch_size": 56,
+          "gradient_accumulation_steps": 1,
+          "seed": 3,
+          "episode_split": "all",
+          "main_tasks": {
+            "place_container_plate": {
+              "steps": 100,
+              "weight": 1
+            },
+            "place_empty_cup": {
+              "steps": 200,
+              "weight": 1
+            },
+            "move_can_pot": {
+              "steps": 200,
+              "weight": 1
+            }
+          },
+          "replay": {
+            "fraction": 0,
+            "tasks": {}
+          },
+          "task_order": [
+            "place_container_plate",
+            "place_empty_cup",
+            "move_can_pot"
+          ],
+          "steps": 500
+        },
+        "checkpoint": {
+          "every_steps": 250,
+          "save_final": true,
+          "hf_dtype": "bf16"
+        },
+        "evaluation": {
+          "tasks": [
+            "place_container_plate",
+            "place_empty_cup",
+            "move_can_pot"
+          ],
+          "episodes_per_task": 3,
+          "checkpoints": [
+            "final"
+          ],
+          "shared_model_session": true
+        },
+        "runtime": {
+          "shutdown_after_completion": false
+        }
+      },
+      "/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020_pipeline/status.json": {
+        "state": "complete",
+        "checkpoints": [
+          {
+            "path": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_250/hf_ckpt",
+            "tensors": 1708,
+            "floating_dtype": "BF16"
+          },
+          {
+            "path": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+            "tensors": 1708,
+            "floating_dtype": "BF16"
+          }
+        ],
+        "evaluation": [
+          {
+            "state": "complete",
+            "task": "place_container_plate",
+            "label": "recipe_500",
+            "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+            "successes": 2,
+            "episodes": 3,
+            "success_rate": 0.6666666666666666,
+            "seeds": [
+              100000,
+              100003,
+              100004
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "server_pid": 70663,
+            "shared_server": true
+          },
+          {
+            "state": "complete",
+            "task": "place_empty_cup",
+            "label": "recipe_500",
+            "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+            "successes": 1,
+            "episodes": 3,
+            "success_rate": 0.3333333333333333,
+            "seeds": [
+              100000,
+              100001,
+              100002
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "server_pid": 70663,
+            "shared_server": true
+          },
+          {
+            "state": "complete",
+            "task": "move_can_pot",
+            "label": "recipe_500",
+            "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+            "successes": 0,
+            "episodes": 3,
+            "success_rate": 0.0,
+            "seeds": [
+              100000,
+              100001,
+              100002
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "server_pid": 70663,
+            "shared_server": true
+          }
+        ],
+        "progress": {
+          "confirmed_optimizer_steps": 500,
+          "main_steps": {
+            "place_container_plate": 100,
+            "place_empty_cup": 200,
+            "move_can_pot": 200
+          },
+          "samples_by_task": {
+            "place_container_plate": 5600,
+            "place_empty_cup": 11200,
+            "move_can_pot": 11200
+          },
+          "replay_samples": 0
+        },
+        "shutdown": false
+      },
+      "evaluation_500/summary.json": [
+        {
+          "state": "complete",
+          "task": "place_container_plate",
+          "label": "recipe_500",
+          "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+          "successes": 2,
+          "episodes": 3,
+          "success_rate": 0.6666666666666666,
+          "seeds": [
+            100000,
+            100003,
+            100004
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "server_pid": 70663,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "place_empty_cup",
+          "label": "recipe_500",
+          "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+          "successes": 1,
+          "episodes": 3,
+          "success_rate": 0.3333333333333333,
+          "seeds": [
+            100000,
+            100001,
+            100002
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "server_pid": 70663,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "move_can_pot",
+          "label": "recipe_500",
+          "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+          "successes": 0,
+          "episodes": 3,
+          "success_rate": 0.0,
+          "seeds": [
+            100000,
+            100001,
+            100002
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "server_pid": 70663,
+          "shared_server": true
+        }
+      ],
+      "evaluation_500/place_empty_cup/summary.json": {
+        "state": "complete",
+        "task": "place_empty_cup",
+        "label": "recipe_500",
+        "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 70663,
+        "shared_server": true
+      },
+      "evaluation_500/move_can_pot/summary.json": {
+        "state": "complete",
+        "task": "move_can_pot",
+        "label": "recipe_500",
+        "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 70663,
+        "shared_server": true
+      },
+      "evaluation_500/place_container_plate/summary.json": {
+        "state": "complete",
+        "task": "place_container_plate",
+        "label": "recipe_500",
+        "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100000,
+          100003,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 70663,
+        "shared_server": true
+      }
+    },
+    "log_progress": {
+      "first": [
+        "10/20/2026 17:33:16",
+        "1",
+        "500"
+      ],
+      "last": [
+        "10/20/2026 18:15:31",
+        "500",
+        "500"
+      ]
+    }
+  },
+  {
+    "run": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1",
+    "files": {
+      "trainer_config.json": {
+        "source": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+        "train": {
+          "max_steps": 300,
+          "micro_batch_size": 56,
+          "global_batch_size": 56,
+          "save_steps": 250
+        }
+      },
+      "recipe.json": {
+        "version": 1,
+        "source": {
+          "trainer_config": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/trainer_config.json",
+          "checkpoint": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt"
+        },
+        "data": {
+          "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+        },
+        "output_dir": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1",
+        "train": {
+          "mode": "sequential",
+          "micro_batch_size": 56,
+          "gradient_accumulation_steps": 1,
+          "seed": 3,
+          "episode_split": "all",
+          "main_tasks": {
+            "place_empty_cup": {
+              "steps": 100,
+              "weight": 1
+            },
+            "move_can_pot": {
+              "steps": 200,
+              "weight": 1
+            }
+          },
+          "replay": {
+            "fraction": 0,
+            "tasks": {}
+          },
+          "task_order": [
+            "place_empty_cup",
+            "move_can_pot"
+          ],
+          "steps": 300
+        },
+        "checkpoint": {
+          "every_steps": 250,
+          "save_final": true,
+          "hf_dtype": "bf16"
+        },
+        "evaluation": {
+          "tasks": [
+            "place_container_plate",
+            "place_empty_cup",
+            "move_can_pot"
+          ],
+          "episodes_per_task": 3,
+          "checkpoints": [
+            "final"
+          ],
+          "shared_model_session": true
+        },
+        "runtime": {
+          "shutdown_after_completion": false
+        },
+        "remediation": {
+          "enabled": false,
+          "max_rounds": 1
+        }
+      },
+      "/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1_pipeline/status.json": {
+        "state": "complete",
+        "checkpoints": [
+          {
+            "path": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_250/hf_ckpt",
+            "tensors": 1708,
+            "floating_dtype": "BF16"
+          },
+          {
+            "path": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_300/hf_ckpt",
+            "tensors": 1708,
+            "floating_dtype": "BF16"
+          }
+        ],
+        "evaluation": [
+          {
+            "state": "complete",
+            "task": "place_container_plate",
+            "label": "recipe_300",
+            "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_300/hf_ckpt",
+            "successes": 0,
+            "episodes": 3,
+            "success_rate": 0.0,
+            "seeds": [
+              100000,
+              100003,
+              100004
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "server_pid": 80494,
+            "shared_server": true
+          },
+          {
+            "state": "complete",
+            "task": "place_empty_cup",
+            "label": "recipe_300",
+            "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_300/hf_ckpt",
+            "successes": 0,
+            "episodes": 3,
+            "success_rate": 0.0,
+            "seeds": [
+              100000,
+              100001,
+              100002
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "server_pid": 80494,
+            "shared_server": true
+          },
+          {
+            "state": "complete",
+            "task": "move_can_pot",
+            "label": "recipe_300",
+            "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_300/hf_ckpt",
+            "successes": 0,
+            "episodes": 3,
+            "success_rate": 0.0,
+            "seeds": [
+              100000,
+              100001,
+              100002
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "server_pid": 80494,
+            "shared_server": true
+          }
+        ],
+        "remediation": [],
+        "progress": {
+          "confirmed_optimizer_steps": 300,
+          "main_steps": {
+            "place_empty_cup": 100,
+            "move_can_pot": 200
+          },
+          "samples_by_task": {
+            "place_empty_cup": 5600,
+            "move_can_pot": 11200
+          },
+          "replay_samples": 0
+        },
+        "shutdown": false
+      },
+      "evaluation_300/summary.json": [
+        {
+          "state": "complete",
+          "task": "place_container_plate",
+          "label": "recipe_300",
+          "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_300/hf_ckpt",
+          "successes": 0,
+          "episodes": 3,
+          "success_rate": 0.0,
+          "seeds": [
+            100000,
+            100003,
+            100004
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "server_pid": 80494,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "place_empty_cup",
+          "label": "recipe_300",
+          "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_300/hf_ckpt",
+          "successes": 0,
+          "episodes": 3,
+          "success_rate": 0.0,
+          "seeds": [
+            100000,
+            100001,
+            100002
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "server_pid": 80494,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "move_can_pot",
+          "label": "recipe_300",
+          "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_300/hf_ckpt",
+          "successes": 0,
+          "episodes": 3,
+          "success_rate": 0.0,
+          "seeds": [
+            100000,
+            100001,
+            100002
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "server_pid": 80494,
+          "shared_server": true
+        }
+      ],
+      "evaluation_300/place_empty_cup/summary.json": {
+        "state": "complete",
+        "task": "place_empty_cup",
+        "label": "recipe_300",
+        "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_300/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 80494,
+        "shared_server": true
+      },
+      "evaluation_300/move_can_pot/summary.json": {
+        "state": "complete",
+        "task": "move_can_pot",
+        "label": "recipe_300",
+        "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_300/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 80494,
+        "shared_server": true
+      },
+      "evaluation_300/place_container_plate/summary.json": {
+        "state": "complete",
+        "task": "place_container_plate",
+        "label": "recipe_300",
+        "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_300/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100003,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 80494,
+        "shared_server": true
+      }
+    },
+    "log_progress": {
+      "first": [
+        "10/20/2026 18:36:14",
+        "1",
+        "300"
+      ],
+      "last": [
+        "10/20/2026 19:01:41",
+        "300",
+        "300"
+      ]
+    }
+  }
+]

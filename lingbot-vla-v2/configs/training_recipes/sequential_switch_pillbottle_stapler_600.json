@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/trainer_config.json",
+    "checkpoint": "/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020",
+  "train": {
+    "mode": "sequential",
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "turn_switch": {
+        "steps": 200,
+        "weight": 1
+      },
+      "move_pillbottle_pad": {
+        "steps": 200,
+        "weight": 1
+      },
+      "move_stapler_pad": {
+        "steps": 200,
+        "weight": 1
+      }
+    },
+    "replay": {
+      "fraction": 0,
+      "tasks": {}
+    },
+    "task_order": [
+      "turn_switch",
+      "move_pillbottle_pad",
+      "move_stapler_pad"
+    ]
+  },
+  "checkpoint": {
+    "mode": "task",
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "tasks": [
+      "turn_switch",
+      "move_pillbottle_pad",
+      "move_stapler_pad"
+    ],
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true
+  },
+  "runtime": {
+    "shutdown_after_completion": false
+  },
+  "remediation": {
+    "enabled": false,
+    "max_rounds": 1
+  }
+}

@@ -22,6 +22,8 @@
 | 我要做什么 | 读哪篇 |
 |---|---|
 | 从plate200按plate100→cup200→pot200顺序续训500步 | [顺序续训配方](auto_learning/sequential_plate_cup_pot_zh.md) |
+| 按时间看训练来源、任务、耗时、评测及补课 | [训练流水](auto_learning/training_history_zh.md) |
+| 按任务看累计步数、各轮评测及补课对照 | [任务训练统计](auto_learning/task_training_statistics_zh.md) |
 | 只改配置指定主任务配额、复习比例、保存和共享评测列表 | [参数化配方框架](auto_learning/task_recipe_framework_zh.md) |
 | 从adjust_bottle BF16-200仅续训place_container_plate200步 | [单任务训练评测](auto_learning/place_container_plate_single_task_zh.md) |
 | 从BF16-200续训三个任务，按任务均匀采样，400步后评8任务 | [三任务续训与保留能力评测](auto_learning/three_task_bf16_continuation_zh.md) |

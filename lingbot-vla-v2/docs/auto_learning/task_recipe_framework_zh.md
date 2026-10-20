@@ -107,3 +107,58 @@ python -m unittest experiment.task_recipes.test_contracts -v
 回滚：不用`experiment/task_recipes/run.py`，原单任务和AL入口继续独立使用；新模块只在新进程读取，不能热改当前run。
 
 顺序模式的当前实验与来源、250/500存档约定见[顺序续训说明](sequential_plate_cup_pot_zh.md)。
+
+### 两种存档模式
+
+`checkpoint.mode`默认为`steps`，保留旧配方行为：
+
+```json
+"checkpoint": {"mode": "steps", "every_steps": 250, "save_final": true, "hf_dtype": "bf16"}
+```
+
+顺序课程也可选择`task`：每个任务完成后、下一任务第一步之前保存，最终任务结束也保存。
+
+```json
+"checkpoint": {"mode": "task", "save_final": true, "hf_dtype": "bf16"}
+```
+
+任务模式只支持sequential，不接受every_steps，避免两种规则混用。
+例如100→200→200的课程保存100/300/500；200→200→200保存200/400/600。
+prepare生成`save_steps=0, save_at_steps=[...]`；训练器通过纯CPU的checkpoint_due判定，
+仍走原HF-only保存与容量检查，末步保存去重沿用原逻辑。
+补课继承存档模式：任务模式按每个补课任务完成点保存，不应用300步仅最终保存的步数模式例外。
+三步GPU探针禁存档，显式步号列表也不得触发保存。
+开关与补课组合的四格均有CPU契约；真实200步任务边界落盘尚待本轮训练验证。
+
+本轮新课程：[switch/pillbottle/stapler 600步配置](../../configs/training_recipes/sequential_switch_pillbottle_stapler_600.json)。
+来源严格为R6-step500，三任务各200步，GBS56/BF16，最终三个新任务各3回合。
+用户因容量选择先训主课程、暂缓补课，当前配置remediation.enabled=false；不删除旧存档。
+
+### 可选闭环补课
+
+配方顶层可添加下面的配置；省略时默认关闭，`max_rounds`默认1：
+
+```json
+"remediation": {"enabled": true, "max_rounds": 1}
+```
+
+开启前要求：复习比例为0、评测任务非空、每任务3回合，并包含最终存档评测。
+只使用最终模型的完整有效结果：1/3先补100步，0/3后补200步，2/3和3/3跳过。
+同分任务保持评测任务列表顺序；所有任务都无需补课时直接结束。
+测评缺失、重复、模型路径不符或执行异常均中止，不作为0/3。
+
+每轮补课生成一份顺序课程表，从上一轮最终HF续训，沿用batch、精度及存档间隔，复习关闭。
+用户授权例外：补课总计300步且原保存间隔为250时，自动改为只存最终300；其余节奏沿用。
+该规则启动时读取，不热改已经运行的训练。
+补课是独立训练进程，会重新初始化优化器和学习率日程；同一轮内部各任务之间连续训练。
+补完一轮后，闭环复测原配置的全部评测任务，达到轮次上限即结束，即使仍有失败也不继续。
+所有轮次沿用现有评测种子逻辑，没有新增独立种子组，不将三回合结果视为稳定掌握的证明。
+
+原训练开始前按“全部评测任务均需200步补课×最大轮数”预估额外存档空间；每轮启动再次检查，
+容量不足报错，不删除存档、不减少间隔。每轮含沿用间隔产生的中间存档及最终存档。
+子目录为`remediation_round_N`；课程表为`remediation_round_N_plan.json`；
+最终`remediation_summary.json`和pipeline状态保留各轮评测结果。
+每轮照常执行CPU检查、三步GPU检查、正式训练、HF校验、闭环评测。
+
+验证：`python3 -m unittest experiment.task_recipes.test_remediation`。
+本功能仅完成本地纯CPU契约测试，尚未做真实GPU补课及闭环串联验证；没有热更新当前服务器训练。
