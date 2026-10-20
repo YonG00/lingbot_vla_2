@@ -17,10 +17,16 @@
 
 ## §1 待验证（改了但没上机跑过）
 
-**#62 多任务复用一次推理服务（2026-10-20）：🧪 服务器20项CPU回归通过，实际两任务评测启动。** 用户要求停止旧队列，仅评adjust_bottle/click_bell各3回合；已停止旧控制器、当前评测、服务与仿真进程组，旧结果保留。新增shared_evaluation跨任务共用同一模型/服务，evaluate.execute可接共享session，原单任务调用默认行为不变。不变量：只加载一次相同400模型、每回合reset、同FP32/chunk50/渲染检查，结束/异常仅会话所有者关服务；症状：PID变化、重复load、跨模型复用、审计/seed/渲染失败；回滚：新任务不使用共享session，旧单任务API保留；验证入口：test_shared_evaluation生命周期/异常清理/不同模型拒绝，以及新目录session/status/summary。尚未完成两个任务，不预报成功率。
+**#65 顺序500步配方（2026-10-20）：🧪 CPU检查、三步GPU通过，正式训练已更新7/500。** 用户指定plate200来源，plate100/cup200/pot200顺序，250/500 BF16 HF，仅500闭环三任务各3；随后明确先用旧重载评测，不等待内存模型交接。新增sequential模式显式task_order及边界契约，不混复习、不重置阶段间优化器。CPU检查器GAS写死1的问题已参数化expected_gas并重跑真实GAS2装配成功，本次150回合loader500步通过。不变量：源模型、顺序/配额/保存、FP32仅推理不影响BF16 HF；症状：配方/步计划/HF/dtype失败；回滚：不用新配方，原plate200保留；验证：test_contracts、原始CPU重试日志、本次cpu/probe/verified/evaluation报告。详见顺序续训说明。
 
 
-**#61 BF16-200续训三任务（2026-10-20）：🧪 服务器17项CPU契约、真实150回合整链、三步GPU通过，正式400步已启动。** 用户授权删除除9680/BF16-200外旧存档；已精确删除四份FP32 250/500，报告three_task_cleanup_20261020.json。新增three_task.py的任务等概率采样/准备/CPU装配与three_task_pipeline.py串行400步→200/400保存→仅400评8任务各3回合。通用CPU检查增加显式episodes/save_steps/数据回调，默认旧行为不变；评测增加task参数，默认adjust_bottle不变。不变量：来源BF16-200、150条24119帧、三任务各1/3、56/GAS1、BF16、200/400；症状：episode或概率质量不符、dtype/梯度/HF/seed/OIDN失败；回滚：不启新入口，旧基准独立保留；验证入口：test_three_task、cpu_report、probe/summary、verified_checkpoints、evaluation_400。无自动关机。详见[续训说明](three_task_bf16_continuation_zh.md)。
+**#64 参数化配方框架（2026-10-20）：🧪 初始12项及顺序扩展13项纯CPU契约通过，GAS2与顺序150条实际CPU装配已通过。** 用户要求先启动单任务再优化架构，已在单任务state=training后开始隔离新模块。新增task_recipes的严格schema、mixed/task_units计划、主配额/复习比例、真实索引sampler、虚拟完整epoch、冻结哈希、统一训练保存共享评测及确认进度；examples在configs/training_recipes。未改活跃训练器/模型/本次配置。不变量：主导步数精确、复习按样本比例、保存显式、预取不计完成、旧入口不变；症状：配方/哈希/索引/长度/配额/HF不符；回滚：不启新入口，无热修改；验证：test_contracts、等待任务完成后真实CPU单任务与主复习两配方，顺序三步GPU已通过，主复习组合真实CPU/完整GPU尚未验证。HF-only不冒充精确Resume，多卡/FP32/自动PASS尚未支持。详见[框架说明](task_recipe_framework_zh.md)。
+
+
+
+
+
+
 
 
 
@@ -217,6 +223,15 @@
 
 ## §2 已验证（可不再惦记）
 
+### #61–#63 已完成实验归档（2026-10-20）
+
+✅ 三任务400训练与两份HF完成，后按用户要求删除400；缩减后的共享闭环为adjust_bottle2/3、click_bell3/3，同PID且只加载一次模型。后续plate单任务200与HF完整验证完成，闭环1/3、OIDN错误0。以下保留实现期说明，阶段措辞以本段终态为准：
+
+**#63 place_container_plate单任务续训（2026-10-20）：🧪 CPU8项回归、真实50回合与三步GPU通过，正式200步训练中。** 用户要求先更新旧改动（064a1d8已push），删除三任务400（精确删除，其他200和9680保留），从原adjust_bottle BF16-200只训目标50条7934帧、56/GAS1、200步并自动闭环3回合。新增single_task_trial复用现有CPU/探针/HF/评测，未改模型与损失。不变量：指定来源、单任务、普通均匀、200保存与评测；症状：任务白名单/精度/HF/渲染失败；回滚：不运行新入口，原基准保留；验证：test_single_task_trial、cpu_report/probe/verified_checkpoint/evaluation_200。架构优化必须在正式启动后本地隔离开发，不修改本次已冻结配置。
+**#62 多任务复用一次推理服务（2026-10-20）：🧪 服务器20项CPU回归通过，实际两任务评测启动。** 用户要求停止旧队列，仅评adjust_bottle/click_bell各3回合；已停止旧控制器、当前评测、服务与仿真进程组，旧结果保留。新增shared_evaluation跨任务共用同一模型/服务，evaluate.execute可接共享session，原单任务调用默认行为不变。不变量：只加载一次相同400模型、每回合reset、同FP32/chunk50/渲染检查，结束/异常仅会话所有者关服务；症状：PID变化、重复load、跨模型复用、审计/seed/渲染失败；回滚：新任务不使用共享session，旧单任务API保留；验证入口：test_shared_evaluation生命周期/异常清理/不同模型拒绝，以及新目录session/status/summary。尚未完成两个任务，不预报成功率。
+**#61 BF16-200续训三任务（2026-10-20）：🧪 服务器17项CPU契约、真实150回合整链、三步GPU通过，正式400步已启动。** 用户授权删除除9680/BF16-200外旧存档；已精确删除四份FP32 250/500，报告three_task_cleanup_20261020.json。新增three_task.py的任务等概率采样/准备/CPU装配与three_task_pipeline.py串行400步→200/400保存→仅400评8任务各3回合。通用CPU检查增加显式episodes/save_steps/数据回调，默认旧行为不变；评测增加task参数，默认adjust_bottle不变。不变量：来源BF16-200、150条24119帧、三任务各1/3、56/GAS1、BF16、200/400；症状：episode或概率质量不符、dtype/梯度/HF/seed/OIDN失败；回滚：不启新入口，旧基准独立保留；验证入口：test_three_task、cpu_report、probe/summary、verified_checkpoints、evaluation_400。无自动关机。详见[续训说明](three_task_bf16_continuation_zh.md)。
+
+
 ### #60 采用BF16基准并归档可复用入口（2026-10-20）
 
 ✅ 已验证。用户在确认3/3后授权更新仓库。新增基准JSON快照（实际配置/存档/五组结果）、baseline_pipeline、test_baseline和专门说明；README/docs/AGENTS只增加入口指针。bf16_trial.prepare可从冻结快照准备，旧显式source方式保留；评测可额外核对expected_seeds，原默认行为不变。
@@ -350,3 +365,10 @@ BF16最终HF1708张量完整，约11.88GiB；CPU整链、三步GPU dtype/梯度�
 - #61 GPU启动验收：三步56/GAS1完成，allocated77.6979GiB、reserved84.5898GiB，实际参数/梯度/四处前向BF16且梯度有限。控制器state=training、steps400、hf_steps[200,400]，6007已发现本轮run；最终HF与24回合闭环尚未完成，不作为已学会证据。
 
 - #61/#62终态：三任务正式400步完成、200/400 BF16 HF均验证；原8任务评测按用户要求中止，选测adjust_bottle2/3、click_bell3/3，两任务server_pid58398一致，model_loads=1、OIDN错误0。用户随后授权删除三任务400（日志与200存档保留），重新从原adjust_bottle BF16-200单训place_container_plate200步；新实验另起，不继承已删400。
+
+- #63终态：place_container_plate正式200步与1708张量BF16 HF验证完成，3回合闭环1/3、OIDN错误0。后续#65来源即此模型。#64真实CPU首次因检查器硬编码GAS1失败，按expected_gas修复后GAS2实际loader通过；旧失败日志保留，不能把旧failed状态当成未修复。
+
+- #65启动实证：完整三步BF16参数/梯度/关键前向探针通过；框架真实150回合24119帧、loader虚拟epoch500步，正式已更新7步、6007已发现本轮run。继续按用户后续要求使用旧HF重载FP32评测，本轮不启用内存模型交接，不保存FP32 HF。
+
+- 提交前收尾：清理重复/过期文档阶段口径，sequential拒绝非1主任务weight，避免用户以为顺序模式仍按weight分配；当前运行不受此启动参数校验补充影响。#65只读核验39/500正常，未热同步、未改存档或评测精度。
+- 本次提交验证：本地21项纯CPU回归全部通过、py_compile/compileall与git diff --check通过；此前服务器已完成GAS2实际数据装配，以及顺序150回合24119帧/500步虚拟epochCPU检查与三步GPU探针。主复习组合仍仅有配额/采样契约证据，运行前仍强制CPU/GPU前置检查；不宣称完整闭环或内存模型交接已实现。

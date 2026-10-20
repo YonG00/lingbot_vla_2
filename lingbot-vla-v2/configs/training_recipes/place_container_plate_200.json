@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "experiment/official_control/baselines/adjust_bottle_bf16_200.json",
+    "checkpoint": "/data/outputs/official_adjust_bottle_9680_bf16_m56_add200_20261020/checkpoints/global_step_200/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/recipe_place_container_plate_200",
+  "train": {
+    "mode": "mixed",
+    "steps": 200,
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "place_container_plate": {
+        "weight": 1
+      }
+    },
+    "replay": {
+      "fraction": 0,
+      "tasks": {}
+    }
+  },
+  "checkpoint": {
+    "every_steps": 200,
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "tasks": [
+      "place_container_plate"
+    ],
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true
+  },
+  "runtime": {
+    "shutdown_after_completion": false
+  }
+}

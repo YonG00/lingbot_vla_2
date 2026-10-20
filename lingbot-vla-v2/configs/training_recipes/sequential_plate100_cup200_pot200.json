@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "/data/outputs/place_container_plate_from_adjust_bf16_200_m56_add200_20261020/trainer_config.json",
+    "checkpoint": "/data/outputs/place_container_plate_from_adjust_bf16_200_m56_add200_20261020/checkpoints/global_step_200/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020",
+  "train": {
+    "mode": "sequential",
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "place_container_plate": {
+        "steps": 100,
+        "weight": 1
+      },
+      "place_empty_cup": {
+        "steps": 200,
+        "weight": 1
+      },
+      "move_can_pot": {
+        "steps": 200,
+        "weight": 1
+      }
+    },
+    "replay": {
+      "fraction": 0,
+      "tasks": {}
+    },
+    "task_order": [
+      "place_container_plate",
+      "place_empty_cup",
+      "move_can_pot"
+    ]
+  },
+  "checkpoint": {
+    "every_steps": 250,
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "tasks": [
+      "place_container_plate",
+      "place_empty_cup",
+      "move_can_pot"
+    ],
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true
+  },
+  "runtime": {
+    "shutdown_after_completion": false
+  }
+}

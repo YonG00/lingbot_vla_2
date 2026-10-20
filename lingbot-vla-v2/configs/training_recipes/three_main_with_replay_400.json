@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "experiment/official_control/baselines/adjust_bottle_bf16_200.json",
+    "checkpoint": "/data/outputs/official_adjust_bottle_9680_bf16_m56_add200_20261020/checkpoints/global_step_200/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/recipe_three_main_with_replay_400",
+  "train": {
+    "mode": "task_units",
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "place_container_plate": {
+        "steps": 150,
+        "weight": 1
+      },
+      "place_empty_cup": {
+        "steps": 150,
+        "weight": 1
+      },
+      "move_can_pot": {
+        "steps": 100,
+        "weight": 1
+      }
+    },
+    "replay": {
+      "fraction": 0.2,
+      "tasks": {
+        "adjust_bottle": {
+          "weight": 3
+        },
+        "click_bell": {
+          "weight": 1
+        }
+      }
+    }
+  },
+  "checkpoint": {
+    "every_steps": 200,
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "tasks": [
+      "place_container_plate",
+      "place_empty_cup",
+      "move_can_pot",
+      "adjust_bottle",
+      "click_bell"
+    ],
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true
+  },
+  "runtime": {
+    "shutdown_after_completion": false
+  }
+}
