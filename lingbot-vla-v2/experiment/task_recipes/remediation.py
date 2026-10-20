@@ -27,6 +27,7 @@ def next_recipe(parent, previous_out, lessons, round_index):
     c['train'].update(mode='sequential',main_tasks={x['task']:dict(steps=x['steps'],weight=1) for x in lessons},
         task_order=[x['task'] for x in lessons],steps=sum(x['steps'] for x in lessons),replay=dict(fraction=0,tasks={}))
     c['evaluation']['checkpoints']=['final']
+    c['evaluation']['tasks']=[x['task'] for x in lessons]
     # User-approved 300-step course exception: avoid a redundant save only 50 steps before final.
     if c['train']['steps']==300 and c['checkpoint'].get('mode','steps')=='steps' and c['checkpoint']['every_steps']==250:
         c['checkpoint']['every_steps']=300
@@ -40,7 +41,7 @@ def run_rounds(c, results, execute, record):
     for number in range(1,c['remediation']['max_rounds']+1):
         out=Path(current['output_dir'])
         model=out/f"checkpoints/global_step_{current['train']['steps']}/hf_ckpt"
-        lessons=curriculum(c['evaluation']['tasks'],results,model)
+        lessons=curriculum(current['evaluation']['tasks'],results,model)
         if not lessons:break
         child=next_recipe(current,out,lessons,number)
         # Keep round directories beside one another, never nested inside the last round.
@@ -48,7 +49,7 @@ def run_rounds(c, results, execute, record):
         record(number,lessons,child)
         results=execute(child)
         child_model=Path(child['output_dir'])/f"checkpoints/global_step_{child['train']['steps']}/hf_ckpt"
-        curriculum(c['evaluation']['tasks'],results,child_model)  # Validate even the last round's results.
+        curriculum(child['evaluation']['tasks'],results,child_model)  # Validate even the last round's results.
         history.append(dict(round=number,curriculum=lessons,output_dir=child['output_dir'],evaluation=results))
         current=child
     return history

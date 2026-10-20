@@ -4,6 +4,8 @@ base=Path('/data/outputs')
 names=['official_adjust_bottle_9680_m28_add500_20261020','enhanced_adjust_bottle_9680_m28_add500_20261020','official_adjust_bottle_9680_bf16_m56_add200_20261020','three_task_from_adjust_bf16_200_m56_add400_20261020','place_container_plate_from_adjust_bf16_200_m56_add200_20261020','sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020']
 records=[]
 names.append('sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020')
+names.append('20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56')
+names.append('20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each')
 for name in names:
  p=base/name
  for out in [p]+list(p.glob('*remediation_round_[0-9]')):

@@ -23,6 +23,34 @@ R7启动后用户授权：以后300步补课仅最终300保存；当前进程不
 
 ### R7评测复核
 
+**R7编号对应的完整run目录**：
+
+```text
+/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1
+```
+
+这是R6目录下的补课子run，不是R6本身的`evaluation_500`。服务器`/data`解析为
+`/root/autodl-tmp/data`，报告里出现后者是同一位置。
+以下路径均相对于上述R7 run目录：
+
+| 内容 | 路径 |
+|---|---|
+| 来源模型 | `../checkpoints/global_step_500/hf_ckpt`（R6-step500） |
+| 本轮课程与训练配置 | `recipe.json`、`trainer_config.json` |
+| 训练日志 | `train.log` |
+| 250步中间存档 | `checkpoints/global_step_250/hf_ckpt` |
+| 最终300步存档 | `checkpoints/global_step_300/hf_ckpt` |
+| **闭环测评汇总** | **`evaluation_300/summary.json`** |
+| 共享服务与模型路径 | `evaluation_300/session.json`、`evaluation_300/server.log` |
+| 逐任务模型参数与结果 | `evaluation_300/<task>/job.json`、`evaluation_300/<task>/summary.json` |
+| 逐回合模拟日志 | `evaluation_300/<task>/sim.log` |
+| 结果文本与回放视频 | `evaluation_300/<task>/results/<task>/_result.txt`、`episode*_global.mp4`（同目录） |
+| 后台控制器状态 | 同级目录`remediation_round_1_pipeline/status.json`（在R6目录下） |
+
+`<task>`分别为`place_container_plate`、`place_empty_cup`、`move_can_pot`。
+R7按当时“复测原三任务”的规则运行；本轮实际只训练cup/pot，plate是保留能力检查。
+后续默认改为“本轮训什么就测什么”，不会追改这份历史结果。
+
 用户质疑后再次只读核对：训练来源为R6-step500，各任务job的评测模型为R7-step300。
 以下为日志中的累计成功数；与各任务`_result.txt`最后一行0.0和summary.successes=0一致。
 
@@ -38,20 +66,66 @@ R7的19:01:41是最后训练更新，不是闭环完成时间，闭环结果文�
 
 ## 原始记录索引
 
-### R8 新课程（正式训练中，212/600）
+### R8 新课程（600步及闭环均完成）
 
-进度快照：2026-10-20 19:54:00服务器日志时间；turn_switch已完成200步，
-step200的HF索引文件已发布，已进入move_pillbottle_pad（完成12/200），move_stapler_pad尚未开始。
-存档发布不代表该模型已完成闭环；闭环仍按原计划最终600后执行。
+正式更新日志：2026-10-20 19:34:54–20:27:56，耗时53分02秒；600步完成，三个任务各200步。
+最终600闭环：turn_switch 1/3、move_pillbottle_pad 0/3、move_stapler_pad 0/3，OIDN错误0。
+200/400/600三份曾完成校验；用户随后只保留最终600，作为R9来源。
 
 | 来源模型 | 顺序课程 | 总步数 / GBS | 存档 | 评测 | 补课 |
 |---|---|---|---|---|---|
-| **R6-step500**，不继承R7 | turn_switch200→move_pillbottle_pad200→move_stapler_pad200 | **212/600已完成** / 56 | 任务模式200/400/600；200已发布 | 最终600三个新任务各3回合，一次共享服务 | 用户因容量暂缓；enabled=false |
+| **R6-step500**，不继承R7 | turn_switch200→move_pillbottle_pad200→move_stapler_pad200 | **600/600已完成** / 56 | 任务模式200/400/600；现仅保留600 | switch 1/3、pillbottle 0/3、stapler 0/3 | 未执行自动补课 |
 
 输出：`/data/outputs/sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020`。
 BF16参数/计算/HF，150条19867帧；新优化器，阶段间连续。旧存档全部保留。
 后续补课策略已修订为：2/3优先补100步，其次1/3补100步；0/3与3/3跳过，最多一轮。
 这是未来新启动补课的规则，不修改历史R7，也不自动开启本轮R8补课。
+
+### R9：从R8-step600继续500步
+
+| 来源模型 | 顺序课程 | 本轮总步数 / GBS | 存档 | 评测 | 状态 |
+|---|---|---|---|---|---|
+| R8-step600 | move_stapler_pad200→move_pillbottle_pad200→turn_switch100 | **500/500完成** / 56 | 任务模式200/400/500，均已校验 | stapler 0/3、pillbottle 0/3、switch 2/3，OIDN错误0 | 2026-10-20 21:45:38训练结束，闭环complete，补课未执行 |
+
+完整run路径：
+
+```text
+/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56
+```
+
+来源：`/data/outputs/sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020/checkpoints/global_step_600/hf_ckpt`。
+配置：`configs/training_recipes/sequential_stapler200_pillbottle200_switch100_from_R8.json`。
+BF16参数/计算/HF、micro=GBS56、GAS1；新优化器和500步学习率日程，课程内部不重置。
+补课继续关闭，未关机。最终存档`checkpoints/global_step_500/hf_ckpt`，闭环汇总`evaluation_500/summary.json`。
+停训指令曾收到但未确认执行成功；复核时本轮已经自行完成训练及评测，无训练进程在跑，不能记为人工停止成功。
+[R8终态与R9启动快照](../../../refs/training_records/20261020_R8_complete_R9_started.json)。
+
+### R10：R9最终500续训四任务
+
+run：`/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each`。
+来源：R9的`checkpoints/global_step_500/hf_ckpt`，不继承被替换三任务流程的任何更新。
+课程：move_playingcard_away200→place_phone_stand200→place_object_scale200→rotate_qrcode200，共800步。
+200条27225帧，BF16/GBS56/GAS1，按任务边界200/400/600/800保存；最终仅四个训练任务各测3回合，共享服务。
+补课关闭、不自动关机。容量与真实数据CPU检查、三步GPU检查通过，正式训练已进入。
+进度快照：2026-10-20 22:58:30，已101/800，当前仅playingcard完成101步，其余任务未开始。
+[R9完整结果与R10进行中证据](../../../refs/training_records/20261020_R9_complete_R10_training.json)。
+刚启动的`20261020_2244_playingcard_phone_scale_from_R9_bf16_m56_200each`因用户追加rotate_qrcode已停止控制器及所有子进程，
+不是另一个已完成实验，不能将其更新累计到R10。最终结果以R10的evaluation_800/summary.json为准，目前未产生。
+
+### 本次历史存档保留清单
+
+按用户明确指令，启动R9前仅保留以下两份历史模型：
+
+- R6：`sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500`。
+- R8：`sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020/checkpoints/global_step_600`。
+
+两份均验证1708张量、BF16。删除其他9份global_step存档（包括9680、R3基准、R5、R7与R8中间存档），
+释放107.05GiB，清理后空闲115.68GiB。训练数据、基础依赖模型、日志、评测及视频未删。
+本页历史路径仍保留用于溯源，已删除模型不能再按旧命令直接复用。
+[精确删除清单](../../../refs/training_records/20261020_keep_R6_500_R8_600_cleanup_plan.json)；
+服务器完成报告：`/data/outputs/keep_R6_500_R8_600_cleanup_completed_20261020.json`。
+此“仅保留两份”指清理时的历史存档，不取消R9已授权的200/400/500存档。
+当前各run已保留、已删除及计划产物详见[存档梳理](checkpoint_inventory_zh.md)。
 
 各运行目录均位于服务器`/data/outputs/`：
 

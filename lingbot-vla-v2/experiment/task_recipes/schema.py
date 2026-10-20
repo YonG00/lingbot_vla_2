@@ -73,6 +73,7 @@ def _validate(raw):
     else:raise ValueError('checkpoint mode must be steps or task')
     if cp['save_final'] is not True or cp['hf_dtype']!='bf16':raise ValueError('v1 requires final BF16 HF; no silent precision/save change')
     e=c['evaluation'];keys(e,['tasks','episodes_per_task','checkpoints','shared_model_session'],'evaluation')
+    e.setdefault('tasks',list(t.get('task_order',main)))
     if not isinstance(e['tasks'],list) or len(e['tasks'])!=len(set(e['tasks'])):raise ValueError('evaluation tasks must be unique list')
     for name in e['tasks']:
         if not isinstance(name,str) or not re.fullmatch('[a-z][a-z0-9_]*',name):raise ValueError('invalid evaluation task')

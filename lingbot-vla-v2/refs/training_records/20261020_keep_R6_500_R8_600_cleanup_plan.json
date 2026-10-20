@@ -1,0 +1,58 @@
+{
+  "keep": [
+    "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500",
+    "/root/autodl-tmp/data/outputs/sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020/checkpoints/global_step_600"
+  ],
+  "verified": [
+    {
+      "path": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020/checkpoints/global_step_600/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    }
+  ],
+  "delete": [
+    {
+      "path": "/root/autodl-tmp/data/outputs/official_adjust_bottle_9680_bf16_m56_add200_20261020/checkpoints/global_step_200",
+      "bytes": 12768173026
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_250",
+      "bytes": 12768173075
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/remediation_round_1/checkpoints/global_step_300",
+      "bytes": 12768173075
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_250",
+      "bytes": 12768173055
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/al_v79_poolfix_7300/checkpoints/global_step_9680",
+      "bytes": 12797601790
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/place_container_plate_from_adjust_bf16_200_m56_add200_20261020/checkpoints/global_step_200",
+      "bytes": 12768173052
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/three_task_from_adjust_bf16_200_m56_add400_20261020/checkpoints/global_step_200",
+      "bytes": 12768173041
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020/checkpoints/global_step_400",
+      "bytes": 12768173060
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020/checkpoints/global_step_200",
+      "bytes": 12768173060
+    }
+  ],
+  "total_bytes": 114942986234,
+  "free_before": 9264979968
+}

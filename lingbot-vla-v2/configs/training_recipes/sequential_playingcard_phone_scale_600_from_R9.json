@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/trainer_config.json",
+    "checkpoint": "/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_500/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/playingcard_phone_scale_from_R9_bf16_m56_200each",
+  "train": {
+    "mode": "sequential",
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "move_playingcard_away": {
+        "steps": 200,
+        "weight": 1
+      },
+      "place_phone_stand": {
+        "steps": 200,
+        "weight": 1
+      },
+      "place_object_scale": {
+        "steps": 200,
+        "weight": 1
+      }
+    },
+    "replay": {
+      "fraction": 0,
+      "tasks": {}
+    },
+    "task_order": [
+      "move_playingcard_away",
+      "place_phone_stand",
+      "place_object_scale"
+    ]
+  },
+  "checkpoint": {
+    "mode": "task",
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true
+  },
+  "runtime": {
+    "shutdown_after_completion": false
+  },
+  "remediation": {
+    "enabled": false,
+    "max_rounds": 1
+  }
+}

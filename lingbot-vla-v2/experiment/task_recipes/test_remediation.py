@@ -51,8 +51,8 @@ class RemediationContracts(unittest.TestCase):
             def execute(child):
                 validate(child);children.append(child)
                 self.assertFalse(child['remediation']['enabled'])
-                self.assertEqual(child['evaluation']['tasks'],c['evaluation']['tasks'])
-                self.assertEqual(milestones(child),[200])
+                self.assertEqual(child['evaluation']['tasks'],child['train']['task_order'])
+                self.assertEqual(milestones(child),[100*len(child['train']['main_tasks'])])
                 self.assertEqual(child['train']['replay']['fraction'],0)
                 return self.results(child)
             history=run_rounds(c,self.results(c),execute,lambda *args:records.append(args))
