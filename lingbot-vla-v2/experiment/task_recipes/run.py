@@ -57,8 +57,12 @@ def worker(raw,launch):
                     destination=str(directory/task),episodes=c['evaluation']['episodes_per_task'],require_baseline=False,
                     robotwin=str(ROOT.parent/'RoboTwin-lingbot'),qwen=cfg['model']['tokenizer_path'],sim_python='/data/miniconda3/envs/RoboTwin/bin/python'))
             if c['evaluation']['shared_model_session']:
-                from experiment.official_control.shared_evaluation import run_jobs
-                run_jobs(jobs,directory)
+                if c['evaluation']['max_parallel_tasks']>1:
+                    from experiment.official_control.parallel_evaluation import run_jobs
+                    run_jobs(jobs,directory,c['evaluation']['max_parallel_tasks'])
+                else:
+                    from experiment.official_control.shared_evaluation import run_jobs
+                    run_jobs(jobs,directory)
                 results.extend(json.loads((directory/'summary.json').read_text()))
             else:
                 for job in jobs:

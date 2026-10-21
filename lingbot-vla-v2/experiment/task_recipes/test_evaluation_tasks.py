@@ -17,6 +17,17 @@ class EvaluationTasks(unittest.TestCase):
         raw['evaluation']['tasks']=['adjust_bottle']
         self.assertEqual(validate(raw)['evaluation']['tasks'],['adjust_bottle'])
 
+    def test_parallel_tasks_parameter_is_explicit_and_bounded(self):
+        raw=fixture('place_container_plate_200')
+        self.assertEqual(validate(raw)['evaluation']['max_parallel_tasks'],1)
+        raw['evaluation'].update(max_parallel_tasks=6,shared_model_session=True)
+        self.assertEqual(validate(raw)['evaluation']['max_parallel_tasks'],6)
+        for bad in [0,7,True,1.5]:
+            raw['evaluation']['max_parallel_tasks']=bad
+            with self.assertRaises(ValueError):validate(raw)
+        raw['evaluation'].update(max_parallel_tasks=6,shared_model_session=False)
+        with self.assertRaises(ValueError):validate(raw)
+
     def test_remediation_does_not_inherit_untrained_tasks(self):
         c=validate(fixture('sequential_plate100_cup200_pot200'))
         lesson=[dict(task='place_empty_cup',steps=100)]

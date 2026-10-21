@@ -1,7 +1,7 @@
 # 训练与闭环评测流水
 
 记录范围：2026-10-20官方对照实验至当前补课；更早鼠标实验尚未回填，不表示没有训练。
-最近取证：2026-10-21，R10训练、四份存档及闭环均已复核；各时间节点采用服务器日志时间。
+最近取证：2026-10-21，R11训练、三份存档及闭环已完成；R12正式训练已进入，各时间节点采用服务器日志时间。
 时间为首次/末次正式优化器更新日志时间，不含CPU检查、GPU探针、加载与闭环耗时。
 运行中记录仅表示该时间点进度。任务累计与各轮对照见[任务统计](task_training_statistics_zh.md)。
 
@@ -145,13 +145,53 @@ run：`/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10
 BF16参数/计算/HF，micro=GBS56/GAS1；新优化器、1200步日程，阶段间连续。
 每步10%样本复习，GBS56每步5/6条，连续10步同一个旧任务再轮换；排除当前主任务。
 冻结14任务资格池，主任务与复习合并共19任务、950条、159239帧。
-全程预计67200样本，其中复习6720；复习曝光不算额外完整优化器步。
+全程实际67200样本，其中复习6720；复习曝光不算额外完整优化器步。
 保存模式task/every_tasks=3；最终只测七个主课程任务各3回合，共享服务；补课关闭、不自动关机。
 44项本地与服务器CPU契约通过，真实950条数据CPU装配及三步GPU通过。
 三步micro56/GAS1峰值allocated77.70GiB、reserved84.59GiB；短测仅首个qrcode主任务与复习任务混合，不代表后续全部阶段已验。
-控制器已进入正式1200步训练，实际完成步数以train.log为准，最终闭环尚未开始。
-2026-10-21 08:35:52日志快照：正式已6/1200，当前rotate_qrcode，不能将剩余配额当作完成。
+正式1200步已完成：首次更新2026-10-21 08:35:08，末次10:14:32，更新耗时99分24秒。
+400/1000/1200三份HF均验证1708张量、BF16，最终七任务闭环完成；共享服务只加载一次，OIDN错误均0。
+
+| 任务 | step1200闭环 |
+| --- | --- |
+| rotate_qrcode | 2/3 |
+| move_playingcard_away | 3/3 |
+| pick_dual_bottles | 0/3 |
+| pick_diverse_bottles | 0/3 |
+| grab_roller | 0/3 |
+| lift_pot | 0/3 |
+| stamp_seal | 0/3 |
+
+汇总在本run的`evaluation_1200/summary.json`；[完成证据](../../../refs/training_records/20261021_R11_completed.json)。
+R11结果已并入`refs/training_records/replay_pool_9680_through_R11.json`，历史合格池仍14任务。
 配置：`configs/training_recipes/sequential_seven_tasks_1200_replay10pct_from_R10.json`。
+
+### R12：R11-step1200续训十任务＋10%复习（运行中）
+
+run：`/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct`。
+来源R11最终1200的BF16 HF，新优化器与1350步日程；BF16参数/计算/HF，micro=GBS56/GAS1。
+继承标准方法，EE/窗口加权/LN-FM关闭；复习池为合入R11结果的14任务累计池，10%样本、每10步轮换，排除当前主任务。
+
+| 顺序 | 主任务 | 配额 | 本轮步号 |
+| --- | --- | ---: | --- |
+| 1 | shake_bottle_horizontally | 150 | 1–150 |
+| 2 | pick_dual_bottles | 100 | 151–250 |
+| 3 | pick_diverse_bottles | 100 | 251–350 |
+| 4 | put_bottles_dustbin | 150 | 351–500 |
+| 5 | dump_bin_bigbin | 150 | 501–650 |
+| 6 | place_container_plate | 100 | 651–750 |
+| 7 | stack_bowls_two | 150 | 751–900 |
+| 8 | stack_bowls_three | 150 | 901–1050 |
+| 9 | blocks_ranking_size | 150 | 1051–1200 |
+| 10 | stack_blocks_two | 150 | 1201–1350 |
+
+保存500/1000/最终1350，容量预算42.19GiB，启动前空闲79.73GiB；未删除旧存档。
+最终1350模型测上述10任务，各3回合；同一FP32/B1模型分批6＋4，不在前批未结束时补入后批任务。
+无自动补课或关机。49项本地/服务器CPU契约通过；真实1100条、262964帧CPU检查及三步GPU探针通过。
+探针峰值allocated77.71GiB/reserved84.19GiB；正式已确认6/1350（2026-10-21 11:33:46），当前shake_bottle_horizontally。
+首阶段CPU/GPU通过不代表最终10任务闭环已通过；[启动证据](../../../refs/training_records/20261021_R12_started.json)。
+计划75600样本，其中复习7560；未把1350计划步数记为完成。
+配置：`configs/training_recipes/sequential_ten_tasks_1350_replay10pct_from_R11.json`。
 
 ### 历史存档保留清单（清理时口径）
 
@@ -168,7 +208,7 @@ BF16参数/计算/HF，micro=GBS56/GAS1；新优化器、1200步日程，阶段�
 此“仅保留两份”指清理时的历史存档，不取消R9已授权的200/400/500存档。
 当前各run已保留、已删除及计划产物详见[存档梳理](checkpoint_inventory_zh.md)。
 
-2026-10-21最新清理覆盖此前约定：现在仅保留R9-step500和R10-step800，
+2026-10-21在R11启动前的清理覆盖此前约定：清理时仅保留R9-step500和R10-step800，
 删除R9的200/400、R10的200/400/600、R6-step500与R8-step600，共7份，释放83.24GiB。
 保留全部日志、闭环结果、视频和训练数据；历史来源与保存验证记录不改写为“从未保存”。
 [实际清理完成证据](../../../refs/training_records/20261021_keep_R9_500_R10_800_completed.json)。

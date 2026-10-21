@@ -1,0 +1,92 @@
+[
+  {
+    "task": "grab_roller",
+    "rates": [
+      [
+        "0",
+        "1",
+        "100000"
+      ]
+    ],
+    "tracebacks": 0,
+    "oidn_errors": 0,
+    "renderer_marker": true,
+    "videos": 1,
+    "nonempty_videos": true
+  },
+  {
+    "task": "lift_pot",
+    "rates": [
+      [
+        "0",
+        "1",
+        "100000"
+      ]
+    ],
+    "tracebacks": 0,
+    "oidn_errors": 0,
+    "renderer_marker": true,
+    "videos": 1,
+    "nonempty_videos": true
+  },
+  {
+    "task": "move_playingcard_away",
+    "rates": [
+      [
+        "1",
+        "1",
+        "100000"
+      ]
+    ],
+    "tracebacks": 0,
+    "oidn_errors": 0,
+    "renderer_marker": true,
+    "videos": 1,
+    "nonempty_videos": true
+  },
+  {
+    "task": "pick_diverse_bottles",
+    "rates": [
+      [
+        "0",
+        "1",
+        "100000"
+      ]
+    ],
+    "tracebacks": 0,
+    "oidn_errors": 0,
+    "renderer_marker": true,
+    "videos": 1,
+    "nonempty_videos": true
+  },
+  {
+    "task": "pick_dual_bottles",
+    "rates": [
+      [
+        "0",
+        "1",
+        "100000"
+      ]
+    ],
+    "tracebacks": 0,
+    "oidn_errors": 0,
+    "renderer_marker": true,
+    "videos": 1,
+    "nonempty_videos": true
+  },
+  {
+    "task": "rotate_qrcode",
+    "rates": [
+      [
+        "1",
+        "1",
+        "100000"
+      ]
+    ],
+    "tracebacks": 0,
+    "oidn_errors": 0,
+    "renderer_marker": true,
+    "videos": 1,
+    "nonempty_videos": true
+  }
+]

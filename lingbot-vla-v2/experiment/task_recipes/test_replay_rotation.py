@@ -91,4 +91,21 @@ class ReplayRotation(unittest.TestCase):
         self.assertEqual(len(g),14)
         self.assertTrue(all(r['replay_task']!='adjust_bottle' for r in p['steps']))
 
+    def test_R12_uses_completed_R11_pool_and_1350_step_schedule(self):
+        from experiment.task_recipes.schema import milestones
+        raw=json.loads((ROOT/'configs/training_recipes/sequential_ten_tasks_1350_replay10pct_from_R11.json').read_text())
+        c,p,groups,_=preview(raw)
+        self.assertEqual(c['train']['steps'],1350)
+        self.assertEqual(milestones(c),[500,1000,1350])
+        self.assertEqual(c['evaluation']['max_parallel_tasks'],6)
+        self.assertEqual(c['evaluation']['tasks'],c['train']['task_order'])
+        self.assertEqual(c['evaluation']['episodes_per_task'],3)
+        self.assertEqual(len(groups),22)
+        self.assertEqual(len(c['train']['replay']['tasks']),14)
+        self.assertEqual(confirmed_progress(p,1350)['replay_samples'],7560)
+        rows=c['train']['replay']['pool_snapshot']['tasks']
+        card=next(x for x in rows if x['task']=='move_playingcard_away')
+        self.assertTrue(any(o['successes']==3 and o['episodes']==3 and 'evaluation_1200' in o['source'] for o in card['observations']))
+        self.assertTrue(all(x['main_task']!=x['replay_task'] for x in p['steps']))
+
 if __name__=='__main__':unittest.main()

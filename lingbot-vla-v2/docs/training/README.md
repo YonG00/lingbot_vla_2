@@ -51,6 +51,7 @@ JSON配置、数据清单和证据仍分别放configs、refs等工程目录，�
 
 | 文档 | 入口 |
 |---|---|
+| 单模型多仿真、六路分批、会话隔离与资源试测 | [并行仿真](evaluation/parallel_simulation_zh.md) |
 | RoboTwin Blackwell 评测去噪运行库 | [查看](evaluation/robotwin_render_runtime_zh.md) |
 
 ## 目录约定

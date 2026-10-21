@@ -54,6 +54,7 @@ adjust_bottle3360、click_bell1120。每步不是独立四舍五入，避免长�
 - `train`：mode、main_tasks、replay、steps（mixed必填，其余由配额推导）、micro_batch_size、gradient_accumulation_steps、seed、episode_split；sequential额外要求task_order。
 - `checkpoint.every_steps/save_final/hf_dtype`：显式保存约定；第一版要求save_final=true、hf_dtype=bf16。
 - `evaluation.tasks/episodes_per_task/checkpoints/shared_model_session`：评测任务、回合数、已保存步号或final、跨任务是否共用服务。
+- `evaluation.max_parallel_tasks`：默认1为旧串行；设6且shared_model_session=true时，按最多6任务一批并行，首批全部完成后启动剩余批次，同模型不重载；10任务为6＋4。详细边界见[并行评测](../evaluation/parallel_simulation_zh.md)。
 - `runtime.shutdown_after_completion`：第一版只接受false，不默认操作关机。
 
 未知字段、任务不存在、主复习重叠、配额与总步数冲突、无主任务样本、评测未保存的步号都会报错，不静默猜测。

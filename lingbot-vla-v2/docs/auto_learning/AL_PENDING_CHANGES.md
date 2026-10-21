@@ -17,6 +17,16 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#83 R12十任务1350步与分批6＋4评测（2026-10-21）：🧪 本地/服务器49项CPU契约、实际1100条262964帧CPU及三步GPU通过，正式已6/1350。** 来源R11-step1200，保存500/1000/1350，经授权500间隔；BF16/m56/GAS1、14任务累计资格池已合入R11、10%复习RR10。schema新增evaluation.max_parallel_tasks默认1；run.py在显式>1时使用隔离会话parallel入口，run_jobs每批结束屏障后启动剩余任务，十任务6＋4全程模型一次加载。修复#82：probe_jobs在compare_reference=false时去掉子任务reference_summary，保留expected_seeds，补CPU跨层参数契约；旧失败不改写。新run=20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct。三步allocated77.71/reserved84.19GiB，正式GPU约86.6GiB；最终30回合尚未执行。不变量：同PID/model、批次屏障、当前主任务不复习、保存点不缩水；症状：后四个提前启动、再次加载模型、1回合仍比较3seed、额外存档；回滚：新进程max_parallel_tasks=1使用原串行入口，保存变动仍需用户批准；验证：test_parallel_evaluation、test_evaluation_tasks、test_replay_rotation及R12 cpu/probe/plan/recipe和最终evaluation_1350。组合证据：默认1＋共享=旧串行测试通过；默认1＋不共享=原逐任务入口保持；6＋共享=6/6＋10/6屏障CPU通过及六路单回合资源已实测；6＋不共享=启动校验拒绝。最终6＋4各3回合GPU仍待验证。
+
+**#82终态补充：六仿真各1回合完成，但报告流程failed。** 64934MiB峰值、model_loads=1、6连接、48请求，无仿真Traceback/OIDN错误且六份视频非空。根因：compare_reference=false仅外层生效，evaluate.execute仍用1个seed对比reference_summary中3个seed；需要补CPU跨层契约并修正单回合资源配置后才能称完整通过。未降并发、未重跑；原失败记录与原始结果保留，见parallel_simulation_zh.md。
+
+**#82 六路单回合资源探测（2026-10-21）：🧪 本地/服务器各9项CPU通过，六进程重叠已观测，GPU完成待核验。** parallel_evaluation支持concurrency_levels（默认[3,2]不变）与1至6路，本次显式[6,4]；compare_reference默认true，本次因每任务仅1回合显式false，报告记录未作历史结果对照。配置parallel6_R11_probe，R11前六任务各1回合。不变量：一份权重、独立会话、只资源错误回退、不改变训练存档；症状：模型重载、非资源错误被隐藏、报告冒称三回合等价；回滚：继续旧串行入口或[3,2]配置；验证：test_parallel_evaluation（新增六线程barrier）、test_shared_evaluation及GPU summary/audit/samples。
+
+**#81 GPU补充证据：三路已完成**，各3回合成功次数2/3、3/3、0/3与串行一致，种子及模型匹配，model_loads=1，显存峰值44797MiB，仿真436.75秒；见parallel_simulation_zh.md与20261021_parallel3_completed.json。下方初始排队描述为历史启动记录。
+
+**#81 三路仿真共享单模型（2026-10-21）：🧪 本地49项及服务器对应8项CPU契约通过，GPU试跑排队。** 新SessionPool每连接隔离step/chunk/robot/action_key/FeatureTransform，同一权重对象串行B1前向保持seed语义；新增session_eval_server、parallel_evaluation，ThreadPool最多3个独立仿真，常驻服务仅加载一次，逐任务日志/视频隔离。按用户授权先3路，明确资源OOM才退2路，其他异常/结果不一致停止留证。R11首三任务各3回合对照，等待原七任务评测结束，不打断既有结果。不变量：reset不跨连接、模型不复制、所有结果来自同一PID/model、出错关闭服务；症状：会话缓存串扰、模型重载、seed或结果不符；回滚：继续旧shared_evaluation串行入口，不启parallel入口；验证：test_parallel_evaluation与本次benchmark/session_audit/gpu_samples/summary。共享open_session仅新增可选server_entry，默认命令不变。
+
 **#80 R11七任务1200步、10%复习与每3任务保存（2026-10-21）：🧪 本地/服务器44项CPU契约、真实950条CPU装配及三步GPU通过，正式1200步已进入。** schema新增checkpoint.every_tasks默认1，milestones每N任务结束或最终保存，补课容量预算同规则；用户确认7任务共1200步、14资格池复习10%、RR10，来源R10-step800。run=20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct；保存400/1000/1200，最终七主任务各3回合，补课关闭。新增不等长七任务保存点及真实Sampler索引归属契约；首次混合GPU三步通过（allocated77.70GiB/reserved84.59GiB），后续课程阶段及闭环仍待完成。不变量：分组存档不遗漏最终、排除当前主任务、全程6720复习样本、源HF不继承探针；症状：非400/1000/1200保存、复习混多个任务、CPU/GPU失败；回滚：新run显式every_tasks=1或关闭复习（需新进程、改保存需用户允许），停止新流程不影响旧模型；验证：test_checkpoint_modes/test_replay_rotation及本轮cpu/probe/verified/evaluation报告。
 
 **#79 同事与Agent接手入口（2026-10-21）：文档及未执行配置示例。** 新增training/PROJECT_HANDOFF_zh.md，汇总当前仅存R9/R10、最终结果、环境/分支、从R10续训、独立共享闭环、资源依赖、状态路径、42项CPU与GPU验证边界、每轮收尾及Agent提示；不包含服务器连接信息或凭据。新增训练/共享评测JSON示例，默认只读预览；更新AGENTS实际实验分支和生产同步适用范围，补README入口。不变量：旧9680不冒充可用、示例不自动执行、不能将本地push当机器对齐；症状：新同事套用生产reset或找不到当前模型；回滚：不使用示例/文档按Git回退，不影响运行；验证：配置preview、共享job结构、文档链接/表格/凭据排查。本次服务器HEAD读取失败，明确标为未核实，未调整服务器或启动GPU。

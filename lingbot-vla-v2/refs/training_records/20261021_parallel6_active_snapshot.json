@@ -1,0 +1,1010 @@
+{
+  "run": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct",
+  "pipeline": {
+    "state": "complete",
+    "checkpoints": [
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_400/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      },
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1000/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      },
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      }
+    ],
+    "evaluation": [
+      {
+        "state": "complete",
+        "task": "rotate_qrcode",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "move_playingcard_away",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 3,
+        "episodes": 3,
+        "success_rate": 1.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "pick_dual_bottles",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "pick_diverse_bottles",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100002,
+          100007
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "grab_roller",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "lift_pot",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100002,
+          100003
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "stamp_seal",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      }
+    ],
+    "remediation": [],
+    "progress": {
+      "confirmed_optimizer_steps": 1200,
+      "main_steps": {
+        "rotate_qrcode": 100,
+        "move_playingcard_away": 100,
+        "pick_dual_bottles": 200,
+        "pick_diverse_bottles": 200,
+        "grab_roller": 200,
+        "lift_pot": 200,
+        "stamp_seal": 200
+      },
+      "samples_by_task": {
+        "rotate_qrcode": 5488,
+        "click_alarmclock": 504,
+        "press_stapler": 504,
+        "click_bell": 504,
+        "open_microwave": 504,
+        "shake_bottle": 504,
+        "open_laptop": 504,
+        "place_object_basket": 504,
+        "shake_bottle_horizontally": 504,
+        "adjust_bottle": 504,
+        "place_container_plate": 448,
+        "move_playingcard_away": 5432,
+        "place_empty_cup": 448,
+        "turn_switch": 448,
+        "pick_dual_bottles": 10080,
+        "pick_diverse_bottles": 10080,
+        "grab_roller": 10080,
+        "lift_pot": 10080,
+        "stamp_seal": 10080
+      },
+      "replay_samples": 6720
+    },
+    "shutdown": false
+  },
+  "evaluation": {
+    "state": "complete",
+    "completed": [
+      {
+        "state": "complete",
+        "task": "rotate_qrcode",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "move_playingcard_away",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 3,
+        "episodes": 3,
+        "success_rate": 1.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "pick_dual_bottles",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "pick_diverse_bottles",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100002,
+          100007
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "grab_roller",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "lift_pot",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100002,
+          100003
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "stamp_seal",
+        "label": "recipe_1200",
+        "model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 6230,
+        "shared_server": true
+      }
+    ],
+    "server_pid": 6230,
+    "model_loads": 1
+  },
+  "verified": [
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_400/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1000/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    }
+  ],
+  "recipe": {
+    "version": 1,
+    "source": {
+      "trainer_config": "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/trainer_config.json",
+      "checkpoint": "/root/autodl-tmp/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800/hf_ckpt"
+    },
+    "data": {
+      "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+    },
+    "output_dir": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct",
+    "train": {
+      "mode": "sequential",
+      "micro_batch_size": 56,
+      "gradient_accumulation_steps": 1,
+      "seed": 3,
+      "episode_split": "all",
+      "main_tasks": {
+        "rotate_qrcode": {
+          "steps": 100,
+          "weight": 1
+        },
+        "move_playingcard_away": {
+          "steps": 100,
+          "weight": 1
+        },
+        "pick_dual_bottles": {
+          "steps": 200,
+          "weight": 1
+        },
+        "pick_diverse_bottles": {
+          "steps": 200,
+          "weight": 1
+        },
+        "grab_roller": {
+          "steps": 200,
+          "weight": 1
+        },
+        "lift_pot": {
+          "steps": 200,
+          "weight": 1
+        },
+        "stamp_seal": {
+          "steps": 200,
+          "weight": 1
+        }
+      },
+      "replay": {
+        "mode": "round_robin",
+        "fraction": 0.1,
+        "switch_every_steps": 10,
+        "pool_file": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/replay_pool_9680_through_R10.json",
+        "pool_snapshot": {
+          "version": 1,
+          "qualification": "any historical closed-loop success rate >= 1/3",
+          "tasks": [
+            {
+              "task": "click_alarmclock",
+              "observations": [
+                {
+                  "successes": 4,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "press_stapler",
+              "observations": [
+                {
+                  "successes": 4,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "click_bell",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "open_microwave",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "shake_bottle",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "open_laptop",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "place_object_basket",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "shake_bottle_horizontally",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "adjust_bottle",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 3,
+                  "source": "R3/evaluation_200/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_container_plate",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                },
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "R6/evaluation_500/place_container_plate/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_empty_cup",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 3,
+                  "source": "R6/evaluation_500/place_empty_cup/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                }
+              ]
+            },
+            {
+              "task": "turn_switch",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "R9/evaluation_500/turn_switch/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_a2b_right",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "move_playingcard_away",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_phone_stand",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_object_scale",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "rotate_qrcode",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            }
+          ]
+        },
+        "tasks": {
+          "click_alarmclock": {
+            "weight": 1
+          },
+          "press_stapler": {
+            "weight": 1
+          },
+          "click_bell": {
+            "weight": 1
+          },
+          "open_microwave": {
+            "weight": 1
+          },
+          "shake_bottle": {
+            "weight": 1
+          },
+          "open_laptop": {
+            "weight": 1
+          },
+          "place_object_basket": {
+            "weight": 1
+          },
+          "shake_bottle_horizontally": {
+            "weight": 1
+          },
+          "adjust_bottle": {
+            "weight": 1
+          },
+          "place_container_plate": {
+            "weight": 1
+          },
+          "place_empty_cup": {
+            "weight": 1
+          },
+          "turn_switch": {
+            "weight": 1
+          },
+          "move_playingcard_away": {
+            "weight": 1
+          },
+          "rotate_qrcode": {
+            "weight": 1
+          }
+        }
+      },
+      "task_order": [
+        "rotate_qrcode",
+        "move_playingcard_away",
+        "pick_dual_bottles",
+        "pick_diverse_bottles",
+        "grab_roller",
+        "lift_pot",
+        "stamp_seal"
+      ],
+      "steps": 1200
+    },
+    "checkpoint": {
+      "mode": "task",
+      "save_final": true,
+      "hf_dtype": "bf16",
+      "every_tasks": 3
+    },
+    "evaluation": {
+      "episodes_per_task": 3,
+      "checkpoints": [
+        "final"
+      ],
+      "shared_model_session": true,
+      "tasks": [
+        "rotate_qrcode",
+        "move_playingcard_away",
+        "pick_dual_bottles",
+        "pick_diverse_bottles",
+        "grab_roller",
+        "lift_pot",
+        "stamp_seal"
+      ]
+    },
+    "runtime": {
+      "shutdown_after_completion": false
+    },
+    "remediation": {
+      "enabled": false,
+      "max_rounds": 1
+    }
+  },
+  "training": {
+    "first": [
+      "10/21/2026 08:35:08",
+      "1",
+      "1200"
+    ],
+    "last": [
+      "10/21/2026 10:14:32",
+      "1200",
+      "1200"
+    ]
+  },
+  "parallel_pipeline": {
+    "state": "benchmarking"
+  },
+  "benchmark": null,
+  "attempts": {
+    "6": {
+      "status": {
+        "state": "evaluating",
+        "workers": 6,
+        "completed": [],
+        "server_pid": 19317
+      },
+      "session": {
+        "server_pid": 19317,
+        "port": 46161,
+        "model": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+        "command": [
+          "/data/miniconda3/envs/lingbotvla/bin/python",
+          "-u",
+          "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/experiment/robotwin/session_eval_server.py",
+          "--model_path",
+          "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+          "--use_length",
+          "50",
+          "--chunk_ret",
+          "True",
+          "--use_bf16",
+          "False",
+          "--use_fp32",
+          "True",
+          "--use_compile",
+          "False",
+          "--port",
+          "46161"
+        ]
+      },
+      "audit": null
+    }
+  },
+  "free_gib": 79.74503326416016,
+  "serial_timings": [
+    {
+      "task": "rotate_qrcode",
+      "seconds": 173.26453351974487
+    },
+    {
+      "task": "move_playingcard_away",
+      "seconds": 98.58579421043396
+    },
+    {
+      "task": "pick_dual_bottles",
+      "seconds": 323.2407627105713
+    }
+  ],
+  "gpu_peak_mib": 25061,
+  "active_simulations": [
+    {
+      "pid": 19422,
+      "arguments": [
+        "/data/miniconda3/envs/RoboTwin/bin/python",
+        "-u",
+        "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/experiment/official_control/evaluate.py",
+        "--sim-client",
+        "/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "--config",
+        "policy/ACT/deploy_policy.yml",
+        "--overrides",
+        "--task_name",
+        "rotate_qrcode",
+        "--task_config",
+        "demo_clean",
+        "--train_config_name",
+        "official_control",
+        "--seed",
+        "0",
+        "--policy_name",
+        "ACT",
+        "--port",
+        "46161",
+        "--robo_name",
+        "robotwin",
+        "--video_fps",
+        "10",
+        "--eval_video_log",
+        "False",
+        "--eval_global_view_log",
+        "True",
+        "--global_view_fps",
+        "2",
+        "--output_dir",
+        "/data/outputs/20261021_110325_parallel6_R11_fp32_B1_probe/parallel_6/rotate_qrcode/results",
+        "--test_num",
+        "1",
+        ""
+      ]
+    },
+    {
+      "pid": 19423,
+      "arguments": [
+        "/data/miniconda3/envs/RoboTwin/bin/python",
+        "-u",
+        "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/experiment/official_control/evaluate.py",
+        "--sim-client",
+        "/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "--config",
+        "policy/ACT/deploy_policy.yml",
+        "--overrides",
+        "--task_name",
+        "move_playingcard_away",
+        "--task_config",
+        "demo_clean",
+        "--train_config_name",
+        "official_control",
+        "--seed",
+        "0",
+        "--policy_name",
+        "ACT",
+        "--port",
+        "46161",
+        "--robo_name",
+        "robotwin",
+        "--video_fps",
+        "10",
+        "--eval_video_log",
+        "False",
+        "--eval_global_view_log",
+        "True",
+        "--global_view_fps",
+        "2",
+        "--output_dir",
+        "/data/outputs/20261021_110325_parallel6_R11_fp32_B1_probe/parallel_6/move_playingcard_away/results",
+        "--test_num",
+        "1",
+        ""
+      ]
+    },
+    {
+      "pid": 19425,
+      "arguments": [
+        "/data/miniconda3/envs/RoboTwin/bin/python",
+        "-u",
+        "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/experiment/official_control/evaluate.py",
+        "--sim-client",
+        "/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "--config",
+        "policy/ACT/deploy_policy.yml",
+        "--overrides",
+        "--task_name",
+        "pick_dual_bottles",
+        "--task_config",
+        "demo_clean",
+        "--train_config_name",
+        "official_control",
+        "--seed",
+        "0",
+        "--policy_name",
+        "ACT",
+        "--port",
+        "46161",
+        "--robo_name",
+        "robotwin",
+        "--video_fps",
+        "10",
+        "--eval_video_log",
+        "False",
+        "--eval_global_view_log",
+        "True",
+        "--global_view_fps",
+        "2",
+        "--output_dir",
+        "/data/outputs/20261021_110325_parallel6_R11_fp32_B1_probe/parallel_6/pick_dual_bottles/results",
+        "--test_num",
+        "1",
+        ""
+      ]
+    },
+    {
+      "pid": 19426,
+      "arguments": [
+        "/data/miniconda3/envs/RoboTwin/bin/python",
+        "-u",
+        "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/experiment/official_control/evaluate.py",
+        "--sim-client",
+        "/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "--config",
+        "policy/ACT/deploy_policy.yml",
+        "--overrides",
+        "--task_name",
+        "grab_roller",
+        "--task_config",
+        "demo_clean",
+        "--train_config_name",
+        "official_control",
+        "--seed",
+        "0",
+        "--policy_name",
+        "ACT",
+        "--port",
+        "46161",
+        "--robo_name",
+        "robotwin",
+        "--video_fps",
+        "10",
+        "--eval_video_log",
+        "False",
+        "--eval_global_view_log",
+        "True",
+        "--global_view_fps",
+        "2",
+        "--output_dir",
+        "/data/outputs/20261021_110325_parallel6_R11_fp32_B1_probe/parallel_6/grab_roller/results",
+        "--test_num",
+        "1",
+        ""
+      ]
+    },
+    {
+      "pid": 19427,
+      "arguments": [
+        "/data/miniconda3/envs/RoboTwin/bin/python",
+        "-u",
+        "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/experiment/official_control/evaluate.py",
+        "--sim-client",
+        "/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "--config",
+        "policy/ACT/deploy_policy.yml",
+        "--overrides",
+        "--task_name",
+        "pick_diverse_bottles",
+        "--task_config",
+        "demo_clean",
+        "--train_config_name",
+        "official_control",
+        "--seed",
+        "0",
+        "--policy_name",
+        "ACT",
+        "--port",
+        "46161",
+        "--robo_name",
+        "robotwin",
+        "--video_fps",
+        "10",
+        "--eval_video_log",
+        "False",
+        "--eval_global_view_log",
+        "True",
+        "--global_view_fps",
+        "2",
+        "--output_dir",
+        "/data/outputs/20261021_110325_parallel6_R11_fp32_B1_probe/parallel_6/pick_diverse_bottles/results",
+        "--test_num",
+        "1",
+        ""
+      ]
+    },
+    {
+      "pid": 19428,
+      "arguments": [
+        "/data/miniconda3/envs/RoboTwin/bin/python",
+        "-u",
+        "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/experiment/official_control/evaluate.py",
+        "--sim-client",
+        "/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "--config",
+        "policy/ACT/deploy_policy.yml",
+        "--overrides",
+        "--task_name",
+        "lift_pot",
+        "--task_config",
+        "demo_clean",
+        "--train_config_name",
+        "official_control",
+        "--seed",
+        "0",
+        "--policy_name",
+        "ACT",
+        "--port",
+        "46161",
+        "--robo_name",
+        "robotwin",
+        "--video_fps",
+        "10",
+        "--eval_video_log",
+        "False",
+        "--eval_global_view_log",
+        "True",
+        "--global_view_fps",
+        "2",
+        "--output_dir",
+        "/data/outputs/20261021_110325_parallel6_R11_fp32_B1_probe/parallel_6/lift_pot/results",
+        "--test_num",
+        "1",
+        ""
+      ]
+    }
+  ]
+}

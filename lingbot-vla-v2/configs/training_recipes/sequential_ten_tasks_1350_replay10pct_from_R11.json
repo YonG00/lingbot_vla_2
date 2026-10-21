@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/trainer_config.json",
+    "checkpoint": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/ten_tasks_from_R11_bf16_m56_replay10pct",
+  "train": {
+    "mode": "sequential",
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "shake_bottle_horizontally": {
+        "steps": 150,
+        "weight": 1
+      },
+      "pick_dual_bottles": {
+        "steps": 100,
+        "weight": 1
+      },
+      "pick_diverse_bottles": {
+        "steps": 100,
+        "weight": 1
+      },
+      "put_bottles_dustbin": {
+        "steps": 150,
+        "weight": 1
+      },
+      "dump_bin_bigbin": {
+        "steps": 150,
+        "weight": 1
+      },
+      "place_container_plate": {
+        "steps": 100,
+        "weight": 1
+      },
+      "stack_bowls_two": {
+        "steps": 150,
+        "weight": 1
+      },
+      "stack_bowls_three": {
+        "steps": 150,
+        "weight": 1
+      },
+      "blocks_ranking_size": {
+        "steps": 150,
+        "weight": 1
+      },
+      "stack_blocks_two": {
+        "steps": 150,
+        "weight": 1
+      }
+    },
+    "replay": {
+      "mode": "round_robin",
+      "fraction": 0.1,
+      "switch_every_steps": 10,
+      "pool_file": "refs/training_records/replay_pool_9680_through_R11.json"
+    },
+    "task_order": [
+      "shake_bottle_horizontally",
+      "pick_dual_bottles",
+      "pick_diverse_bottles",
+      "put_bottles_dustbin",
+      "dump_bin_bigbin",
+      "place_container_plate",
+      "stack_bowls_two",
+      "stack_bowls_three",
+      "blocks_ranking_size",
+      "stack_blocks_two"
+    ]
+  },
+  "checkpoint": {
+    "mode": "steps",
+    "every_steps": 500,
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true,
+    "max_parallel_tasks": 6
+  },
+  "runtime": {
+    "shutdown_after_completion": false
+  },
+  "remediation": {
+    "enabled": false,
+    "max_rounds": 1
+  }
+}

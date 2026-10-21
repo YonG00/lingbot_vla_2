@@ -12,10 +12,15 @@
 
 ## 当前情况：先避免接错模型
 
-**最新进行中：R11**从R10-step800起训，七个主课程任务共1200步，10%旧任务复习、每10步轮换；
-44项CPU契约、950条实际CPU与三步GPU通过，最终评测未开始。保存400/1000/1200。
-run与完整任务表见[流水R11](records/training_history_zh.md#r11r10-step800续训七任务10轮换复习)。
-下述R10是最近完成且保留的模型，不把R11的计划步数当完成。
+**最新完成模型：R11-step1200；最新运行：R12。** R11七任务1200步完成，
+qrcode2/3、playingcard3/3，dual/diverse/roller/pot/stamp均0/3；保存400/1000/1200均已验证。
+R12从R11最终HF顺序训练十任务1350步，10%复习、每10步轮换，资格池已合入R11。
+保存500/1000/1350，最终十任务各3回合，6＋4分批、单模型FP32/B1闭环；无自动补课或关机。
+49项本地/服务器CPU、真实1100条262964帧CPU和三步GPU探针通过；正式更新以train.log为准。
+R12 run：`/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct`。
+配方：`configs/training_recipes/sequential_ten_tasks_1350_replay10pct_from_R11.json`。
+来源：`/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt`。
+完整课程、来源和结果见[流水](records/training_history_zh.md)。下述R10为历史已完成基线。
 
 最近一轮R10已完成800步，顺序为playingcard、phone、scale、qrcode，各200步。
 BF16参数/计算/HF，micro=GBS56、GAS1；训练无复习、无自动补课。
@@ -31,12 +36,12 @@ BF16参数/计算/HF，micro=GBS56、GAS1；训练无复习、无自动补课。
 四项逐回合日志、结果文本及summary一致，OIDN错误均0；三回合不是稳定成功率的证明。
 R10此次未测旧任务，不能据此认定旧能力仍保留。模型总loss下降也不能替代闭环结果。
 
-目前仅保留以下两份实验ckpt，均核验1708张量、BF16：
+R11之前保留的两份历史实验ckpt如下，均核验1708张量、BF16；另外保留R11三份，完整当前清单见[存档清单](records/checkpoint_inventory_zh.md)：
 
 | 简称 | 完整HF路径 | 用途 |
 |---|---|---|
 | R9-step500 | `/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_500/hf_ckpt` | 上一轮，可作对照；switch 2/3、pillbottle 0/3、stapler 0/3 |
-| R10-step800 | `/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800/hf_ckpt` | 最新完成模型，后续续训需明确选择它或R9 |
+| R10-step800 | `/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800/hf_ckpt` | R11来源，历史对照 |
 
 R6/R8、原始9680、早期BF16基准、R7补课与中间存档均已按授权删除；历史实验文档保留用于溯源。
 例如早期`baseline_pipeline.py`从9680起训的命令，当前不能直接运行。

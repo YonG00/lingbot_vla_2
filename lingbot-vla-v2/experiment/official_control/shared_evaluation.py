@@ -14,7 +14,7 @@ sys.path.insert(0,str(ROOT))
 from experiment.official_control import evaluate
 
 
-def open_session(job, directory):
+def open_session(job, directory, server_entry=None):
     assert not subprocess.check_output(['nvidia-smi','--query-compute-apps=pid','--format=csv,noheader']).strip(),'GPU busy'
     with socket.socket() as s:
         s.bind(('127.0.0.1',0));port=s.getsockname()[1]
@@ -24,7 +24,7 @@ def open_session(job, directory):
         SETUPTOOLS_SCM_PRETEND_VERSION='0.0.0',PYTHONUNBUFFERED='1',LINGBOT_DEPLOY_FAST_LOAD='0',
         LINGBOT_EVAL_PRECISION_AUDIT=str(audit))
     for key in ('LINGBOTVLA_TRAINING_CONFIG','AL_VLM_ATTENTION','LINGBOT_PRECISION_AUDIT'):env.pop(key,None)
-    command=[sys.executable,'-u',str(ROOT/'experiment/robotwin/precision_eval_server.py'),
+    command=[sys.executable,'-u',str(server_entry or ROOT/'experiment/robotwin/precision_eval_server.py'),
         '--model_path',job['model'],'--use_length','50','--chunk_ret','True',
         '--use_bf16','False','--use_fp32','True','--use_compile','False','--port',str(port)]
     log=(directory/'server.log').open('x')
