@@ -360,3 +360,7 @@ R16完成取证：800条连续更新，首步22:02:45、末步23:08:36，1小时
 |stack_blocks_three|80|0/3|
 
 抽检前clean总体历史最新逐任务等权估算29.0%，覆盖50任务，其中当前模型仅实测10项，其余40项跨模型历史；不是当前模型全量成功率。后置open_laptop、place_object_basket、stack_blocks_two各3回合抽检已启动，结果待完成。完整输出在本run的clean_estimate_retention3。
+
+R16后置遗忘抽检已完成：open_laptop 1/3（历史2/4）、place_object_basket 1/3（历史2/4）、stack_blocks_two 1/3（历史2/3）。三任务3/9，同一FP32共享模型服务，不能与训练驻留评测混为一次服务：本次是用户在原评测开始后追加的独立加载。三项均有成功、点估计均低于历史，但仅3回合，不据此确认统计上明确遗忘。
+
+clean历史最新逐任务等权估算由29.0%更新为27.6667%；50任务均有记录，其中本轮R16模型实测13任务（8/39，20.51%），另外37任务沿用历史，不能称为当前模型全量clean成功率。[抽检与估算完整证据](../../../refs/training_records/20261021_R16_retention3_completed.json)。报告路径为本run的clean_estimate_retention3/report.md及report.json。

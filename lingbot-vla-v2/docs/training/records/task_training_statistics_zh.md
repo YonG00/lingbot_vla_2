@@ -218,3 +218,13 @@ R16已启动但未完成：beat_block_hammer、handover_mic、hanging_mug、plac
 |stack_blocks_three|+80 / 80|0/3|
 
 实际复习4480/44800样本（10%），每次一个旧任务、每5步切换，20任务各224样本。新增复习资格4任务：beat_block_hammer、hanging_mug、place_a2b_left、place_object_stand；历史资格池累计24（不覆盖R16冻结20任务池）。旧三任务遗忘抽检结果尚待完成，不能填为失败或成功。
+
+### R16追加旧任务抽检（只测不训，不新增主训步数）
+
+|任务|历史最近|R16-step800抽检|
+|---|---|---|
+|open_laptop|2/4|1/3|
+|place_object_basket|2/4|1/3|
+|stack_blocks_two|2/3|1/3|
+
+3/9成功，三项点估计下降，仅为遗忘线索。R16全部本轮实测13任务8/39；50任务历史最新等权估算27.67%，仍有37任务沿用旧模型结果。

@@ -219,3 +219,5 @@ R14实际1350步（18:13:56至20:05:59，约1小时52分，1350条更新日志�
 R16最新课程已启动：`20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident`，剩余10任务各80、10%单任务复习每5步轮换，500/800保存、最终10任务各3回合5＋5路。驻留修复隔离GPU验证已通过，新配方`evaluation.reuse_training_model=true`，不再创建新的模型进程；完整正式保存交接以本轮最终实际审计为准。
 
 R16终态：800步与正式10任务闭环完成，5/30。最新正式模型为R16-step800；500/800均保留。完整正式保存后驻留交接已经实测通过（同PID62075、零重载）。抽检前clean历史最新逐任务等权估算29.0%，不是当前模型全量实测；后置open_laptop、place_object_basket、stack_blocks_two抽检正在进行。后续复习资格池through_R16共24任务，R16冻结through_R15共20任务不追改。
+
+R16追加三任务抽检现已完成：open_laptop、place_object_basket、stack_blocks_two均1/3；历史分别2/4、2/4、2/3。clean跨模型最新逐任务等权估算27.67%，当前模型实测13/50任务、8/39回合；不能冒充当前全量clean测评。未来复习池最新为through_R16_retention3，共24任务，冻结旧池不追改。
