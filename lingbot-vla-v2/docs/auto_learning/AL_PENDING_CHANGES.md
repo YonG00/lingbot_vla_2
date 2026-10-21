@@ -17,8 +17,6 @@
 
 ## §1 待验证（改了但没上机跑过）
 
-**#83 R12十任务1350步与分批6＋4评测（2026-10-21）：🧪 本地/服务器49项CPU契约、实际1100条262964帧CPU及三步GPU通过，正式已6/1350。** 来源R11-step1200，保存500/1000/1350，经授权500间隔；BF16/m56/GAS1、14任务累计资格池已合入R11、10%复习RR10。schema新增evaluation.max_parallel_tasks默认1；run.py在显式>1时使用隔离会话parallel入口，run_jobs每批结束屏障后启动剩余任务，十任务6＋4全程模型一次加载。修复#82：probe_jobs在compare_reference=false时去掉子任务reference_summary，保留expected_seeds，补CPU跨层参数契约；旧失败不改写。新run=20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct。三步allocated77.71/reserved84.19GiB，正式GPU约86.6GiB；最终30回合尚未执行。不变量：同PID/model、批次屏障、当前主任务不复习、保存点不缩水；症状：后四个提前启动、再次加载模型、1回合仍比较3seed、额外存档；回滚：新进程max_parallel_tasks=1使用原串行入口，保存变动仍需用户批准；验证：test_parallel_evaluation、test_evaluation_tasks、test_replay_rotation及R12 cpu/probe/plan/recipe和最终evaluation_1350。组合证据：默认1＋共享=旧串行测试通过；默认1＋不共享=原逐任务入口保持；6＋共享=6/6＋10/6屏障CPU通过及六路单回合资源已实测；6＋不共享=启动校验拒绝。最终6＋4各3回合GPU仍待验证。
-
 **#82终态补充：六仿真各1回合完成，但报告流程failed。** 64934MiB峰值、model_loads=1、6连接、48请求，无仿真Traceback/OIDN错误且六份视频非空。根因：compare_reference=false仅外层生效，evaluate.execute仍用1个seed对比reference_summary中3个seed；需要补CPU跨层契约并修正单回合资源配置后才能称完整通过。未降并发、未重跑；原失败记录与原始结果保留，见parallel_simulation_zh.md。
 
 **#82 六路单回合资源探测（2026-10-21）：🧪 本地/服务器各9项CPU通过，六进程重叠已观测，GPU完成待核验。** parallel_evaluation支持concurrency_levels（默认[3,2]不变）与1至6路，本次显式[6,4]；compare_reference默认true，本次因每任务仅1回合显式false，报告记录未作历史结果对照。配置parallel6_R11_probe，R11前六任务各1回合。不变量：一份权重、独立会话、只资源错误回退、不改变训练存档；症状：模型重载、非资源错误被隐藏、报告冒称三回合等价；回滚：继续旧串行入口或[3,2]配置；验证：test_parallel_evaluation（新增六线程barrier）、test_shared_evaluation及GPU summary/audit/samples。
@@ -260,6 +258,10 @@
 | **#22** 缓存复用与观测 | 让clear/reuse可对照，定位调用成本，避免盲目改变默认 | 默认仍清理；reuse只作用两个入口；GC与OOM回退不取消；不读/写模型或RNG；trace不改变原清理异常传播 | reuse下新增OOM/批大小降级、恢复审计失败、整段墙钟变慢；trace日志缺context/policy或诊断失败阻断清理 | `AL_CUDA_CACHE_POLICY=clear AL_CUDA_CACHE_TRACE=0`下次启动回原清理；本次无当前运行修改 | 本机运行 `tests/test_cuda_cache_policy.py`、`tests/test_al_cache_profile.py`；空闲GPU按A/B说明覆盖评测和周期存档，不能仅验函数 |
 
 ## §2 已验证（可不再惦记）
+
+**#83 R12十任务1350步与单模型6＋4分批闭环（2026-10-21）：✅ 已验证，代码提交e6a65f1。** 来源R11-step1200，BF16/m56/GAS1、10%复习RR10，完整1350次连续更新11:33:02–13:24:15，耗时1小时51分13秒。500/1000/1350三份HF均1708张量、BF16。schema新增evaluation.max_parallel_tasks默认1，显式6时run_jobs按批次屏障执行，10任务各3回合、30份非空视频完成：shake3/3、dump2/3、bowls_two1/3、blocks_two2/3，其余六项0/3，OIDN和仿真Traceback均0。PID26532只加载一次、10连接445请求、FP32/B1；首批完成13:51:58.673867，次批最早创建13:51:58.681866，实际6＋4成立。仿真阶段2885.35秒，含启动2945.48秒，无同配置串行速度对照。服务已退出、GPU空闲，保留八份HF、剩余43.87GiB；无补课/续训/删除/关机。通过38＋11项本地及服务器CPU契约、真实1100条262964帧CPU、三步GPU及完整分批闭环。累计池through_R12更新14→17，不追改本轮冻结14任务池。修复#82单回合参考字段传递契约，原失败不改写。
+
+不变量：一份权重、同PID/model、跨批次屏障、当前主任务不复习、保存点500/1000/1350不缩水；症状：后四任务提前启动、模型重载、单回合比较三seed、异常存档；回滚：新进程max_parallel_tasks=1走旧串行入口，保存变动另获用户批准；验证：test_parallel_evaluation/test_evaluation_tasks/test_replay_rotation，refs/training_records/20261021_R12_completed.json与evaluation_1350。组合证据：1＋共享为旧串行回归、1＋不共享为原独立入口保留；6＋共享CPU与本轮完整GPU验证；6＋不共享启动校验拒绝。
 
 ### #78 只保留R9-step500与R10-step800（2026-10-21）
 

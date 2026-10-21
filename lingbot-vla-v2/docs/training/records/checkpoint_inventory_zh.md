@@ -6,13 +6,15 @@
 | 实验 | run目录名 | 已保留HF存档 | 当前用途 |
 |---|---|---|---|
 | R9 | `20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56` | **`checkpoints/global_step_500/hf_ckpt`** | 用户指定保留，R10来源 |
-| R10 | `20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each` | **`checkpoints/global_step_800/hf_ckpt`** | 用户指定保留，本轮最终闭环模型 |
+| R10 | `20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each` | **`checkpoints/global_step_800/hf_ckpt`** | 用户指定保留，R11来源与历史对照 |
 | R11 | `20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct` | **400/1000/1200已生成**，均BF16、1708张量 | 1200为R12来源；三份保留 |
-| R12 | `20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct` | **计划**500/1000/1350（未生成） | 每500步及最终保存，不取消最终1350 |
+| R12 | `20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct` | **500/1000/1350已生成**，均BF16、1708张量 | 1350为本轮最终闭环模型；三份保留 |
 
 **R11启动前仅两份历史ckpt存在**，删除前后均核对1708张量、BF16及实际HF分片头部/索引。
-R11结束后三份新增HF已核验，当前已生成共五份；[R11完成证据](../../../refs/training_records/20261021_R11_completed.json)。
-R12启动前空闲79.73GiB，三份新HF安全预算42.19GiB；不删除旧模型。R12计划不能当作已保存。
+R11结束后三份新增HF已核验；[R11完成证据](../../../refs/training_records/20261021_R11_completed.json)。
+R12结束后三份新增HF亦逐项核对索引与分片头，当前已生成共八份，均未清理。
+R12启动前空闲79.73GiB，三份新HF安全预算42.19GiB；最终评测后最新观测空闲43.87GiB，容量是快照，后续开跑须重新核验。
+[R12完成审计](../../../refs/training_records/20261021_R12_completed.json)包含当前八份HF的逐项核验及三份新增存档；无自动补课或清理。
 用户2026-10-21最新指令替代此前保留R6/R8的约定，删除其他7份，释放83.24GiB。
 [本次完成清单与剩余空间](../../../refs/training_records/20261021_keep_R9_500_R10_800_completed.json)。
 此前9份存档的[历史审计](../../../refs/training_records/20261021_R10_final_audit.json)保留，用于说明训练时确实保存过；不代表目前仍保留。

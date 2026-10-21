@@ -1,7 +1,7 @@
 # 训练与闭环评测流水
 
 记录范围：2026-10-20官方对照实验至当前补课；更早鼠标实验尚未回填，不表示没有训练。
-最近取证：2026-10-21，R11训练、三份存档及闭环已完成；R12正式训练已进入，各时间节点采用服务器日志时间。
+最近取证：2026-10-21，R12正式1350步、三份存档及最终30回合闭环均完成，各时间节点采用服务器日志时间。
 时间为首次/末次正式优化器更新日志时间，不含CPU检查、GPU探针、加载与闭环耗时。
 运行中记录仅表示该时间点进度。任务累计与各轮对照见[任务统计](task_training_statistics_zh.md)。
 
@@ -166,7 +166,7 @@ BF16参数/计算/HF，micro=GBS56/GAS1；新优化器、1200步日程，阶段�
 R11结果已并入`refs/training_records/replay_pool_9680_through_R11.json`，历史合格池仍14任务。
 配置：`configs/training_recipes/sequential_seven_tasks_1200_replay10pct_from_R10.json`。
 
-### R12：R11-step1200续训十任务＋10%复习（运行中）
+### R12：R11-step1200续训十任务＋10%复习（训练与闭环完成）
 
 run：`/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct`。
 来源R11最终1200的BF16 HF，新优化器与1350步日程；BF16参数/计算/HF，micro=GBS56/GAS1。
@@ -188,9 +188,32 @@ run：`/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct`。
 保存500/1000/最终1350，容量预算42.19GiB，启动前空闲79.73GiB；未删除旧存档。
 最终1350模型测上述10任务，各3回合；同一FP32/B1模型分批6＋4，不在前批未结束时补入后批任务。
 无自动补课或关机。49项本地/服务器CPU契约通过；真实1100条、262964帧CPU检查及三步GPU探针通过。
-探针峰值allocated77.71GiB/reserved84.19GiB；正式已确认6/1350（2026-10-21 11:33:46），当前shake_bottle_horizontally。
-首阶段CPU/GPU通过不代表最终10任务闭环已通过；[启动证据](../../../refs/training_records/20261021_R12_started.json)。
-计划75600样本，其中复习7560；未把1350计划步数记为完成。
+探针峰值allocated77.71GiB/reserved84.19GiB；[启动证据](../../../refs/training_records/20261021_R12_started.json)。
+正式1350步已完成：首次更新2026-10-21 11:33:02，末次13:24:15，更新耗时1小时51分13秒，不含存档与评测。
+500/1000/1350三份HF文件头和索引均验证1708张量、BF16。全程75600样本，其中复习7560。
+最终10任务各3回合已完成，合计8/30成功；每任务仅3回合，不视为稳定总体成功率。
+
+| 任务 | 最终1350模型闭环 |
+| --- | --- |
+| shake_bottle_horizontally | 3/3 |
+| pick_dual_bottles | 0/3 |
+| pick_diverse_bottles | 0/3 |
+| put_bottles_dustbin | 0/3 |
+| dump_bin_bigbin | 2/3 |
+| place_container_plate | 0/3 |
+| stack_bowls_two | 1/3 |
+| stack_bowls_three | 0/3 |
+| blocks_ranking_size | 0/3 |
+| stack_blocks_two | 2/3 |
+
+全部逐回合日志、summary及30份非空视频一致，OIDN错误及仿真Traceback均0；共享服务PID26532，model_loads=1、连接数10、445次请求，FP32/B1。
+第一批六任务最后完成13:51:58.673867，第二批四任务最早创建13:51:58.681866，批次屏障真实成立，模型不重载。
+仿真阶段总耗时48分05秒，含模型启动约49分05秒；没有同任务同配置串行对照，不据此宣称加速倍数。
+汇总路径：本run的`evaluation_1350/summary.json`；外层`<run>_pipeline/status.json`与评测status均为complete，推理服务已退出，GPU空闲。
+[完整训练、HF、批次时间与逐回合核验](../../../refs/training_records/20261021_R12_completed.json)。
+累计复习资格池已更新为`refs/training_records/replay_pool_9680_through_R12.json`，14→17，新增dump_bin_bigbin、stack_bowls_two、stack_blocks_two。
+历史合格任务不因本轮0/3移除；本轮训练冻结的14任务池不追改。未自动补课、续训、清理或关机。
+瓶抓取两任务从R11的0/3加训100步后仍0/3，当前没有改善证据；有限3回合不足以推断整体成功率。
 配置：`configs/training_recipes/sequential_ten_tasks_1350_replay10pct_from_R11.json`。
 
 ### 历史存档保留清单（清理时口径）

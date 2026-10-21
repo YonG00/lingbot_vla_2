@@ -89,4 +89,8 @@ attempt目录为parallel_3/或parallel_2/，单个attempt内model_loads=1；回�
 单回合探测的配置问题已修复：`compare_reference=false`会在交给evaluate.execute前去掉reference_summary，
 并显式require_baseline=false；独立expected_seeds约束保留。CPU测试覆盖参数确实传到子任务，不伪造旧失败为成功。
 新增十任务6＋4屏障测试（首批六个全部结束才允许后四个开始）、单模型只加载一次及六路配置边界测试。
-本地及服务器对应49项CPU契约通过；R12训练已进入，最终三回合分批GPU闭环仍待实际完成。
+本地及服务器对应49项CPU契约通过。R12完整1350步及最终6＋4分批各3回合GPU闭环已完成，
+10任务30回合、30份非空视频，合计8/30成功，无OIDN错误或仿真Traceback。
+服务PID26532，model_loads=1、connections=10、requests=445、FP32/B1；批次屏障实测成立。
+仿真阶段2885.35秒，含服务启动2945.48秒；任务/步数上限不同于前次探测，无严格同配置串行加速比结论。
+最终服务退出，GPU空闲；[完整审计](../../../refs/training_records/20261021_R12_completed.json)。

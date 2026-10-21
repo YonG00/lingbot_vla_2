@@ -1,0 +1,1868 @@
+{
+  "run": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct",
+  "pipeline": {
+    "state": "complete",
+    "checkpoints": [
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_500/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      },
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1000/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      },
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      }
+    ],
+    "evaluation": [
+      {
+        "state": "complete",
+        "task": "shake_bottle_horizontally",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 3,
+        "episodes": 3,
+        "success_rate": 1.0,
+        "seeds": [
+          100000,
+          100001,
+          100003
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "dump_bin_bigbin",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100001,
+          100002,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "place_container_plate",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100003,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "pick_diverse_bottles",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100002,
+          100007
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "pick_dual_bottles",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "put_bottles_dustbin",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100002,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "stack_blocks_two",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "stack_bowls_two",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "blocks_ranking_size",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "stack_bowls_three",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      }
+    ],
+    "remediation": [],
+    "progress": {
+      "confirmed_optimizer_steps": 1350,
+      "main_steps": {
+        "shake_bottle_horizontally": 150,
+        "pick_dual_bottles": 100,
+        "pick_diverse_bottles": 100,
+        "put_bottles_dustbin": 150,
+        "dump_bin_bigbin": 150,
+        "place_container_plate": 100,
+        "stack_bowls_two": 150,
+        "stack_bowls_three": 150,
+        "blocks_ranking_size": 150,
+        "stack_blocks_two": 150
+      },
+      "samples_by_task": {
+        "shake_bottle_horizontally": 8064,
+        "click_alarmclock": 560,
+        "press_stapler": 560,
+        "click_bell": 560,
+        "open_microwave": 560,
+        "shake_bottle": 560,
+        "open_laptop": 560,
+        "place_object_basket": 560,
+        "adjust_bottle": 560,
+        "place_container_plate": 5600,
+        "place_empty_cup": 504,
+        "turn_switch": 504,
+        "move_playingcard_away": 504,
+        "rotate_qrcode": 504,
+        "pick_dual_bottles": 5040,
+        "pick_diverse_bottles": 5040,
+        "put_bottles_dustbin": 7560,
+        "dump_bin_bigbin": 7560,
+        "stack_bowls_two": 7560,
+        "stack_bowls_three": 7560,
+        "blocks_ranking_size": 7560,
+        "stack_blocks_two": 7560
+      },
+      "replay_samples": 7560
+    },
+    "shutdown": false
+  },
+  "recipe": {
+    "version": 1,
+    "source": {
+      "trainer_config": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/trainer_config.json",
+      "checkpoint": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt"
+    },
+    "data": {
+      "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+    },
+    "output_dir": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct",
+    "train": {
+      "mode": "sequential",
+      "micro_batch_size": 56,
+      "gradient_accumulation_steps": 1,
+      "seed": 3,
+      "episode_split": "all",
+      "main_tasks": {
+        "shake_bottle_horizontally": {
+          "steps": 150,
+          "weight": 1
+        },
+        "pick_dual_bottles": {
+          "steps": 100,
+          "weight": 1
+        },
+        "pick_diverse_bottles": {
+          "steps": 100,
+          "weight": 1
+        },
+        "put_bottles_dustbin": {
+          "steps": 150,
+          "weight": 1
+        },
+        "dump_bin_bigbin": {
+          "steps": 150,
+          "weight": 1
+        },
+        "place_container_plate": {
+          "steps": 100,
+          "weight": 1
+        },
+        "stack_bowls_two": {
+          "steps": 150,
+          "weight": 1
+        },
+        "stack_bowls_three": {
+          "steps": 150,
+          "weight": 1
+        },
+        "blocks_ranking_size": {
+          "steps": 150,
+          "weight": 1
+        },
+        "stack_blocks_two": {
+          "steps": 150,
+          "weight": 1
+        }
+      },
+      "replay": {
+        "mode": "round_robin",
+        "fraction": 0.1,
+        "switch_every_steps": 10,
+        "pool_file": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/replay_pool_9680_through_R11.json",
+        "pool_snapshot": {
+          "version": 1,
+          "qualification": "any historical closed-loop success rate >= 1/3",
+          "tasks": [
+            {
+              "task": "click_alarmclock",
+              "observations": [
+                {
+                  "successes": 4,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "press_stapler",
+              "observations": [
+                {
+                  "successes": 4,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "click_bell",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "open_microwave",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "shake_bottle",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "open_laptop",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "place_object_basket",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "shake_bottle_horizontally",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "adjust_bottle",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 3,
+                  "source": "R3/evaluation_200/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_container_plate",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                },
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "R6/evaluation_500/place_container_plate/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_empty_cup",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 3,
+                  "source": "R6/evaluation_500/place_empty_cup/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                }
+              ]
+            },
+            {
+              "task": "turn_switch",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "R9/evaluation_500/turn_switch/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_a2b_right",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "move_playingcard_away",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 3,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_phone_stand",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_object_scale",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "rotate_qrcode",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "pick_dual_bottles",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "pick_diverse_bottles",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "grab_roller",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "lift_pot",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "stamp_seal",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            }
+          ]
+        },
+        "tasks": {
+          "click_alarmclock": {
+            "weight": 1
+          },
+          "press_stapler": {
+            "weight": 1
+          },
+          "click_bell": {
+            "weight": 1
+          },
+          "open_microwave": {
+            "weight": 1
+          },
+          "shake_bottle": {
+            "weight": 1
+          },
+          "open_laptop": {
+            "weight": 1
+          },
+          "place_object_basket": {
+            "weight": 1
+          },
+          "shake_bottle_horizontally": {
+            "weight": 1
+          },
+          "adjust_bottle": {
+            "weight": 1
+          },
+          "place_container_plate": {
+            "weight": 1
+          },
+          "place_empty_cup": {
+            "weight": 1
+          },
+          "turn_switch": {
+            "weight": 1
+          },
+          "move_playingcard_away": {
+            "weight": 1
+          },
+          "rotate_qrcode": {
+            "weight": 1
+          }
+        }
+      },
+      "task_order": [
+        "shake_bottle_horizontally",
+        "pick_dual_bottles",
+        "pick_diverse_bottles",
+        "put_bottles_dustbin",
+        "dump_bin_bigbin",
+        "place_container_plate",
+        "stack_bowls_two",
+        "stack_bowls_three",
+        "blocks_ranking_size",
+        "stack_blocks_two"
+      ],
+      "steps": 1350
+    },
+    "checkpoint": {
+      "mode": "steps",
+      "every_steps": 500,
+      "save_final": true,
+      "hf_dtype": "bf16"
+    },
+    "evaluation": {
+      "episodes_per_task": 3,
+      "checkpoints": [
+        "final"
+      ],
+      "shared_model_session": true,
+      "max_parallel_tasks": 6,
+      "tasks": [
+        "shake_bottle_horizontally",
+        "pick_dual_bottles",
+        "pick_diverse_bottles",
+        "put_bottles_dustbin",
+        "dump_bin_bigbin",
+        "place_container_plate",
+        "stack_bowls_two",
+        "stack_bowls_three",
+        "blocks_ranking_size",
+        "stack_blocks_two"
+      ]
+    },
+    "runtime": {
+      "shutdown_after_completion": false
+    },
+    "remediation": {
+      "enabled": false,
+      "max_rounds": 1
+    }
+  },
+  "plan": {
+    "expected_frames": 262964,
+    "episodes": 1100,
+    "hf_steps": [
+      500,
+      1000,
+      1350
+    ],
+    "recipe_sha256": "a4fa26f2e30314a685064bcee71617c0943ff9631aee68bd4696f7057ea69ac0",
+    "required_disk_gib": 42.19177792035043,
+    "remediation_reserved_checkpoints": 0,
+    "source_model": "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+    "trainer_config_sha256": "6a14715bb41ec05dc51f407377717cde6526718fb333e3f526d344d30972a414",
+    "task_groups_sha256": "9f9dc6bb2f0327913bd2f0b5e0193587f8f41ddc0d0b945e5fddbc332610ee29",
+    "train_ids_sha256": "306c3c9cd45bd64b06c8c3bfa4adbff63d58897dae7bbcb8fd7113fa6c295c5b",
+    "evaluation_steps": [
+      1350
+    ]
+  },
+  "evaluation": {
+    "state": "complete",
+    "workers": 6,
+    "completed": [
+      {
+        "state": "complete",
+        "task": "shake_bottle_horizontally",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 3,
+        "episodes": 3,
+        "success_rate": 1.0,
+        "seeds": [
+          100000,
+          100001,
+          100003
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "dump_bin_bigbin",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100001,
+          100002,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "place_container_plate",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100003,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "pick_diverse_bottles",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100002,
+          100007
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "pick_dual_bottles",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "put_bottles_dustbin",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100002,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "stack_blocks_two",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "stack_bowls_two",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "blocks_ranking_size",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "stack_bowls_three",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      }
+    ],
+    "elapsed_seconds": 2945.4779443889856,
+    "server_pid": 26532,
+    "model_loads": 1
+  },
+  "summary": [
+    {
+      "state": "complete",
+      "task": "shake_bottle_horizontally",
+      "label": "recipe_1350",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "successes": 3,
+      "episodes": 3,
+      "success_rate": 1.0,
+      "seeds": [
+        100000,
+        100001,
+        100003
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "server_pid": 26532,
+      "shared_server": true
+    },
+    {
+      "state": "complete",
+      "task": "dump_bin_bigbin",
+      "label": "recipe_1350",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "successes": 2,
+      "episodes": 3,
+      "success_rate": 0.6666666666666666,
+      "seeds": [
+        100001,
+        100002,
+        100004
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "server_pid": 26532,
+      "shared_server": true
+    },
+    {
+      "state": "complete",
+      "task": "place_container_plate",
+      "label": "recipe_1350",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100003,
+        100004
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "server_pid": 26532,
+      "shared_server": true
+    },
+    {
+      "state": "complete",
+      "task": "pick_diverse_bottles",
+      "label": "recipe_1350",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100002,
+        100007
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "server_pid": 26532,
+      "shared_server": true
+    },
+    {
+      "state": "complete",
+      "task": "pick_dual_bottles",
+      "label": "recipe_1350",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "server_pid": 26532,
+      "shared_server": true
+    },
+    {
+      "state": "complete",
+      "task": "put_bottles_dustbin",
+      "label": "recipe_1350",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100002,
+        100004
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "server_pid": 26532,
+      "shared_server": true
+    },
+    {
+      "state": "complete",
+      "task": "stack_blocks_two",
+      "label": "recipe_1350",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "successes": 2,
+      "episodes": 3,
+      "success_rate": 0.6666666666666666,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "server_pid": 26532,
+      "shared_server": true
+    },
+    {
+      "state": "complete",
+      "task": "stack_bowls_two",
+      "label": "recipe_1350",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "successes": 1,
+      "episodes": 3,
+      "success_rate": 0.3333333333333333,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "server_pid": 26532,
+      "shared_server": true
+    },
+    {
+      "state": "complete",
+      "task": "blocks_ranking_size",
+      "label": "recipe_1350",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "server_pid": 26532,
+      "shared_server": true
+    },
+    {
+      "state": "complete",
+      "task": "stack_bowls_three",
+      "label": "recipe_1350",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "server_pid": 26532,
+      "shared_server": true
+    }
+  ],
+  "session": {
+    "server_pid": 26532,
+    "port": 33005,
+    "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+    "command": [
+      "/data/miniconda3/envs/lingbotvla/bin/python",
+      "-u",
+      "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/experiment/robotwin/session_eval_server.py",
+      "--model_path",
+      "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "--use_length",
+      "50",
+      "--chunk_ret",
+      "True",
+      "--use_bf16",
+      "False",
+      "--use_fp32",
+      "True",
+      "--use_compile",
+      "False",
+      "--port",
+      "33005"
+    ]
+  },
+  "audit": {
+    "model_loads": 1,
+    "connections": 10,
+    "requests": 445,
+    "forward_batch_size": 1,
+    "session_isolation": true
+  },
+  "precision_audit": {
+    "parameter_numel_by_dtype": {
+      "torch.float32": 6375906359
+    },
+    "forward_samples": {
+      "model.qwenvl_with_expert.qwenvl.model.visual.blocks.0.attn.qkv": {
+        "weight": "torch.float32",
+        "inputs": [
+          "torch.float32"
+        ],
+        "outputs": [
+          "torch.float32"
+        ]
+      },
+      "model.qwenvl_with_expert.qwenvl.model.language_model.layers.0.self_attn.q_proj": {
+        "weight": "torch.float32",
+        "inputs": [
+          "torch.float32"
+        ],
+        "outputs": [
+          "torch.float32"
+        ]
+      },
+      "model.qwenvl_with_expert.qwen_expert.model.layers.0.self_attn.q_proj": {
+        "weight": "torch.float32",
+        "inputs": [
+          "torch.float32"
+        ],
+        "outputs": [
+          "torch.float32"
+        ]
+      },
+      "model.action_out_proj": {
+        "weight": "torch.float32",
+        "inputs": [
+          "torch.float32"
+        ],
+        "outputs": [
+          "torch.float32"
+        ]
+      }
+    }
+  },
+  "verified_file": [
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_500/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1000/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    }
+  ],
+  "verified_actual": [
+    {
+      "path": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1000/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_500/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    }
+  ],
+  "training": {
+    "first": [
+      "10/21/2026 11:33:02",
+      "1",
+      "1350"
+    ],
+    "last": [
+      "10/21/2026 13:24:15",
+      "1350",
+      "1350"
+    ],
+    "updates": 1350,
+    "sequential_updates": true,
+    "train_tracebacks": 0
+  },
+  "free_gib": 43.86796951293945,
+  "task_evidence": [
+    {
+      "task": "shake_bottle_horizontally",
+      "job": {
+        "task": "shake_bottle_horizontally",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "destination": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/shake_bottle_horizontally",
+        "episodes": 3,
+        "require_baseline": false,
+        "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+        "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python"
+      },
+      "summary": {
+        "state": "complete",
+        "task": "shake_bottle_horizontally",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 3,
+        "episodes": 3,
+        "success_rate": 1.0,
+        "seeds": [
+          100000,
+          100001,
+          100003
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "1",
+          "1",
+          "100000"
+        ],
+        [
+          "2",
+          "2",
+          "100001"
+        ],
+        [
+          "3",
+          "3",
+          "100003"
+        ]
+      ],
+      "tracebacks": 0,
+      "oidn_errors": 0,
+      "videos": 3,
+      "nonempty_videos": true,
+      "job_mtime": 1792560381.9543738,
+      "summary_mtime": 1792560707.42338
+    },
+    {
+      "task": "pick_dual_bottles",
+      "job": {
+        "task": "pick_dual_bottles",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "destination": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/pick_dual_bottles",
+        "episodes": 3,
+        "require_baseline": false,
+        "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+        "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python"
+      },
+      "summary": {
+        "state": "complete",
+        "task": "pick_dual_bottles",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "0",
+          "2",
+          "100001"
+        ],
+        [
+          "0",
+          "3",
+          "100002"
+        ]
+      ],
+      "tracebacks": 0,
+      "oidn_errors": 0,
+      "videos": 3,
+      "nonempty_videos": true,
+      "job_mtime": 1792560381.9543738,
+      "summary_mtime": 1792561223.4433126
+    },
+    {
+      "task": "pick_diverse_bottles",
+      "job": {
+        "task": "pick_diverse_bottles",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "destination": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/pick_diverse_bottles",
+        "episodes": 3,
+        "require_baseline": false,
+        "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+        "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python"
+      },
+      "summary": {
+        "state": "complete",
+        "task": "pick_diverse_bottles",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100002,
+          100007
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "0",
+          "2",
+          "100002"
+        ],
+        [
+          "0",
+          "3",
+          "100007"
+        ]
+      ],
+      "tracebacks": 0,
+      "oidn_errors": 0,
+      "videos": 3,
+      "nonempty_videos": true,
+      "job_mtime": 1792560381.9583738,
+      "summary_mtime": 1792561207.6553192
+    },
+    {
+      "task": "put_bottles_dustbin",
+      "job": {
+        "task": "put_bottles_dustbin",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "destination": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/put_bottles_dustbin",
+        "episodes": 3,
+        "require_baseline": false,
+        "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+        "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python"
+      },
+      "summary": {
+        "state": "complete",
+        "task": "put_bottles_dustbin",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100002,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "0",
+          "2",
+          "100002"
+        ],
+        [
+          "0",
+          "3",
+          "100004"
+        ]
+      ],
+      "tracebacks": 0,
+      "oidn_errors": 0,
+      "videos": 3,
+      "nonempty_videos": true,
+      "job_mtime": 1792560381.9583738,
+      "summary_mtime": 1792561918.6738665
+    },
+    {
+      "task": "dump_bin_bigbin",
+      "job": {
+        "task": "dump_bin_bigbin",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "destination": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/dump_bin_bigbin",
+        "episodes": 3,
+        "require_baseline": false,
+        "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+        "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python"
+      },
+      "summary": {
+        "state": "complete",
+        "task": "dump_bin_bigbin",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100001,
+          100002,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100001"
+        ],
+        [
+          "1",
+          "2",
+          "100002"
+        ],
+        [
+          "2",
+          "3",
+          "100004"
+        ]
+      ],
+      "tracebacks": 0,
+      "oidn_errors": 0,
+      "videos": 3,
+      "nonempty_videos": true,
+      "job_mtime": 1792560381.9583738,
+      "summary_mtime": 1792560997.7945426
+    },
+    {
+      "task": "place_container_plate",
+      "job": {
+        "task": "place_container_plate",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "destination": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/place_container_plate",
+        "episodes": 3,
+        "require_baseline": false,
+        "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+        "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python"
+      },
+      "summary": {
+        "state": "complete",
+        "task": "place_container_plate",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100003,
+          100004
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "0",
+          "2",
+          "100003"
+        ],
+        [
+          "0",
+          "3",
+          "100004"
+        ]
+      ],
+      "tracebacks": 0,
+      "oidn_errors": 0,
+      "videos": 3,
+      "nonempty_videos": true,
+      "job_mtime": 1792560381.9623737,
+      "summary_mtime": 1792561161.3752913
+    },
+    {
+      "task": "stack_bowls_two",
+      "job": {
+        "task": "stack_bowls_two",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "destination": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/stack_bowls_two",
+        "episodes": 3,
+        "require_baseline": false,
+        "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+        "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python"
+      },
+      "summary": {
+        "state": "complete",
+        "task": "stack_bowls_two",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "1",
+          "2",
+          "100001"
+        ],
+        [
+          "1",
+          "3",
+          "100002"
+        ]
+      ],
+      "tracebacks": 0,
+      "oidn_errors": 0,
+      "videos": 3,
+      "nonempty_videos": true,
+      "job_mtime": 1792561918.6818664,
+      "summary_mtime": 1792562895.6404998
+    },
+    {
+      "task": "stack_bowls_three",
+      "job": {
+        "task": "stack_bowls_three",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "destination": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/stack_bowls_three",
+        "episodes": 3,
+        "require_baseline": false,
+        "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+        "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python"
+      },
+      "summary": {
+        "state": "complete",
+        "task": "stack_bowls_three",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "0",
+          "2",
+          "100001"
+        ],
+        [
+          "0",
+          "3",
+          "100002"
+        ]
+      ],
+      "tracebacks": 0,
+      "oidn_errors": 0,
+      "videos": 3,
+      "nonempty_videos": true,
+      "job_mtime": 1792561918.6818664,
+      "summary_mtime": 1792563267.3046432
+    },
+    {
+      "task": "blocks_ranking_size",
+      "job": {
+        "task": "blocks_ranking_size",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "destination": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/blocks_ranking_size",
+        "episodes": 3,
+        "require_baseline": false,
+        "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+        "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python"
+      },
+      "summary": {
+        "state": "complete",
+        "task": "blocks_ranking_size",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "0",
+          "2",
+          "100001"
+        ],
+        [
+          "0",
+          "3",
+          "100002"
+        ]
+      ],
+      "tracebacks": 0,
+      "oidn_errors": 0,
+      "videos": 3,
+      "nonempty_videos": true,
+      "job_mtime": 1792561918.6818664,
+      "summary_mtime": 1792563255.460978
+    },
+    {
+      "task": "stack_blocks_two",
+      "job": {
+        "task": "stack_blocks_two",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "destination": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/stack_blocks_two",
+        "episodes": 3,
+        "require_baseline": false,
+        "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+        "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+        "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python"
+      },
+      "summary": {
+        "state": "complete",
+        "task": "stack_blocks_two",
+        "label": "recipe_1350",
+        "model": "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "server_pid": 26532,
+        "shared_server": true
+      },
+      "rates": [
+        [
+          "0",
+          "1",
+          "100000"
+        ],
+        [
+          "1",
+          "2",
+          "100001"
+        ],
+        [
+          "2",
+          "3",
+          "100002"
+        ]
+      ],
+      "tracebacks": 0,
+      "oidn_errors": 0,
+      "videos": 3,
+      "nonempty_videos": true,
+      "job_mtime": 1792561918.6818664,
+      "summary_mtime": 1792562611.1993065
+    }
+  ],
+  "batches": {
+    "sizes": [
+      6,
+      4
+    ],
+    "first_finished": 1792561918.6738665,
+    "second_started": 1792561918.6818664,
+    "barrier_valid": true,
+    "simulation_wall_seconds": 2885.350269317627
+  },
+  "gpu": "0 MiB, 0 %",
+  "inventory": [
+    {
+      "path": "/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_500/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1000/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_400/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1000/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    {
+      "path": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_500/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    }
+  ]
+}
