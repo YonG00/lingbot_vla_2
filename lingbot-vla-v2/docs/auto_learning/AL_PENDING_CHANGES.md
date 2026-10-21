@@ -17,6 +17,10 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#84启动实证（2026-10-21）：🧪 本地/服务器55项CPU、真实1250条280122帧CPU与三步GPU通过，正式7/1250。** run=20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct；三步allocated77.70GiB/reserved84.59GiB。实际冻结recipe为through_R12的17任务、fraction0.2、tasks_per_step2、RR10；两槽计划各7000条，逐步任务互异并排除当前主任务。500/1000/1250与最终5＋5各3回合已配置，完整后续阶段与闭环待验。启动证据20261021_R13_started.json，清理证据20261021_keep_R11_1200_R12_1350_completed.json。以下#84为初始实现记录，服务器待测描述已由本段更新。
+
+**#84 R13双任务20%复习与十任务1250步（2026-10-21）：🧪 本地55项CPU通过，服务器待测。** 新replay.tasks_per_step默认1保持旧分支，显式2时每10步轮换两个不同旧任务，排除当前主任务；20%按两个等份槽做累计整数配额，GBS56下每步各5/6条，每10步各56条，本轮每槽7000条、合计14000。来源R12-step1350，十任务1250步，保存500/1000/1250，最终各3回合5＋5分批、同一FP32/B1服务，训练后沿用HF重载。RGB直接训练已获用户确认。按用户指令删除R9-500/R10-800/R11-400与1000/R12-500与1000，释放71.35GiB，仅保留R11-1200及R12-1350；不影响新轮授权保存。不变量：双任务互异且不含主任务、两槽等份、单任务旧冻结计划不变、保存点不缩水；症状：复习仍只有一个任务、混入主任务、两槽曝光失衡、原冻结计划校验失败；回滚：新进程tasks_per_step=1恢复旧轮换，比例由用户指定，不热改当前run；验证：test_replay_rotation真实Sampler归属/10步配额/主任务切换/参数拒绝/旧分支，以及5＋5屏障测试。R12冻结完整plan与旧代码相等，sha256=be0d078db9c22d01d4b891cbbb6470ac2445992d0501022d261cd2a74b3e8691。组合：单任务复习旧CPU与R11/R12完整GPU已验；双任务复习CPU通过、GPU待验；无复习旧分支保留；sample模式指定tasks_per_step启动拒绝。
+
 **#82终态补充：六仿真各1回合完成，但报告流程failed。** 64934MiB峰值、model_loads=1、6连接、48请求，无仿真Traceback/OIDN错误且六份视频非空。根因：compare_reference=false仅外层生效，evaluate.execute仍用1个seed对比reference_summary中3个seed；需要补CPU跨层契约并修正单回合资源配置后才能称完整通过。未降并发、未重跑；原失败记录与原始结果保留，见parallel_simulation_zh.md。
 
 **#82 六路单回合资源探测（2026-10-21）：🧪 本地/服务器各9项CPU通过，六进程重叠已观测，GPU完成待核验。** parallel_evaluation支持concurrency_levels（默认[3,2]不变）与1至6路，本次显式[6,4]；compare_reference默认true，本次因每任务仅1回合显式false，报告记录未作历史结果对照。配置parallel6_R11_probe，R11前六任务各1回合。不变量：一份权重、独立会话、只资源错误回退、不改变训练存档；症状：模型重载、非资源错误被隐藏、报告冒称三回合等价；回滚：继续旧串行入口或[3,2]配置；验证：test_parallel_evaluation（新增六线程barrier）、test_shared_evaluation及GPU summary/audit/samples。

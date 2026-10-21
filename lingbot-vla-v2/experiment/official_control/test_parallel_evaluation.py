@@ -80,20 +80,26 @@ class ParallelTests(unittest.TestCase):
             self.assertTrue(resource_failure(root))
 
     def test_ten_tasks_use_six_then_four_without_reloading(self):
+        self.check_batches(6)
+
+    def test_ten_tasks_use_five_then_five_without_reloading(self):
+        self.check_batches(5)
+
+    def check_batches(self,workers):
         with tempfile.TemporaryDirectory() as d:
-            root=Path(d);barriers=[threading.Barrier(6),threading.Barrier(4)]
+            root=Path(d);barriers=[threading.Barrier(workers),threading.Barrier(10-workers)]
             lock=threading.Lock();finished=set();opened=[];stopped=[]
             def execute(job,shared):
-                index=int(job['task']);batch=0 if index<6 else 1
+                index=int(job['task']);batch=0 if index<workers else 1
                 if batch:
-                    with lock:self.assertTrue(set(range(6))<=finished)
+                    with lock:self.assertTrue(set(range(workers))<=finished)
                 barriers[batch].wait(timeout=5)
                 Path(job['destination'],'summary.json').write_text(json.dumps(dict(state='complete',task=job['task'],server_pid=42,shared_server=True)))
                 with lock:finished.add(index)
                 return 0
             def open_(*a):opened.append(1);return dict(process=SimpleNamespace(pid=42))
             jobs=[dict(task=str(i),model='/m',destination=str(root/str(i))) for i in range(10)]
-            results=run_jobs(jobs,root,6,open_,execute,lambda _:stopped.append(1))
+            results=run_jobs(jobs,root,workers,open_,execute,lambda _:stopped.append(1))
             self.assertEqual(len(results),10);self.assertEqual(opened,[1]);self.assertEqual(stopped,[1])
 
     def test_single_episode_resource_probe_drops_downstream_reference(self):

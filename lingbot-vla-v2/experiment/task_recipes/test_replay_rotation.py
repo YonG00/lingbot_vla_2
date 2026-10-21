@@ -108,4 +108,57 @@ class ReplayRotation(unittest.TestCase):
         self.assertTrue(any(o['successes']==3 and o['episodes']==3 and 'evaluation_1200' in o['source'] for o in card['observations']))
         self.assertTrue(all(x['main_task']!=x['replay_task'] for x in p['steps']))
 
+    def test_two_review_tasks_each_have_ten_percent(self):
+        c=self.config();c['train']['replay'].update(fraction=0.2,tasks_per_step=2)
+        p=build_plan(validate(c));rows=p['steps']
+        self.assertEqual(rows[0]['replay_tasks'],['a','b'])
+        self.assertEqual(rows[10]['replay_tasks'],['c','a'])
+        for start in range(0,60,10):
+            block=rows[start:start+10];pair=block[0]['replay_tasks']
+            self.assertTrue(all(r['replay_tasks']==pair for r in block))
+            self.assertEqual([sum(r['replay_samples_by_task'][t] for r in block) for t in pair],[56,56])
+        from collections import Counter
+        pools={t:[i*2,i*2+1] for i,t in enumerate(['z','a','b','c'])}
+        owner={x:t for t,ids in pools.items() for x in ids};stream=iter(PlannedSampler(p,pools,3))
+        for row in rows:
+            self.assertEqual(dict(Counter(owner[next(stream)] for _ in range(56))),row['samples_by_task'])
+            self.assertEqual(sum(row['replay_samples_by_task'].values()),row['replay_samples'])
+            self.assertEqual(len(row['replay_samples_by_task']),2)
+            self.assertTrue(all(n in [5,6] for n in row['replay_samples_by_task'].values()))
+        self.assertEqual(confirmed_progress(p,60)['replay_samples'],672)
+
+    def test_two_review_tasks_exclude_new_main_at_mid_block(self):
+        c=self.config();c['train'].update(main_tasks={'a':dict(steps=5,weight=1),'b':dict(steps=55,weight=1)},task_order=['a','b'])
+        c['train']['replay'].update(fraction=0.2,tasks_per_step=2)
+        rows=build_plan(validate(c))['steps']
+        self.assertEqual(rows[0]['replay_tasks'],['b','c'])
+        self.assertEqual(set(rows[5]['replay_tasks']),{'a','c'})
+        self.assertTrue(all(r['main_task'] not in r['replay_tasks'] and len(set(r['replay_tasks']))==2 for r in rows))
+
+    def test_two_review_invalid_candidates_or_zero_sample_slots(self):
+        for change in [dict(tasks_per_step=True),dict(tasks_per_step=0),dict(tasks_per_step=4),
+                       dict(tasks_per_step=2,fraction=0.01),dict(tasks_per_step=2,mode='sample')]:
+            c=self.config();c['train']['replay'].update(change)
+            with self.assertRaises(ValueError):validate(c)
+        c=self.config();c['train']['replay'].update(tasks_per_step=2,tasks={'z':dict(weight=1),'a':dict(weight=1)})
+        with self.assertRaises(ValueError):validate(c)
+
+    def test_explicit_one_review_task_preserves_original_step_rows(self):
+        c=self.config();before=build_plan(c)['steps']
+        c['train']['replay']['tasks_per_step']=1
+        self.assertEqual(build_plan(validate(c))['steps'],before)
+
+    def test_R13_real_curriculum_uses_two_review_tasks_and_500_step_saves(self):
+        from experiment.task_recipes.schema import milestones
+        raw=json.loads((ROOT/'configs/training_recipes/sequential_ten_tasks_1250_replay20pct_from_R12.json').read_text())
+        c,p,groups,_=preview(raw)
+        self.assertEqual(c['train']['steps'],1250)
+        self.assertEqual(milestones(c),[500,1000,1250])
+        self.assertEqual(c['evaluation']['max_parallel_tasks'],5)
+        self.assertEqual(len(c['train']['replay']['tasks']),17)
+        self.assertEqual(len(groups),25)
+        self.assertEqual(confirmed_progress(p,1250)['replay_samples'],14000)
+        self.assertTrue(all(len(r['replay_tasks'])==2 and r['main_task'] not in r['replay_tasks'] for r in p['steps']))
+        self.assertEqual([sum(list(r['replay_samples_by_task'].values())[i] for r in p['steps']) for i in range(2)],[7000,7000])
+
 if __name__=='__main__':unittest.main()

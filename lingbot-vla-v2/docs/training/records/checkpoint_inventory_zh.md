@@ -5,18 +5,17 @@
 
 | 实验 | run目录名 | 已保留HF存档 | 当前用途 |
 |---|---|---|---|
-| R9 | `20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56` | **`checkpoints/global_step_500/hf_ckpt`** | 用户指定保留，R10来源 |
-| R10 | `20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each` | **`checkpoints/global_step_800/hf_ckpt`** | 用户指定保留，R11来源与历史对照 |
-| R11 | `20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct` | **400/1000/1200已生成**，均BF16、1708张量 | 1200为R12来源；三份保留 |
-| R12 | `20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct` | **500/1000/1350已生成**，均BF16、1708张量 | 1350为本轮最终闭环模型；三份保留 |
+| R11 | `20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct` | **仅1200**，BF16、1708张量 | 用户指定保留 |
+| R12 | `20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct` | **仅1350**，BF16、1708张量 | 用户指定保留，R13来源 |
+| R13 | `20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct` | **计划500/1000/1250，未生成** | 新轮授权每500步及最终保存 |
 
 **R11启动前仅两份历史ckpt存在**，删除前后均核对1708张量、BF16及实际HF分片头部/索引。
 R11结束后三份新增HF已核验；[R11完成证据](../../../refs/training_records/20261021_R11_completed.json)。
-R12结束后三份新增HF亦逐项核对索引与分片头，当前已生成共八份，均未清理。
-R12启动前空闲79.73GiB，三份新HF安全预算42.19GiB；最终评测后最新观测空闲43.87GiB，容量是快照，后续开跑须重新核验。
-[R12完成审计](../../../refs/training_records/20261021_R12_completed.json)包含当前八份HF的逐项核验及三份新增存档；无自动补课或清理。
-用户2026-10-21最新指令替代此前保留R6/R8的约定，删除其他7份，释放83.24GiB。
-[本次完成清单与剩余空间](../../../refs/training_records/20261021_keep_R9_500_R10_800_completed.json)。
+R12刚结束时共八份HF均完整，见[R12历史完成审计](../../../refs/training_records/20261021_R12_completed.json)，不代表现有保留数。
+本次按用户最新指令删除R9-500、R10-800、R11-400/1000、R12-500/1000，共六份，释放71.35GiB；仅保留上表R11-1200和R12-1350，均再次核验。
+清理后空闲115.22GiB，R13三份新HF安全预算42.19GiB；未减少本轮保存点。
+[精确清理计划](../../../refs/training_records/20261021_keep_R11_1200_R12_1350_plan.json)；[完成清单](../../../refs/training_records/20261021_keep_R11_1200_R12_1350_completed.json)。
+此前仅保留R9/R10的[历史清理证据](../../../refs/training_records/20261021_keep_R9_500_R10_800_completed.json)留存，不再作为当前清单。
 此前9份存档的[历史审计](../../../refs/training_records/20261021_R10_final_audit.json)保留，用于说明训练时确实保存过；不代表目前仍保留。
 
 ## 已删除旧存档
@@ -30,8 +29,10 @@ R12启动前空闲79.73GiB，三份新HF安全预算42.19GiB；最终评测后�
 | R6 顺序课程 | 250、500，现无ckpt |
 | R7补课 | 250、300 |
 | R8新任务顺序课程 | 200、400、600，现无ckpt |
-| R9 | 200、400；500保留 |
-| R10 | 200、400、600；800保留 |
+| R9 | 200、400、500，现无ckpt |
+| R10 | 200、400、600、800，现无ckpt |
+| R11 | 400、1000；1200保留 |
+| R12 | 500、1000；1350保留 |
 | R1/R2 FP32标准与增强对照 | 250、500此前已删除 |
 
 此前九份清理释放107.05GiB，报告：

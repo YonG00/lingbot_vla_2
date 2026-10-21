@@ -1,0 +1,35 @@
+{
+  "state": "planned",
+  "keep": [
+    "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200",
+    "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350"
+  ],
+  "delete": [
+    {
+      "path": "/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_500",
+      "bytes": 12768173055
+    },
+    {
+      "path": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800",
+      "bytes": 12768173059
+    },
+    {
+      "path": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_400",
+      "bytes": 12768173070
+    },
+    {
+      "path": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1000",
+      "bytes": 12768173070
+    },
+    {
+      "path": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_500",
+      "bytes": 12768173043
+    },
+    {
+      "path": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1000",
+      "bytes": 12768173043
+    }
+  ],
+  "delete_gib": 71.3477268256247,
+  "free_before_gib": 43.86796569824219
+}

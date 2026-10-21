@@ -20,6 +20,10 @@ R12从R11最终HF顺序训练十任务1350步已完成，正式更新11:33:02–
 shake_bottle_horizontally3/3、dump_bin_bigbin2/3、stack_bowls_two1/3、stack_blocks_two2/3，其余六任务0/3。
 六＋四批次屏障实测成立，模型仅加载一次、FP32/B1，30份视频完整且OIDN错误0。评测服务已退出，GPU空闲。
 最新累计复习池：`refs/training_records/replay_pool_9680_through_R12.json`，17个合格任务；不回改R12实际使用的14任务冻结池。
+**当前运行：R13**，来源R12-step1350，十任务1250步，双任务复习各10%（总20%），每10步换一对，排除当前主任务。
+run：`/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct`；配置`configs/training_recipes/sequential_ten_tasks_1250_replay20pct_from_R12.json`。
+保存500/1000/1250，最终十任务各3回合、5＋5分批。55项CPU、真实1250条280122帧CPU及三步GPU通过，正式已7/1250，最终闭环待执行。
+仍在训练结束后加载最终HF评测，未实现训练模型内存直接移交。无自动补课或关机。
 R12 run：`/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct`。
 最新HF：本run下`checkpoints/global_step_1350/hf_ckpt`；闭环汇总`evaluation_1350/summary.json`。
 配方：`configs/training_recipes/sequential_ten_tasks_1350_replay10pct_from_R11.json`。
@@ -40,17 +44,17 @@ BF16参数/计算/HF，micro=GBS56、GAS1；训练无复习、无自动补课。
 四项逐回合日志、结果文本及summary一致，OIDN错误均0；三回合不是稳定成功率的证明。
 R10此次未测旧任务，不能据此认定旧能力仍保留。模型总loss下降也不能替代闭环结果。
 
-R11之前保留的两份历史实验ckpt如下，均核验1708张量、BF16；另外保留R11三份、R12三份，共八份，完整当前清单见[存档清单](records/checkpoint_inventory_zh.md)：
+按用户最新清理指令，目前仅保留以下两份历史HF，均再次核验1708张量、BF16；R13新授权的500/1000/1250保存不取消，见[存档清单](records/checkpoint_inventory_zh.md)：
 
 | 简称 | 完整HF路径 | 用途 |
 |---|---|---|
-| R9-step500 | `/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_500/hf_ckpt` | 上一轮，可作对照；switch 2/3、pillbottle 0/3、stapler 0/3 |
-| R10-step800 | `/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/checkpoints/global_step_800/hf_ckpt` | R11来源，历史对照 |
+| R11-step1200 | `/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt` | 用户指定保留，R12来源 |
+| R12-step1350 | `/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt` | 用户指定保留，R13来源 |
 
-R6/R8、原始9680、早期BF16基准、R7补课与中间存档均已按授权删除；历史实验文档保留用于溯源。
+R6/R8、原始9680、早期BF16基准、R7、R9/R10全部HF及R11/R12中间存档均已按授权删除；历史文档用于溯源。
 例如早期`baseline_pipeline.py`从9680起训的命令，当前不能直接运行。
 日志、视频、数据、run内trainer_config仍保留，删的是模型存档。
-清理后空间115.54GiB是R11启动前历史值；R12最终评测后最新观测43.87GiB。开跑前重新检查，不能当永久容量。
+最新六份清理释放71.35GiB，R13启动前空闲115.22GiB。开跑前重新检查，不能当永久容量。
 
 ## 分支、环境和代码坐标
 
@@ -101,6 +105,7 @@ R6/R8、原始9680、早期BF16基准、R7补课与中间存档均已按授权�
 
 推荐以已提供的[接手训练示例](../../configs/training_recipes/handoff_from_R10_example.json)为起点，
 它从R10-step800起训playingcard200→qrcode200，任务模式保存200/400，最终两任务各测3回合。
+**该旧示例的R10 HF现已删除，不能原样执行。** 当前有效结构可参考R13配方，另存并更改输出目录、来源与课程后再预览；不要重复启动已运行的R13。
 **这是未执行的示例，不是已批准的新实验；GPU执行前先取得本次训练授权。**
 
 主要改动均在JSON中完成，不用改训练器：
@@ -137,6 +142,7 @@ R6/R8、原始9680、早期BF16基准、R7补课与中间存档均已按授权�
 ## 如何只做闭环评测
 
 已训练的模型不需要再启动训练。使用[独立共享评测示例](../../configs/evaluation_jobs/handoff_R10_shared_eval_example.json)：
+旧示例model为已删除的R10 HF，执行前须统一改为当前保留的R11-1200或R12-1350，并另存新配置。
 
 1. 把顶层destination及各job.destination中的`YYYYMMDD_HHMM`统一改为实际北京时间，使用全新目录。
 2. jobs列表指定任务和episodes；每个job的model必须为同一份HF，task不得重复。
@@ -173,7 +179,7 @@ TensorBoard每run写在`<run>/runs/`；既有6007服务需确认是否运行再�
 
 ## 复习与后续实验
 
-最新[复习资格池](../../refs/training_records/replay_pool_9680_through_R10.json)共14个任务，
+最新[复习资格池](../../refs/training_records/replay_pool_9680_through_R12.json)共17个任务，本轮R13已冻结使用，
 含用户提供9680截图资格与后续完整闭环报告。1/4不达1/3；历史曾达标即可，不因后续失败移除。
 候选池会在准备run时冻结，不热更新。复习块、当前主任务排除和导入新结果见[轮换复习](recipes/replay_rotation_zh.md)。
 同事首次接手先核对最新run实测终态与验证边界；每个新配方仍须CPU/GPU前置检查，不能把三步短测当作完整多阶段及闭环成功。

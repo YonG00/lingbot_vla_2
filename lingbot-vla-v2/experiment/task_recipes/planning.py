@@ -32,6 +32,7 @@ def build_plan(c):
     ordered=[name for name in t.get('task_order',[]) for _ in range(main[name]['steps'])]
     rows=[]
     replay_order=list(r['tasks']);replay_cursor=0;replay_task=None;replay_used=0
+    replay_tasks=[];replay_count=r.get('tasks_per_step',1)
     for step in range(t['steps']):
         review_n=int((step+1)*batch*fraction)-int(step*batch*fraction)
         counts=Counter()
@@ -45,7 +46,19 @@ def build_plan(c):
             counts[chosen]=batch-review_n
         else:
             for _ in range(batch-review_n):counts[frame_choice.next()]+=1
-        if r.get('mode','sample')=='round_robin' and fraction>0:
+        if r.get('mode','sample')=='round_robin' and fraction>0 and replay_count>1:
+            if not replay_tasks or replay_used>=r['switch_every_steps'] or chosen in replay_tasks:
+                replay_tasks=[]
+                for _ in replay_order:
+                    candidate=replay_order[replay_cursor%len(replay_order)];replay_cursor+=1
+                    if candidate!=chosen and candidate not in replay_tasks:replay_tasks.append(candidate)
+                    if len(replay_tasks)==replay_count:break
+                if len(replay_tasks)!=replay_count:raise ValueError('not enough eligible replay tasks')
+                replay_used=0
+            before=int(step*batch*fraction);after=before+review_n
+            replay_counts={task:(after+slot)//replay_count-(before+slot)//replay_count for slot,task in enumerate(replay_tasks)}
+            counts.update(replay_counts);replay_used+=1
+        elif r.get('mode','sample')=='round_robin' and fraction>0:
             if replay_task is None or replay_used>=r['switch_every_steps'] or replay_task==chosen:
                 for _ in replay_order:
                     candidate=replay_order[replay_cursor%len(replay_order)];replay_cursor+=1
@@ -57,7 +70,9 @@ def build_plan(c):
         else:
             for _ in range(review_n):counts[replay.next()]+=1
         rows.append(dict(step=step+1,main_task=chosen,samples_by_task=dict(counts),replay_samples=review_n))
-        if r.get('mode','sample')=='round_robin':rows[-1]['replay_task']=replay_task if review_n else None
+        if r.get('mode','sample')=='round_robin':
+            if replay_count==1:rows[-1]['replay_task']=replay_task if review_n else None
+            else:rows[-1].update(replay_tasks=list(replay_tasks),replay_samples_by_task=replay_counts)
     return dict(mode=t['mode'],global_batch_size=batch,steps=rows,recipe_sha256=digest(c))
 
 
