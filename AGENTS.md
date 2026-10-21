@@ -6,15 +6,15 @@
 ## 0. 工程坐标（以当前仓库为准）
 
 - 仓库根：本文件所在目录（git 顶层）；Python 包在 `lingbot-vla-v2/`（package `lingbot-vla-v2`）。
-- **本地实验分支：`learn_skill_mix_task`**，由 `Task_Auto_Learning` 创建；另有标准方法对照分支 `official_adjust_bottle_control`，独立目录 `/data/experiments/official_adjust_bottle_control`，详见 `lingbot-vla-v2/docs/training/experiments/adjust_bottle/adjust_bottle_official_control_zh.md`；生产基线仍为 `Task_Auto_Learning`。
+- **本目录当前开发基线：`official_adjust_bottle_control`**，服务器实验目录 `/data/experiments/official_adjust_bottle_control`；历史技能混合实验分支为`learn_skill_mix_task`，生产基线仍为`Task_Auto_Learning`。接手先读`lingbot-vla-v2/docs/training/PROJECT_HANDOFF_zh.md`，标准对照起源见`lingbot-vla-v2/docs/training/experiments/adjust_bottle/adjust_bottle_official_control_zh.md`。
   实验使用独立服务器目录，提交/push/同步须获批；下方生产分支的 reset/push 指令不能用于同步本实验。
   其它分支（`main` / `feature/auto-learning-v1` / `feature/quick-eval-multigpu-v1` / `feature/rocm-adapt`）**不作为开发基线**，不要往里同步或合并。
 - **训练机：`ctrl`（AutoDL）**；代码在 `/data/code`；Python：`/data/miniconda3/envs/lingbotvla/bin/python`。
   本机 Python 缺 torchdata / 新版 transformers ⇒ 重依赖测试只能在训练机上跑。AMD/ROCm 路线**不再使用**（`docs/rocm/` 仅作历史资料）。
-- 训练机同步（唯一正确方式）：先确认 `git branch --show-current` 是 `Task_Auto_Learning`，再
+- **生产AL同步（仅适用于`/data/code`，不能用于当前实验目录）**：先确认 `git branch --show-current` 是 `Task_Auto_Learning`，再
   `cd /data/code && git fetch -q origin && git reset --hard origin/Task_Auto_Learning`。
-- 同步口径：默认只做 **训练机 ↔ GitHub** 两方对齐；交付验证给出 `machine HEAD == origin/Task_Auto_Learning` + 机器测试结果即可。
-- 推送：本机 commit + `git push origin Task_Auto_Learning`，push 单独一条命令，不与大任务串。
+- 同步口径：生产AL交付验证使用 `machine HEAD == origin/Task_Auto_Learning` + 机器测试结果；当前实验检查对应`official_adjust_bottle_control`，不得把文件同步当作Git HEAD对齐。
+- 推送：当前实验`git push origin official_adjust_bottle_control`；生产AL才使用`git push origin Task_Auto_Learning`。push单独一条命令，不与大任务串。
 - 本仓库没有 `.workbuddy/` 记忆目录；上一级目录里的旧记忆**不作依据**。需要沉淀经验时，写进本仓库 `docs/`（见 §2）。
 
 ## 1. 铁律
@@ -43,6 +43,7 @@
 
 | 想知道什么 | 去哪 |
 |---|---|
+| 同事/Agent接手：当前模型、训练、独立闭环、验证边界 | `lingbot-vla-v2/docs/training/PROJECT_HANDOFF_zh.md` |
 | **AL 系统怎么运转**（数据模型 / 评测 split / 判定口径 / 状态机 / 缓存 / 存档四象限 / 成本模型 / 已知冲突） | 技能 **`lingbot-auto-learning-logic`**（改 AL 代码前先读） |
 | **怎么改代码才不出事**（讨论 → 清单 → 逐条执行 → 提交；改动本意四问；验证矩阵） | 技能 **`lingbot-code-changes`** |
 | **改动台账**（改了什么 / 为什么 / 是否已上机验证 / 怎么回滚；`AL_*` 开关总表） | `lingbot-vla-v2/docs/auto_learning/AL_PENDING_CHANGES.md` |

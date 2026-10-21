@@ -1,6 +1,8 @@
 <h1 align="center">LingBot-VLA 2.0: From Foundation to Application</h1>
 
-本实验分支的adjust_bottle采用配方、模型位置及验证边界，见[BF16 / GBS56 / 200步基准说明](docs/training/experiments/adjust_bottle/adjust_bottle_bf16_baseline_zh.md)。
+**当前实验接手入口：[项目接手说明](docs/training/PROJECT_HANDOFF_zh.md)**，包含可用模型、环境、顺序训练、闭环评测和文档维护要求。
+
+历史adjust_bottle对照配方见[BF16 / GBS56 / 200步说明](docs/training/experiments/adjust_bottle/adjust_bottle_bf16_baseline_zh.md)；其旧模型已清理，当前可用模型以[存档清单](docs/training/records/checkpoint_inventory_zh.md)为准。
 
 <p align="center">
   <a href="https://arxiv.org/pdf/2607.06403"><img src="https://img.shields.io/static/v1?label=Paper&message=PDF&color=red&logo=arxiv"></a>

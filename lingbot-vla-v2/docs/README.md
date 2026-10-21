@@ -22,6 +22,7 @@
 
 | 我要做什么 | 读哪篇 |
 |---|---|
+| 让新同事或Agent接手，了解当前模型与常用训练/评测操作 | [项目接手说明](training/PROJECT_HANDOFF_zh.md) |
 | 找训练方案、课程表、实验结果、训练流水和任务累计 | [训练文档统一入口](training/README.md) |
 | 低噪 FM / 目标变化窗口采样 / 训练前事件报告 | `auto_learning/target_change_window_zh.md` |
 | 相对输入状态动作表示与未来力监督边界 | `auto_learning/relative_action_representation_zh.md` |

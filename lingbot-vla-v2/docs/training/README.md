@@ -1,5 +1,7 @@
 # 训练文档导航
 
+**新同事或Agent先读：[项目接手说明](PROJECT_HANDOFF_zh.md)**，包含当前模型、环境、训练与独立闭环命令及验证边界。
+
 训练相关内容统一放在这里；AL状态机、指标、缓存和系统排障继续放在[auto_learning](../auto_learning/README.md)。
 JSON配置、数据清单和证据仍分别放configs、refs等工程目录，不放docs。
 
