@@ -128,6 +128,8 @@ python -m unittest experiment.task_recipes.test_contracts -v
 ```
 
 任务模式只支持sequential，不接受every_steps，避免两种规则混用。
+`checkpoint.every_tasks`默认1，可设3表示每完成3个任务保存；最后不足3个任务仍保存最终HF。
+例如100/100/200/200/200/200/200的七任务课程，every_tasks=3时保存400/1000/1200。
 例如100→200→200的课程保存100/300/500；200→200→200保存200/400/600。
 prepare生成`save_steps=0, save_at_steps=[...]`；训练器通过纯CPU的checkpoint_due判定，
 仍走原HF-only保存与容量检查，末步保存去重沿用原逻辑。

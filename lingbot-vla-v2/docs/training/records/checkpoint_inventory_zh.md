@@ -7,8 +7,9 @@
 |---|---|---|---|
 | R9 | `20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56` | **`checkpoints/global_step_500/hf_ckpt`** | 用户指定保留，R10来源 |
 | R10 | `20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each` | **`checkpoints/global_step_800/hf_ckpt`** | 用户指定保留，本轮最终闭环模型 |
+| R11 | `20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct` | **计划**400/1000/1200（未生成） | 每3个课程任务保存；不改变两份历史保留模型 |
 
-**当前仅以上两份ckpt存在**，删除前后均核对1708张量、BF16及实际HF分片头部/索引。
+**R11启动前仅两份历史ckpt存在**，删除前后均核对1708张量、BF16及实际HF分片头部/索引；R11计划不是已保存。
 用户2026-10-21最新指令替代此前保留R6/R8的约定，删除其他7份，释放83.24GiB。
 [本次完成清单与剩余空间](../../../refs/training_records/20261021_keep_R9_500_R10_800_completed.json)。
 此前9份存档的[历史审计](../../../refs/training_records/20261021_R10_final_audit.json)保留，用于说明训练时确实保存过；不代表目前仍保留。

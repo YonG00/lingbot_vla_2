@@ -17,6 +17,8 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#80 R11七任务1200步、10%复习与每3任务保存（2026-10-21）：🧪 本地/服务器44项CPU契约、真实950条CPU装配及三步GPU通过，正式1200步已进入。** schema新增checkpoint.every_tasks默认1，milestones每N任务结束或最终保存，补课容量预算同规则；用户确认7任务共1200步、14资格池复习10%、RR10，来源R10-step800。run=20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct；保存400/1000/1200，最终七主任务各3回合，补课关闭。新增不等长七任务保存点及真实Sampler索引归属契约；首次混合GPU三步通过（allocated77.70GiB/reserved84.59GiB），后续课程阶段及闭环仍待完成。不变量：分组存档不遗漏最终、排除当前主任务、全程6720复习样本、源HF不继承探针；症状：非400/1000/1200保存、复习混多个任务、CPU/GPU失败；回滚：新run显式every_tasks=1或关闭复习（需新进程、改保存需用户允许），停止新流程不影响旧模型；验证：test_checkpoint_modes/test_replay_rotation及本轮cpu/probe/verified/evaluation报告。
+
 **#79 同事与Agent接手入口（2026-10-21）：文档及未执行配置示例。** 新增training/PROJECT_HANDOFF_zh.md，汇总当前仅存R9/R10、最终结果、环境/分支、从R10续训、独立共享闭环、资源依赖、状态路径、42项CPU与GPU验证边界、每轮收尾及Agent提示；不包含服务器连接信息或凭据。新增训练/共享评测JSON示例，默认只读预览；更新AGENTS实际实验分支和生产同步适用范围，补README入口。不变量：旧9680不冒充可用、示例不自动执行、不能将本地push当机器对齐；症状：新同事套用生产reset或找不到当前模型；回滚：不使用示例/文档按Git回退，不影响运行；验证：配置preview、共享job结构、文档链接/表格/凭据排查。本次服务器HEAD读取失败，明确标为未核实，未调整服务器或启动GPU。
 
 

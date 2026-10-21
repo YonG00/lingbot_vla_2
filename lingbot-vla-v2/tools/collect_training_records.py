@@ -6,6 +6,7 @@ records=[]
 names.append('sequential_switch_pillbottle_stapler_from_R6_bf16_m56_200each_20261020')
 names.append('20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56')
 names.append('20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each')
+names.append('20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct')
 for name in names:
  p=base/name
  for out in [p]+list(p.glob('*remediation_round_[0-9]')):

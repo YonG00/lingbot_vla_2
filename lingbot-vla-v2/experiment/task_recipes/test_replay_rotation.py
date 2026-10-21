@@ -4,7 +4,7 @@ import unittest
 from experiment.task_recipes.test_contracts import fixture
 from experiment.task_recipes.schema import validate
 from experiment.task_recipes.prepare import preview
-from experiment.task_recipes.planning import build_plan,confirmed_progress
+from experiment.task_recipes.planning import build_plan,confirmed_progress,PlannedSampler
 from experiment.task_recipes.replay_pool import eligible_tasks,resolve_pool,merge_results
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -37,6 +37,15 @@ class ReplayRotation(unittest.TestCase):
         progress=confirmed_progress(p,60)
         self.assertEqual(progress['replay_samples'],336)
         self.assertEqual([progress['samples_by_task'][k] for k in ['a','b','c']],[112]*3)
+
+    def test_sampler_indices_match_task_counts(self):
+        from collections import Counter
+        p=build_plan(self.config());pools={name:[i*10,i*10+1] for i,name in enumerate(['z','a','b','c'])}
+        owner={index:name for name,indices in pools.items() for index in indices}
+        values=iter(PlannedSampler(p,pools,3))
+        for row in p['steps']:
+            counts=Counter(owner[next(values)] for _ in range(56))
+            self.assertEqual(dict(counts),row['samples_by_task'])
 
     def test_n1_and_main_exclusion_at_boundary(self):
         c=self.config(1)

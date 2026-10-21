@@ -43,7 +43,9 @@ def prepare(raw):
     extra_saves=0
     if c['remediation']['enabled']:
         worst_steps=100*len(c['evaluation']['tasks'])
-        if c['checkpoint']['mode']=='task':per_round=len(c['evaluation']['tasks'])
+        if c['checkpoint']['mode']=='task':
+            count=len(c['evaluation']['tasks']);interval=c['checkpoint'].get('every_tasks',1)
+            per_round=(count+interval-1)//interval
         else:
             interval=c['checkpoint']['every_steps']
             per_round=len(set(list(range(interval,worst_steps+1,interval))+[worst_steps]))

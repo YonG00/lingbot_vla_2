@@ -73,12 +73,15 @@ def _validate(raw):
     import re
     for name in list(main)+list(r['tasks']):
         if not re.fullmatch('[a-z][a-z0-9_]*',name):raise ValueError('invalid task name')
-    cp=c['checkpoint'];keys(cp,['mode','every_steps','save_final','hf_dtype'],'checkpoint')
+    cp=c['checkpoint'];keys(cp,['mode','every_steps','every_tasks','save_final','hf_dtype'],'checkpoint')
     cp.setdefault('mode','steps')
-    if cp['mode']=='steps':integer(cp['every_steps'],'every_steps')
+    if cp['mode']=='steps':
+        integer(cp['every_steps'],'every_steps')
+        if 'every_tasks' in cp:raise ValueError('every_tasks requires task checkpoint mode')
     elif cp['mode']=='task':
         if t['mode']!='sequential':raise ValueError('task checkpoint mode requires sequential training')
         if 'every_steps' in cp:raise ValueError('task checkpoint mode uses boundaries, not every_steps')
+        cp.setdefault('every_tasks',1);integer(cp['every_tasks'],'every_tasks')
     else:raise ValueError('checkpoint mode must be steps or task')
     if cp['save_final'] is not True or cp['hf_dtype']!='bf16':raise ValueError('v1 requires final BF16 HF; no silent precision/save change')
     e=c['evaluation'];keys(e,['tasks','episodes_per_task','checkpoints','shared_model_session'],'evaluation')
@@ -115,8 +118,10 @@ def _validate(raw):
 def milestones(c):
     if c['checkpoint'].get('mode','steps')=='task':
         total=0;result=[]
-        for task in c['train']['task_order']:
-            total+=c['train']['main_tasks'][task]['steps'];result.append(total)
+        order=c['train']['task_order'];interval=c['checkpoint'].get('every_tasks',1)
+        for index,task in enumerate(order,1):
+            total+=c['train']['main_tasks'][task]['steps']
+            if index%interval==0 or index==len(order):result.append(total)
         return result
     n=c['train']['steps'];interval=c['checkpoint']['every_steps']
     return sorted(set(list(range(interval,n+1,interval))+[n]))

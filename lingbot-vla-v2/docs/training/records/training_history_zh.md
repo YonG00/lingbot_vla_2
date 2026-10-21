@@ -126,7 +126,34 @@ playingcard和qrcode达到复习资格≥1/3，已追加至新版累计池；本
 刚启动的`20261020_2244_playingcard_phone_scale_from_R9_bf16_m56_200each`因用户追加rotate_qrcode已停止控制器及所有子进程，
 不是另一个已完成实验，不能将其更新累计到R10；它不作为新训练模型来源。
 
-### 本次历史存档保留清单
+### R11：R10-step800续训七任务＋10%轮换复习
+
+run：`/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct`。
+来源为R10的`checkpoints/global_step_800/hf_ckpt`。
+用户确认全部五个新任务，共七个课程任务，总计1200步：
+
+| 顺序 | 主任务 | 本轮步数 | 全局步号 | 保存 |
+|---|---|---:|---|---|
+| 1 | rotate_qrcode | 100 | 1–100 | 无 |
+| 2 | move_playingcard_away | 100 | 101–200 | 无 |
+| 3 | pick_dual_bottles | 200 | 201–400 | 400 |
+| 4 | pick_diverse_bottles | 200 | 401–600 | 无 |
+| 5 | grab_roller | 200 | 601–800 | 无 |
+| 6 | lift_pot | 200 | 801–1000 | 1000 |
+| 7 | stamp_seal | 200 | 1001–1200 | 最终1200 |
+
+BF16参数/计算/HF，micro=GBS56/GAS1；新优化器、1200步日程，阶段间连续。
+每步10%样本复习，GBS56每步5/6条，连续10步同一个旧任务再轮换；排除当前主任务。
+冻结14任务资格池，主任务与复习合并共19任务、950条、159239帧。
+全程预计67200样本，其中复习6720；复习曝光不算额外完整优化器步。
+保存模式task/every_tasks=3；最终只测七个主课程任务各3回合，共享服务；补课关闭、不自动关机。
+44项本地与服务器CPU契约通过，真实950条数据CPU装配及三步GPU通过。
+三步micro56/GAS1峰值allocated77.70GiB、reserved84.59GiB；短测仅首个qrcode主任务与复习任务混合，不代表后续全部阶段已验。
+控制器已进入正式1200步训练，实际完成步数以train.log为准，最终闭环尚未开始。
+2026-10-21 08:35:52日志快照：正式已6/1200，当前rotate_qrcode，不能将剩余配额当作完成。
+配置：`configs/training_recipes/sequential_seven_tasks_1200_replay10pct_from_R10.json`。
+
+### 历史存档保留清单（清理时口径）
 
 按用户明确指令，启动R9前仅保留以下两份历史模型：
 

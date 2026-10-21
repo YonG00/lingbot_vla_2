@@ -7,6 +7,17 @@ from lingbotvla.utils.checkpoint_schedule import checkpoint_due
 
 
 class CheckpointModes(unittest.TestCase):
+    def test_every_three_tasks_and_final_partial_group(self):
+        c=fixture('sequential_plate100_cup200_pot200')
+        names=['a','b','c','d','e','f','g']
+        c['train'].update(main_tasks={name:dict(steps=100 if i<2 else 200,weight=1) for i,name in enumerate(names)},task_order=names)
+        c['checkpoint']=dict(mode='task',every_tasks=3,save_final=True,hf_dtype='bf16')
+        c=validate(c)
+        self.assertEqual(milestones(c),[400,1000,1200])
+        self.assertEqual([s for s in range(1,1201) if checkpoint_due(s,0,milestones(c))],[400,1000,1200])
+        c['checkpoint']['every_tasks']=0
+        with self.assertRaises(ValueError):validate(c)
+
     def test_legacy_and_smoke(self):
         for interval in [0,200,250]:
             for step in range(1,701):
