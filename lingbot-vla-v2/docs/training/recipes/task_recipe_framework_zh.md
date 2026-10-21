@@ -179,3 +179,9 @@ prepare生成`save_steps=0, save_at_steps=[...]`；训练器通过纯CPU的check
 验证：`python3 -m unittest experiment.task_recipes.test_remediation`。
 历史R7已按旧规则完成真实GPU补课及三任务闭环，全部0/3后用户放弃该模型。
 本次“1/3与2/3补课，跳过0/3”修订只做本地纯CPU契约验证；没有热更新当前服务器训练，R8仍关闭补课。
+
+## 训练结束直接复用模型
+
+新配方在evaluation中设置`"reuse_training_model": true`，同时保持`"shared_model_session": true`、`"checkpoints": ["final"]`。适用于单GPU，支持`max_parallel_tasks`为1到8及原有batches/rolling。流程为最终HF完成并验证后，释放优化器和教师、保留策略模型，内存转FP32并直接接并行仿真；不会再读HF权重。转换精度仍可能出现显存波动，判断是否复用应看`evaluation_<step>/handoff.json`中的训练/服务PID相同、weight_loads=0，以及status中的model_loads=0/reused_training_model=true。
+
+旧配方未设置该参数时仍采用原重载行为；评测中间存档必须重载，禁止把最终内存模型冒充中间存档。此开关失败明确报错，不自动回退。1步训练→两路单回合驻留GPU接口验证已通过（同PID、零重载）；完整正式训练保存交接以新R16终态为准，见改动台账#87。

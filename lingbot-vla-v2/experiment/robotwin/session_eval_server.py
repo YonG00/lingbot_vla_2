@@ -9,10 +9,9 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
 
 
-def main():
+def install_session_handler():
     from deploy import websocket_policy_server as ws
     from experiment.official_control.session_policy import SessionPool
-    from experiment.robotwin.precision_eval_server import main as precision_main
     original=ws.WebsocketPolicyServer._handler
     async def handler(server,websocket):
         if not hasattr(server,'_session_pool'):
@@ -25,9 +24,13 @@ def main():
         finally:
             if path:
                 pool=server._session_pool
-                Path(path).write_text(json.dumps(dict(model_loads=1,connections=pool.connections,
+                Path(path).write_text(json.dumps(dict(model_loads=getattr(server,'model_loads',1),connections=pool.connections,
                     requests=pool.requests,forward_batch_size=1,session_isolation=True),indent=2))
     ws.WebsocketPolicyServer._handler=handler
+
+def main():
+    from experiment.robotwin.precision_eval_server import main as precision_main
+    install_session_handler()
     precision_main()
 
 if __name__=='__main__':main()

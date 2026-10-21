@@ -89,3 +89,5 @@ python -m experiment.task_recipes.replay_pool \
 主任务配额仍按更新步数计数，不能将复习比例另算成完整训练步数。
 
 验证入口：`python3 -m unittest experiment.task_recipes.test_replay_rotation`。
+
+最新R16冻结池为`refs/training_records/replay_pool_9680_through_R15.json`，20个历史≥1/3任务，新增R14的place_shoe（2/3）；R15两个0/3不增加资格。R16按用户指定10%比例、tasks_per_step=1、switch_every_steps=5，20任务一轮100更新；800步每个旧任务预计224样本，仍以实际完成步数为准。

@@ -92,7 +92,7 @@ def _validate(raw):
         cp.setdefault('every_tasks',1);integer(cp['every_tasks'],'every_tasks')
     else:raise ValueError('checkpoint mode must be steps or task')
     if cp['save_final'] is not True or cp['hf_dtype']!='bf16':raise ValueError('v1 requires final BF16 HF; no silent precision/save change')
-    e=c['evaluation'];keys(e,['tasks','episodes_per_task','checkpoints','shared_model_session','max_parallel_tasks','scheduling','video_episodes','render_sync'],'evaluation')
+    e=c['evaluation'];keys(e,['tasks','episodes_per_task','checkpoints','shared_model_session','max_parallel_tasks','scheduling','video_episodes','render_sync','reuse_training_model'],'evaluation')
     e.setdefault('tasks',list(t.get('task_order',main)))
     if not isinstance(e['tasks'],list) or len(e['tasks'])!=len(set(e['tasks'])):raise ValueError('evaluation tasks must be unique list')
     for name in e['tasks']:
@@ -118,6 +118,9 @@ def _validate(raw):
         if type(n) is not int or n not in saves:raise ValueError('evaluation checkpoint is not saved')
         selected.append(n)
     if len(selected)!=len(set(selected)):raise ValueError('duplicate evaluation checkpoints')
+    if type(e.get('reuse_training_model',False)) is not bool:raise ValueError('reuse_training_model must be boolean')
+    if e.get('reuse_training_model') and (not e['shared_model_session'] or selected!=[t['steps']] or not e['tasks']):
+        raise ValueError('resident evaluation requires one final checkpoint and a shared session')
     remedial=c.setdefault('remediation',{})
     keys(remedial,['enabled','max_rounds'],'remediation')
     remedial.setdefault('enabled',False);remedial.setdefault('max_rounds',1)

@@ -1,0 +1,68 @@
+{
+  "state": "complete",
+  "checkpoints": [
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/checkpoints/global_step_400/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    }
+  ],
+  "evaluation": [
+    {
+      "state": "complete",
+      "task": "stack_bowls_two",
+      "label": "recipe_400",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/checkpoints/global_step_400/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 57459,
+      "shared_server": true
+    },
+    {
+      "state": "complete",
+      "task": "handover_block",
+      "label": "recipe_400",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/checkpoints/global_step_400/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100002,
+        100003
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 57459,
+      "shared_server": true
+    }
+  ],
+  "remediation": [],
+  "progress": {
+    "confirmed_optimizer_steps": 400,
+    "main_steps": {
+      "handover_block": 200,
+      "stack_bowls_two": 200
+    },
+    "samples_by_task": {
+      "handover_block": 11200,
+      "stack_bowls_two": 11200
+    },
+    "replay_samples": 0
+  },
+  "shutdown": false
+}

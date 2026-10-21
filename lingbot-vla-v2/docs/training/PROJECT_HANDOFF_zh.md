@@ -213,3 +213,7 @@ TensorBoard每run写在`<run>/runs/`；既有6007服务需确认是否运行再�
 ## 最新交接：R14完成、R15训练中
 
 R14实际1350步（18:13:56至20:05:59，约1小时52分，1350条更新日志），三个存档均BF16验证通过。最终7任务仅place_shoe为2/3，其余均0/3；追加step500的pick_dual_bottles和stack_bowls_two均0/3。R15从R14-step1350出发，handover_block200→stack_bowls_two200，不复习、GBS56，总400步，最终保存并评测两任务各3回合。当前流水线training，尚未完成。run与配置见流水记录。按需渲染GPU对照trace不一致，保持默认eager；八路资源可运行但bread_skillet种子100004与原100003不同，不作为一致性通过。
+
+最新更新：R15已完成400步与两任务各3回合，handover_block和stack_bowls_two均0/3；最新正式模型为R15-step400。训练驻留交接正在修复验证，参数evaluation.reuse_training_model；当前历史R15结果仍来自重载服务，不能宣称本轮已驻留评测。
+
+R16最新课程已启动：`20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident`，剩余10任务各80、10%单任务复习每5步轮换，500/800保存、最终10任务各3回合5＋5路。驻留修复隔离GPU验证已通过，新配方`evaluation.reuse_training_model=true`，不再创建新的模型进程；完整正式保存交接以本轮最终实际审计为准。

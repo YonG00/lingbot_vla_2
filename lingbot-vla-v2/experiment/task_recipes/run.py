@@ -50,7 +50,12 @@ def worker(raw,launch):
         for step in report['evaluation_steps']:
             if not c['evaluation']['tasks']:continue
             state('evaluation',step=step,completed=results)
-            directory=out/f'evaluation_{step}';directory.mkdir(exist_ok=False)
+            directory=out/f'evaluation_{step}'
+            if c['evaluation'].get('reuse_training_model'):
+                from experiment.task_recipes.resident_evaluation import read_completed
+                results.extend(read_completed(directory,c,step))
+                continue
+            directory.mkdir(exist_ok=False)
             cfg=json.loads((out/'trainer_config.json').read_text());jobs=[]
             for task in c['evaluation']['tasks']:
                 jobs.append(dict(task=task,label=f'recipe_{step}',model=str(out/f'checkpoints/global_step_{step}/hf_ckpt'),
@@ -114,7 +119,11 @@ def main():
         import runpy
         assert json.loads((a.out/'cpu_report.json').read_text())['state']=='cpu_pass'
         os.chdir(ROOT);sys.argv=['tasks/vla/train_lingbotvla.py',str(a.out/'trainer_config.json')]
-        runpy.run_path(sys.argv[0],run_name='__main__');return
+        initial={}
+        if c['evaluation'].get('reuse_training_model'):
+            from experiment.task_recipes.resident_evaluation import evaluate_resident
+            initial['_POST_TRAINING_CALLBACK']=lambda model,step:evaluate_resident(model,step,a.out)
+        runpy.run_path(sys.argv[0],run_name='__main__',init_globals=initial);return
     if a.recipe is None:parser.error('--recipe required')
     raw=json.loads(a.recipe.read_text())
     if a.out:raw['output_dir']=str(a.out)

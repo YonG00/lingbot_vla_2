@@ -69,7 +69,8 @@ def run_jobs(jobs,directory,workers,opener=None,executor=evaluate.execute,stoppe
                         if job is not None:submit(job)
                     (directory/'summary.json').write_text(json.dumps(results,indent=2))
                     state('evaluating',server_pid=session['process'].pid,batch=offset//workers+1,active_workers=len(futures),scheduling=scheduling)
-        state('complete',elapsed_seconds=time.monotonic()-start,server_pid=session['process'].pid,model_loads=1)
+        state('complete',elapsed_seconds=time.monotonic()-start,server_pid=session['process'].pid,
+            model_loads=session.get('model_loads',1),reused_training_model=session.get('reused_training_model',False))
         return results
     except BaseException as error:
         state('failed',error=repr(error));raise

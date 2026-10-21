@@ -1,7 +1,7 @@
 # 任务训练步数与评测对照
 
 任务按本轮实验中首次参与训练的顺序排列。每次训练及其评测占一列，补课另占一列。
-取证截止2026-10-21：R13训练及正式闭环完成，独立八路试跑已结束但种子一致性未通过；完整时间、来源和路径见[流水记录](training_history_zh.md)。
+取证截止2026-10-21：R15训练及正式闭环完成，两任务均0/3；完整时间、来源和路径见[流水记录](training_history_zh.md)。
 不计原始9680内未知的逐任务步数；CPU检查及三步GPU探针不计入正式训练。
 “累计”沿模型真实继承链计算，不把独立实验分支相加。只测未训记为`+0`；未测不能当失败。
 
@@ -188,3 +188,14 @@ R14完成取证补充：最新链实际主任务新增place_can_basket100、plac
 |stack_bowls_two|300|0/3|200|
 |place_shoe|150|2/3|0|
 |place_fan|150|0/3|0|
+
+### R15完成列（继承R14-step1350，无复习）
+
+|任务|R14主训累计|R15新增 / 当前主训累计|R15最终评测|
+|---|---:|---|---|
+|handover_block|150|+200 / 350|0/3|
+|stack_bowls_two|550|+200 / 750|0/3|
+
+400步已完成，不包含隔离驻留接口测试的1步更新；隔离测试不保存模型、不并入继承链。
+
+R16已启动但未完成：beat_block_hammer、handover_mic、hanging_mug、place_a2b_left、place_burger_fries、place_dual_shoes、place_object_stand、put_object_cabinet、scan_object、stack_blocks_three均计划新增80步，尚不计入已完成累计。10%单任务复习每5步轮换，使用through_R15的20个合格旧任务。

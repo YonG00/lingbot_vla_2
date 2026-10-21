@@ -11,6 +11,9 @@ def check(out):
     c,p,groups=load_run(out)
     plan=json.loads((out/'plan.json').read_text())
     cfg=json.loads((Path(out)/'trainer_config.json').read_text())
+    if c['evaluation'].get('reuse_training_model'):
+        from experiment.task_recipes.resident_evaluation import validate_preprocessing
+        validate_preprocessing(cfg)
     expected=milestones(c) if c['checkpoint'].get('mode','steps')=='task' else None
     assert cfg['train'].get('save_at_steps')==expected,'checkpoint schedule/config mismatch'
     def dataset_check(dataset,cfg):

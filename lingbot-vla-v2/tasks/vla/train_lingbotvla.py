@@ -2363,6 +2363,22 @@ def main():
 
     dist.barrier()
     dist.destroy_process_group()
+    # Opt-in recipe handoff: all HF writes have finished; never reload weights here.
+    _resident_callback = globals().get('_POST_TRAINING_CALLBACK')
+    if _resident_callback is not None:
+        if disk_guard_stop or global_step != args.train.max_steps:
+            raise RuntimeError('resident evaluation requires successful complete training')
+        # The checkpoint state still owns optimizer tensors after `del optimizer`.
+        if save_checkpoint_path is not None:
+            state.clear()
+        model.zero_grad(set_to_none=True)
+        if use_depth_align:
+            del moge_model, morgbd_model
+        del train_dataloader
+        import gc
+        gc.collect()
+        helper.empty_cache()
+        _resident_callback(model, global_step)
 
 
 if __name__ == "__main__":

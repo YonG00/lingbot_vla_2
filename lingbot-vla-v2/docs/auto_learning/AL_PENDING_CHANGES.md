@@ -438,3 +438,7 @@ BF16最终HF1708张量完整，约11.88GiB；CPU整链、三步GPU dtype/梯度�
 训练性能取证（2026-10-21，未修改编译逻辑）：R14的模型self.steps触发Dynamo重编译，达到recompile_limit=8后相关段回退；不能靠增大缓存解决持续递增计数。不变量：课程、loss、GBS56和500步存档不变；症状：前8步反复编译、随后约4.85s；回滚：无需代码回滚（只读检查）；验证入口：原R14 train.log的torch_dynamo_resume_in_forward_at_833/self.steps警告。后续修复需独立CPU契约及GPU同条件对照，当前保持原配置。
 
 **#86 按需渲染实验（默认关闭）**：CPU64项通过；GPU同seed单回合两版均1/1、59.932s/57.745s，但trace_equal=false，未通过严格轨迹一致性，默认仍eager。不变量：物理步/观测调用/成功判定不变；症状：trace差异或成功退化；回滚：省略render_sync或设eager；验证：test_render_sync与`/data/outputs/20261021_render_sync_ab`。
+
+**#87 训练模型驻留交接并行评测（2026-10-21）：🧪 本地73项CPU通过，服务器9项交接CPU通过；GPU 1步训练后两路各1回合完成，训练/评测PID60027相同、weight_loads/model_loads均0。** 根因：task_recipes/run.worker等待训练子进程退出后才open_session，串行/并行共享仅覆盖评测任务间，并未复用训练模型。新增evaluation.reuse_training_model（需shared session且仅final评测）；训练全部HF等待结束、释放优化器引用/梯度/教师/loader并销毁单卡进程组后回调，在同PID保留模型模块、切eager/FP32并重建预处理，两个以上仿真通过SessionPool隔离。父流水线只读取已完成驻留报告，不再创建服务；失败禁止静默重载。**不变量**：最终HF仍按原节奏保存验证、训练模型核心对象复用、推理B1/会话隔离、旧存档独立评测仍可重载；**症状**：PID不一致、weight_loads非0、HF未完成即评测、并行串状态或训练结束内存不释放；**回滚**：新配方显式reuse_training_model=false；**验证入口**：test_resident_evaluation、test_parallel_evaluation、GPU输出20261021_resident_handoff_gpu_smoke（1步不存档、2任务各1回合）；handoff.json记录训练/服务PID与零读权重。当前R15既有评测在同步前已完成，不热改其配置。
+
+#87 GPU补充：v1在joints字典格式、v2在norm_type字典格式处失败；已分别补契约测试，并增加真实FeatureTransform初始化的CPU门禁，v3通过。原训练权重模块对象保持一致、禁止load_vla/load_model_weights的守卫未触发，两个仿真完整结束、同PID服务退出。新R16显式启用驻留交接；完整800步保存后交接待本轮实际验证，不将隔离1步测试冒充正式训练。

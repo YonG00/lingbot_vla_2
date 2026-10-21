@@ -46,7 +46,8 @@
     ],
     "shared_model_session": true,
     "max_parallel_tasks": 2,
-    "video_episodes": 2
+    "video_episodes": 2,
+    "reuse_training_model": true
   },
   "runtime": {
     "shutdown_after_completion": false

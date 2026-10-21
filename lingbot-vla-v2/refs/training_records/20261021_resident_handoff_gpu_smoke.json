@@ -1,0 +1,51 @@
+{
+  "state": "complete",
+  "training_pid": 60027,
+  "handoff": {
+    "training_pid": 60027,
+    "server_pid": 60027,
+    "weight_loads": 0,
+    "model_core_identity_preserved": true,
+    "precision": "float32"
+  },
+  "summary": [
+    {
+      "state": "complete",
+      "task": "handover_block",
+      "label": "resident_smoke_after_one_unsaved_update",
+      "model": "/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/checkpoints/global_step_400/hf_ckpt",
+      "successes": 0,
+      "episodes": 1,
+      "success_rate": 0.0,
+      "seeds": [
+        100000
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 1,
+      "server_pid": 60027,
+      "shared_server": true
+    },
+    {
+      "state": "complete",
+      "task": "stack_bowls_two",
+      "label": "resident_smoke_after_one_unsaved_update",
+      "model": "/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/checkpoints/global_step_400/hf_ckpt",
+      "successes": 0,
+      "episodes": 1,
+      "success_rate": 0.0,
+      "seeds": [
+        100000
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 1,
+      "server_pid": 60027,
+      "shared_server": true
+    }
+  ]
+}

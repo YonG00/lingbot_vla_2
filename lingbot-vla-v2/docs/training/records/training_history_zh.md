@@ -1,7 +1,7 @@
 # 训练与闭环评测流水
 
 记录范围：2026-10-20官方对照实验至当前补课；更早鼠标实验尚未回填，不表示没有训练。
-最近取证：2026-10-21，R13完整训练与最终闭环已归档；八路滚动单回合试跑已结束但种子一致性未通过，各时间节点采用服务器日志时间。
+最近取证：2026-10-21，R15已完成400步及闭环，两任务均0/3；训练模型驻留交接修复正在独立验证。各时间节点采用服务器日志时间。
 时间为首次/末次正式优化器更新日志时间，不含CPU检查、GPU探针、加载与闭环耗时。
 运行中记录仅表示该时间点进度。任务累计与各轮对照见[任务统计](task_training_statistics_zh.md)。
 
@@ -335,3 +335,11 @@ R14完整终态：1350条连续更新，首步18:13:56、末步20:05:59（1小�
 |place_fan|0/3|未测|
 
 R15最新取证state=training；当前训练不是完成，400步存档及结果未产生。[终态与启动证据](../../../refs/training_records/20261021_R14_completed_R15_started.json)。
+
+R15终态复核：400步完成、最终400 HF验证1708张量BF16；handover_block与stack_bowls_two均0/3，使用同一FP32模型服务PID57459、两路仿真，未发生OIDN错误、各录前2回合。无复习、无补课、未自动关机。该已冻结流程仍是训练退出后重载；驻留修复仅供后续新配方，不追改历史结果。[完成证据](../../../refs/training_records/20261021_R15_completed.json)。
+
+### R16：剩余十任务各80步＋10%单任务复习（流水线已启动）
+
+run：`/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident`。来源R15-step400。顺序beat_block_hammer、handover_mic、hanging_mug、place_a2b_left、place_burger_fries、place_dual_shoes、place_object_stand、put_object_cabinet、scan_object、stack_blocks_three，各80步，共800。BF16、micro56/GAS1；10%复习、每步一个任务、每5步切换；资格池按R14/R15正式结果更新至20任务（新增place_shoe）。计划各主课4032样本、复习合计4480样本，每个旧任务224。保存500/800，最终这10任务各3回合、5＋5路、前2回合录像；开启reuse_training_model，保留训练模型内存转换FP32直接并行评测。无补课、无自动关机。流水线60940已启动，完成量未计入累计。
+
+驻留隔离验证：1步不存档训练后，两路各1回合正常结束，训练/评测PID均60027，权重重载0；两任务0/1只证明接口可执行，不当作正式模型能力结果。[验证证据](../../../refs/training_records/20261021_resident_handoff_gpu_smoke.json)。
