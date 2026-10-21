@@ -343,3 +343,20 @@ R15终态复核：400步完成、最终400 HF验证1708张量BF16；handover_blo
 run：`/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident`。来源R15-step400。顺序beat_block_hammer、handover_mic、hanging_mug、place_a2b_left、place_burger_fries、place_dual_shoes、place_object_stand、put_object_cabinet、scan_object、stack_blocks_three，各80步，共800。BF16、micro56/GAS1；10%复习、每步一个任务、每5步切换；资格池按R14/R15正式结果更新至20任务（新增place_shoe）。计划各主课4032样本、复习合计4480样本，每个旧任务224。保存500/800，最终这10任务各3回合、5＋5路、前2回合录像；开启reuse_training_model，保留训练模型内存转换FP32直接并行评测。无补课、无自动关机。流水线60940已启动，完成量未计入累计。
 
 驻留隔离验证：1步不存档训练后，两路各1回合正常结束，训练/评测PID均60027，权重重载0；两任务0/1只证明接口可执行，不当作正式模型能力结果。[验证证据](../../../refs/training_records/20261021_resident_handoff_gpu_smoke.json)。
+
+R16完成取证：800条连续更新，首步22:02:45、末步23:08:36，1小时05分51秒（不含启动）。500/800两份BF16 HF均验证通过。正式训练后驻留评测完整跑通：训练/服务PID62075相同、weight_loads=0，10连接373请求、B1、会话隔离；最终10任务各3回合，共5/30（16.7%）。[终态证据](../../../refs/training_records/20261021_R16_completed.json)。
+
+|任务|本轮主课步数|R16-step800|
+|---|---:|---|
+|place_a2b_left|80|1/3|
+|beat_block_hammer|80|1/3|
+|hanging_mug|80|1/3|
+|place_burger_fries|80|0/3|
+|handover_mic|80|0/3|
+|place_object_stand|80|2/3|
+|scan_object|80|0/3|
+|place_dual_shoes|80|0/3|
+|put_object_cabinet|80|0/3|
+|stack_blocks_three|80|0/3|
+
+抽检前clean总体历史最新逐任务等权估算29.0%，覆盖50任务，其中当前模型仅实测10项，其余40项跨模型历史；不是当前模型全量成功率。后置open_laptop、place_object_basket、stack_blocks_two各3回合抽检已启动，结果待完成。完整输出在本run的clean_estimate_retention3。

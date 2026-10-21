@@ -199,3 +199,22 @@ R14完成取证补充：最新链实际主任务新增place_can_basket100、plac
 400步已完成，不包含隔离驻留接口测试的1步更新；隔离测试不保存模型、不并入继承链。
 
 R16已启动但未完成：beat_block_hammer、handover_mic、hanging_mug、place_a2b_left、place_burger_fries、place_dual_shoes、place_object_stand、put_object_cabinet、scan_object、stack_blocks_three均计划新增80步，尚不计入已完成累计。10%单任务复习每5步轮换，使用through_R15的20个合格旧任务。
+
+### R16完成列（继承R15-step400）
+
+以下十任务首次专门主训，均新增80、主训累计80，R16共800步完成；原R15之前的主训累计保持不变。
+
+|任务|R16新增 / 主训累计|R16最终评测|
+|---|---|---|
+|place_a2b_left|+80 / 80|1/3|
+|beat_block_hammer|+80 / 80|1/3|
+|hanging_mug|+80 / 80|1/3|
+|place_burger_fries|+80 / 80|0/3|
+|handover_mic|+80 / 80|0/3|
+|place_object_stand|+80 / 80|2/3|
+|scan_object|+80 / 80|0/3|
+|place_dual_shoes|+80 / 80|0/3|
+|put_object_cabinet|+80 / 80|0/3|
+|stack_blocks_three|+80 / 80|0/3|
+
+实际复习4480/44800样本（10%），每次一个旧任务、每5步切换，20任务各224样本。新增复习资格4任务：beat_block_hammer、hanging_mug、place_a2b_left、place_object_stand；历史资格池累计24（不覆盖R16冻结20任务池）。旧三任务遗忘抽检结果尚待完成，不能填为失败或成功。

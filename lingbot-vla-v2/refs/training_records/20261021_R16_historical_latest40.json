@@ -1,0 +1,337 @@
+{
+  "tasks": [
+    "adjust_bottle",
+    "beat_block_hammer",
+    "blocks_ranking_rgb",
+    "blocks_ranking_size",
+    "click_alarmclock",
+    "click_bell",
+    "dump_bin_bigbin",
+    "grab_roller",
+    "handover_block",
+    "handover_mic",
+    "hanging_mug",
+    "lift_pot",
+    "move_can_pot",
+    "move_pillbottle_pad",
+    "move_playingcard_away",
+    "move_stapler_pad",
+    "open_laptop",
+    "open_microwave",
+    "pick_diverse_bottles",
+    "pick_dual_bottles",
+    "place_a2b_left",
+    "place_a2b_right",
+    "place_bread_basket",
+    "place_bread_skillet",
+    "place_burger_fries",
+    "place_can_basket",
+    "place_cans_plasticbox",
+    "place_container_plate",
+    "place_dual_shoes",
+    "place_empty_cup",
+    "place_fan",
+    "place_mouse_pad",
+    "place_object_basket",
+    "place_object_scale",
+    "place_object_stand",
+    "place_phone_stand",
+    "place_shoe",
+    "press_stapler",
+    "put_bottles_dustbin",
+    "put_object_cabinet",
+    "rotate_qrcode",
+    "scan_object",
+    "shake_bottle",
+    "shake_bottle_horizontally",
+    "stack_blocks_three",
+    "stack_blocks_two",
+    "stack_bowls_three",
+    "stack_bowls_two",
+    "stamp_seal",
+    "turn_switch"
+  ],
+  "historical_latest": [
+    {
+      "task": "click_alarmclock",
+      "successes": 4,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation"
+    },
+    {
+      "task": "press_stapler",
+      "successes": 4,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation"
+    },
+    {
+      "task": "click_bell",
+      "successes": 3,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation"
+    },
+    {
+      "task": "open_microwave",
+      "successes": 3,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation"
+    },
+    {
+      "task": "shake_bottle",
+      "successes": 3,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation"
+    },
+    {
+      "task": "open_laptop",
+      "successes": 2,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation"
+    },
+    {
+      "task": "place_object_basket",
+      "successes": 2,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation"
+    },
+    {
+      "task": "shake_bottle_horizontally",
+      "successes": 3,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "adjust_bottle",
+      "successes": 3,
+      "episodes": 3,
+      "source": "R3/evaluation_200/summary.json",
+      "evidence_kind": "archived_run_summary"
+    },
+    {
+      "task": "place_container_plate",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "place_empty_cup",
+      "successes": 1,
+      "episodes": 3,
+      "source": "R6/evaluation_500/place_empty_cup/summary.json",
+      "evidence_kind": "archived_run_summary"
+    },
+    {
+      "task": "turn_switch",
+      "successes": 2,
+      "episodes": 3,
+      "source": "R9/evaluation_500/turn_switch/summary.json",
+      "evidence_kind": "archived_run_summary"
+    },
+    {
+      "task": "place_a2b_right",
+      "successes": 1,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation"
+    },
+    {
+      "task": "move_playingcard_away",
+      "successes": 3,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "place_phone_stand",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "place_object_scale",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "rotate_qrcode",
+      "successes": 2,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "pick_dual_bottles",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "pick_diverse_bottles",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "grab_roller",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "lift_pot",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "stamp_seal",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "dump_bin_bigbin",
+      "successes": 2,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "put_bottles_dustbin",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "stack_blocks_two",
+      "successes": 2,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "stack_bowls_two",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/evaluation_400/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "blocks_ranking_size",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "stack_bowls_three",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "move_stapler_pad",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "place_bread_basket",
+      "successes": 2,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "place_bread_skillet",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "place_can_basket",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "place_cans_plasticbox",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "blocks_ranking_rgb",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "place_mouse_pad",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "handover_block",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/evaluation_400/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "place_shoe",
+      "successes": 2,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "place_fan",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary"
+    },
+    {
+      "task": "move_can_pot",
+      "successes": 0,
+      "episodes": 3,
+      "source": "refs/training_records/20261020_R9_complete_R10_training.json",
+      "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt"
+    },
+    {
+      "task": "move_pillbottle_pad",
+      "successes": 0,
+      "episodes": 3,
+      "source": "refs/training_records/20261020_R9_complete_R10_training.json",
+      "model": "/root/autodl-tmp/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_500/hf_ckpt"
+    }
+  ],
+  "note": "each task uses latest available formal result; excludes abandoned branches and isolated interface smokes"
+}

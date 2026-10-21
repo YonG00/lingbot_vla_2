@@ -1,0 +1,594 @@
+{
+  "kind": "mixed_checkpoint_latest_per_task_estimate",
+  "not_full_current_model_benchmark": true,
+  "task_count": 50,
+  "covered_tasks": 50,
+  "missing_tasks": [],
+  "macro_success_rate": 0.29,
+  "current_model_tasks": 10,
+  "historical_tasks": 40,
+  "current_model_successes": 5,
+  "current_model_episodes": 30,
+  "per_task": [
+    {
+      "task": "adjust_bottle",
+      "successes": 3,
+      "episodes": 3,
+      "source": "R3/evaluation_200/summary.json",
+      "evidence_kind": "archived_run_summary",
+      "current_model": false,
+      "success_rate": 1.0
+    },
+    {
+      "state": "complete",
+      "task": "beat_block_hammer",
+      "label": "recipe_800",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+      "successes": 1,
+      "episodes": 3,
+      "success_rate": 0.3333333333333333,
+      "seeds": [
+        100000,
+        100002,
+        100003
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 62075,
+      "shared_server": true,
+      "current_model": true
+    },
+    {
+      "task": "blocks_ranking_rgb",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "blocks_ranking_size",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "click_alarmclock",
+      "successes": 4,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation",
+      "current_model": false,
+      "success_rate": 1.0
+    },
+    {
+      "task": "click_bell",
+      "successes": 3,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation",
+      "current_model": false,
+      "success_rate": 0.75
+    },
+    {
+      "task": "dump_bin_bigbin",
+      "successes": 2,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.6666666666666666
+    },
+    {
+      "task": "grab_roller",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "handover_block",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/evaluation_400/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "state": "complete",
+      "task": "handover_mic",
+      "label": "recipe_800",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 62075,
+      "shared_server": true,
+      "current_model": true
+    },
+    {
+      "state": "complete",
+      "task": "hanging_mug",
+      "label": "recipe_800",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+      "successes": 1,
+      "episodes": 3,
+      "success_rate": 0.3333333333333333,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 62075,
+      "shared_server": true,
+      "current_model": true
+    },
+    {
+      "task": "lift_pot",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "move_can_pot",
+      "successes": 0,
+      "episodes": 3,
+      "source": "refs/training_records/20261020_R9_complete_R10_training.json",
+      "model": "/root/autodl-tmp/data/outputs/sequential_plate100_cup200_pot200_from_plate200_bf16_m56_20261020/checkpoints/global_step_500/hf_ckpt",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "move_pillbottle_pad",
+      "successes": 0,
+      "episodes": 3,
+      "source": "refs/training_records/20261020_R9_complete_R10_training.json",
+      "model": "/root/autodl-tmp/data/outputs/20261020_2058_stapler200_pillbottle200_switch100_from_R8_bf16_m56/checkpoints/global_step_500/hf_ckpt",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "move_playingcard_away",
+      "successes": 3,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 1.0
+    },
+    {
+      "task": "move_stapler_pad",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "open_laptop",
+      "successes": 2,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation",
+      "current_model": false,
+      "success_rate": 0.5
+    },
+    {
+      "task": "open_microwave",
+      "successes": 3,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation",
+      "current_model": false,
+      "success_rate": 0.75
+    },
+    {
+      "task": "pick_diverse_bottles",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "pick_dual_bottles",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "state": "complete",
+      "task": "place_a2b_left",
+      "label": "recipe_800",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+      "successes": 1,
+      "episodes": 3,
+      "success_rate": 0.3333333333333333,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 62075,
+      "shared_server": true,
+      "current_model": true
+    },
+    {
+      "task": "place_a2b_right",
+      "successes": 1,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation",
+      "current_model": false,
+      "success_rate": 0.25
+    },
+    {
+      "task": "place_bread_basket",
+      "successes": 2,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.6666666666666666
+    },
+    {
+      "task": "place_bread_skillet",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "state": "complete",
+      "task": "place_burger_fries",
+      "label": "recipe_800",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 62075,
+      "shared_server": true,
+      "current_model": true
+    },
+    {
+      "task": "place_can_basket",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "place_cans_plasticbox",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "place_container_plate",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "state": "complete",
+      "task": "place_dual_shoes",
+      "label": "recipe_800",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100001,
+        100002,
+        100003
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 62075,
+      "shared_server": true,
+      "current_model": true
+    },
+    {
+      "task": "place_empty_cup",
+      "successes": 1,
+      "episodes": 3,
+      "source": "R6/evaluation_500/place_empty_cup/summary.json",
+      "evidence_kind": "archived_run_summary",
+      "current_model": false,
+      "success_rate": 0.3333333333333333
+    },
+    {
+      "task": "place_fan",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "place_mouse_pad",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "place_object_basket",
+      "successes": 2,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation",
+      "current_model": false,
+      "success_rate": 0.5
+    },
+    {
+      "task": "place_object_scale",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "state": "complete",
+      "task": "place_object_stand",
+      "label": "recipe_800",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+      "successes": 2,
+      "episodes": 3,
+      "success_rate": 0.6666666666666666,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 62075,
+      "shared_server": true,
+      "current_model": true
+    },
+    {
+      "task": "place_phone_stand",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "place_shoe",
+      "successes": 2,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.6666666666666666
+    },
+    {
+      "task": "press_stapler",
+      "successes": 4,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation",
+      "current_model": false,
+      "success_rate": 1.0
+    },
+    {
+      "task": "put_bottles_dustbin",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "state": "complete",
+      "task": "put_object_cabinet",
+      "label": "recipe_800",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100017,
+        100026,
+        100027
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 62075,
+      "shared_server": true,
+      "current_model": true
+    },
+    {
+      "task": "rotate_qrcode",
+      "successes": 2,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.6666666666666666
+    },
+    {
+      "state": "complete",
+      "task": "scan_object",
+      "label": "recipe_800",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100001,
+        100002,
+        100006
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 62075,
+      "shared_server": true,
+      "current_model": true
+    },
+    {
+      "task": "shake_bottle",
+      "successes": 3,
+      "episodes": 4,
+      "source": "user_supplied_9680_per_task_screenshot",
+      "evidence_kind": "user_image_in_conversation",
+      "current_model": false,
+      "success_rate": 0.75
+    },
+    {
+      "task": "shake_bottle_horizontally",
+      "successes": 3,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 1.0
+    },
+    {
+      "state": "complete",
+      "task": "stack_blocks_three",
+      "label": "recipe_800",
+      "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 2,
+      "server_pid": 62075,
+      "shared_server": true,
+      "current_model": true
+    },
+    {
+      "task": "stack_blocks_two",
+      "successes": 2,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.6666666666666666
+    },
+    {
+      "task": "stack_bowls_three",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "stack_bowls_two",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/evaluation_400/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "stamp_seal",
+      "successes": 0,
+      "episodes": 3,
+      "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+      "evidence_kind": "run_summary",
+      "current_model": false,
+      "success_rate": 0.0
+    },
+    {
+      "task": "turn_switch",
+      "successes": 2,
+      "episodes": 3,
+      "source": "R9/evaluation_500/turn_switch/summary.json",
+      "evidence_kind": "archived_run_summary",
+      "current_model": false,
+      "success_rate": 0.6666666666666666
+    }
+  ]
+}

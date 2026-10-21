@@ -1,0 +1,1263 @@
+{
+  "run": "/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident",
+  "pipeline": {
+    "state": "complete",
+    "checkpoints": [
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_500/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      },
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      }
+    ],
+    "evaluation": [
+      {
+        "state": "complete",
+        "task": "place_a2b_left",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "beat_block_hammer",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100002,
+          100003
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "hanging_mug",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "place_burger_fries",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "handover_mic",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "place_object_stand",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "scan_object",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100001,
+          100002,
+          100006
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "place_dual_shoes",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100001,
+          100002,
+          100003
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "put_object_cabinet",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100017,
+          100026,
+          100027
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "stack_blocks_three",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      }
+    ],
+    "remediation": [],
+    "progress": {
+      "confirmed_optimizer_steps": 800,
+      "main_steps": {
+        "beat_block_hammer": 80,
+        "handover_mic": 80,
+        "hanging_mug": 80,
+        "place_a2b_left": 80,
+        "place_burger_fries": 80,
+        "place_dual_shoes": 80,
+        "place_object_stand": 80,
+        "put_object_cabinet": 80,
+        "scan_object": 80,
+        "stack_blocks_three": 80
+      },
+      "samples_by_task": {
+        "beat_block_hammer": 4032,
+        "click_alarmclock": 224,
+        "press_stapler": 224,
+        "click_bell": 224,
+        "open_microwave": 224,
+        "shake_bottle": 224,
+        "open_laptop": 224,
+        "place_object_basket": 224,
+        "shake_bottle_horizontally": 224,
+        "adjust_bottle": 224,
+        "place_container_plate": 224,
+        "place_empty_cup": 224,
+        "turn_switch": 224,
+        "move_playingcard_away": 224,
+        "rotate_qrcode": 224,
+        "dump_bin_bigbin": 224,
+        "stack_blocks_two": 224,
+        "handover_mic": 4032,
+        "stack_bowls_two": 224,
+        "place_bread_basket": 224,
+        "place_can_basket": 224,
+        "place_shoe": 224,
+        "hanging_mug": 4032,
+        "place_a2b_left": 4032,
+        "place_burger_fries": 4032,
+        "place_dual_shoes": 4032,
+        "place_object_stand": 4032,
+        "put_object_cabinet": 4032,
+        "scan_object": 4032,
+        "stack_blocks_three": 4032
+      },
+      "replay_samples": 4480
+    },
+    "shutdown": false
+  },
+  "recipe": {
+    "version": 1,
+    "source": {
+      "trainer_config": "/root/autodl-tmp/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/trainer_config.json",
+      "checkpoint": "/root/autodl-tmp/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/checkpoints/global_step_400/hf_ckpt"
+    },
+    "data": {
+      "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+    },
+    "output_dir": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident",
+    "train": {
+      "mode": "sequential",
+      "micro_batch_size": 56,
+      "gradient_accumulation_steps": 1,
+      "seed": 3,
+      "episode_split": "all",
+      "main_tasks": {
+        "beat_block_hammer": {
+          "steps": 80,
+          "weight": 1
+        },
+        "handover_mic": {
+          "steps": 80,
+          "weight": 1
+        },
+        "hanging_mug": {
+          "steps": 80,
+          "weight": 1
+        },
+        "place_a2b_left": {
+          "steps": 80,
+          "weight": 1
+        },
+        "place_burger_fries": {
+          "steps": 80,
+          "weight": 1
+        },
+        "place_dual_shoes": {
+          "steps": 80,
+          "weight": 1
+        },
+        "place_object_stand": {
+          "steps": 80,
+          "weight": 1
+        },
+        "put_object_cabinet": {
+          "steps": 80,
+          "weight": 1
+        },
+        "scan_object": {
+          "steps": 80,
+          "weight": 1
+        },
+        "stack_blocks_three": {
+          "steps": 80,
+          "weight": 1
+        }
+      },
+      "replay": {
+        "mode": "round_robin",
+        "fraction": 0.1,
+        "tasks_per_step": 1,
+        "switch_every_steps": 5,
+        "pool_file": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/replay_pool_9680_through_R15.json",
+        "pool_snapshot": {
+          "version": 1,
+          "qualification": "any historical closed-loop success rate >= 1/3",
+          "tasks": [
+            {
+              "task": "click_alarmclock",
+              "observations": [
+                {
+                  "successes": 4,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "press_stapler",
+              "observations": [
+                {
+                  "successes": 4,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "click_bell",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "open_microwave",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "shake_bottle",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "open_laptop",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "place_object_basket",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "shake_bottle_horizontally",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                },
+                {
+                  "successes": 3,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "adjust_bottle",
+              "observations": [
+                {
+                  "successes": 3,
+                  "episodes": 3,
+                  "source": "R3/evaluation_200/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_container_plate",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                },
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "R6/evaluation_500/place_container_plate/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_empty_cup",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 3,
+                  "source": "R6/evaluation_500/place_empty_cup/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                }
+              ]
+            },
+            {
+              "task": "turn_switch",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "R9/evaluation_500/turn_switch/summary.json",
+                  "evidence_kind": "archived_run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_a2b_right",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 4,
+                  "source": "user_supplied_9680_per_task_screenshot",
+                  "evidence_kind": "user_image_in_conversation"
+                }
+              ]
+            },
+            {
+              "task": "move_playingcard_away",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 3,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_phone_stand",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_object_scale",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "rotate_qrcode",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261020_2247_playingcard_phone_scale_qrcode_from_R9_bf16_m56_200each/evaluation_800/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "pick_dual_bottles",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "pick_diverse_bottles",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "grab_roller",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "lift_pot",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "stamp_seal",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/evaluation_1200/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "dump_bin_bigbin",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "put_bottles_dustbin",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "stack_blocks_two",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "stack_bowls_two",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/evaluation_400/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "blocks_ranking_size",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "stack_bowls_three",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "move_stapler_pad",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_bread_basket",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_bread_skillet",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_can_basket",
+              "observations": [
+                {
+                  "successes": 1,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_cans_plasticbox",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "blocks_ranking_rgb",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_mouse_pad",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "handover_block",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                },
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/evaluation_400/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_shoe",
+              "observations": [
+                {
+                  "successes": 2,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            },
+            {
+              "task": "place_fan",
+              "observations": [
+                {
+                  "successes": 0,
+                  "episodes": 3,
+                  "source": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/evaluation_1350/summary.json",
+                  "evidence_kind": "run_summary"
+                }
+              ]
+            }
+          ]
+        },
+        "tasks": {
+          "click_alarmclock": {
+            "weight": 1
+          },
+          "press_stapler": {
+            "weight": 1
+          },
+          "click_bell": {
+            "weight": 1
+          },
+          "open_microwave": {
+            "weight": 1
+          },
+          "shake_bottle": {
+            "weight": 1
+          },
+          "open_laptop": {
+            "weight": 1
+          },
+          "place_object_basket": {
+            "weight": 1
+          },
+          "shake_bottle_horizontally": {
+            "weight": 1
+          },
+          "adjust_bottle": {
+            "weight": 1
+          },
+          "place_container_plate": {
+            "weight": 1
+          },
+          "place_empty_cup": {
+            "weight": 1
+          },
+          "turn_switch": {
+            "weight": 1
+          },
+          "move_playingcard_away": {
+            "weight": 1
+          },
+          "rotate_qrcode": {
+            "weight": 1
+          },
+          "dump_bin_bigbin": {
+            "weight": 1
+          },
+          "stack_blocks_two": {
+            "weight": 1
+          },
+          "stack_bowls_two": {
+            "weight": 1
+          },
+          "place_bread_basket": {
+            "weight": 1
+          },
+          "place_can_basket": {
+            "weight": 1
+          },
+          "place_shoe": {
+            "weight": 1
+          }
+        }
+      },
+      "task_order": [
+        "beat_block_hammer",
+        "handover_mic",
+        "hanging_mug",
+        "place_a2b_left",
+        "place_burger_fries",
+        "place_dual_shoes",
+        "place_object_stand",
+        "put_object_cabinet",
+        "scan_object",
+        "stack_blocks_three"
+      ],
+      "steps": 800
+    },
+    "checkpoint": {
+      "mode": "steps",
+      "every_steps": 500,
+      "save_final": true,
+      "hf_dtype": "bf16"
+    },
+    "evaluation": {
+      "episodes_per_task": 3,
+      "checkpoints": [
+        "final"
+      ],
+      "shared_model_session": true,
+      "max_parallel_tasks": 5,
+      "video_episodes": 2,
+      "reuse_training_model": true,
+      "tasks": [
+        "beat_block_hammer",
+        "handover_mic",
+        "hanging_mug",
+        "place_a2b_left",
+        "place_burger_fries",
+        "place_dual_shoes",
+        "place_object_stand",
+        "put_object_cabinet",
+        "scan_object",
+        "stack_blocks_three"
+      ]
+    },
+    "runtime": {
+      "shutdown_after_completion": false
+    },
+    "remediation": {
+      "enabled": false,
+      "max_rounds": 1
+    }
+  },
+  "plan": {
+    "expected_frames": 323151,
+    "episodes": 1500,
+    "hf_steps": [
+      500,
+      800
+    ],
+    "recipe_sha256": "56912bbb34c403d32431892bc3c705bd49bc17cf744ecc476b7e9813b3bd28f8",
+    "required_disk_gib": 29.127851946279407,
+    "remediation_reserved_checkpoints": 0,
+    "source_model": "/root/autodl-tmp/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/checkpoints/global_step_400/hf_ckpt",
+    "trainer_config_sha256": "7f0ef2ad0d59bafc56d8121fc38d03df3343e17c637f10e1521c929508ea4291",
+    "task_groups_sha256": "9ad64f836edb73776660f29af481d61821b7753e1cbf87f859469a99cdd205d9",
+    "train_ids_sha256": "7836c2ceaee5ce5b03add3e043a0f0f183146cc3daf2a2c737e2758977273dbd",
+    "evaluation_steps": [
+      800
+    ]
+  },
+  "training": {
+    "first": [
+      [
+        "10/21/2026 22:02:45",
+        "1"
+      ]
+    ],
+    "last": [
+      [
+        "10/21/2026 23:08:36",
+        "800"
+      ]
+    ],
+    "logged_steps": 800,
+    "contiguous": true
+  },
+  "handoff": {
+    "training_pid": 62075,
+    "server_pid": 62075,
+    "weight_loads": 0,
+    "model_core_identity_preserved": true,
+    "precision": "float32"
+  },
+  "session": {
+    "model_loads": 0,
+    "connections": 10,
+    "requests": 373,
+    "forward_batch_size": 1,
+    "session_isolation": true
+  },
+  "parallel": {
+    "state": "complete",
+    "workers": 5,
+    "completed": [
+      {
+        "state": "complete",
+        "task": "place_a2b_left",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "beat_block_hammer",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100002,
+          100003
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "hanging_mug",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 1,
+        "episodes": 3,
+        "success_rate": 0.3333333333333333,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "place_burger_fries",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "handover_mic",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "place_object_stand",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 2,
+        "episodes": 3,
+        "success_rate": 0.6666666666666666,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "scan_object",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100001,
+          100002,
+          100006
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "place_dual_shoes",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100001,
+          100002,
+          100003
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "put_object_cabinet",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100017,
+          100026,
+          100027
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "stack_blocks_three",
+        "label": "recipe_800",
+        "model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 2,
+        "server_pid": 62075,
+        "shared_server": true
+      }
+    ],
+    "elapsed_seconds": 1825.5894465185702,
+    "server_pid": 62075,
+    "model_loads": 0,
+    "reused_training_model": true
+  },
+  "precision": {
+    "parameters": {
+      "torch.float32": 6375906359
+    },
+    "forward_samples": 4
+  },
+  "free_gib": 31.355422973632812,
+  "inventory": [
+    "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+    "/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350/hf_ckpt",
+    "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/checkpoints/global_step_1000/hf_ckpt",
+    "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/checkpoints/global_step_1350/hf_ckpt",
+    "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/checkpoints/global_step_500/hf_ckpt",
+    "/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_500/hf_ckpt",
+    "/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+    "/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/checkpoints/global_step_400/hf_ckpt",
+    "/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200/hf_ckpt"
+  ]
+}

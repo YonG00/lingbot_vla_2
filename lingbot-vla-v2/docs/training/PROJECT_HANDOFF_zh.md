@@ -217,3 +217,5 @@ R14实际1350步（18:13:56至20:05:59，约1小时52分，1350条更新日志�
 最新更新：R15已完成400步与两任务各3回合，handover_block和stack_bowls_two均0/3；最新正式模型为R15-step400。训练驻留交接正在修复验证，参数evaluation.reuse_training_model；当前历史R15结果仍来自重载服务，不能宣称本轮已驻留评测。
 
 R16最新课程已启动：`20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident`，剩余10任务各80、10%单任务复习每5步轮换，500/800保存、最终10任务各3回合5＋5路。驻留修复隔离GPU验证已通过，新配方`evaluation.reuse_training_model=true`，不再创建新的模型进程；完整正式保存交接以本轮最终实际审计为准。
+
+R16终态：800步与正式10任务闭环完成，5/30。最新正式模型为R16-step800；500/800均保留。完整正式保存后驻留交接已经实测通过（同PID62075、零重载）。抽检前clean历史最新逐任务等权估算29.0%，不是当前模型全量实测；后置open_laptop、place_object_basket、stack_blocks_two抽检正在进行。后续复习资格池through_R16共24任务，R16冻结through_R15共20任务不追改。

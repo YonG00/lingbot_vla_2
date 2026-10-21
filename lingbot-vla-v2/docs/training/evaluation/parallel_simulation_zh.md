@@ -113,3 +113,11 @@ CPU覆盖3回合只生成前2视频的真实execute汇总契约、单回合上�
 没有同配置5路单回合重跑，不能把8路1回合与原5＋5的3回合总耗时直接计算加速比。
 
 按需渲染实验参数`render_sync=eager|on_demand`默认eager，不提供则保持原行为。仅policy动作内部、无viewer/随机灯光/head录像时跳过同步，get_obs强制同步，专家阶段不变。单任务GPU A/B均1/1，59.932s与57.745s，但请求/动作trace不相等；不启用为默认，不将3.6%差距作为可靠收益。纯CPU64项通过。
+
+## R16后置clean估算与旧任务抽检
+
+配置`configs/evaluation_jobs/R16_clean_estimate_retention3.json`，入口`experiment/task_recipes/post_evaluation.py --job <配置>`。先等待R16完整流水线成功，写clean_estimate_before_retention，再等待GPU释放后共用一次模型加载并行测三个旧任务，各3回合、前2回合录像。若前序失败则停止，不抢占其GPU。
+
+固定随机种子20261021从历史至少成功一次的21任务抽3项；用户将shake_bottle_horizontally替换为open_laptop，最终为open_laptop（历史2/4）、place_object_basket（2/4）、stack_blocks_two（2/3）。保留原抽签列表及用户替换证据。当前驻留队列已开始，新增抽检作为后置独立会话加载一次，三个任务共享，不能宣称本次追加抽检也复用了训练进程。
+
+总体估算以50任务各自最新已测成功率等权平均；40任务历史结果＋R16新10任务，抽检后用3个新结果覆盖对应历史值。报告同时列本轮模型实测覆盖10/50（抽检后13/50），明确不是当前模型全量50任务成功率，不用各任务历史最好成绩，不把未测视作失败，不因旧数据4回合/新数据3回合而按回合数加权。每任务仅3回合，下降只作遗忘线索。报告在本run的`clean_estimate_retention3/report.md`及JSON中。

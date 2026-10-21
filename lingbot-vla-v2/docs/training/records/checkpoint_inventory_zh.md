@@ -9,7 +9,8 @@
 | R12 | `20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct` | **仅1350**，BF16、1708张量 | 用户指定保留，R13来源 |
 | R13 | `20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct` | **仅1250**，BF16、1708张量 | 500/1000已按用户指令删除 |
 | R14 | `20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked` | **500/1000/1350**，BF16、1708张量 | 1350为R15来源 |
-| R15 | `20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay` | **400**，BF16、1708张量 | 最新正式模型 |
+| R15 | `20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay` | **400**，BF16、1708张量 | R16来源 |
+| R16 | `20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident` | **500/800**，BF16、1708张量 | 800为最新正式模型 |
 
 **R11启动前仅两份历史ckpt存在**，删除前后均核对1708张量、BF16及实际HF分片头部/索引。
 R11结束后三份新增HF已核验；[R11完成证据](../../../refs/training_records/20261021_R11_completed.json)。
@@ -61,3 +62,5 @@ R13刚结束时三份HF均已逐项核验，当时共五份、空闲约79.35GiB�
 R14完成确认：`20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/checkpoints`的500/1000/1350均已验证为1708张量BF16；本次未删除。R15从1350继承，计划新增400步HF，未生成前不计入库存。
 
 R15 `20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/checkpoints/global_step_400/hf_ckpt`已实际生成，1708张量BF16验证通过。驻留交接GPU验证为隔离1步、不写HF，不增加正式存档。
+
+R16完成后已核对实际目录，共9份正式HF，未删除任何存档；后置遗忘评测不生成新HF。[终态及库存证据](../../../refs/training_records/20261021_R16_completed.json)。

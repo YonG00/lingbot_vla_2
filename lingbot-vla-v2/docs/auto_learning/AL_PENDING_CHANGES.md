@@ -441,4 +441,8 @@ BF16最终HF1708张量完整，约11.88GiB；CPU整链、三步GPU dtype/梯度�
 
 **#87 训练模型驻留交接并行评测（2026-10-21）：🧪 本地73项CPU通过，服务器9项交接CPU通过；GPU 1步训练后两路各1回合完成，训练/评测PID60027相同、weight_loads/model_loads均0。** 根因：task_recipes/run.worker等待训练子进程退出后才open_session，串行/并行共享仅覆盖评测任务间，并未复用训练模型。新增evaluation.reuse_training_model（需shared session且仅final评测）；训练全部HF等待结束、释放优化器引用/梯度/教师/loader并销毁单卡进程组后回调，在同PID保留模型模块、切eager/FP32并重建预处理，两个以上仿真通过SessionPool隔离。父流水线只读取已完成驻留报告，不再创建服务；失败禁止静默重载。**不变量**：最终HF仍按原节奏保存验证、训练模型核心对象复用、推理B1/会话隔离、旧存档独立评测仍可重载；**症状**：PID不一致、weight_loads非0、HF未完成即评测、并行串状态或训练结束内存不释放；**回滚**：新配方显式reuse_training_model=false；**验证入口**：test_resident_evaluation、test_parallel_evaluation、GPU输出20261021_resident_handoff_gpu_smoke（1步不存档、2任务各1回合）；handoff.json记录训练/服务PID与零读权重。当前R15既有评测在同步前已完成，不热改其配置。
 
-#87 GPU补充：v1在joints字典格式、v2在norm_type字典格式处失败；已分别补契约测试，并增加真实FeatureTransform初始化的CPU门禁，v3通过。原训练权重模块对象保持一致、禁止load_vla/load_model_weights的守卫未触发，两个仿真完整结束、同PID服务退出。新R16显式启用驻留交接；完整800步保存后交接待本轮实际验证，不将隔离1步测试冒充正式训练。
+#87 GPU补充：v1在joints字典格式、v2在norm_type字典格式处失败；已分别补契约测试，并增加真实FeatureTransform初始化的CPU门禁，v3通过。原训练权重模块对象保持一致、禁止load_vla/load_model_weights的守卫未触发，两个仿真完整结束、同PID服务退出。新R16显式启用驻留交接；R16完整800步保存后交接已经通过：同PID62075、零重载、10任务3回合完成，不将隔离1步测试冒充正式训练。
+
+**#88 R16后置clean估算和三任务抽检：🧪 已排队，4项纯CPU估算测试通过。** 等R16成功后，汇合40历史最新结果与本轮10项，用逐任务等权均值估算50任务；注明跨模型历史估算及当前实测覆盖。后置独立单模型3任务各3回合，用户替换open_laptop。**不变量**：不干扰当前GPU、不用历史最好冒充最新、不能把混合模型估算冒充当前全量成功率；**症状**：前序失败仍启动、未测补零、按回合加权、抽到无历史成功任务；**回滚**：只停后置队列，原R16不变；**验证**：test_clean_estimate、配置及clean_estimate_retention3输出。
+
+#87正式终态：R16从最终HF保存到并行闭环同进程运行完成，handoff记录PID62075、weight_loads0，session记录model_loads0、10连接373请求、B1隔离；不再只有1步隔离证据。#88现已进入三任务抽检，估算前值29.0%，结果待完成；本地共78项CPU测试通过（含队列前序失败禁止启动GPU契约）。

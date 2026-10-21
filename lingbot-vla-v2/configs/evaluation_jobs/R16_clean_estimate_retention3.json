@@ -1,0 +1,61 @@
+{
+  "destination": "/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/clean_estimate_retention3",
+  "wait_for_pipeline": "/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident_pipeline/status.json",
+  "historical_file": "refs/training_records/20261021_R16_historical_latest40.json",
+  "primary_tasks": [
+    "beat_block_hammer",
+    "handover_mic",
+    "hanging_mug",
+    "place_a2b_left",
+    "place_burger_fries",
+    "place_dual_shoes",
+    "place_object_stand",
+    "put_object_cabinet",
+    "scan_object",
+    "stack_blocks_three"
+  ],
+  "model": "/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+  "robotwin": "/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+  "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+  "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+  "selection": {
+    "seed": 20261021,
+    "criterion": "at least one historical success before R16",
+    "chosen_tasks": [
+      "open_laptop",
+      "place_object_basket",
+      "stack_blocks_two"
+    ],
+    "eligible_tasks": [
+      "adjust_bottle",
+      "click_alarmclock",
+      "click_bell",
+      "dump_bin_bigbin",
+      "move_playingcard_away",
+      "open_laptop",
+      "open_microwave",
+      "place_a2b_right",
+      "place_bread_basket",
+      "place_can_basket",
+      "place_container_plate",
+      "place_empty_cup",
+      "place_object_basket",
+      "place_shoe",
+      "press_stapler",
+      "rotate_qrcode",
+      "shake_bottle",
+      "shake_bottle_horizontally",
+      "stack_blocks_two",
+      "stack_bowls_two",
+      "turn_switch"
+    ],
+    "random_draw_tasks": [
+      "shake_bottle_horizontally",
+      "place_object_basket",
+      "stack_blocks_two"
+    ],
+    "user_override": {
+      "shake_bottle_horizontally": "open_laptop"
+    }
+  }
+}
