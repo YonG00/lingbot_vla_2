@@ -1,0 +1,20 @@
+{
+  "state": "complete",
+  "task": "place_bread_skillet",
+  "label": "recipe_1250",
+  "model": "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+  "successes": 0,
+  "episodes": 1,
+  "success_rate": 0.0,
+  "seeds": [
+    100003
+  ],
+  "oidn_errors": 0,
+  "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+  "dtype": "float32",
+  "action_chunk": 50,
+  "server_pid": 36147,
+  "shared_server": true,
+  "evidence_kind": "derived_first_episode_from_verified_full_evaluation",
+  "source_summary": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/evaluation_1250/place_bread_skillet/summary.json"
+}

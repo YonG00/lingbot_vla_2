@@ -1,0 +1,83 @@
+{
+  "pipeline": {
+    "state": "benchmarking"
+  },
+  "benchmark": null,
+  "status": {
+    "state": "evaluating",
+    "workers": 8,
+    "completed": [],
+    "server_pid": 40445,
+    "batch": 1,
+    "active_workers": 8,
+    "scheduling": "rolling",
+    "batch_tasks": [
+      "blocks_ranking_size",
+      "move_stapler_pad",
+      "pick_dual_bottles",
+      "place_container_plate",
+      "stack_bowls_two",
+      "blocks_ranking_rgb",
+      "place_bread_skillet",
+      "place_can_basket",
+      "place_cans_plasticbox",
+      "place_bread_basket"
+    ]
+  },
+  "audit": null,
+  "active_simulations": [
+    40558,
+    40559,
+    40560,
+    40561,
+    40562,
+    40563,
+    40564,
+    40565
+  ],
+  "gpu_peak_mib": 77148,
+  "events": [
+    {
+      "event": "start",
+      "task": "blocks_ranking_size",
+      "time": 1792574688.688298
+    },
+    {
+      "event": "start",
+      "task": "move_stapler_pad",
+      "time": 1792574688.6897037
+    },
+    {
+      "event": "start",
+      "task": "pick_dual_bottles",
+      "time": 1792574688.6913311
+    },
+    {
+      "event": "start",
+      "task": "place_container_plate",
+      "time": 1792574688.693887
+    },
+    {
+      "event": "start",
+      "task": "stack_bowls_two",
+      "time": 1792574688.6965637
+    },
+    {
+      "event": "start",
+      "task": "blocks_ranking_rgb",
+      "time": 1792574688.69946
+    },
+    {
+      "event": "start",
+      "task": "place_bread_skillet",
+      "time": 1792574688.7010212
+    },
+    {
+      "event": "start",
+      "task": "place_can_basket",
+      "time": 1792574688.7029781
+    }
+  ],
+  "peak_task_workers": 8,
+  "server_tail": "61029815674 s\nDenoise 10 steps\nsample_actions batch=1 cost 2.0121521949768066 s\nDenoise 10 steps\nsample_actions batch=1 cost 2.6856937408447266 s\nDenoise 10 steps\nsample_actions batch=1 cost 1.9051711559295654 s\nDenoise 10 steps\nsample_actions batch=1 cost 2.29571270942688 s\nDenoise 10 steps\nsample_actions batch=1 cost 1.9604904651641846 s\nDenoise 10 steps\nsample_actions batch=1 cost 2.503408908843994 s\nDenoise 10 steps\nsample_actions batch=1 cost 2.0483992099761963 s\nDenoise 10 steps\nsample_actions batch=1 cost 2.5766937732696533 s\nDenoise 10 steps\nsample_actions batch=1 cost 2.5749051570892334 s\nDenoise 10 steps\nsample_actions batch=1 cost 2.794945240020752 s\nDenoise 10 steps\nsample_actions batch=1 cost 2.32759428024292 s\nDenoise 10 steps\nsample_actions batch=1 cost 2.6478054523468018 s\n"
+}

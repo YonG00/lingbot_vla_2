@@ -92,7 +92,7 @@ def _validate(raw):
         cp.setdefault('every_tasks',1);integer(cp['every_tasks'],'every_tasks')
     else:raise ValueError('checkpoint mode must be steps or task')
     if cp['save_final'] is not True or cp['hf_dtype']!='bf16':raise ValueError('v1 requires final BF16 HF; no silent precision/save change')
-    e=c['evaluation'];keys(e,['tasks','episodes_per_task','checkpoints','shared_model_session','max_parallel_tasks'],'evaluation')
+    e=c['evaluation'];keys(e,['tasks','episodes_per_task','checkpoints','shared_model_session','max_parallel_tasks','scheduling','video_episodes','render_sync'],'evaluation')
     e.setdefault('tasks',list(t.get('task_order',main)))
     if not isinstance(e['tasks'],list) or len(e['tasks'])!=len(set(e['tasks'])):raise ValueError('evaluation tasks must be unique list')
     for name in e['tasks']:
@@ -100,10 +100,16 @@ def _validate(raw):
     integer(e['episodes_per_task'],'episodes_per_task')
     if type(e['shared_model_session']) is not bool:raise ValueError('shared_model_session must be boolean')
     e.setdefault('max_parallel_tasks',1)
-    if type(e['max_parallel_tasks']) is not int or not 1<=e['max_parallel_tasks']<=6:
-        raise ValueError('max_parallel_tasks must be an integer from 1 to 6')
+    if type(e['max_parallel_tasks']) is not int or not 1<=e['max_parallel_tasks']<=8:
+        raise ValueError('max_parallel_tasks must be an integer from 1 to 8')
     if e['max_parallel_tasks']>1 and not e['shared_model_session']:
         raise ValueError('parallel evaluation requires shared_model_session')
+    if e.get('scheduling','batches') not in ['batches','rolling']:raise ValueError('invalid evaluation scheduling')
+    if e.get('scheduling')=='rolling' and (e['max_parallel_tasks']<=1 or not e['shared_model_session']):
+        raise ValueError('rolling requires parallel shared evaluation')
+    from experiment.official_control.recording import video_count
+    video_count(e['episodes_per_task'],e.get('video_episodes'))
+    if e.get('render_sync','eager') not in ['eager','on_demand']:raise ValueError('invalid render_sync')
     saves=milestones(c)
     if not isinstance(e['checkpoints'],list) or not e['checkpoints']:raise ValueError('evaluation checkpoint list required')
     selected=[]

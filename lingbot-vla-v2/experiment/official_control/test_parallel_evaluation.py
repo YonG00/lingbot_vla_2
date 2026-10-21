@@ -49,6 +49,32 @@ class ParallelTests(unittest.TestCase):
     def test_six_simulators_share_one_server_and_really_overlap(self):
         self.check_overlap(6)
 
+    def test_eight_simulators_share_one_server_and_really_overlap(self):
+        self.check_overlap(8)
+
+    def test_rolling_replaces_finished_slot_before_slow_tasks_finish(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);barrier=threading.Barrier(8);replaced=threading.Event();lock=threading.Lock()
+            finished=set();opened=[];stopped=[];active=0;peak=0
+            def execute(job,shared):
+                nonlocal active,peak
+                i=int(job['task'])
+                with lock:active+=1;peak=max(peak,active)
+                if i<8:
+                    barrier.wait(timeout=5)
+                    if i: self.assertTrue(replaced.wait(timeout=5))
+                elif i==8:
+                    with lock:self.assertNotIn(1,finished)
+                    replaced.set()
+                Path(job['destination'],'summary.json').write_text(json.dumps(dict(state='complete',task=job['task'],server_pid=42,shared_server=True)))
+                with lock:active-=1;finished.add(i)
+                return 0
+            def open_(*a):opened.append(1);return dict(process=SimpleNamespace(pid=42))
+            jobs=[dict(task=str(i),model='/m',destination=str(root/str(i))) for i in range(10)]
+            results=run_jobs(jobs,root,8,open_,execute,lambda _:stopped.append(1),scheduling='rolling')
+            self.assertEqual(peak,8);self.assertEqual(len(results),10)
+            self.assertEqual(opened,[1]);self.assertEqual(stopped,[1])
+
     def check_overlap(self,workers):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);barrier=threading.Barrier(workers);events=[];lock=threading.Lock()

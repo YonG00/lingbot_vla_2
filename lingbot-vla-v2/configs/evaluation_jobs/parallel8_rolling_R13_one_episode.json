@@ -1,0 +1,140 @@
+{
+  "destination": "/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode",
+  "jobs": [
+    {
+      "task": "blocks_ranking_size",
+      "label": "R13_parallel8_rolling_first_episode",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+      "destination": "/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode/blocks_ranking_size",
+      "episodes": 1,
+      "require_baseline": false,
+      "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "video_episodes": 2,
+      "reference_summary": "/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/20261021_R13_first_episode/blocks_ranking_size.json"
+    },
+    {
+      "task": "move_stapler_pad",
+      "label": "R13_parallel8_rolling_first_episode",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+      "destination": "/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode/move_stapler_pad",
+      "episodes": 1,
+      "require_baseline": false,
+      "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "video_episodes": 2,
+      "reference_summary": "/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/20261021_R13_first_episode/move_stapler_pad.json"
+    },
+    {
+      "task": "pick_dual_bottles",
+      "label": "R13_parallel8_rolling_first_episode",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+      "destination": "/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode/pick_dual_bottles",
+      "episodes": 1,
+      "require_baseline": false,
+      "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "video_episodes": 2,
+      "reference_summary": "/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/20261021_R13_first_episode/pick_dual_bottles.json"
+    },
+    {
+      "task": "place_container_plate",
+      "label": "R13_parallel8_rolling_first_episode",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+      "destination": "/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode/place_container_plate",
+      "episodes": 1,
+      "require_baseline": false,
+      "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "video_episodes": 2,
+      "reference_summary": "/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/20261021_R13_first_episode/place_container_plate.json"
+    },
+    {
+      "task": "stack_bowls_two",
+      "label": "R13_parallel8_rolling_first_episode",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+      "destination": "/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode/stack_bowls_two",
+      "episodes": 1,
+      "require_baseline": false,
+      "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "video_episodes": 2,
+      "reference_summary": "/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/20261021_R13_first_episode/stack_bowls_two.json"
+    },
+    {
+      "task": "blocks_ranking_rgb",
+      "label": "R13_parallel8_rolling_first_episode",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+      "destination": "/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode/blocks_ranking_rgb",
+      "episodes": 1,
+      "require_baseline": false,
+      "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "video_episodes": 2,
+      "reference_summary": "/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/20261021_R13_first_episode/blocks_ranking_rgb.json"
+    },
+    {
+      "task": "place_bread_skillet",
+      "label": "R13_parallel8_rolling_first_episode",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+      "destination": "/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode/place_bread_skillet",
+      "episodes": 1,
+      "require_baseline": false,
+      "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "video_episodes": 2,
+      "reference_summary": "/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/20261021_R13_first_episode/place_bread_skillet.json"
+    },
+    {
+      "task": "place_can_basket",
+      "label": "R13_parallel8_rolling_first_episode",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+      "destination": "/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode/place_can_basket",
+      "episodes": 1,
+      "require_baseline": false,
+      "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "video_episodes": 2,
+      "reference_summary": "/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/20261021_R13_first_episode/place_can_basket.json"
+    },
+    {
+      "task": "place_cans_plasticbox",
+      "label": "R13_parallel8_rolling_first_episode",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+      "destination": "/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode/place_cans_plasticbox",
+      "episodes": 1,
+      "require_baseline": false,
+      "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "video_episodes": 2,
+      "reference_summary": "/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/20261021_R13_first_episode/place_cans_plasticbox.json"
+    },
+    {
+      "task": "place_bread_basket",
+      "label": "R13_parallel8_rolling_first_episode",
+      "model": "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt",
+      "destination": "/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode/place_bread_basket",
+      "episodes": 1,
+      "require_baseline": false,
+      "robotwin": "/root/autodl-tmp/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "video_episodes": 2,
+      "reference_summary": "/data/experiments/official_adjust_bottle_control/lingbot-vla-v2/refs/training_records/20261021_R13_first_episode/place_bread_basket.json"
+    }
+  ],
+  "concurrency_levels": [
+    8
+  ],
+  "scheduling": "rolling",
+  "compare_reference": true
+}

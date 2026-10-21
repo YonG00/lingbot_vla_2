@@ -17,6 +17,8 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**#85 八路滚动调度与前N回合录像（2026-10-21）：🧪 本地/服务器60项CPU通过，实际八仿真同时运行，GPU资源已测，种子一致性失败。** run_jobs上限8，scheduling默认batches不变，rolling保持最多8个未完成任务、空位立即补后续任务；task_events记录实际调度起止。video_episodes默认全部，设2仅前两回合启动独立全景录像，成功率仍按episodes；子进程局部包装Base_Task录像启动方法，不改仿真源码、不改物理/策略图像/步数。汇总严格检查视频索引和实际应录数量，单回合试跑min(1,2)=1。用户进一步明确本次只试每任务1回合：模型R13-step1250，10任务，8路rolling，共10回合；对照文件从已核验原5＋5各3回合中提取第1回合，标记derived来源；不拿1回合对比3回合总成功数。配置parallel8_rolling_R13_one_episode.json，输出20261021_172229_parallel8_rolling_R13_one_episode。8进程活跃快照与峰值77148MiB，最终10任务仿真结束，bread_skillet种子100004≠原100003；整体状态failed，不能认定一致性通过。不变量：单模型、最多8路、回合数与录像数独立、原默认分批不变；症状：空位不补、超过8路、少录影响episodes/汇总、未授权改变原R13配置；回滚：新进程scheduling=batches且省略video_episodes回原录像方式，旧R13冻结合约不热改；验证：test_parallel_evaluation八线程/滚动补位/旧5＋5与6＋4屏障，test_recording真实execute汇总契约，test_evaluation_tasks参数边界及本轮benchmark/session_audit/gpu_samples/task_events。原R13完整评测结束后才同步启动，没有并占GPU。
+
 **#84启动实证（2026-10-21）：🧪 本地/服务器55项CPU、真实1250条280122帧CPU与三步GPU通过，正式7/1250。** run=20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct；三步allocated77.70GiB/reserved84.59GiB。实际冻结recipe为through_R12的17任务、fraction0.2、tasks_per_step2、RR10；两槽计划各7000条，逐步任务互异并排除当前主任务。500/1000/1250与最终5＋5各3回合已配置，完整后续阶段与闭环待验。启动证据20261021_R13_started.json，清理证据20261021_keep_R11_1200_R12_1350_completed.json。以下#84为初始实现记录，服务器待测描述已由本段更新。
 
 **#84 R13双任务20%复习与十任务1250步（2026-10-21）：🧪 本地55项CPU通过，服务器待测。** 新replay.tasks_per_step默认1保持旧分支，显式2时每10步轮换两个不同旧任务，排除当前主任务；20%按两个等份槽做累计整数配额，GBS56下每步各5/6条，每10步各56条，本轮每槽7000条、合计14000。来源R12-step1350，十任务1250步，保存500/1000/1250，最终各3回合5＋5分批、同一FP32/B1服务，训练后沿用HF重载。RGB直接训练已获用户确认。按用户指令删除R9-500/R10-800/R11-400与1000/R12-500与1000，释放71.35GiB，仅保留R11-1200及R12-1350；不影响新轮授权保存。不变量：双任务互异且不含主任务、两槽等份、单任务旧冻结计划不变、保存点不缩水；症状：复习仍只有一个任务、混入主任务、两槽曝光失衡、原冻结计划校验失败；回滚：新进程tasks_per_step=1恢复旧轮换，比例由用户指定，不热改当前run；验证：test_replay_rotation真实Sampler归属/10步配额/主任务切换/参数拒绝/旧分支，以及5＋5屏障测试。R12冻结完整plan与旧代码相等，sha256=be0d078db9c22d01d4b891cbbb6470ac2445992d0501022d261cd2a74b3e8691。组合：单任务复习旧CPU与R11/R12完整GPU已验；双任务复习CPU通过、GPU待验；无复习旧分支保留；sample模式指定tasks_per_step启动拒绝。
@@ -432,3 +434,7 @@ BF16最终HF1708张量完整，约11.88GiB；CPU整链、三步GPU dtype/梯度�
 
 - 提交前收尾：清理重复/过期文档阶段口径，sequential拒绝非1主任务weight，避免用户以为顺序模式仍按weight分配；当前运行不受此启动参数校验补充影响。#65只读核验39/500正常，未热同步、未改存档或评测精度。
 - 本次提交验证：本地21项纯CPU回归全部通过、py_compile/compileall与git diff --check通过；此前服务器已完成GAS2实际数据装配，以及顺序150回合24119帧/500步虚拟epochCPU检查与三步GPU探针。主复习组合仍仅有配额/采样契约证据，运行前仍强制CPU/GPU前置检查；不宣称完整闭环或内存模型交接已实现。
+
+训练性能取证（2026-10-21，未修改编译逻辑）：R14的模型self.steps触发Dynamo重编译，达到recompile_limit=8后相关段回退；不能靠增大缓存解决持续递增计数。不变量：课程、loss、GBS56和500步存档不变；症状：前8步反复编译、随后约4.85s；回滚：无需代码回滚（只读检查）；验证入口：原R14 train.log的torch_dynamo_resume_in_forward_at_833/self.steps警告。后续修复需独立CPU契约及GPU同条件对照，当前保持原配置。
+
+**#86 按需渲染实验（默认关闭）**：CPU64项通过；GPU同seed单回合两版均1/1、59.932s/57.745s，但trace_equal=false，未通过严格轨迹一致性，默认仍eager。不变量：物理步/观测调用/成功判定不变；症状：trace差异或成功退化；回滚：省略render_sync或设eager；验证：test_render_sync与`/data/outputs/20261021_render_sync_ab`。

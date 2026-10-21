@@ -1,14 +1,14 @@
 # 任务训练步数与评测对照
 
 任务按本轮实验中首次参与训练的顺序排列。每次训练及其评测占一列，补课另占一列。
-取证截止2026-10-21：R12完整终态完成，R13正式训练进行中；完整时间、来源和路径见[流水记录](training_history_zh.md)。
+取证截止2026-10-21：R13训练及正式闭环完成，独立八路试跑已结束但种子一致性未通过；完整时间、来源和路径见[流水记录](training_history_zh.md)。
 不计原始9680内未知的逐任务步数；CPU检查及三步GPU探针不计入正式训练。
 “累计”沿模型真实继承链计算，不把独立实验分支相加。只测未训记为`+0`；未测不能当失败。
 
 ## 早期继承链与放弃的补课分支
 
 **9680 → R3-adjust200 → R5-plate200 → R6-顺序500 → R7-补课300（已完成，后续放弃）**。
-当前主链为**9680 → R3 → R5 → R6 → R8 → R9 → R10 → R11 → R12 → R13（运行中）**；R7更新不计入当前模型。
+当前主链为**9680 → R3 → R5 → R6 → R8 → R9 → R10 → R11 → R12 → R13**；R7更新不计入当前模型。
 单元格为“本次该任务步数 / 沿继承链累计步数；该模型测评”。
 
 | 首训顺序 / 任务 | R3：adjust200 | R5：plate200 | R6：顺序500 | R7：补课1（已300/300） |
@@ -117,43 +117,44 @@ R12实际使用的through_R11冻结池仍保留，不把事后新增任务冒充
 
 ## 全部已登记实验的训练投入
 
-### R13运行中配额（不计未完成步数）
+### R13完成列（1250步与正式闭环完成）
 
-| 任务 | R12完成主训累计；评测 | R13计划主训；最终评测 |
+| 任务 | R12完成主训累计；评测 | R13实际主训 / 累计；最终评测 |
 | --- | --- | --- |
-| blocks_ranking_size | 150；0/3 | +100；待测 |
-| move_stapler_pad | 400；R12未测，R9历史0/3 | +100；待测 |
-| pick_dual_bottles | 300；0/3 | +100；待测 |
-| place_container_plate | 400；0/3 | +100；待测 |
-| stack_bowls_two | 150；1/3 | +100；待测 |
-| blocks_ranking_rgb | 0；未测 | +150；待测 |
-| place_bread_skillet | 0；未测 | +150；待测 |
-| place_can_basket | 0；未测 | +150；待测 |
-| place_cans_plasticbox | 0；未测 | +150；待测 |
-| place_bread_basket | 0；未测 | +150；待测 |
+| blocks_ranking_size | 150；0/3 | +100 / 250；0/3 |
+| move_stapler_pad | 400；R12未测，R9历史0/3 | +100 / 500；0/3 |
+| pick_dual_bottles | 300；0/3 | +100 / 400；0/3 |
+| place_container_plate | 400；0/3 | +100 / 500；0/3 |
+| stack_bowls_two | 150；1/3 | +100 / 250；0/3 |
+| blocks_ranking_rgb | 0；未测 | +150 / 150；0/3 |
+| place_bread_skillet | 0；未测 | +150 / 150；0/3 |
+| place_can_basket | 0；未测 | +150 / 150；1/3 |
+| place_cans_plasticbox | 0；未测 | +150 / 150；0/3 |
+| place_bread_basket | 0；未测 | +150 / 150；2/3 |
 
-计划1250步，旧任务合计20%复习，每步两个任务各10%；复习曝光不算额外主训优化器步数。
-冻结R12累计17任务池，预计每槽7000样本；最终1250模型十任务各3回合、5＋5分批。
-正式当前快照为7/1250；完整来源、run路径和保存点见[流水R13](training_history_zh.md)。
+已完成1250步，旧任务合计20%复习，每步两个任务各10%；复习曝光不算额外主训优化器步数。
+本轮冻结R12累计17任务池，每槽7000样本；最终1250模型十任务各3回合、5＋5分批，合计3/30成功。
+事后累计资格池更新为19任务，新增place_can_basket、place_bread_basket，不覆盖历史冻结池。
+独立八路单回合试跑没有新增训练步数；完整来源、run路径和保存点见[流水R13](training_history_zh.md)。
 
 ### 已完成的训练投入
 
-下表跨分支汇总计算投入，用于看花了多少训练；不表示任何一个模型继承了这些全部更新。已计入R12完成步数。
+下表跨分支汇总计算投入，用于看花了多少训练；不表示任何一个模型继承了这些全部更新。已计入R13完成步数。
 
 | 任务（按首次训练顺序） | 可精确归属的单任务/顺序步数 | 另有混训曝光 |
 |---|---:|---|
 | adjust_bottle | **1200**＝R1 500＋R2 500＋R3 200 | 无 |
-| place_container_plate | **400**＝R5 200＋R6 100＋R12 100 | R4约133.3等效步（期望），另有轮换复习 |
+| place_container_plate | **500**＝R5 200＋R6 100＋R12 100＋R13 100 | R4约133.3等效步（期望），另有轮换复习 |
 | place_empty_cup | **300**＝R6 200＋R7已100 | R4约133.3等效步（期望） |
 | move_can_pot | **400**＝R6 200＋R7 200 | R4约133.3等效步（期望） |
 | turn_switch | **300**＝R8 200＋R9 100 | 无 |
 | move_pillbottle_pad | **400**＝R8 200＋R9 200 | 无 |
-| move_stapler_pad | **400**＝R8 200＋R9 200 | 无 |
+| move_stapler_pad | **500**＝R8 200＋R9 200＋R13 100 | 无 |
 | move_playingcard_away | **300**＝R10 200＋R11 100 | R11另有复习曝光 |
 | place_phone_stand | **200**＝R10 200 | 无 |
 | place_object_scale | **200**＝R10 200 | 无 |
 | rotate_qrcode | **300**＝R10 200＋R11 100 | R11另有复习曝光 |
-| pick_dual_bottles | **300**＝R11 200＋R12 100 | 无 |
+| pick_dual_bottles | **400**＝R11 200＋R12 100＋R13 100 | 无 |
 | pick_diverse_bottles | **300**＝R11 200＋R12 100 | 无 |
 | grab_roller | **200**＝R11 200 | 无 |
 | lift_pot | **200**＝R11 200 | 无 |
@@ -161,10 +162,29 @@ R12实际使用的through_R11冻结池仍保留，不把事后新增任务冒充
 | shake_bottle_horizontally | **150**＝R12 150 | 另有轮换复习 |
 | put_bottles_dustbin | **150**＝R12 150 | 无 |
 | dump_bin_bigbin | **150**＝R12 150 | 无 |
-| stack_bowls_two | **150**＝R12 150 | 无 |
+| stack_bowls_two | **250**＝R12 150＋R13 100 | R13另有复习曝光 |
 | stack_bowls_three | **150**＝R12 150 | 无 |
-| blocks_ranking_size | **150**＝R12 150 | 无 |
+| blocks_ranking_size | **250**＝R12 150＋R13 100 | 无 |
 | stack_blocks_two | **150**＝R12 150 | 无 |
+| blocks_ranking_rgb | **150**＝R13 150 | 无 |
+| place_bread_skillet | **150**＝R13 150 | 无 |
+| place_can_basket | **150**＝R13 150 | 无 |
+| place_cans_plasticbox | **150**＝R13 150 | 无 |
+| place_bread_basket | **150**＝R13 150 | 无 |
 
 GBS不同，步数并不直接等价：R1/R2为28，其他为56。需要比较样本曝光时应再乘以各自GBS。
 后续新训练/补课在对应链的表格右侧追加列，保留来源分叉；补课完成后以真实step与闭环报告更新，不能只凭计划累加。
+
+R14完成取证补充：最新链实际主任务新增place_can_basket100、place_mouse_pad200、pick_dual_bottles300、stack_bowls_two300、handover_block150、place_shoe150、place_fan150。R14-step500追加评测：pick_dual_bottles0/3，stack_bowls_two0/3；500时课程只执行到pick_dual_bottles中段，尚未进入本轮双碗主课。R15计划handover_block200→stack_bowls_two200且无复习，尚不计入已完成累计。
+
+### R14最终评测与R15状态
+
+|任务|R14新增主课|R14最终评测|R15主课计划（未计完成）|
+|---|---:|---|---:|
+|place_mouse_pad|200|0/3|0|
+|pick_dual_bottles|300|0/3|0|
+|place_can_basket|100|0/3|0|
+|handover_block|150|0/3|200|
+|stack_bowls_two|300|0/3|200|
+|place_shoe|150|2/3|0|
+|place_fan|150|0/3|0|

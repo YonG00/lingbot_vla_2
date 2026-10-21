@@ -1,7 +1,7 @@
 # 训练与闭环评测流水
 
 记录范围：2026-10-20官方对照实验至当前补课；更早鼠标实验尚未回填，不表示没有训练。
-最近取证：2026-10-21，R12完整终态已归档；R13正式训练进行中，各时间节点采用服务器日志时间。
+最近取证：2026-10-21，R13完整训练与最终闭环已归档；八路滚动单回合试跑已结束但种子一致性未通过，各时间节点采用服务器日志时间。
 时间为首次/末次正式优化器更新日志时间，不含CPU检查、GPU探针、加载与闭环耗时。
 运行中记录仅表示该时间点进度。任务累计与各轮对照见[任务统计](task_training_statistics_zh.md)。
 
@@ -216,7 +216,7 @@ run：`/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct`。
 瓶抓取两任务从R11的0/3加训100步后仍0/3，当前没有改善证据；有限3回合不足以推断整体成功率。
 配置：`configs/training_recipes/sequential_ten_tasks_1350_replay10pct_from_R11.json`。
 
-### R13：R12-step1350续训十任务＋双任务20%复习（运行中）
+### R13：R12-step1350续训十任务＋双任务20%复习（训练与闭环完成）
 
 run：`/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct`。
 来源R12最终1350的BF16 HF，新建优化器与1250步日程；BF16参数/计算/HF，micro=GBS56、GAS1。
@@ -240,9 +240,32 @@ GBS56下每槽每步5/6条，每10步各56条，1250步预计每槽7000条、共
 按用户要求每500步及最终保存：500/1000/1250。最终十任务各3回合，5＋5批次屏障、共享单模型FP32/B1；无自动补课或关机。
 训练结束后沿用HF重新加载评测，不宣称训练内存模型直接移交；仅两批评测间保持模型常驻。
 本地/服务器55项CPU契约、真实1250条280122帧CPU及三步GPU探针通过；探针allocated77.70GiB/reserved84.59GiB。
-2026-10-21 14:45:21正式已确认7/1250，当前blocks_ranking_size；不把后续配额记为完成。
+正式1250次连续更新全部完成，首次14:44:29、末次16:27:29，更新耗时1小时43分，日志无Traceback。
+500/1000/1250三份HF均验证1708张量、BF16；实际总样本70000，其中双槽复习各7000、合计14000。
+原正式评测沿用启动时冻结配置：5＋5、各3回合、全录，合计3/30成功，无OIDN/仿真Traceback，30份非空视频完整。
+
+| 任务 | 最终1250模型闭环 |
+| --- | --- |
+| blocks_ranking_size | 0/3 |
+| move_stapler_pad | 0/3 |
+| pick_dual_bottles | 0/3 |
+| place_container_plate | 0/3 |
+| stack_bowls_two | 0/3 |
+| blocks_ranking_rgb | 0/3 |
+| place_bread_skillet | 0/3 |
+| place_can_basket | 1/3 |
+| place_cans_plasticbox | 0/3 |
+| place_bread_basket | 2/3 |
+
+5＋5实际批次屏障成立、model_loads=1、10连接431请求、FP32/B1；仿真阶段45分38秒，含启动约46分41秒。
+汇总本run的`evaluation_1250/summary.json`；[完整终态审计](../../../refs/training_records/20261021_R13_completed.json)。
+累计资格池通过完整报告更新17→19，新增place_can_basket、place_bread_basket，另存through_R13；不追改本轮冻结17任务池。
 启动前六份旧HF已按授权删除，释放71.35GiB，保留R11-1200/R12-1350；空闲115.22GiB，新存档预算42.19GiB。
 配置：`configs/training_recipes/sequential_ten_tasks_1250_replay20pct_from_R12.json`；[启动证据](../../../refs/training_records/20261021_R13_started.json)。
+
+后续用户授权的八路滚动试跑为独立评测，不是新训练：同R13-step1250、同10任务，每任务仅1回合，共10回合；video_episodes=2在单回合下实际录1份。
+输出`/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode`，对照原正式评测相同种子的第1回合，原5＋5结果不改写。
+本地及服务器60项CPU契约通过，八仿真同时运行已观测，早期显存峰值77148MiB；完整速度及结果一致性待核验。
 
 ### 历史存档保留清单（清理时口径）
 
@@ -284,3 +307,31 @@ R1/R2评测结果补充自已归档的对照说明；快照未收集其外置评
 重新取证：服务器实验包目录执行`python tools/collect_training_records.py > <新快照路径>`。
 脚本只读文件、仅标准库，不加载模型、不使用GPU；此采集器目前覆盖上表已登记run，新run需加入列表。
 采集不会自动重写本页；训练完成后应据最终报告更新R7和任务统计，禁止把计划300写成已完成300。
+
+### R14：R13-step1250续训七任务（已启动流水线）
+
+run：`/data/outputs/20261021_1800_seven_tasks_from_R13_bf16_m56_replay20pct`。来源R13的1250步；按顺序place_can_basket100、place_mouse_pad200、pick_dual_bottles300、stack_bowls_two300、handover_block150、place_shoe150、place_fan150，总1350步。BF16、micro56/GAS1；沿用双任务各10%复习，资格池更新到through_R13的19任务。存档500/1000/1350，最终评测所训7任务各3回合，5＋2路、前2回合录像，无补课、无自动关机。流水线44041已提交，完成量及结果尚待取证。
+
+渲染A/B同seed100000，两版均1/1；59.932s与57.745s，但trace_equal=false，暂不启用按需渲染，不能认定3.6%差距是可靠加速。
+
+R14启动后按用户“先检查优化再训练”要求在22步后停止，未到存档点；该run不作为1350步完成记录。性能检查：8数据进程，默认pin_memory=true/prefetch_factor=2；三步探测allocated77.70GiB/reserved84.59GiB。日志显示self.steps逐步递增触发Dynamo重编译并在8次后该段回退，稳定StepTime约4.85s；不是关闭全部编译。未改算法/批量/存档，也未声称加速已验证。检查后提交新流水线（启动脚本PID46199），output使用seven_tasks_from_R13_bf16_m56_replay20pct_checked日期前缀目录，仍从R13-step1250重新训练1350步；实际训练状态待取证。
+
+R14终态更新：服务器流水线complete，1350步完成，500/1000/1350三份HF均1708张量BF16验证通过。追加step500双任务对照已完成，pick_dual_bottles 0/3、stack_bowls_two 0/3；两路单模型，606.879秒、无OIDN错误，输出`evaluation_500_dual_bowls/`。完整1350步逐任务结果另待全面归档，不能以本对照代替。
+
+### R15：R14-step1350续训handover与双碗，不复习（流水线已启动）
+
+run：`/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay`。来源R14最新1350步（不是step500），顺序handover_block200、stack_bowls_two200，总400步。BF16、micro56/GAS1、replay fraction=0且任务池为空；各11200主任务样本。沿用500间隔、最终400保存。结束后这两任务各3回合、2路单模型FP32、前2回合录像；无补课、无自动关机。流水线54644已启动，正式训练进度尚待取证。
+
+R14完整终态：1350条连续更新，首步18:13:56、末步20:05:59（1小时52分03秒）。最终结果：
+
+|任务|R14-step1350|R14-step500追加对照|
+|---|---|---|
+|place_mouse_pad|0/3|未测|
+|pick_dual_bottles|0/3|0/3|
+|place_can_basket|0/3|未测|
+|handover_block|0/3|未测|
+|stack_bowls_two|0/3|0/3|
+|place_shoe|2/3|未测|
+|place_fan|0/3|未测|
+
+R15最新取证state=training；当前训练不是完成，400步存档及结果未产生。[终态与启动证据](../../../refs/training_records/20261021_R14_completed_R15_started.json)。

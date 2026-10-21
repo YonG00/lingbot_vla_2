@@ -55,6 +55,8 @@ adjust_bottle3360、click_bell1120。每步不是独立四舍五入，避免长�
 - `checkpoint.every_steps/save_final/hf_dtype`：显式保存约定；第一版要求save_final=true、hf_dtype=bf16。
 - `evaluation.tasks/episodes_per_task/checkpoints/shared_model_session`：评测任务、回合数、已保存步号或final、跨任务是否共用服务。
 - `evaluation.max_parallel_tasks`：默认1为旧串行；设6且shared_model_session=true时，按最多6任务一批并行，首批全部完成后启动剩余批次，同模型不重载；10任务为6＋4。详细边界见[并行评测](../evaluation/parallel_simulation_zh.md)。
+- `evaluation.scheduling`：默认batches保持批次屏障，rolling为空位自动补任务，max_parallel_tasks可设至8，要求并行共享服务。
+- `evaluation.video_episodes`：默认null全录；设2只录前两回合，episodes_per_task=3仍完整跑三回合；单回合试跑实际只录1份。录像策略不影响原步数与成功判定。
 - `train.replay.tasks_per_step`：round_robin默认1，显式2时每步选两个不同旧任务平分总复习比例；fraction=0.2时各占10%，排除当前主任务，按switch_every_steps轮换任务对。GBS56通过5/6条配额实现等份，不把比例改动当作GBS改动。
 - `runtime.shutdown_after_completion`：第一版只接受false，不默认操作关机。
 

@@ -56,10 +56,12 @@ def worker(raw,launch):
                 jobs.append(dict(task=task,label=f'recipe_{step}',model=str(out/f'checkpoints/global_step_{step}/hf_ckpt'),
                     destination=str(directory/task),episodes=c['evaluation']['episodes_per_task'],require_baseline=False,
                     robotwin=str(ROOT.parent/'RoboTwin-lingbot'),qwen=cfg['model']['tokenizer_path'],sim_python='/data/miniconda3/envs/RoboTwin/bin/python'))
+                if 'video_episodes' in c['evaluation']:jobs[-1]['video_episodes']=c['evaluation']['video_episodes']
+                if 'render_sync' in c['evaluation']:jobs[-1]['render_sync']=c['evaluation']['render_sync']
             if c['evaluation']['shared_model_session']:
                 if c['evaluation']['max_parallel_tasks']>1:
                     from experiment.official_control.parallel_evaluation import run_jobs
-                    run_jobs(jobs,directory,c['evaluation']['max_parallel_tasks'])
+                    run_jobs(jobs,directory,c['evaluation']['max_parallel_tasks'],scheduling=c['evaluation'].get('scheduling','batches'))
                 else:
                     from experiment.official_control.shared_evaluation import run_jobs
                     run_jobs(jobs,directory)

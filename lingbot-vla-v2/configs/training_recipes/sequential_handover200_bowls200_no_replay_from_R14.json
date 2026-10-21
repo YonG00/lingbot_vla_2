@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/trainer_config.json",
+    "checkpoint": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/checkpoints/global_step_1350/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/handover200_bowls200_from_R14_bf16_m56_no_replay",
+  "train": {
+    "mode": "sequential",
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "handover_block": {
+        "steps": 200,
+        "weight": 1
+      },
+      "stack_bowls_two": {
+        "steps": 200,
+        "weight": 1
+      }
+    },
+    "replay": {
+      "fraction": 0,
+      "tasks": {}
+    },
+    "task_order": [
+      "handover_block",
+      "stack_bowls_two"
+    ]
+  },
+  "checkpoint": {
+    "mode": "steps",
+    "every_steps": 500,
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true,
+    "max_parallel_tasks": 2,
+    "video_episodes": 2
+  },
+  "runtime": {
+    "shutdown_after_completion": false
+  },
+  "remediation": {
+    "enabled": false,
+    "max_rounds": 1
+  }
+}

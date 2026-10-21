@@ -1,6 +1,6 @@
 """Bounded parallel simulators, one FP32 B1 inference service; explicit resource-only fallback."""
 import argparse
-from concurrent.futures import ThreadPoolExecutor,as_completed
+from concurrent.futures import ThreadPoolExecutor,wait,FIRST_COMPLETED
 import json
 import os
 from pathlib import Path
@@ -16,12 +16,21 @@ from experiment.official_control import evaluate
 from experiment.official_control.shared_evaluation import open_session
 
 
-def run_jobs(jobs,directory,workers,opener=None,executor=evaluate.execute,stopper=evaluate.stop):
-    if type(workers) is not int or not 1 <= workers <= 6:raise ValueError('workers must be an integer from 1 to 6')
+def run_jobs(jobs,directory,workers,opener=None,executor=evaluate.execute,stopper=evaluate.stop,scheduling='batches'):
+    if type(workers) is not int or not 1 <= workers <= 8:raise ValueError('workers must be an integer from 1 to 8')
+    if scheduling not in ['batches','rolling']:raise ValueError('invalid scheduling')
     if not jobs or len({j['task'] for j in jobs})!=len(jobs):raise ValueError('unique nonempty task list required')
     if len({str(Path(j['model']).resolve()) for j in jobs})!=1:raise ValueError('one shared model required')
     for key in ['OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS']:os.environ[key]='2'
-    session=None;results=[];start=time.monotonic()
+    session=None;results=[];start=time.monotonic();event_lock=threading.Lock()
+    def execute(job):
+        def event(kind):
+            with event_lock:
+                with (directory/'task_events.jsonl').open('a') as stream:
+                    stream.write(json.dumps(dict(event=kind,task=job['task'],time=time.time()))+'\n')
+        event('start')
+        try:return executor(job,shared=session)
+        finally:event('end')
     def state(value,**extra):
         (directory/'status.json').write_text(json.dumps(dict(state=value,workers=workers,completed=results,**extra),indent=2))
     try:
@@ -31,27 +40,35 @@ def run_jobs(jobs,directory,workers,opener=None,executor=evaluate.execute,stoppe
             session=open_session(jobs[0],directory,server_entry=ROOT/'experiment/robotwin/session_eval_server.py')
         else:session=opener(jobs[0],directory)
         state('evaluating',server_pid=session['process'].pid)
-        for offset in range(0,len(jobs),workers):
-            batch=jobs[offset:offset+workers]
+        offsets=[0] if scheduling=='rolling' else range(0,len(jobs),workers)
+        for offset in offsets:
+            batch=jobs if scheduling=='rolling' else jobs[offset:offset+workers]
             state('evaluating',server_pid=session['process'].pid,batch=offset//workers+1,
-                active_workers=len(batch),batch_tasks=[j['task'] for j in batch])
-            with ThreadPoolExecutor(max_workers=len(batch)) as pool:
+                active_workers=min(workers,len(batch)),scheduling=scheduling,batch_tasks=[j['task'] for j in batch])
+            with ThreadPoolExecutor(max_workers=min(workers,len(batch))) as pool:
                 futures={}
-                for job in batch:
+                remaining=iter(batch)
+                def submit(job):
                     dest=Path(job['destination']);dest.mkdir(exist_ok=False)
                     (dest/'job.json').write_text(json.dumps(job,indent=2))
-                    futures[pool.submit(executor,job,shared=session)]=job
-                for future in as_completed(futures):
-                    job=futures[future]
-                    if future.result()!=0:raise RuntimeError('simulation failed: '+job['task'])
-                    result=json.loads((Path(job['destination'])/'summary.json').read_text())
-                    if result.get('server_pid')!=session['process'].pid or not result.get('shared_server'):
-                        raise ValueError('shared inference session mismatch')
-                    if result.get('task')!=job['task'] or result.get('state')!='complete':
-                        raise ValueError('task result mismatch')
-                    results.append(result)
+                    futures[pool.submit(execute,job)]=job
+                for _ in range(min(workers,len(batch))):submit(next(remaining))
+                while futures:
+                    done,_=wait(futures,return_when=FIRST_COMPLETED)
+                    for future in done:
+                        job=futures.pop(future)
+                        if future.result()!=0:raise RuntimeError('simulation failed: '+job['task'])
+                        result=json.loads((Path(job['destination'])/'summary.json').read_text())
+                        if result.get('server_pid')!=session['process'].pid or not result.get('shared_server'):
+                            raise ValueError('shared inference session mismatch')
+                        if result.get('task')!=job['task'] or result.get('state')!='complete':
+                            raise ValueError('task result mismatch')
+                        results.append(result)
+                    for _ in done:
+                        job=next(remaining,None)
+                        if job is not None:submit(job)
                     (directory/'summary.json').write_text(json.dumps(results,indent=2))
-                    state('evaluating',server_pid=session['process'].pid,batch=offset//workers+1,active_workers=len(batch))
+                    state('evaluating',server_pid=session['process'].pid,batch=offset//workers+1,active_workers=len(futures),scheduling=scheduling)
         state('complete',elapsed_seconds=time.monotonic()-start,server_pid=session['process'].pid,model_loads=1)
         return results
     except BaseException as error:
@@ -89,8 +106,8 @@ def probe_jobs(job,attempt):
 def benchmark(job):
     levels=job.get('concurrency_levels',[3,2])
     if (not isinstance(levels,list) or not levels or len(set(levels))!=len(levels)
-        or any(type(n) is not int or not 1 <= n <= 6 for n in levels)):
-        raise ValueError('concurrency_levels must contain unique integers from 1 to 6')
+        or any(type(n) is not int or not 1 <= n <= 8 for n in levels)):
+        raise ValueError('concurrency_levels must contain unique integers from 1 to 8')
     directory=Path(job['destination']);directory.mkdir(parents=True,exist_ok=False)
     # Identical per-process CPU limits across serial and parallel attempts.
     for key in ['OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS']:os.environ[key]='2'
@@ -106,7 +123,7 @@ def benchmark(job):
         for index,workers in enumerate(levels):
             attempt=directory/f'parallel_{workers}';attempt.mkdir()
             jobs=probe_jobs(job,attempt)
-            try:results=run_jobs(jobs,attempt,workers)
+            try:results=run_jobs(jobs,attempt,workers,scheduling=job.get('scheduling','batches'))
             except Exception:
                 if index < len(levels)-1 and resource_failure(attempt):continue
                 raise

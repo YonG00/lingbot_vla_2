@@ -16,6 +16,8 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = Path(__file__).resolve()
+sys.path.insert(0,str(ROOT))
+from experiment.official_control.recording import video_count,install_recording_limit
 
 
 def stop(process):
@@ -31,6 +33,8 @@ def stop(process):
 def execute(job, shared=None):
     destination = Path(job['destination'])
     episodes = int(job.get('episodes', 10))
+    expected_videos=video_count(episodes,job.get('video_episodes'))
+    if job.get('render_sync','eager') not in ['eager','on_demand']:raise ValueError('invalid render_sync')
     task = job.get('task', 'adjust_bottle')
     assert re.fullmatch(r'[a-z][a-z0-9_]*', task), 'invalid task name'
     assert episodes > 0
@@ -73,6 +77,9 @@ def execute(job, shared=None):
                        '--port', str(port), '--robo_name', 'robotwin', '--video_fps', '10',
                        '--eval_video_log', 'False', '--eval_global_view_log', 'True', '--global_view_fps', '2',
                        '--output_dir', str(destination / 'results'), '--test_num', str(episodes)]
+        if job.get('video_episodes') is not None:
+            sim_command.extend(['--global_view_episodes',str(job['video_episodes'])])
+        if 'render_sync' in job:sim_command.extend(['--render_sync',job['render_sync']])
         (destination / 'commands.json').write_text(json.dumps(dict(server=server_command, simulation=sim_command), indent=2))
         state('starting')
         with (destination / 'server.log').open('x') as slog, (destination / 'sim.log').open('x') as elog:
@@ -95,6 +102,8 @@ def execute(job, shared=None):
             site = subprocess.check_output([job['sim_python'], '-c', 'import site; print(site.getsitepackages()[0])'], text=True).strip()
             simenv = dict(env, PYTHONPATH=os.pathsep.join([site, str(robo), str(robo / 'script')]),
                           PYTHONNOUSERSITE='1', PYTHONWARNINGS='ignore::UserWarning')
+            if 'render_sync' in job:simenv['LINGBOT_RENDER_SYNC_AUDIT']=str(destination/'render_sync_audit.json')
+            if job.get('trace_policy'):simenv['LINGBOT_POLICY_TRACE']=str(destination/'policy_trace.jsonl')
             state('evaluating')
             simulation = subprocess.Popen(sim_command, cwd=robo, env=simenv, stdout=elog, stderr=subprocess.STDOUT, start_new_session=True)
             assert simulation.wait(timeout=3600) == 0, 'simulation failed'
@@ -113,7 +122,7 @@ def execute(job, shared=None):
             assert seeds == json.loads(baseline.read_text())['seeds'], 'scene seeds differ from baseline'
         results = destination / 'results' / task
         videos = list(results.glob('episode*_global.mp4'))
-        assert len(videos) == episodes and all(p.stat().st_size for p in videos), 'missing video'
+        assert {p.name for p in videos}=={f'episode{i}_global.mp4' for i in range(expected_videos)} and all(p.stat().st_size for p in videos), 'missing or unexpected video'
         rate = float((results / '_result.txt').read_text().strip().splitlines()[-1])
         assert abs(rate - int(rates[-1][0]) / episodes) < 1e-6
         if shared is not None:
@@ -124,7 +133,7 @@ def execute(job, shared=None):
         assert hashlib.sha256(client.read_bytes()).hexdigest() == client_hash
         summary = dict(state='complete', task=task, label=job['label'], model=job['model'],
                        successes=int(rates[-1][0]), episodes=episodes, success_rate=rate, seeds=seeds,
-                       oidn_errors=0, client_sha256=client_hash, dtype='float32', action_chunk=50)
+                       oidn_errors=0, client_sha256=client_hash, dtype='float32', action_chunk=50,recorded_episodes=expected_videos)
         if shared is not None:
             summary.update(server_pid=shared['process'].pid, shared_server=True)
         (destination / 'summary.json').write_text(json.dumps(summary, indent=2))
@@ -180,6 +189,21 @@ if __name__ == '__main__':
         import importlib
         task = sys.argv[sys.argv.index('--task_name') + 1]
         importlib.import_module('envs.' + task)
+        if '--global_view_episodes' in sys.argv:
+            limit=int(sys.argv[sys.argv.index('--global_view_episodes')+1])
+            from envs._base_task import Base_Task
+            install_recording_limit(Base_Task,limit)
+            print('EVAL_RECORDING_POLICY first_episodes='+str(limit),flush=True)
+        if '--render_sync' in sys.argv:
+            from envs._base_task import Base_Task
+            from experiment.official_control.render_sync import install_render_sync
+            mode=sys.argv[sys.argv.index('--render_sync')+1]
+            install_render_sync(Base_Task,mode,os.environ['LINGBOT_RENDER_SYNC_AUDIT'])
+            print('EVAL_RENDER_SYNC '+mode,flush=True)
+        if os.environ.get('LINGBOT_POLICY_TRACE'):
+            from script.deploy.websocket_client_policy import WebsocketClientPolicy
+            from experiment.official_control.render_sync import install_policy_trace
+            install_policy_trace(WebsocketClientPolicy,os.environ['LINGBOT_POLICY_TRACE'])
         sys.argv = [str(robo / 'script/eval_policy_client_lingbotvla.py')] + sys.argv[3:]
         runpy.run_path(sys.argv[0], run_name='__main__')
     elif len(sys.argv) == 3 and sys.argv[1] == '--job':

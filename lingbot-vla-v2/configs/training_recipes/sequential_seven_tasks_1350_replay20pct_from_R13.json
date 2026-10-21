@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/trainer_config.json",
+    "checkpoint": "/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/seven_tasks_from_R13_bf16_m56_replay20pct",
+  "train": {
+    "mode": "sequential",
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "place_can_basket": {
+        "steps": 100,
+        "weight": 1
+      },
+      "place_mouse_pad": {
+        "steps": 200,
+        "weight": 1
+      },
+      "pick_dual_bottles": {
+        "steps": 300,
+        "weight": 1
+      },
+      "stack_bowls_two": {
+        "steps": 300,
+        "weight": 1
+      },
+      "handover_block": {
+        "steps": 150,
+        "weight": 1
+      },
+      "place_shoe": {
+        "steps": 150,
+        "weight": 1
+      },
+      "place_fan": {
+        "steps": 150,
+        "weight": 1
+      }
+    },
+    "replay": {
+      "mode": "round_robin",
+      "fraction": 0.2,
+      "switch_every_steps": 10,
+      "pool_file": "refs/training_records/replay_pool_9680_through_R13.json",
+      "tasks_per_step": 2
+    },
+    "task_order": [
+      "place_can_basket",
+      "place_mouse_pad",
+      "pick_dual_bottles",
+      "stack_bowls_two",
+      "handover_block",
+      "place_shoe",
+      "place_fan"
+    ]
+  },
+  "checkpoint": {
+    "mode": "steps",
+    "every_steps": 500,
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true,
+    "max_parallel_tasks": 5,
+    "video_episodes": 2
+  },
+  "runtime": {
+    "shutdown_after_completion": false
+  },
+  "remediation": {
+    "enabled": false,
+    "max_rounds": 1
+  }
+}

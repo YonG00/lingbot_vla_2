@@ -13,7 +13,7 @@
 
 先3路。只有日志明确出现GPU/渲染/主机内存资源不足，才结束该attempt后退2路，失败日志不删。
 普通代码异常、种子不一致或成功次数不一致不通过减并发隐藏，报告失败并保留证据。
-`concurrency_levels`控制尝试顺序，默认`[3,2]`，仅资源不足时进入下一项；支持1至6路。
+`concurrency_levels`控制尝试顺序，默认`[3,2]`，仅资源不足时进入下一项；支持1至8路，新增上限不代表已完成八路GPU验收。
 `compare_reference`默认为true，核对完整参考报告；只跑1回合的资源探测显式设false，
 报告会记录`reference_compared=false`，不能声称成功率或种子与三回合参考一致。
 
@@ -94,3 +94,22 @@ attempt目录为parallel_3/或parallel_2/，单个attempt内model_loads=1；回�
 服务PID26532，model_loads=1、connections=10、requests=445、FP32/B1；批次屏障实测成立。
 仿真阶段2885.35秒，含服务启动2945.48秒；任务/步数上限不同于前次探测，无严格同配置串行加速比结论。
 最终服务退出，GPU空闲；[完整审计](../../../refs/training_records/20261021_R12_completed.json)。
+
+## 八路滚动与前N回合录像
+
+`scheduling`默认`batches`保持原批次屏障；显式`rolling`最多运行max_parallel_tasks个任务，完成一项即启动队列下一项。
+`task_events.jsonl`记录各任务执行起止，status包含实际调度模式、未完成任务数；同一模型仅加载一次。
+训练配方中通过evaluation.scheduling和max_parallel_tasks指定；独立benchmark使用顶层scheduling和concurrency_levels。
+
+`video_episodes`默认null全录；设2表示每任务只录前两回合，不减少episodes_per_task。
+子进程局部包装录像启动方法，不修改RoboTwin源文件，不改变策略取图、物理步数或成功判定。
+汇总校验实际应录数量min(episodes,video_episodes)及连续视频索引；不通过放宽缺视频检查掩盖错误。
+CPU覆盖3回合只生成前2视频的真实execute汇总契约、单回合上限2实际录1、8线程重叠、滚动补位与旧批次屏障，共60项本地/服务器契约通过。
+
+本次用户明确只试每任务1回合：R13-step1250、同10任务、最多8路rolling，共10回合，录像上限2因此实际各1份。
+配置`configs/evaluation_jobs/parallel8_rolling_R13_one_episode.json`，输出`/data/outputs/20261021_172229_parallel8_rolling_R13_one_episode`。
+参考`refs/training_records/20261021_R13_first_episode/`从原正式3回合逐回合日志提取第一回合，标记来源；不是另做了一轮1回合评测。
+已实测8个仿真进程同时活跃，早期显存峰值77148MiB（75.34GiB），10任务仿真已结束，bread_skillet种子100004与对照100003不同导致失败；不能认定一致性通过。
+没有同配置5路单回合重跑，不能把8路1回合与原5＋5的3回合总耗时直接计算加速比。
+
+按需渲染实验参数`render_sync=eager|on_demand`默认eager，不提供则保持原行为。仅policy动作内部、无viewer/随机灯光/head录像时跳过同步，get_obs强制同步，专家阶段不变。单任务GPU A/B均1/1，59.932s与57.745s，但请求/动作trace不相等；不启用为默认，不将3.6%差距作为可靠收益。纯CPU64项通过。

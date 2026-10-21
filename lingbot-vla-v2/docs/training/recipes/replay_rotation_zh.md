@@ -3,7 +3,7 @@
 原有默认是90%主任务搭配10%复习样本、每次一个旧任务。
 R13显式改为80%主任务＋两个不同旧任务各10%，每10步轮换一对，排除当前主任务。
 R11完整1200步与七任务闭环、R12完整1350步与十任务闭环均已完成；历史R10未使用复习。
-最新累计资格池17任务。本轮R12实际使用的是启动时冻结的14任务池，不因事后评测修改历史训练记录。
+最新累计资格池19任务，through_R13已合入R13完整闭环。R12实际冻结14任务、R13实际冻结17任务，不因事后评测修改历史记录。
 
 ## 参数
 
@@ -13,7 +13,7 @@ R11完整1200步与七任务闭环、R12完整1350步与十任务闭环均已完
   "mode": "round_robin",
   "tasks_per_step": 2,
   "switch_every_steps": 10,
-  "pool_file": "refs/training_records/replay_pool_9680_through_R12.json"
+  "pool_file": "refs/training_records/replay_pool_9680_through_R13.json"
 }
 ```
 
@@ -25,13 +25,13 @@ R11完整1200步与七任务闭环、R12完整1350步与十任务闭环均已完
 - 只支持sequential/task_units；mixed模式拒绝轮换规则。排除主任务后候选数至少为tasks_per_step；每步复习样本足以覆盖每个选中任务。
 - round_robin要求任务weight=1；省略mode仍使用旧sample模式和样本权重，旧行为不变。
 
-R13双任务复习：本地及服务器55项CPU契约通过，真实1250条280122帧CPU装配通过；GPU探针与正式进度读流水。
+R13双任务复习：本地及服务器55项启动CPU、真实1250条280122帧CPU、三步GPU及完整1250步/十任务正式闭环完成；结果读流水。
 旧R12冻结完整计划与改动前相同（hash见改动台账），不追改既有训练记录。
 
 复习资格与补课独立，框架目前仍拒绝“复习与自动补课同时开启”，本次未取消该限制。
 默认闭环只测主课程任务；需要复测旧任务时显式配置evaluation.tasks，不隐式增加测评开销。
 
-## 当前17个候选及证据
+## 当前19个候选及证据
 
 历史任意一次完整闭环≥1/3即可，整数比较为successes×3≥episodes。
 4回合中的1/4不达标；历史成功只代表复习资格，不代表当前模型成功率，后续退化不会自动移出池。
@@ -55,9 +55,11 @@ R13双任务复习：本地及服务器55项CPU契约通过，真实1250条28012
 | 15 | dump_bin_bigbin | R12：2/3 |
 | 16 | stack_blocks_two | R12：2/3 |
 | 17 | stack_bowls_two | R12：1/3 |
+| 18 | place_can_basket | R13：1/3 |
+| 19 | place_bread_basket | R13：2/3 |
 
 place_a2b_right仅1/4，保留证据但不纳入。截图标记为用户会话图片，不冒充服务器原始报告。
-[最新累计证据注册表](../../../refs/training_records/replay_pool_9680_through_R12.json)；
+[最新累计证据注册表](../../../refs/training_records/replay_pool_9680_through_R13.json)；
 [R12训练实际冻结的through_R11旧池](../../../refs/training_records/replay_pool_9680_through_R11.json)；
 [截至R9的12任务旧快照](../../../refs/training_records/replay_pool_9680_and_R9.json)保留不改。
 R10的place_phone_stand、place_object_scale均0/3，证据保留但不进入候选池。
@@ -70,7 +72,7 @@ R10的place_phone_stand、place_object_scale均0/3，证据保留但不进入候
 
 ```bash
 python -m experiment.task_recipes.replay_pool \
-  --registry refs/training_records/replay_pool_9680_through_R12.json \
+  --registry refs/training_records/replay_pool_9680_through_R13.json \
   --summary <完整闭环summary.json> \
   --output <下一版注册表.json>
 ```
@@ -82,6 +84,7 @@ python -m experiment.task_recipes.replay_pool \
 默认预览，不启动；正式开跑仍必须通过真实CPU整链与三步GPU检查。
 本例保留through_R10的14候选历史配置，800步共44800样本，复习4480条；无当前主任务冲突时每140步轮完。
 若新配方使用through_R12的17候选且仍每10步轮换，无冲突时每170步轮完。
+使用through_R13的19候选、双任务每10步轮换，在无当前主任务冲突时190步覆盖两次候选槽位（每个候选两次）。
 本例主任务playingcard/qrcode也在候选池，各自主训阶段会排除自身。
 主任务配额仍按更新步数计数，不能将复习比例另算成完整训练步数。
 
