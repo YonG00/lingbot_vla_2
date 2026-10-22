@@ -1,0 +1,7 @@
+{
+  "task": "stack_bowls_two",
+  "rule_version": "grasp_plus_place10_v1",
+  "settings": {
+    "approach_context_seconds": 0.3333333333333333
+  }
+}

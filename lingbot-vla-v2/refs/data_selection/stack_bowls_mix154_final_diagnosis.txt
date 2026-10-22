@@ -103,7 +103,7 @@ PARITY /data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_
           "scene_seed": 100000,
           "server_pid": 26162,
           "shared_server": true
-        
+
 PARITY /data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/episode_serial_novideo_control_20261022_225402/summary.json [
   {
     "state": "complete",

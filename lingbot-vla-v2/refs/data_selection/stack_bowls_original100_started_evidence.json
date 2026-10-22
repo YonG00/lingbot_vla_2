@@ -1,0 +1,211 @@
+{
+  "output": "/root/autodl-tmp/data/outputs/20261022_2339_bowls_add100_from_weight2_s200_bf16_m56_original_recipe_replay10pct_serial3",
+  "recipe": {
+    "version": 1,
+    "source": {
+      "trainer_config": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/trainer_config.json",
+      "checkpoint": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt"
+    },
+    "data": {
+      "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+    },
+    "output_dir": "/root/autodl-tmp/data/outputs/20261022_2339_bowls_add100_from_weight2_s200_bf16_m56_original_recipe_replay10pct_serial3",
+    "train": {
+      "mode": "sequential",
+      "micro_batch_size": 56,
+      "gradient_accumulation_steps": 1,
+      "seed": 3,
+      "episode_split": "all",
+      "main_tasks": {
+        "stack_bowls_two": {
+          "steps": 100,
+          "weight": 1
+        }
+      },
+      "replay": {
+        "mode": "round_robin",
+        "fraction": 0.1,
+        "tasks_per_step": 1,
+        "switch_every_steps": 5,
+        "tasks": {
+          "adjust_bottle": {
+            "weight": 1
+          },
+          "beat_block_hammer": {
+            "weight": 1
+          },
+          "click_alarmclock": {
+            "weight": 1
+          },
+          "click_bell": {
+            "weight": 1
+          },
+          "dump_bin_bigbin": {
+            "weight": 1
+          },
+          "hanging_mug": {
+            "weight": 1
+          },
+          "move_playingcard_away": {
+            "weight": 1
+          },
+          "open_laptop": {
+            "weight": 1
+          },
+          "open_microwave": {
+            "weight": 1
+          },
+          "place_a2b_left": {
+            "weight": 1
+          },
+          "place_a2b_right": {
+            "weight": 1
+          },
+          "place_bread_basket": {
+            "weight": 1
+          },
+          "place_can_basket": {
+            "weight": 1
+          },
+          "place_container_plate": {
+            "weight": 1
+          },
+          "place_empty_cup": {
+            "weight": 1
+          },
+          "place_object_basket": {
+            "weight": 1
+          },
+          "place_object_stand": {
+            "weight": 1
+          },
+          "place_shoe": {
+            "weight": 1
+          },
+          "press_stapler": {
+            "weight": 1
+          },
+          "rotate_qrcode": {
+            "weight": 1
+          },
+          "shake_bottle": {
+            "weight": 1
+          },
+          "shake_bottle_horizontally": {
+            "weight": 1
+          },
+          "stack_blocks_two": {
+            "weight": 1
+          },
+          "stack_bowls_two": {
+            "weight": 1
+          },
+          "turn_switch": {
+            "weight": 1
+          }
+        }
+      },
+      "task_order": [
+        "stack_bowls_two"
+      ],
+      "steps": 100
+    },
+    "checkpoint": {
+      "mode": "steps",
+      "every_steps": 100,
+      "save_final": true,
+      "hf_dtype": "bf16"
+    },
+    "evaluation": {
+      "episodes_per_task": 3,
+      "checkpoints": [
+        "final"
+      ],
+      "shared_model_session": true,
+      "max_parallel_tasks": 1,
+      "video_episodes": 3,
+      "tasks": [
+        "stack_bowls_two"
+      ],
+      "reuse_training_model": true
+    },
+    "runtime": {
+      "shutdown_after_completion": false
+    },
+    "remediation": {
+      "enabled": false,
+      "max_rounds": 1
+    }
+  },
+  "plan": {
+    "expected_frames": 250626,
+    "episodes": 1250,
+    "hf_steps": [
+      100
+    ],
+    "recipe_sha256": "de304b4e33ce0c7a2d0ca71e13e46cc2bfff19d387122c954e8e11ec584bbd2e",
+    "required_disk_gib": 16.063925973139703,
+    "remediation_reserved_checkpoints": 0,
+    "source_model": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt",
+    "trainer_config_sha256": "a4312e80a141447b287eb6e50b72b7de3a7b22201332b05d4a9ad819b29d11c2",
+    "task_groups_sha256": "51c0fee34e2e9576d687dc4d864ec669fac63970f01f472ae37c5563fd8414e2",
+    "train_ids_sha256": "f91178668dfa0dfbf16f5685e425e9dcb4a8970645b5062eabf59c9ffd351aeb",
+    "evaluation_steps": [
+      100
+    ],
+    "sample_weight_registry_sha256": "356dce9a7269364a8dc5aa0c96d0b42891502dee979b9b518972cc68072fafa1"
+  },
+  "cpu": {
+    "state": "cpu_pass",
+    "episodes": 1250,
+    "frames": 250626,
+    "original_beta_time_exact": true,
+    "al_enabled": false,
+    "ee_enabled": false,
+    "model_initialized": false,
+    "optimizer_steps": 0,
+    "gpu_tested": false,
+    "recipe_sampler": true,
+    "virtual_epoch_steps": 100,
+    "loader_microbatches": 1,
+    "real_frames": 250626,
+    "sample_weight_count": 56,
+    "sample_weight_selected": 24,
+    "sample_weight_normalization": "sample_count",
+    "sample_weight_multipliers": [
+      2.0
+    ]
+  },
+  "probe": {
+    "state": "three_step_probe_complete",
+    "optimizer_steps": 3,
+    "peak_allocated_gib": 77.70731019973755,
+    "peak_reserved_gib": 85.72265625,
+    "micro": 56,
+    "gas": 1
+  },
+  "probe.log": {
+    "steps": [
+      [
+        "1",
+        "21.086"
+      ],
+      [
+        "2",
+        "10.254"
+      ],
+      [
+        "3",
+        "9.653"
+      ]
+    ],
+    "sampling": [],
+    "tail": " epoch 1: cur 27.27GB, max 77.71GB.\n10/22/2026 23:41:45 - INFO - __main__ - [smoke] NO_CHECKPOINT\uff1a\u8df3\u8fc7\u6536\u5c3e DCP/HF (step=3, reached_max_steps=True, al_finished=False)\n\nStep: 3/3 [00:45<00:00, 15.17s/it]\n10/22/2026 23:41:45 - INFO - __main__ - \u8bad\u7ec3\u7ed3\u675f: epoch=1/1, global_step=3\u3002\n10/22/2026 23:41:46 - INFO - __main__ - [async_hf] summary: {\"total\": 0, \"hf_success\": 0, \"hf_failed\": 0, \"eval_submitted\": 0, \"eval_skipped\": 0, \"eval_failed\": 0, \"failures\": []}\n"
+  },
+  "train.log": {
+    "steps": [],
+    "sampling": [],
+    "tail": " Parameters in AdaNorm has been ZERO initialized.\n[INFO][lingbotvla.models.module_utils:114] 10/22/2026 23:41:59 >> Failed to tie embeddings: `get_input_embeddings` not auto\u2011handled for LingbotVlaV2Policy; please override in the subclass.\n[INFO][lingbotvla.models.loader:114] 10/22/2026 23:41:59 >> Failed to tie embeddings: `get_input_embeddings` not auto\u2011handled for LingbotVlaV2Policy; please override in the subclass.\n====Loading Depth Model====\n"
+  },
+  "gpu": "13255 MiB, 0 %"
+}

@@ -101,3 +101,7 @@ R17完成后500/1000均已复核完整，首批5任务测后停止未删除任�
 - 新run `20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel` 仅计划最终step200，无中间存档；来源第一版step200仍保留，本轮未删除任何旧模型。
 
 - `20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel/checkpoints/global_step_200/hf_ckpt` 已完成保存及闭环，最终0/3，仅最终200；来源第一版模型保留，本次分析未删除任何存档。
+
+- 原方法100步对照run `20261022_2339_bowls_add100_from_weight2_s200_bf16_m56_original_recipe_replay10pct_serial3`，用户批准仅最终step100，无中间存档；来源第一版step200保留，本轮未删除旧产物。
+
+- 原方法2339 run最终step100已完成并串行1/3，是本轮指定来源，保留。20261023_0003新增放置样本run只计划最终step100，无其他删除授权或删除操作。

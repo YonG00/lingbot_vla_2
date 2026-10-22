@@ -574,3 +574,8 @@ V3上机部分验证：100项服务器CPU测试与真实装配通过，3步GPU�
 
 新增RoleSampler和role_segments配置，缺省不启用；StreamDataset只在收到三元角色索引时覆盖loss权重，整数索引路径不变。坐标权重由选择文件可选loss_weight保留，旧标量配置不变。完整原抓取7436帧并入第二放置3743帧。
 不变量：优化器步数/GBS/连续50帧动作不变、权重不相乘、loss仍原样本归一化、HF冻结策略继承；异常症状：左/右/放置权重串位或旧动作覆盖丢失。验证入口 `test_role_sampling.py`、`test_role_loss_contract.py`、真实CPU的first_batch_role_weight_counts和target_segment_sample_counts。回滚：不用role_segments恢复整数采样，不开启use_selected_frame_weights恢复旧权重解析。CPU契约通过；GPU/正式/闭环结果单独记。
+
+### 2026-10-23 保留原抓取＋新增约10%放置关键连续片段
+
+新增bowl_grasp_place10选择器、任务配置和独立续训配方。与原7436坐标做超集断言，新增恰1557帧，统一loss2；采样器不改。
+不变量：原抓取帧一个不丢、连续动作不裁剪、无稀疏抽样、无概率倍率；症状：原目标被替换丢失/片段越界/抽进搬运或撤离。验证test_bowl_grasp_place10和实际old_policy.keys子集检查；回滚使用来源HF原7436配置。3项本地纯CPU测试通过，真实筛选确认8993并集；GPU/正式/闭环单独记录。

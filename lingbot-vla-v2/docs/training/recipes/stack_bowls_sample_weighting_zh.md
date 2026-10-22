@@ -66,3 +66,13 @@ run：`/data/outputs/20261022_1904_bowls200_from_recovery3_s160_bf16_m56_replay1
 run.py把冻结registry传入CPU/探针/训练子进程，生成train.sh也显式导出该路径；runtime.load_run验证策略未篡改。未来使用新代码的流水线在保存验证后给HF附带元数据，便于移动模型时保留。当前运行中的旧流水线不热更新，已单独补齐run的registry；下次续训前需要同步本次新代码。
 
 已补元数据：12:46 run保持抓碗7436帧×2；19:09 run保持抓碗＋第二放置并集11179帧×3。没有把历史2倍模型误记为3倍。6项纯标准库CPU测试通过（跨run无环境继承、多任务保留、同任务显式替换、文件独立性、篡改拒绝、旧run兼容）；尚未跑新的跨run GPU整链。
+
+## 第一版原配方续训100步对照（2026-10-22）
+
+配方 `configs/training_recipes/stack_bowls_add100_from_weight2_s200_original_recipe_serial3.json`。来源第一版step200；直接继承其7436帧2倍冻结配置，主任务均匀抽样，10%其他任务复习每5步轮换；不启用role_segments、target_segments或importance_sampling_multiplier。学习率峰值/下限同第一版，cosine预算100步；优化器重新初始化。只存最终100，串行三回合全录像，避免当前串并行一致性未决项。该实验用于比较第一版继续训练的变化，不能与额外200步实验直接当作同预算对照。
+
+## 原抓取策略增加约10%放碗帧（2026-10-23）
+
+规则 `configs/data_selection/stack_bowls_two_grasp_plus_place10_v1.json`；入口 `tools/select_bowl_grasp_place10.py`。不减少第一版任何抓取目标；50次第二放置分别取最终approach之前5帧（15FPS的1/3秒，且不越过place_aim起点），连续保留到release_end，包含下降、停稳、松爪，不包含后续撤离。新增1557/15609帧9.975%，原7436帧与其不重叠，合计8993帧57.614%，全部loss2。不是抽稀凑比例，也不是10%定额采样。
+
+配方 `configs/training_recipes/stack_bowls_add100_from_original_s100_grasp2_place10pct2_parallel3.json`，来源2339原方法step100，继续100步，保留主任务均匀/10%其他任务复习，原LR1e-4→5e-5按100步重启。仅最终100，单任务3回合并行全录像。候选通过FK和成功示范时序代理定位，没有物体接触测量或视频抽检。
