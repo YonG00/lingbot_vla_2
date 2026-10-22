@@ -1,0 +1,429 @@
+[
+  {
+    "path": "/data/outputs/20261021_resident_handoff_gpu_smoke_v3/evaluation",
+    "state": "complete",
+    "workers": 2,
+    "elapsed": 299.1324100717902,
+    "event_span": 299.12691593170166,
+    "jobs": 2,
+    "summary": [
+      {
+        "task": "handover_block",
+        "episodes": 1,
+        "successes": 0,
+        "videos": 1
+      },
+      {
+        "task": "stack_bowls_two",
+        "episodes": 1,
+        "successes": 0,
+        "videos": 1
+      }
+    ],
+    "events": [
+      {
+        "event": "start",
+        "task": "handover_block",
+        "time": 1792590654.5261722
+      },
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "time": 1792590654.5277314
+      },
+      {
+        "event": "end",
+        "task": "handover_block",
+        "time": 1792590950.3972888
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "time": 1792590953.653088
+      }
+    ]
+  },
+  {
+    "path": "/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/evaluation_200",
+    "state": "failed",
+    "workers": 1,
+    "elapsed": null,
+    "event_span": 254.98350882530212,
+    "jobs": 1,
+    "summary": [],
+    "events": [
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "time": 1792645629.8115087
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "time": 1792645884.7950175
+      }
+    ]
+  },
+  {
+    "path": "/data/outputs/20261022_1909_bowls_add200_from_weight2_s200_bf16_m56_replay10pct_grasp_place_weight3/evaluation_200",
+    "state": "complete",
+    "workers": 1,
+    "elapsed": 453.36559899896383,
+    "event_span": 453.28949308395386,
+    "jobs": 1,
+    "summary": [
+      {
+        "task": "stack_bowls_two",
+        "episodes": 3,
+        "successes": 0,
+        "videos": 3
+      }
+    ],
+    "events": [
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "time": 1792668756.708337
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "time": 1792669209.9978302
+      }
+    ]
+  },
+  {
+    "path": "/data/outputs/20261022_2006_bowls200_from_recovery3_s160_bf16_m56_replay10pct_calibration30_weight3/evaluation_200",
+    "state": "complete",
+    "workers": 1,
+    "elapsed": 408.0556232482195,
+    "event_span": 408.0301706790924,
+    "jobs": 1,
+    "summary": [
+      {
+        "task": "stack_bowls_two",
+        "episodes": 3,
+        "successes": 0,
+        "videos": 3
+      }
+    ],
+    "events": [
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "time": 1792672126.69343
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "time": 1792672534.7236006
+      }
+    ]
+  },
+  {
+    "path": "/data/outputs/20261022_2045_bowls200_from_recovery3_s160_bf16_m56_replay10pct_sample3_loss3/evaluation_200",
+    "state": "complete",
+    "workers": 1,
+    "elapsed": 455.6856058575213,
+    "event_span": 455.53475189208984,
+    "jobs": 1,
+    "summary": [
+      {
+        "task": "stack_bowls_two",
+        "episodes": 3,
+        "successes": 0,
+        "videos": 3
+      }
+    ],
+    "events": [
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "time": 1792674384.8473141
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "time": 1792674840.382066
+      }
+    ]
+  },
+  {
+    "path": "/data/outputs/20261022_2120_bowls200_from_recovery3_s160_bf16_m56_target90_far1_place2_loss2/evaluation_200",
+    "state": "complete",
+    "workers": 1,
+    "elapsed": 436.03904815018177,
+    "event_span": 435.9864275455475,
+    "jobs": 1,
+    "summary": [
+      {
+        "task": "stack_bowls_two",
+        "episodes": 3,
+        "successes": 0,
+        "videos": 3
+      }
+    ],
+    "events": [
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "time": 1792676418.8586738
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "time": 1792676854.8451014
+      }
+    ]
+  },
+  {
+    "path": "/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/evaluation_200",
+    "state": "complete",
+    "workers": 1,
+    "elapsed": 471.930159766227,
+    "event_span": 471.82856464385986,
+    "jobs": 1,
+    "summary": [
+      {
+        "task": "stack_bowls_two",
+        "episodes": 3,
+        "successes": 0,
+        "videos": 3
+      }
+    ],
+    "events": [
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "time": 1792678789.6688988
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "time": 1792679261.4974635
+      }
+    ]
+  },
+  {
+    "path": "/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/episode_parallel3_novideo_20261022_224804",
+    "state": "complete",
+    "workers": 3,
+    "elapsed": 174.70671767368913,
+    "event_span": 116.59731960296631,
+    "jobs": 3,
+    "summary": [
+      {
+        "task": "stack_bowls_two",
+        "episodes": 3,
+        "successes": 1,
+        "videos": 0
+      }
+    ],
+    "events": [
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:0",
+        "time": 1792680542.3619127
+      },
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:1",
+        "time": 1792680542.3632216
+      },
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:2",
+        "time": 1792680542.3660188
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:2",
+        "time": 1792680613.8725271
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:1",
+        "time": 1792680645.670656
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:0",
+        "time": 1792680658.9592323
+      }
+    ]
+  },
+  {
+    "path": "/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/episode_serial_novideo_control_20261022_225402",
+    "state": "complete",
+    "workers": 1,
+    "elapsed": 296.9866847321391,
+    "event_span": 240.88582563400269,
+    "jobs": 1,
+    "summary": [
+      {
+        "task": "stack_bowls_two",
+        "episodes": 3,
+        "successes": 0,
+        "videos": 0
+      }
+    ],
+    "events": [
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two",
+        "time": 1792680898.6705048
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two",
+        "time": 1792681139.5563304
+      }
+    ]
+  },
+  {
+    "path": "/data/outputs/20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel/evaluation_200",
+    "state": "complete",
+    "workers": 3,
+    "elapsed": 391.14925684407353,
+    "event_span": 391.10945653915405,
+    "jobs": 3,
+    "summary": [
+      {
+        "task": "stack_bowls_two",
+        "episodes": 3,
+        "successes": 0,
+        "videos": 3
+      }
+    ],
+    "events": [
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:0",
+        "time": 1792682521.845117
+      },
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:1",
+        "time": 1792682521.8471165
+      },
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:2",
+        "time": 1792682521.8488488
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:1",
+        "time": 1792682851.118406
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:2",
+        "time": 1792682910.7987506
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:0",
+        "time": 1792682912.9545736
+      }
+    ]
+  },
+  {
+    "path": "/data/outputs/20261022_2339_bowls_add100_from_weight2_s200_bf16_m56_original_recipe_replay10pct_serial3/evaluation_100",
+    "state": "complete",
+    "workers": 1,
+    "elapsed": 346.4094750843942,
+    "event_span": 346.3662738800049,
+    "jobs": 1,
+    "summary": [
+      {
+        "task": "stack_bowls_two",
+        "episodes": 3,
+        "successes": 1,
+        "videos": 3
+      }
+    ],
+    "events": [
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two",
+        "time": 1792684330.4158657
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two",
+        "time": 1792684676.7821395
+      }
+    ]
+  },
+  {
+    "path": "/data/outputs/20261023_0003_bowls_add100_from_original_s100_bf16_m56_grasp2_place10pct2_replay10pct_eval3parallel/evaluation_100",
+    "state": "complete",
+    "workers": 3,
+    "elapsed": 350.7348979488015,
+    "event_span": 350.62789821624756,
+    "jobs": 3,
+    "summary": [
+      {
+        "task": "stack_bowls_two",
+        "episodes": 3,
+        "successes": 0,
+        "videos": 3
+      }
+    ],
+    "events": [
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:0",
+        "time": 1792685803.3627539
+      },
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:1",
+        "time": 1792685803.3645706
+      },
+      {
+        "event": "start",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:2",
+        "time": 1792685803.3669844
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:2",
+        "time": 1792686115.6588864
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:1",
+        "time": 1792686121.771485
+      },
+      {
+        "event": "end",
+        "task": "stack_bowls_two",
+        "job_id": "stack_bowls_two:episode:0",
+        "time": 1792686153.990652
+      }
+    ]
+  }
+]
