@@ -93,3 +93,5 @@ R17完成后500/1000均已复核完整，首批5任务测后停止未删除任�
 - 目标片段1:2新run `20261022_2120_bowls200_from_recovery3_s160_bf16_m56_target90_far1_place2_loss2` 仅计划新增step200；未删除已有两份保留模型或刚完成的sample3_loss3-step200。
 
 - 20261022_2120 run实际已保存step200但属于错误起点实验，未删除。正确续训run `20261022_2149_bowls200_from_weight2_s200_bf16_m56_target90_far1_place2_loss2` 来源第一版weight2sample-step200，只计划新增最终step200。
+
+- 18cm run最终 `checkpoints/global_step_200/hf_ckpt` 已完成并验证1708张量BF16；只保存最终200。第一版weight2sample-step200和recovery3-step160仍保留，本次分析未删除模型。

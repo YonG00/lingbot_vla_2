@@ -1,0 +1,191 @@
+{
+  "runs": [
+    {
+      "run": "20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample",
+      "model_source": "/root/autodl-tmp/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160/hf_ckpt",
+      "train_controls": {
+        "sequence_wise_loss_coeff": "1e-3",
+        "router_z_loss_coeff": "1e-4",
+        "use_moe_expert_lr": true,
+        "loss_type": "L1_fm",
+        "lr": 0.0001,
+        "lr_min": 5e-05,
+        "lr_decay_style": "cosine",
+        "micro_batch_size": 56,
+        "global_batch_size": 56,
+        "enable_resume": false,
+        "gradient_accumulation_steps": 1,
+        "ee_fk_loss_enabled": false,
+        "ee_fk_position_loss_weight": 0.0,
+        "ee_fk_orientation_loss_weight": 0.0,
+        "ee_fk_gripper_loss_weight": 0.0
+      },
+      "updates": 200,
+      "first20": {
+        "Loss": 0.036275,
+        "VLA_Loss": 0.03054,
+        "Depth_Loss": 0.481005,
+        "Future_Depth_Loss": 0.597295,
+        "FutureVideo_Loss": 0.075545,
+        "GradNorm": 0.57052,
+        "LR": 9.96e-05,
+        "StepTime": 7.9013
+      },
+      "last20": {
+        "Loss": 0.031415,
+        "VLA_Loss": 0.02602,
+        "Depth_Loss": 0.440865,
+        "Future_Depth_Loss": 0.567165,
+        "FutureVideo_Loss": 0.063095,
+        "GradNorm": 0.384375,
+        "LR": 5.04e-05,
+        "StepTime": 4.7938
+      },
+      "policies": {
+        "stack_bowls_two": {
+          "multiplier": 2.0,
+          "normalization": "sample_count",
+          "frames": 7436,
+          "segments": 0
+        }
+      },
+      "status": "failed",
+      "evaluation": null
+    },
+    {
+      "run": "20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2",
+      "model_source": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt",
+      "train_controls": {
+        "sequence_wise_loss_coeff": "1e-3",
+        "router_z_loss_coeff": "1e-4",
+        "use_moe_expert_lr": true,
+        "loss_type": "L1_fm",
+        "lr": 0.0001,
+        "lr_min": 5e-05,
+        "lr_decay_style": "cosine",
+        "micro_batch_size": 56,
+        "global_batch_size": 56,
+        "enable_resume": false,
+        "gradient_accumulation_steps": 1,
+        "ee_fk_loss_enabled": false,
+        "ee_fk_position_loss_weight": 0.0,
+        "ee_fk_orientation_loss_weight": 0.0,
+        "ee_fk_gripper_loss_weight": 0.0
+      },
+      "updates": 200,
+      "first20": {
+        "Loss": 0.04248,
+        "VLA_Loss": 0.03547,
+        "Depth_Loss": 0.62514,
+        "Future_Depth_Loss": 0.760635,
+        "FutureVideo_Loss": 0.08687,
+        "GradNorm": 0.75606,
+        "LR": 9.96e-05,
+        "StepTime": 7.44185
+      },
+      "last20": {
+        "Loss": 0.035895,
+        "VLA_Loss": 0.029295,
+        "Depth_Loss": 0.583675,
+        "Future_Depth_Loss": 0.709655,
+        "FutureVideo_Loss": 0.076435,
+        "GradNorm": 0.441695,
+        "LR": 5.04e-05,
+        "StepTime": 4.8
+      },
+      "policies": {
+        "stack_bowls_two": {
+          "multiplier": 2.0,
+          "normalization": "sample_count",
+          "frames": 5135,
+          "segments": 64
+        }
+      },
+      "status": "complete",
+      "evaluation": [
+        {
+          "state": "complete",
+          "task": "stack_bowls_two",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 3,
+          "success_rate": 0.0,
+          "seeds": [
+            100000,
+            100001,
+            100002
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 3,
+          "server_pid": 23846,
+          "shared_server": true
+        }
+      ]
+    }
+  ],
+  "expected_sampling_comparison": {
+    "left_aim": {
+      "frames": 1578,
+      "first_expected_draws_11200": 1019.0,
+      "new_expected_draws_11200": 1536.5,
+      "draw_ratio": 1.508,
+      "weighted_gradient_mass_ratio": 1.459
+    },
+    "left_align,descend,settle,close": {
+      "frames": 1424,
+      "first_expected_draws_11200": 919.6,
+      "new_expected_draws_11200": 1199.7,
+      "draw_ratio": 1.305,
+      "weighted_gradient_mass_ratio": 1.25
+    },
+    "left_lift": {
+      "frames": 675,
+      "first_expected_draws_11200": 435.9,
+      "new_expected_draws_11200": 605.5,
+      "draw_ratio": 1.389,
+      "weighted_gradient_mass_ratio": 2.671
+    },
+    "right_aim": {
+      "frames": 2388,
+      "first_expected_draws_11200": 1542.1,
+      "new_expected_draws_11200": 255.4,
+      "draw_ratio": 0.166,
+      "weighted_gradient_mass_ratio": 0.083
+    },
+    "right_align,descend,settle,close": {
+      "frames": 2046,
+      "first_expected_draws_11200": 1321.3,
+      "new_expected_draws_11200": 218.8,
+      "draw_ratio": 0.166,
+      "weighted_gradient_mass_ratio": 0.083
+    },
+    "right_lift": {
+      "frames": 987,
+      "first_expected_draws_11200": 637.4,
+      "new_expected_draws_11200": 161.5,
+      "draw_ratio": 0.253,
+      "weighted_gradient_mass_ratio": 0.347
+    },
+    "all_original_weighted_grasp": {
+      "frames": 7436,
+      "first_expected_draws_11200": 4802.0,
+      "new_expected_draws_11200": 3210.3,
+      "draw_ratio": 0.669,
+      "weighted_gradient_mass_ratio": 0.598
+    },
+    "original_grasp_outside_new_target": {
+      "frames": 6293,
+      "first_expected_draws_11200": 4063.9,
+      "new_expected_draws_11200": 672.9,
+      "draw_ratio": 0.166,
+      "weighted_gradient_mass_ratio": 0.083
+    }
+  },
+  "sampling_estimates_not_measured_gradients": true,
+  "grasp_improvement_first_version": "user_video_observation_not_independently_quantified",
+  "latest_phase_success_not_quantified": true
+}
