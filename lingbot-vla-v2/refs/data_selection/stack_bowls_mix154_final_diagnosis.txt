@@ -1,0 +1,160 @@
+TRAIN {"run": "20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample", "updates": 200, "first20": {"Loss": 0.036275, "VLA_Loss": 0.03054, "Depth_Loss": 0.481005, "Future_Depth_Loss": 0.597295, "FutureVideo_Loss": 0.075545, "GradNorm": 0.57052, "LR": 9.9565e-05}, "last20": {"Loss": 0.031415, "VLA_Loss": 0.02602, "Depth_Loss": 0.440865, "Future_Depth_Loss": 0.567165, "FutureVideo_Loss": 0.063095, "GradNorm": 0.384375, "LR": 5.0375e-05}}
+STATUS {"run": "20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample", "state": "failed", "evaluation": null, "error": "RuntimeError(('/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/train.log', 1))"}
+TRAIN {"run": "20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel", "updates": 200, "first20": {"Loss": 0.04609, "VLA_Loss": 0.038505, "Depth_Loss": 0.672705, "Future_Depth_Loss": 0.8471, "FutureVideo_Loss": 0.098295, "GradNorm": 0.82265, "LR": 9.9565e-05}, "last20": {"Loss": 0.04176, "VLA_Loss": 0.034405, "Depth_Loss": 0.655635, "Future_Depth_Loss": 0.81683, "FutureVideo_Loss": 0.088905, "GradNorm": 0.503815, "LR": 5.0375e-05}}
+STATUS {"run": "20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel", "state": "complete", "evaluation": [{"state": "complete", "task": "stack_bowls_two", "label": "recipe_200", "model": "/root/autodl-tmp/data/outputs/20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel/checkpoints/global_step_200/hf_ckpt", "successes": 0, "episodes": 3, "success_rate": 0.0, "seeds": [100000, 100001, 100002], "oidn_errors": 0, "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3", "dtype": "float32", "action_chunk": 50, "recorded_episodes": 3, "server_pid": 28887, "shared_server": true, "episode_results": [{"state": "complete", "task": "stack_bowls_two", "label": "recipe_200", "model": "/root/autodl-tmp/data/outputs/20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel/checkpoints/global_step_200/hf_ckpt", "successes": 0, "episodes": 1, "success_rate": 0.0, "seeds": [100000], "oidn_errors": 0, "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3", "dtype": "float32", "action_chunk": 50, "recorded_episodes": 1, "job_id": "stack_bowls_two:episode:0", "episode_index": 0, "scene_seed": 100000, "server_pid": 28887, "shared_server": true}, {"state": "complete", "task": "stack_bowls_two", "label": "recipe_200", "model": "/root/autodl-tmp/data/outputs/20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel/checkpoints/global_step_200/hf_ckpt", "successes": 0, "episodes": 1, "success_rate": 0.0, "seeds": [100001], "oidn_errors": 0, "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3", "dtype": "float32", "action_chunk": 50, "recorded_episodes": 1, "job_id": "stack_bowls_two:episode:1", "episode_index": 1, "scene_seed": 100001, "server_pid": 28887, "shared_server": true}, {"state": "complete", "task": "stack_bowls_two", "label": "recipe_200", "model": "/root/autodl-tmp/data/outputs/20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel/checkpoints/global_step_200/hf_ckpt", "successes": 0, "episodes": 1, "success_rate": 0.0, "seeds": [100002], "oidn_errors": 0, "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3", "dtype": "float32", "action_chunk": 50, "recorded_episodes": 1, "job_id": "stack_bowls_two:episode:2", "episode_index": 2, "scene_seed": 100002, "server_pid": 28887, "shared_server": true}], "episode_parallel": true}], "error": null}
+CONFIG_DIFF data.episode_ids_file /root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/train_ids.json /root/autodl-tmp/data/outputs/20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel/train_ids.json
+CONFIG_DIFF data.train_path /root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/datasets.txt /root/autodl-tmp/data/outputs/20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel/datasets.txt
+CONFIG_DIFF model.config_path /root/autodl-tmp/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160/hf_ckpt/config.json /root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt/config.json
+CONFIG_DIFF model.model_path /root/autodl-tmp/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160/hf_ckpt /root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt
+CONFIG_DIFF train.output_dir /root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample /root/autodl-tmp/data/outputs/20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel
+CONFIG_DIFF train.save_steps 500 200
+PARITY /data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/episode_parallel3_novideo_20261022_224804/summary.json [
+  {
+    "state": "complete",
+    "task": "stack_bowls_two",
+    "label": "episode_parallel3_novideo",
+    "model": "/root/autodl-tmp/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/checkpoints/global_step_200/hf_ckpt",
+    "successes": 1,
+    "episodes": 3,
+    "success_rate": 0.3333333333333333,
+    "seeds": [
+      100000,
+      100001,
+      100002
+    ],
+    "oidn_errors": 0,
+    "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+    "dtype": "float32",
+    "action_chunk": 50,
+    "recorded_episodes": 0,
+    "server_pid": 26162,
+    "shared_server": true,
+    "episode_results": [
+      {
+        "state": "complete",
+        "task": "stack_bowls_two",
+        "label": "episode_parallel3_novideo",
+        "model": "/root/autodl-tmp/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/checkpoints/global_step_200/hf_ckpt",
+        "successes": 0,
+        "episodes": 1,
+        "success_rate": 0.0,
+        "seeds": [
+          100000
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 0,
+        "job_id": "stack_bowls_two:episode:0",
+        "episode_index": 0,
+        "scene_seed": 100000,
+        "server_pid": 26162,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "stack_bowls_two",
+        "label": "episode_parallel3_novideo",
+        "model": "/ro
+PARITY /data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/episode_parallel3_novideo_20261022_224804/status.json {
+  "state": "complete",
+  "workers": 3,
+  "completed": [
+    {
+      "state": "complete",
+      "task": "stack_bowls_two",
+      "label": "episode_parallel3_novideo",
+      "model": "/root/autodl-tmp/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/checkpoints/global_step_200/hf_ckpt",
+      "successes": 1,
+      "episodes": 3,
+      "success_rate": 0.3333333333333333,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 0,
+      "server_pid": 26162,
+      "shared_server": true,
+      "episode_results": [
+        {
+          "state": "complete",
+          "task": "stack_bowls_two",
+          "label": "episode_parallel3_novideo",
+          "model": "/root/autodl-tmp/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100000
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 0,
+          "job_id": "stack_bowls_two:episode:0",
+          "episode_index": 0,
+          "scene_seed": 100000,
+          "server_pid": 26162,
+          "shared_server": true
+        
+PARITY /data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/episode_serial_novideo_control_20261022_225402/summary.json [
+  {
+    "state": "complete",
+    "task": "stack_bowls_two",
+    "label": "serial_novideo_control",
+    "model": "/root/autodl-tmp/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/checkpoints/global_step_200/hf_ckpt",
+    "successes": 0,
+    "episodes": 3,
+    "success_rate": 0.0,
+    "seeds": [
+      100000,
+      100001,
+      100002
+    ],
+    "oidn_errors": 0,
+    "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+    "dtype": "float32",
+    "action_chunk": 50,
+    "recorded_episodes": 0,
+    "server_pid": 26916,
+    "shared_server": true
+  }
+]
+PARITY /data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/episode_serial_novideo_control_20261022_225402/status.json {
+  "state": "complete",
+  "workers": 1,
+  "completed": [
+    {
+      "state": "complete",
+      "task": "stack_bowls_two",
+      "label": "serial_novideo_control",
+      "model": "/root/autodl-tmp/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/checkpoints/global_step_200/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 0,
+      "server_pid": 26916,
+      "shared_server": true
+    }
+  ],
+  "elapsed_seconds": 296.9866847321391,
+  "server_pid": 26916,
+  "model_loads": 1,
+  "reused_training_model": false
+}

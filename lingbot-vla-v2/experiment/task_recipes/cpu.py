@@ -25,7 +25,7 @@ def check(out):
         pools=pools_for(dataset,groups)
         sampler=make_sampler(dataset,c,p,groups,out)
         segment_audit={}
-        if 'target_segments' in c['train']:
+        if 'target_segments' in c['train'] or 'role_segments' in c['train']:
             import random
             from collections import Counter
             counters=Counter();roles=Counter()
@@ -43,6 +43,14 @@ def check(out):
         batch=next(iter(loader))
         assert len(batch)==c['train']['gradient_accumulation_steps']
         assert all(x['actions'].shape==(c['train']['micro_batch_size'],50,55) and torch.isfinite(x['actions']).all() for x in batch)
+        if 'role_segments' in c['train']:
+            import random
+            from collections import Counter
+            tokens,_=sampler.draw_row(p['steps'][0],random.Random(f'{sampler.seed}:1'),Counter())
+            expected=Counter(token[1] for token in tokens)
+            actual=Counter(batch[0]['sample_loss_weight'].tolist())
+            assert actual==expected,('role weights changed through loader/collator',actual,expected)
+            segment_audit['first_batch_role_weight_counts']={str(k):v for k,v in actual.items()}
         import os
         sample_weight_audit={}
         if os.environ.get('LINGBOT_SAMPLE_WEIGHT_CONFIG'):

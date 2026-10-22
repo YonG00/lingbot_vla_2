@@ -569,3 +569,8 @@ V3上机部分验证：100项服务器CPU测试与真实装配通过，3步GPU�
 不变量：多任务默认调度不变；模型前向B1、连接缓存隔离、原驻留权重不重载；视频0不产出录像；训练配方和存档节奏不改。症状：重复种子/目录覆盖/多次加载/任务结果变成多条；验证 `test_episode_parallel.py` 和原parallel/shared/resident相关测试，92项CPU通过。回滚：不配置或设single_task_episode_workers=1即原流程。GPU三路无录像实测已启动，最终结果待验，不宣称提速倍数。
 
 - 2026-10-22 提交状态：94项CPU测试通过（新增驻留结果读取和单回合显式种子边界）；三路GPU无录像功能跑通，只加载1次、3连接、B1、OIDN0、零视频、峰值42.21GiB、174.71秒。串行一致性未确认：并行1/3与原驻留串行0/3在100002不同；相同HF加载/无录像串行对照仍运行。按用户“先直接push”指令提交，默认参数仍1，不标记等价验证通过。
+
+### 2026-10-22 1:5:4角色采样和来源赋权
+
+新增RoleSampler和role_segments配置，缺省不启用；StreamDataset只在收到三元角色索引时覆盖loss权重，整数索引路径不变。坐标权重由选择文件可选loss_weight保留，旧标量配置不变。完整原抓取7436帧并入第二放置3743帧。
+不变量：优化器步数/GBS/连续50帧动作不变、权重不相乘、loss仍原样本归一化、HF冻结策略继承；异常症状：左/右/放置权重串位或旧动作覆盖丢失。验证入口 `test_role_sampling.py`、`test_role_loss_contract.py`、真实CPU的first_batch_role_weight_counts和target_segment_sample_counts。回滚：不用role_segments恢复整数采样，不开启use_selected_frame_weights恢复旧权重解析。CPU契约通过；GPU/正式/闭环结果单独记。

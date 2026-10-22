@@ -97,3 +97,7 @@ R17完成后500/1000均已复核完整，首批5任务测后停止未删除任�
 - 18cm run最终 `checkpoints/global_step_200/hf_ckpt` 已完成并验证1708张量BF16；只保存最终200。第一版weight2sample-step200和recovery3-step160仍保留，本次分析未删除模型。
 
 - 18cm版本 `20261022_2200` 最终 `checkpoints/global_step_200/hf_ckpt` 已完成并验证1708个BF16张量。此次单任务回合并行验证复用该存档，不新增或删除检查点。
+
+- 新run `20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel` 仅计划最终step200，无中间存档；来源第一版step200仍保留，本轮未删除任何旧模型。
+
+- `20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel/checkpoints/global_step_200/hf_ckpt` 已完成保存及闭环，最终0/3，仅最终200；来源第一版模型保留，本次分析未删除任何存档。

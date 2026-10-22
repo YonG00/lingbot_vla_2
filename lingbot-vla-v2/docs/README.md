@@ -77,3 +77,5 @@
 - [夹碗失败目标完整片段：左手远抓与第二碗放置](training/recipes/stack_bowls_failure_segments_v1_zh.md)
 
 - [单任务多回合并行闭环评测](training/recipes/single_task_episode_parallel_zh.md)
+
+- [夹碗1:5:4恢复训练与三回合并行评测](training/recipes/stack_bowls_mix154_recovery_zh.md)

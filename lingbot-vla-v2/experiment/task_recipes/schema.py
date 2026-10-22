@@ -30,8 +30,15 @@ def _validate(raw):
     if not isinstance(c.get('output_dir'),str) or not c['output_dir']:raise ValueError('output_dir required')
     keys(c['data'],['dataset_root'],'data')
     if not isinstance(c['data'].get('dataset_root'),str) or not c['data']['dataset_root']:raise ValueError('dataset_root required')
-    t=c['train'];keys(t,['mode','steps','micro_batch_size','gradient_accumulation_steps','seed','main_tasks','replay','episode_split','task_order','tasks_per_group','steps_per_group','importance_sampling_multiplier','target_segments'],'train')
+    t=c['train'];keys(t,['mode','steps','micro_batch_size','gradient_accumulation_steps','seed','main_tasks','replay','episode_split','task_order','tasks_per_group','steps_per_group','importance_sampling_multiplier','target_segments','role_segments'],'train')
     if 'importance_sampling_multiplier' in t:weight(t['importance_sampling_multiplier'],'importance_sampling_multiplier')
+    if 'role_segments' in t:
+        setting=t['role_segments'];keys(setting,['task','ratios','loss_weights'],'role_segments')
+        if set(t['main_tasks'])!={setting['task']} or t.get('replay',{}).get('fraction',0)!=0:raise ValueError('role sampling requires one task without replay')
+        if 'target_segments' in t or t.get('importance_sampling_multiplier',1)!=1:raise ValueError('role sampling conflicts with other sampling modes')
+        if set(setting['ratios'])!=set(setting['loss_weights']) or 'background' not in setting['ratios']:raise ValueError('role ratio/weight mismatch')
+        for k,v in setting['ratios'].items():weight(v,k)
+        for k,v in setting['loss_weights'].items():weight(v,k)
     if 'target_segments' in t:
         segment=t['target_segments'];keys(segment,['task','fraction','ratios'],'target_segments')
         if not isinstance(segment['task'],str) or segment['task'] not in t['main_tasks']:raise ValueError('target task must be a main task')

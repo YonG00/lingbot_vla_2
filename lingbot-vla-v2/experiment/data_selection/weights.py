@@ -40,14 +40,18 @@ class SelectionWeights:
         if hashlib.sha256(payload).hexdigest() != c["selected_frames_sha256"]:
             raise ValueError("selection fingerprint mismatch")
         self.keys = set()
+        frame_weights={}
         for row in json.loads(payload):
             pair = (row["episode_index"], row["frame_index"])
             if any(type(x) is not int or x < 0 for x in pair) or pair in self.keys:
                 raise ValueError("invalid or duplicate selection coordinates")
             self.keys.add(pair)
+            value=row.get("loss_weight",self.multiplier) if c.get("use_selected_frame_weights",False) else self.multiplier
+            if isinstance(value,bool)or not isinstance(value,(int,float))or not math.isfinite(value)or value<=0:raise ValueError("invalid coordinate weight")
+            frame_weights[pair]=float(value)
         if not self.keys: raise ValueError("empty selection")
-        self.coordinate_weights={key:float(self.multiplier) for key in self.keys}
-        self.multipliers={float(self.multiplier)}
+        self.coordinate_weights=frame_weights
+        self.multipliers=set(frame_weights.values())
 
     def weight(self, dataset_name, episode, frame):
         if dataset_name != self.dataset_name: return 1.

@@ -1,0 +1,170 @@
+{
+  "output": "/root/autodl-tmp/data/outputs/20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel",
+  "recipe": {
+    "version": 1,
+    "source": {
+      "trainer_config": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/trainer_config.json",
+      "checkpoint": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt"
+    },
+    "data": {
+      "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+    },
+    "output_dir": "/root/autodl-tmp/data/outputs/20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel",
+    "train": {
+      "mode": "sequential",
+      "micro_batch_size": 56,
+      "gradient_accumulation_steps": 1,
+      "seed": 3,
+      "episode_split": "all",
+      "main_tasks": {
+        "stack_bowls_two": {
+          "steps": 200,
+          "weight": 1
+        }
+      },
+      "replay": {
+        "fraction": 0,
+        "tasks": {},
+        "mode": "sample"
+      },
+      "task_order": [
+        "stack_bowls_two"
+      ],
+      "steps": 200,
+      "role_segments": {
+        "task": "stack_bowls_two",
+        "ratios": {
+          "left_grasp": 0.25,
+          "right_grasp": 0.25,
+          "second_bowl_place": 0.4,
+          "background": 0.1
+        },
+        "loss_weights": {
+          "left_grasp": 3,
+          "right_grasp": 2,
+          "second_bowl_place": 2,
+          "background": 1
+        }
+      }
+    },
+    "checkpoint": {
+      "mode": "steps",
+      "every_steps": 200,
+      "save_final": true,
+      "hf_dtype": "bf16"
+    },
+    "evaluation": {
+      "episodes_per_task": 3,
+      "checkpoints": [
+        "final"
+      ],
+      "shared_model_session": true,
+      "max_parallel_tasks": 1,
+      "video_episodes": 3,
+      "tasks": [
+        "stack_bowls_two"
+      ],
+      "reuse_training_model": true,
+      "single_task_episode_workers": 3,
+      "single_task_episode_seeds": [
+        100000,
+        100001,
+        100002
+      ]
+    },
+    "runtime": {
+      "shutdown_after_completion": false
+    },
+    "remediation": {
+      "enabled": false,
+      "max_rounds": 1
+    }
+  },
+  "plan": {
+    "expected_frames": 15609,
+    "episodes": 50,
+    "hf_steps": [
+      200
+    ],
+    "recipe_sha256": "1f7a7b8aa0be45b5f6f583ed2dac1db8bbd49c8fc69a78b3937c0ec6c60cc836",
+    "required_disk_gib": 16.063925973139703,
+    "remediation_reserved_checkpoints": 0,
+    "source_model": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt",
+    "trainer_config_sha256": "2a8443133ea24a8e2e69a6a1d586b5050f14932eb9a16db374b9a8a311e27801",
+    "task_groups_sha256": "9f8bc278dfdc4bd93dc41ea3b4cf0742fab2a25a9bf9c9d6bb46f728d45be3d3",
+    "train_ids_sha256": "1490efad008d1442c3bbaef1fed053e141407c1ca44bb68564ca8e8e577c5f56",
+    "evaluation_steps": [
+      200
+    ],
+    "sample_weight_registry_sha256": "94318af9cd248ee8062092866501e664aab2a9e4728e99732155b0a2a6bd202b"
+  },
+  "cpu": {
+    "state": "cpu_pass",
+    "episodes": 50,
+    "frames": 15609,
+    "original_beta_time_exact": true,
+    "al_enabled": false,
+    "ee_enabled": false,
+    "model_initialized": false,
+    "optimizer_steps": 0,
+    "gpu_tested": false,
+    "recipe_sampler": true,
+    "virtual_epoch_steps": 200,
+    "loader_microbatches": 1,
+    "real_frames": 15609,
+    "sample_weight_count": 56,
+    "sample_weight_selected": 50,
+    "sample_weight_normalization": "sample_count",
+    "sample_weight_multipliers": [
+      2.0,
+      3.0
+    ],
+    "target_segment_sample_counts": {
+      "right_grasp": 2800,
+      "left_grasp": 2800,
+      "second_bowl_place": 4480,
+      "background": 1120
+    },
+    "first_batch_role_weight_counts": {
+      "2.0": 36,
+      "3.0": 14,
+      "1.0": 6
+    }
+  },
+  "probe": {
+    "state": "three_step_probe_complete",
+    "optimizer_steps": 3,
+    "peak_allocated_gib": 77.70731019973755,
+    "peak_reserved_gib": 85.72265625,
+    "micro": 56,
+    "gas": 1
+  },
+  "probe.log": {
+    "steps": [
+      [
+        "1",
+        "20.470"
+      ],
+      [
+        "2",
+        "10.477"
+      ],
+      [
+        "3",
+        "9.596"
+      ]
+    ],
+    "sampling": [
+      "TARGET_SEGMENT_SAMPLING {\"fraction\": null, \"ratios\": {\"left_grasp\": 0.25, \"right_grasp\": 0.25, \"second_bowl_place\": 0.4, \"background\": 0.1}, \"loss_weights\": {\"left_grasp\": 3, \"right_grasp\": 2, \"second_bowl_place\": 2, \"background\": 1}, \"events\": {\"left_grasp\": 41, \"right_grasp\": 59, \"second_bowl_place\": 50}, \"selected\": 11179, \"background\": 4430, \"within_event\": \"uniform_frame\", \"between_events\": \"uniform\"}"
+    ],
+    "tail": " epoch 1: cur 27.27GB, max 77.71GB.\n10/22/2026 23:03:38 - INFO - __main__ - [smoke] NO_CHECKPOINT\uff1a\u8df3\u8fc7\u6536\u5c3e DCP/HF (step=3, reached_max_steps=True, al_finished=False)\n\nStep: 3/3 [00:45<00:00, 15.08s/it]\n10/22/2026 23:03:38 - INFO - __main__ - \u8bad\u7ec3\u7ed3\u675f: epoch=1/1, global_step=3\u3002\n10/22/2026 23:03:38 - INFO - __main__ - [async_hf] summary: {\"total\": 0, \"hf_success\": 0, \"hf_failed\": 0, \"eval_submitted\": 0, \"eval_skipped\": 0, \"eval_failed\": 0, \"failures\": []}\n"
+  },
+  "train.log": {
+    "steps": [],
+    "sampling": [
+      "TARGET_SEGMENT_SAMPLING {\"fraction\": null, \"ratios\": {\"left_grasp\": 0.25, \"right_grasp\": 0.25, \"second_bowl_place\": 0.4, \"background\": 0.1}, \"loss_weights\": {\"left_grasp\": 3, \"right_grasp\": 2, \"second_bowl_place\": 2, \"background\": 1}, \"events\": {\"left_grasp\": 41, \"right_grasp\": 59, \"second_bowl_place\": 50}, \"selected\": 11179, \"background\": 4430, \"within_event\": \"uniform_frame\", \"between_events\": \"uniform\"}"
+    ],
+    "tail": "/2026 23:04:08 >> [rank 0]: action_joint_mask's shape: torch.Size([56, 55]), device: cpu, dtype: torch.bool, numel: 3080\n[INFO][lingbotvla.utils.helper:331] 10/22/2026 23:04:08 >> [rank 0]: images's shape: torch.Size([56, 3, 256, 1536]), device: cpu, dtype: torch.float32, numel: 66060288\n[INFO][lingbotvla.utils.helper:331] 10/22/2026 23:04:08 >> [rank 0]: image_grid_thw's shape: torch.Size([56, 3, 3]), device: cpu, dtype: torch.int64, numel: 504\n"
+  },
+  "gpu": "20943 MiB, 0 %"
+}

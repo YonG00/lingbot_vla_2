@@ -1,0 +1,38 @@
+{
+  "task": "stack_bowls_two",
+  "episodes": 50,
+  "total_frames": 15609,
+  "original_grasp_frames": 7436,
+  "second_place_frames": 3743,
+  "selected_frames": 11179,
+  "background_frames": 4430,
+  "selected_fraction": 0.7161893779229932,
+  "segment_counts": {
+    "right_grasp": 59,
+    "left_grasp": 41,
+    "second_bowl_place": 50
+  },
+  "coordinate_weights": {
+    "2": 8177,
+    "3": 3002
+  },
+  "original_grasp_stages": [
+    "aim",
+    "align",
+    "descend",
+    "settle",
+    "close"
+  ],
+  "grasp_rejections": {},
+  "placement_rejections": {},
+  "subsampled": false,
+  "kinematic_proxy_only": true,
+  "contact_verified": false,
+  "rule_version": "balanced_grasp_place_v1",
+  "fps": 15.0,
+  "settings": {},
+  "numeric_source_sha256": "917cde35b9391a8d6ef062b4c2be421cac2a5f0066db741638977f72b5f51e0f",
+  "spec_sha256": "8700b7012a5f03ab822c3c8202d1f73f4f9dd685f534e82d4f098ea83a587209",
+  "training_modified": false,
+  "automatic_selection": true
+}

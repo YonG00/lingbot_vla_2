@@ -9,7 +9,13 @@ class StreamDataset:
     def __init__(self,dataset,length):
         self.dataset=dataset;self.length=length
     def __len__(self):return self.length
-    def __getitem__(self,index):return self.dataset[index]
+    def __getitem__(self,index):
+        if isinstance(index,tuple):
+            if len(index)!=3:raise ValueError('invalid role index')
+            from experiment.task_recipes.role_sampling import override_role_weight
+            raw,weight,role=index
+            return override_role_weight(self.dataset[raw],weight)
+        return self.dataset[index]
     def __getattr__(self,name):return getattr(object.__getattribute__(self,'dataset'),name)
 
 
@@ -52,24 +58,28 @@ def sampling_weights_for(dataset,c,out):
 
 def make_sampler(dataset,c,p,groups,out):
     pools=pools_for(dataset,groups)
-    if 'target_segments' not in c['train']:
+    if 'target_segments' not in c['train'] and 'role_segments' not in c['train']:
         return PlannedSampler(p,pools,c['train']['seed'],sampling_weights_for(dataset,c,out))
     from experiment.data_selection.inheritance import read_policies
     from experiment.data_selection.weights import SelectionWeights
     from experiment.task_recipes.segment_sampling import SegmentSampler
-    setting=c['train']['target_segments'];task=setting['task']
+    role_mode='role_segments' in c['train']
+    setting=c['train']['role_segments'] if role_mode else c['train']['target_segments'];task=setting['task']
     config=read_policies(Path(out)/'sample_weight_registry.json')[task]
     policy=SelectionWeights(config);value=json.loads(config.read_text())
     raw=dataset._datasets[0].dataset.hf_dataset.select_columns(['episode_index','frame_index'])
     coordinates={(int(row['episode_index']),int(row['frame_index'])):i for i,row in enumerate(raw)}
-    events={kind:[] for kind in setting['ratios']}
+    events={kind:[] for kind in setting['ratios'] if kind!='background'}
     for segment in value['sampling_segments']:
         events[segment['kind']].append([coordinates[(segment['episode_index'],frame)] for frame in range(segment['start_frame'],segment['end_frame']+1)])
     selected={i for groups_ in events.values() for event in groups_ for i in event}
     if selected!={coordinates[key] for key in policy.keys}:raise ValueError('segment/weight selection mismatch')
     background=[i for i in pools[task] if i not in selected]
-    sampler=SegmentSampler(p,pools,c['train']['seed'],task,events,background,setting['fraction'],setting['ratios'])
-    print('TARGET_SEGMENT_SAMPLING',json.dumps(dict(fraction=setting['fraction'],ratios=setting['ratios'],events={k:len(v) for k,v in events.items()},selected=len(selected),background=len(background),within_event='uniform_frame',between_events='uniform')),flush=True)
+    if role_mode:
+        from experiment.task_recipes.role_sampling import RoleSampler
+        sampler=RoleSampler(p,pools,c['train']['seed'],task,events,background,setting['ratios'],setting['loss_weights'])
+    else:sampler=SegmentSampler(p,pools,c['train']['seed'],task,events,background,setting['fraction'],setting['ratios'])
+    print('TARGET_SEGMENT_SAMPLING',json.dumps(dict(fraction=setting.get('fraction'),ratios=setting['ratios'],loss_weights=setting.get('loss_weights'),events={k:len(v) for k,v in events.items()},selected=len(selected),background=len(background),within_event='uniform_frame',between_events='uniform')),flush=True)
     return sampler
 
 
