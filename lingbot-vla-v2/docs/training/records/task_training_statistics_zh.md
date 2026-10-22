@@ -230,3 +230,37 @@ R16已启动但未完成：beat_block_hammer、handover_mic、hanging_mug、plac
 3/9成功，三项点估计下降，仅为遗忘线索。R16全部本轮实测13任务8/39；50任务历史最新等权估算27.67%，仍有37任务沿用旧模型结果。
 
 R17分组混合为未启动计划，不新增已完成累计。25任务分组、1000个全局优化器更新，不能将每组三任务分别计作1000步或3000个优化器更新；完成后按samples_by_task与group_participation_steps记录曝光，保持与历史独占主训步数分开。
+
+### R17完成列：25任务分组恢复1000步，仅评首批5项
+
+全局优化器1000更新完成，共56000样本。下表列组内混合曝光，不能把每任务参与次数当作独占GBS56的训练步数。
+
+|任务|R17样本曝光|参与更新次数|R17-step1000测评|
+|---|---:|---:|---|
+|adjust_bottle|2240|120|3/3|
+|beat_block_hammer|2240|120|0/3|
+|click_alarmclock|2240|120|0/3|
+|click_bell|2240|120|3/3|
+|dump_bin_bigbin|2240|120|2/3|
+|hanging_mug|2203|118|未测（用户缩减）|
+|move_playingcard_away|2240|120|未测（用户缩减）|
+|open_laptop|2240|120|未测（用户缩减）|
+|open_microwave|2240|120|未测（用户缩减）|
+|place_a2b_left|2240|120|未测（用户缩减）|
+|place_a2b_right|2240|120|未测（用户缩减）|
+|place_bread_basket|2240|120|未测（用户缩减）|
+|place_can_basket|2259|121|未测（用户缩减）|
+|place_container_plate|2240|120|未测（用户缩减）|
+|place_empty_cup|2258|121|未测（用户缩减）|
+|place_object_basket|2240|120|未测（用户缩减）|
+|place_object_stand|2240|120|未测（用户缩减）|
+|place_shoe|2240|120|未测（用户缩减）|
+|press_stapler|2240|120|未测（用户缩减）|
+|rotate_qrcode|2240|120|未测（用户缩减）|
+|shake_bottle|2240|120|未测（用户缩减）|
+|shake_bottle_horizontally|2240|120|未测（用户缩减）|
+|stack_blocks_two|2240|120|未测（用户缩减）|
+|stack_bowls_two|2240|120|未测（用户缩减）|
+|turn_switch|2240|120|未测（用户缩减）|
+
+首批8/15，不能代表25任务全量成绩。当前模型继承链9680后正式训练累计10150步；分组恢复计入全局1000步，不对25个任务各加1000。训练探测6步不并入主链。

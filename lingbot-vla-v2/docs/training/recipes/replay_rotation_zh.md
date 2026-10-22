@@ -95,3 +95,5 @@ python -m experiment.task_recipes.replay_pool \
 R16完成后，累计资格池更新为`refs/training_records/replay_pool_9680_through_R16.json`，20→24，新增beat_block_hammer、hanging_mug、place_a2b_left、place_object_stand；本轮冻结池仍through_R15。
 
 R16后置抽检完成后资格池另存`refs/training_records/replay_pool_9680_through_R16_retention3.json`，三个旧任务均1/3，无新增资格，仍24任务；今后需要最新测评来源时使用此文件，不追改旧训练冻结池。
+
+R17首批5项完整测后，登记表另存`refs/training_records/replay_pool_9680_through_R17_first5.json`。历史≥1/3资格仍24项，曾成功任务仍25项；最新0/3不删除旧资格，后20项没有本轮测评记录。

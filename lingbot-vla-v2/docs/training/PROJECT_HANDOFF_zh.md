@@ -10,7 +10,11 @@
 3. [训练流水](records/training_history_zh.md)、[任务统计](records/task_training_statistics_zh.md)、[存档清单](records/checkpoint_inventory_zh.md)。
 4. 修改代码前读[待验证与已知改动台账](../auto_learning/AL_PENDING_CHANGES.md)。
 
-## 当前情况：先避免接错模型
+## 当前情况：R17训练完成、仅评首批5项
+
+最新模型为R17-step1000，run为`20261022_0926_restore25_group3_hold3_from_R16_bf16_m56_add1000`。1000步完整，500/1000两存档保留；用户将评测缩减为首批5项，结果adjust_bottle3/3、beat_block_hammer0/3、click_alarmclock0/3、click_bell3/3、dump_bin_bigbin2/3，合计8/15。后20项未测，评测进程已按要求停止，未关机。完整记录与证据见流水R17终态。未来资格池最新through_R17_first5，仍24个≥1/3历史任务。
+
+### R13历史回顾（非当前模型）
 
 **最新完成模型：R13-step1250，训练与原5＋5闭环均完成。** 1250次更新14:44:29–16:27:29，耗时1小时43分。
 正式结果place_can_basket1/3、place_bread_basket2/3，其余八任务0/3；三份BF16 HF与30份视频完整、无OIDN错误，模型仅加载一次。
