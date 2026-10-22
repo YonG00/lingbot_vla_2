@@ -1,7 +1,6 @@
 """Three-stage curriculum. Preview by default; --execute launches a background controller."""
 from copy import deepcopy
 from datetime import datetime
-from fractions import Fraction
 import argparse
 import hashlib
 import json
@@ -81,7 +80,7 @@ def plan(settings):
     root = Path(settings['output_dir']); jobs=[]
     jobs.append(('stage1_foundation', sequential(c['task_order'],100,c['task_order'],True), []))
     for row in c['stage2']:
-        jobs.append(('stage2_'+row['label'],row['train'],row['train']['task_order']))
+        jobs.append(('stage2_'+row['label'],row['train'],[]))
     peaks = historical_best(load(ROOT/c['history_file']))
     names = sorted(peaks)
     if len(names)!=25:raise ValueError('frozen reference must contain 25 historically passed tasks')
@@ -232,17 +231,11 @@ def execute(settings):
         for item in report['jobs']:
             train_job(item['name'],item['recipe']['train'],item['evaluation_tasks'])
             if item['name']=='stage2_R16':
-                latest={r['task']:r for r in evaluations}
-                dump(root/'stage2_selection.json',dict(latest_results=latest,
-                     observed_success_tasks=sorted(t for t,r in latest.items() if r['successes']>0),
-                     frozen_stage3_tasks=report['reference_tasks'],
-                     note='runtime screening results are recorded; frozen 25-task coverage is not silently changed'))
+                dump(root/'stage2_recipe_complete.json',dict(training_complete=True,
+                     evaluation_performed=False,reference_tasks=report['reference_tasks'],
+                     reference_file=curriculum()['history_file']))
         # Frozen 25-task coverage: remedied tasks never remove another task from the scan.
         c=curriculum();peaks=historical_best(load(ROOT/c['history_file']));rounds=[]
-        for result in evaluations:
-            name=result['task']
-            if name in peaks and Fraction(result['successes'],result['episodes'])>Fraction(peaks[name]['successes'],peaks[name]['episodes']):
-                peaks[name]=dict(successes=result['successes'],episodes=result['episodes'],source=result.get('model','this_run_stage2'))
         for number,tasks in enumerate(report['scout_batches'],1):
             folder=root/f'stage3_scan_{number}';done_path=root/f'stage3_scan_{number}_completed.json'
             if done_path.exists():
@@ -274,7 +267,7 @@ def execute(settings):
 
 def arguments(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--base-model',type=Path,required=True,help='FP32 HF checkpoint, same identity as historical step9680 for comparison')
+    p.add_argument('--base-model',type=Path,required=True,help='FP32 base HF checkpoint; converted automatically to a BF16 copy')
     p.add_argument('--dataset-root',type=Path,required=True)
     p.add_argument('--output-dir',type=Path,required=True)
     p.add_argument('--qwen-model',type=Path,help='default BASE/qwen; local Qwen3-VL processor assets')

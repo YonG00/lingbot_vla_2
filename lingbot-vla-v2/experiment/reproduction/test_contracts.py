@@ -38,6 +38,24 @@ class ReproductionTests(unittest.TestCase):
         self.assertEqual(len(p['scout_batches']),5);self.assertEqual(len(flat),len(set(flat)))
         self.assertEqual(sorted(flat),p['reference_tasks']);self.assertIn('place_a2b_right',flat)
         self.assertTrue(all(j['recipe']['evaluation']['video_episodes']==0 for j in p['jobs']))
+    def test_stage2_review_and_no_closed_loop(self):
+        p=plan(self.settings())
+        for job in p['jobs']:
+            if not job['name'].startswith('stage2_'):continue
+            self.assertEqual(job['evaluation_tasks'],[])
+            r=job['recipe']['train']['replay']
+            self.assertEqual(r['fraction'],.1);self.assertEqual(r['tasks_per_step'],1)
+            self.assertEqual(r['switch_every_steps'],5);self.assertEqual(len(r['tasks']),50)
+        self.assertTrue(all(not j['evaluation_tasks'] for j in p['jobs']))
+    def test_video_evaluation_job(self):
+        from argparse import Namespace
+        from experiment.reproduction.evaluate import build_job
+        a=Namespace(run_dir=None,model_path=Path('/tmp/model'),qwen_model=Path('/tmp/qwen'),sim_python=Path('/tmp/sim'),tasks=['click_bell','turn_switch'],output_dir=Path('/tmp/eval'),video_episodes=3,episodes=3,workers=5)
+        j=build_job(a)
+        self.assertFalse(j['compare_reference']);self.assertEqual(j['concurrency_levels'],[5])
+        self.assertTrue(all(x['video_episodes']==3 and x['episodes']==3 for x in j['jobs']))
+        a.video_episodes=4
+        with self.assertRaises(ValueError):build_job(a)
     def test_template_has_no_server_paths(self):
         c=resolve_template(self.settings());text=json.dumps(c)
         self.assertNotIn('${',text);self.assertNotIn('/data/',text);self.assertNotIn('/root/',text)

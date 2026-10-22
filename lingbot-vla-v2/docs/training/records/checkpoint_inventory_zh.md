@@ -74,3 +74,5 @@ R17完成后500/1000均已复核完整，首批5任务测后停止未删除任�
 
 
 2026-10-22补课三轮完成：新增三份BF16 HF，均1708张量，保留在`20261022_1128_recovery_scout3_from_R17_replay10pct`下：`20261022_1128_round_1_recovery/checkpoints/global_step_160`、`20261022_1150_round_2_recovery/checkpoints/global_step_80`、`20261022_1209_round_3_recovery/checkpoints/global_step_160`。最后一份是当前最新模型，用户明确跳过最终评测，不记为已通过闭环；日志与前两轮评测全部保留。R16-step800与R17-step500仍为已授权删除状态，不因新基线文档引用历史R16而恢复存在。
+
+本地备份已完成：`/Users/mac/Documents/lingbot_v2/model_save/20261022_1209_round_3_recovery/global_step_160/hf_ckpt`，14个文件、12768173071字节、1708张量BF16，逐文件SHA256与远端一致。校验清单及归档报告保存在同一run本地父目录，远端源存档保留。

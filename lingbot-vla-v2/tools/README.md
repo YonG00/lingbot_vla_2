@@ -12,6 +12,7 @@
 | 我要做什么 | 跑哪个 |
 |---|---|
 | 从FP32模型和数据执行三阶段基线，预览/环境检查/后台训练 | `reproduce_baseline.sh`；见`docs/training/reproduction/three_stage_baseline_zh.md`，默认2000步保存，参数可调 |
+| 评测训练后的最终模型，默认25任务各3回合并保存视频 | `python experiment/reproduction/evaluate.py --run-dir <训练输出目录> --output-dir <新评测目录> --execute` |
 | 只读取证已登记实验的来源、训练进度及闭环结果 | `collect_training_records.py`（标准库、无GPU；打印JSON快照，表格见docs中的训练流水与任务统计） |
 | FP32主参数/BF16计算的3步微批显存探针 | `experiment/robotwin/precision_batch_probe.py`（默认预览，须开卡后再加`--execute`；不存档/不关机） |
 | 鼠标混训真实数据CPU整链验收（含动作块边界） | `acceptance_checks/mouse_auxiliary_cpu_preflight.py`；使用独立输出目录，`--check-dataset-chunks`需训练环境 |

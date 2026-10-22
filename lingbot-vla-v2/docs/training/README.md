@@ -5,7 +5,9 @@
 训练相关内容统一放在这里；AL状态机、指标、缓存和系统排障继续放在[auto_learning](../auto_learning/README.md)。
 JSON配置、数据清单和证据仍分别放configs、refs等工程目录，不放docs。
 
-新环境复现三阶段基线（环境、96GB硬件、资源布局、启动/恢复、显存与耗时边界）：[复现与交接说明](reproduction/three_stage_baseline_zh.md)。入口`tools/reproduce_baseline.sh`默认只预览，`--execute`才启动。
+三阶段基线的代码下载、环境安装、模型和数据准备、启动训练与录像评测：[复现与交接说明](reproduction/three_stage_baseline_zh.md)。入口`tools/reproduce_baseline.sh`默认只预览，`--execute`才启动。
+
+第二阶段各任务的先后顺序、更新步数和复习比例：[训练任务表](reproduction/stage2_training_order_zh.md)。
 
 ## 训练流水与任务统计
 
