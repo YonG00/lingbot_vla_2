@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/trainer_config.json",
+    "checkpoint": "/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/bowls200_from_weight2_s200_bf16_m56_target90_far1_place2_loss2",
+  "train": {
+    "mode": "sequential",
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "stack_bowls_two": {
+        "steps": 200,
+        "weight": 1
+      }
+    },
+    "replay": {
+      "fraction": 0,
+      "tasks": {}
+    },
+    "task_order": [
+      "stack_bowls_two"
+    ],
+    "steps": 200,
+    "target_segments": {
+      "task": "stack_bowls_two",
+      "fraction": 0.9,
+      "ratios": {
+        "far_left_grasp": 1,
+        "second_bowl_place": 2
+      }
+    }
+  },
+  "checkpoint": {
+    "mode": "steps",
+    "every_steps": 200,
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true,
+    "max_parallel_tasks": 1,
+    "video_episodes": 3,
+    "tasks": [
+      "stack_bowls_two"
+    ],
+    "reuse_training_model": true
+  },
+  "runtime": {
+    "shutdown_after_completion": false
+  },
+  "remediation": {
+    "enabled": false,
+    "max_rounds": 1
+  }
+}

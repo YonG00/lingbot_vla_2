@@ -1,0 +1,226 @@
+{
+  "output": "/root/autodl-tmp/data/outputs/20261022_2045_bowls200_from_recovery3_s160_bf16_m56_replay10pct_sample3_loss3",
+  "recipe": {
+    "version": 1,
+    "source": {
+      "trainer_config": "/root/autodl-tmp/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/trainer_config.json",
+      "checkpoint": "/root/autodl-tmp/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160/hf_ckpt"
+    },
+    "data": {
+      "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+    },
+    "output_dir": "/root/autodl-tmp/data/outputs/20261022_2045_bowls200_from_recovery3_s160_bf16_m56_replay10pct_sample3_loss3",
+    "train": {
+      "mode": "sequential",
+      "micro_batch_size": 56,
+      "gradient_accumulation_steps": 1,
+      "seed": 3,
+      "episode_split": "all",
+      "main_tasks": {
+        "stack_bowls_two": {
+          "steps": 200,
+          "weight": 1
+        }
+      },
+      "replay": {
+        "mode": "round_robin",
+        "fraction": 0.1,
+        "tasks_per_step": 1,
+        "switch_every_steps": 5,
+        "tasks": {
+          "adjust_bottle": {
+            "weight": 1
+          },
+          "beat_block_hammer": {
+            "weight": 1
+          },
+          "click_alarmclock": {
+            "weight": 1
+          },
+          "click_bell": {
+            "weight": 1
+          },
+          "dump_bin_bigbin": {
+            "weight": 1
+          },
+          "hanging_mug": {
+            "weight": 1
+          },
+          "move_playingcard_away": {
+            "weight": 1
+          },
+          "open_laptop": {
+            "weight": 1
+          },
+          "open_microwave": {
+            "weight": 1
+          },
+          "place_a2b_left": {
+            "weight": 1
+          },
+          "place_a2b_right": {
+            "weight": 1
+          },
+          "place_bread_basket": {
+            "weight": 1
+          },
+          "place_can_basket": {
+            "weight": 1
+          },
+          "place_container_plate": {
+            "weight": 1
+          },
+          "place_empty_cup": {
+            "weight": 1
+          },
+          "place_object_basket": {
+            "weight": 1
+          },
+          "place_object_stand": {
+            "weight": 1
+          },
+          "place_shoe": {
+            "weight": 1
+          },
+          "press_stapler": {
+            "weight": 1
+          },
+          "rotate_qrcode": {
+            "weight": 1
+          },
+          "shake_bottle": {
+            "weight": 1
+          },
+          "shake_bottle_horizontally": {
+            "weight": 1
+          },
+          "stack_blocks_two": {
+            "weight": 1
+          },
+          "stack_bowls_two": {
+            "weight": 1
+          },
+          "turn_switch": {
+            "weight": 1
+          }
+        }
+      },
+      "task_order": [
+        "stack_bowls_two"
+      ],
+      "steps": 200,
+      "importance_sampling_multiplier": 3
+    },
+    "checkpoint": {
+      "mode": "steps",
+      "every_steps": 200,
+      "save_final": true,
+      "hf_dtype": "bf16"
+    },
+    "evaluation": {
+      "episodes_per_task": 3,
+      "checkpoints": [
+        "final"
+      ],
+      "shared_model_session": true,
+      "max_parallel_tasks": 1,
+      "video_episodes": 3,
+      "tasks": [
+        "stack_bowls_two"
+      ],
+      "reuse_training_model": true
+    },
+    "runtime": {
+      "shutdown_after_completion": false
+    },
+    "remediation": {
+      "enabled": false,
+      "max_rounds": 1
+    }
+  },
+  "plan": {
+    "expected_frames": 250626,
+    "episodes": 1250,
+    "hf_steps": [
+      200
+    ],
+    "recipe_sha256": "3d4f358e0b119b18e95187ddeb2ce88fe3cb21beea85e4c585aac697f588029e",
+    "required_disk_gib": 16.063925973139703,
+    "remediation_reserved_checkpoints": 0,
+    "source_model": "/root/autodl-tmp/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160/hf_ckpt",
+    "trainer_config_sha256": "68cb7458203450e9af7edabdfa63c4f2933646f4005052633224ec474e01fa8d",
+    "task_groups_sha256": "51c0fee34e2e9576d687dc4d864ec669fac63970f01f472ae37c5563fd8414e2",
+    "train_ids_sha256": "f91178668dfa0dfbf16f5685e425e9dcb4a8970645b5062eabf59c9ffd351aeb",
+    "evaluation_steps": [
+      200
+    ],
+    "sample_weight_registry_sha256": "e6593bb3158132d5190d9c393693ce534e4fbebf52d87965e4e5746ddfc11cdb"
+  },
+  "cpu": {
+    "state": "cpu_pass",
+    "episodes": 1250,
+    "frames": 250626,
+    "original_beta_time_exact": true,
+    "al_enabled": false,
+    "ee_enabled": false,
+    "model_initialized": false,
+    "optimizer_steps": 0,
+    "gpu_tested": false,
+    "recipe_sampler": true,
+    "virtual_epoch_steps": 200,
+    "loader_microbatches": 1,
+    "real_frames": 250626,
+    "sample_weight_count": 56,
+    "sample_weight_selected": 29,
+    "sample_weight_normalization": "sample_count",
+    "sample_weight_multipliers": [
+      3.0
+    ]
+  },
+  "probe": {
+    "state": "three_step_probe_complete",
+    "optimizer_steps": 3,
+    "peak_allocated_gib": 77.70731019973755,
+    "peak_reserved_gib": 85.72265625,
+    "micro": 56,
+    "gas": 1
+  },
+  "cleanup": {
+    "kept": [
+      "/root/autodl-tmp/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160",
+      "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200"
+    ],
+    "deleted": [
+      "/root/autodl-tmp/data/outputs/20261021_0831_qrcode_card_bottles_roller_pot_stamp_from_R10_bf16_m56_replay10pct/checkpoints/global_step_1200",
+      "/root/autodl-tmp/data/outputs/20261021_1129_ten_tasks_from_R11_bf16_m56_replay10pct/checkpoints/global_step_1350",
+      "/root/autodl-tmp/data/outputs/20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct/checkpoints/global_step_1250",
+      "/root/autodl-tmp/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/checkpoints/global_step_1350",
+      "/root/autodl-tmp/data/outputs/20261022_0926_restore25_group3_hold3_from_R16_bf16_m56_add1000/checkpoints/global_step_1000",
+      "/root/autodl-tmp/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1128_round_1_recovery/checkpoints/global_step_160",
+      "/root/autodl-tmp/data/outputs/20261022_1909_bowls_add200_from_weight2_s200_bf16_m56_replay10pct_grasp_place_weight3/checkpoints/global_step_200",
+      "/root/autodl-tmp/data/outputs/20261022_2006_bowls200_from_recovery3_s160_bf16_m56_replay10pct_calibration30_weight3/checkpoints/global_step_100",
+      "/root/autodl-tmp/data/outputs/20261022_2006_bowls200_from_recovery3_s160_bf16_m56_replay10pct_calibration30_weight3/checkpoints/global_step_200"
+    ],
+    "free_before_gib": 7.056110382080078,
+    "free_after_gib": 114.08214569091797
+  },
+  "latest_steps": [
+    [
+      "40",
+      "4.801"
+    ],
+    [
+      "41",
+      "4.852"
+    ],
+    [
+      "42",
+      "4.820"
+    ]
+  ],
+  "sampling_logs": [
+    "IMPORTANCE_SAMPLING {\"multiplier\": 3, \"selected\": 4635, \"normalization\": \"within_task\"}",
+    "RECIPE_SAMPLER {\"recipe_sha256\": \"3d4f358e0b119b18e95187ddeb2ce88fe3cb21beea85e4c585aac697f588029e\", \"steps\": 200, \"batch\": 56}"
+  ],
+  "gpu": "90737 MiB, 100 %"
+}

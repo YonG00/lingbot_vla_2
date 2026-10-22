@@ -1,0 +1,17 @@
+{
+  "task": "stack_bowls_two",
+  "rule_version": "targeted_far_grasp_place_v2",
+  "settings": {
+    "far_initial_xy_min_m": 0.25,
+    "far_position_xy_min_m": 0.05,
+    "far_position_xy_max_m": 0.2,
+    "far_position_lookback_seconds": 2.0,
+    "progress_window_seconds": 0.2,
+    "minimum_xy_progress_m": 0.002,
+    "minimum_direction_progress_degrees": 2.0,
+    "place_height_min_m": 0.03,
+    "place_height_max_m": 0.08,
+    "open_threshold": 0.95,
+    "include_far_grasp_core": true
+  }
+}

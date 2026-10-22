@@ -30,7 +30,16 @@ def _validate(raw):
     if not isinstance(c.get('output_dir'),str) or not c['output_dir']:raise ValueError('output_dir required')
     keys(c['data'],['dataset_root'],'data')
     if not isinstance(c['data'].get('dataset_root'),str) or not c['data']['dataset_root']:raise ValueError('dataset_root required')
-    t=c['train'];keys(t,['mode','steps','micro_batch_size','gradient_accumulation_steps','seed','main_tasks','replay','episode_split','task_order','tasks_per_group','steps_per_group'],'train')
+    t=c['train'];keys(t,['mode','steps','micro_batch_size','gradient_accumulation_steps','seed','main_tasks','replay','episode_split','task_order','tasks_per_group','steps_per_group','importance_sampling_multiplier','target_segments'],'train')
+    if 'importance_sampling_multiplier' in t:weight(t['importance_sampling_multiplier'],'importance_sampling_multiplier')
+    if 'target_segments' in t:
+        segment=t['target_segments'];keys(segment,['task','fraction','ratios'],'target_segments')
+        if not isinstance(segment['task'],str) or segment['task'] not in t['main_tasks']:raise ValueError('target task must be a main task')
+        f=segment['fraction']
+        if type(f)not in (int,float) or not math.isfinite(f) or not 0<f<1:raise ValueError('invalid target fraction')
+        if not isinstance(segment['ratios'],dict) or len(segment['ratios'])!=2:raise ValueError('two target kinds required')
+        for name,value in segment['ratios'].items():weight(value,name)
+        if t.get('importance_sampling_multiplier',1)!=1:raise ValueError('segment quota cannot combine with probability multiplier')
     if t['mode'] not in ['mixed','grouped','task_units','sequential']:raise ValueError('invalid training mode')
     for name in ['micro_batch_size','gradient_accumulation_steps']:integer(t[name],name)
     if type(t['seed']) is not int or t['seed']<0:raise ValueError('seed must be nonnegative integer')

@@ -116,10 +116,20 @@ def index_pools(groups,episodes):
 
 class PlannedSampler:
     """Raw filtered-dataset indices. Cursor is not an optimizer completion counter."""
-    def __init__(self,plan,pools,seed):
+    def __init__(self,plan,pools,seed,index_weights=None):
         self.plan,self.pools,self.seed=plan,pools,seed
+        self.index_weights=index_weights or {}
+        import math
+        if any(not math.isfinite(w) or w<=0 for w in self.index_weights.values()):raise ValueError("invalid sampling weight")
+        self.cumulative={}
+        import itertools
+        for task,pool in pools.items():
+            if any(self.index_weights.get(i,1.)!=1 for i in pool):
+                self.cumulative[task]=list(itertools.accumulate(self.index_weights.get(i,1.) for i in pool))
         self.cursor=0
-        self.signature=digest(dict(plan=plan,pools=pools,seed=seed))
+        identity=dict(plan=plan,pools=pools,seed=seed)
+        if self.index_weights:identity["sampling_weights"]=sorted(self.index_weights.items())
+        self.signature=digest(identity)
     def __len__(self):return len(self.plan['steps'])*self.plan['global_batch_size']
     def set_epoch(self,epoch):
         if epoch!=0:raise ValueError('recipe must fit one virtual epoch; refusing duplicate budget')
@@ -127,7 +137,10 @@ class PlannedSampler:
         for row in self.plan['steps']:
             rng=random.Random(f'{self.seed}:{row["step"]}')
             ids=[]
-            for task,count in row['samples_by_task'].items():ids.extend(rng.choice(self.pools[task]) for _ in range(count))
+            for task,count in row['samples_by_task'].items():
+                cumulative=self.cumulative.get(task)
+                if cumulative is None:ids.extend(rng.choice(self.pools[task]) for _ in range(count))
+                else:ids.extend(rng.choices(self.pools[task],cum_weights=cumulative,k=count))
             rng.shuffle(ids)
             base=(row['step']-1)*self.plan['global_batch_size']
             for i,index in enumerate(ids):

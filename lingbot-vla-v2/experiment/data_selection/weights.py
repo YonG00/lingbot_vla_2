@@ -9,6 +9,22 @@ class SelectionWeights:
     def __init__(self, config_path):
         config_path = Path(config_path).resolve()
         c = json.loads(config_path.read_text())
+        if 'policies' in c:
+            from .inheritance import read_policies
+            policies=read_policies(config_path)
+            children=[SelectionWeights(path) for path in policies.values()]
+            if not children:raise ValueError("empty importance registry")
+            identities={(child.dataset_name,child.dataset_root) for child in children}
+            if len(identities)!=1:raise ValueError("importance registry requires one merged dataset")
+            self.dataset_name,self.dataset_root=identities.pop()
+            self.keys=set();self.coordinate_weights={}
+            for child in children:
+                if self.keys & child.keys:raise ValueError("overlapping task importance coordinates")
+                self.keys.update(child.keys)
+                self.coordinate_weights.update(child.coordinate_weights)
+            self.multipliers=set(self.coordinate_weights.values())
+            self.multiplier=next(iter(self.multipliers)) if len(self.multipliers)==1 else None
+            return
         if c.get("version") != 1 or not c.get("dataset_name"):
             raise ValueError("weight config needs version=1 and dataset_name")
         if c.get("normalization") != "sample_count":
@@ -30,7 +46,9 @@ class SelectionWeights:
                 raise ValueError("invalid or duplicate selection coordinates")
             self.keys.add(pair)
         if not self.keys: raise ValueError("empty selection")
+        self.coordinate_weights={key:float(self.multiplier) for key in self.keys}
+        self.multipliers={float(self.multiplier)}
 
     def weight(self, dataset_name, episode, frame):
         if dataset_name != self.dataset_name: return 1.
-        return float(self.multiplier if (int(episode), int(frame)) in self.keys else 1.)
+        return self.coordinate_weights.get((int(episode),int(frame)),1.)

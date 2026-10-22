@@ -83,3 +83,13 @@ R17完成后500/1000均已复核完整，首批5任务测后停止未删除任�
 路径均相对于 `/data/outputs/`。最新第三轮step160完整保留为夹碗训练起点；其他未指定存档保留。清理后空闲54.94GiB。本轮预计新增step200约11.89GiB，实际生成前不记为现有存档。
 
 夹碗独立实验step200已实际生成并校验：`20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt`，1708个BF16张量，12768173067字节。最新来源step160保留；本次评测未清理任何模型。
+
+2026-10-22 V3训练前用户授权清理：仅删除 `20261022_1909_bowls_add200_from_weight2_s200_bf16_m56_replay10pct_grasp_place_weight3/checkpoints/global_step_100`，释放12770754560字节；该run最终200及第三轮来源160保留，日志和3回合视频不动。V3新100/200待生成，不计为现有存档。
+
+### 2026-10-22 用户指定仅保留两份历史模型
+
+已核验并保留 recovery3 `20261022_1209_round_3_recovery/checkpoints/global_step_160` 与 `20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200`。其他 `/data/outputs/**/checkpoints/global_step_*` 目录已按明确授权删除（共9份），日志、评测、视频保留。磁盘空闲7.06→114.08GiB。新双重加权实验仅计划新增step200。
+
+- 目标片段1:2新run `20261022_2120_bowls200_from_recovery3_s160_bf16_m56_target90_far1_place2_loss2` 仅计划新增step200；未删除已有两份保留模型或刚完成的sample3_loss3-step200。
+
+- 20261022_2120 run实际已保存step200但属于错误起点实验，未删除。正确续训run `20261022_2149_bowls200_from_weight2_s200_bf16_m56_target90_far1_place2_loss2` 来源第一版weight2sample-step200，只计划新增最终step200。

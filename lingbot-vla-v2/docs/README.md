@@ -69,3 +69,9 @@
 - [夹碗样本筛选与逐样本损失加权实验](training/recipes/stack_bowls_sample_weighting_zh.md)
 
 - [第二次放碗自动样本筛选](training/recipes/stack_bowls_second_placement_selection_zh.md)
+
+- [夹碗窄版V2：远示范抓取与第二放置高度带](training/recipes/stack_bowls_targeted_selection_v2_zh.md)
+
+- [夹碗约30%阶段均匀校准V3](training/recipes/stack_bowls_calibration30_v3_zh.md)
+
+- [夹碗失败目标完整片段：左手远抓与第二碗放置](training/recipes/stack_bowls_failure_segments_v1_zh.md)

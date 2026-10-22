@@ -1,0 +1,62 @@
+{
+  "task": "stack_bowls_two",
+  "episodes": 50,
+  "total_frames": 15609,
+  "grasp_events": 100,
+  "selected_frames": 4635,
+  "selected_fraction": 0.29694407072842594,
+  "target_fraction": 0.3,
+  "fraction_tolerance": 0.02,
+  "stage_quota": {
+    "aim": 13,
+    "align": 6,
+    "descend": 10,
+    "settle": 6,
+    "close": 8
+  },
+  "stage_frames": {
+    "grasp_aim": 1300,
+    "grasp_align": 600,
+    "grasp_descend": 990,
+    "grasp_settle": 565,
+    "grasp_close": 800,
+    "far_grasp_position": 172,
+    "second_place_height_band": 251
+  },
+  "qualified_far_grasps": 20,
+  "second_placements_with_height_samples": 50,
+  "raw_trajectories_unchanged": true,
+  "kinematic_proxy_only": true,
+  "object_pose_verified": false,
+  "collision_verified": false,
+  "rule_version": "phase_uniform_calibration_30pct_v3",
+  "fps": 15.0,
+  "settings": {
+    "stage_quota": {
+      "aim": 13,
+      "align": 6,
+      "descend": 10,
+      "settle": 6,
+      "close": 8
+    },
+    "target_fraction": 0.3,
+    "fraction_tolerance": 0.02,
+    "targeted": {
+      "far_initial_xy_min_m": 0.25,
+      "far_position_xy_min_m": 0.05,
+      "far_position_xy_max_m": 0.2,
+      "far_position_lookback_seconds": 2.0,
+      "progress_window_seconds": 0.2,
+      "minimum_xy_progress_m": 0.002,
+      "minimum_direction_progress_degrees": 2.0,
+      "place_height_min_m": 0.03,
+      "place_height_max_m": 0.08,
+      "open_threshold": 0.95,
+      "include_far_grasp_core": false
+    }
+  },
+  "numeric_source_sha256": "917cde35b9391a8d6ef062b4c2be421cac2a5f0066db741638977f72b5f51e0f",
+  "spec_sha256": "8700b7012a5f03ab822c3c8202d1f73f4f9dd685f534e82d4f098ea83a587209",
+  "training_modified": false,
+  "automatic_selection": true
+}

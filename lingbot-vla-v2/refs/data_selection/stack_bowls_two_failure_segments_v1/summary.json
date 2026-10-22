@@ -1,0 +1,42 @@
+{
+  "task": "stack_bowls_two",
+  "episodes": 50,
+  "total_frames": 15609,
+  "segment_counts": {
+    "far_left_grasp": 6,
+    "second_bowl_place": 50
+  },
+  "frames_by_kind": {
+    "far_left_grasp": 681,
+    "second_bowl_place": 3743
+  },
+  "selected_frames": 4361,
+  "selected_fraction": 0.27939009545774873,
+  "future_action_cross_boundary_anchors": {
+    "far_left_grasp": 294,
+    "second_bowl_place": 2450
+  },
+  "settings": {
+    "far_initial_xy_min_m": 0.25,
+    "action_horizon": 50,
+    "lift_min_height_m": 0.06,
+    "lift_plateau_speed_mps": 0.015,
+    "lift_plateau_frames": 3,
+    "lift_timeout_seconds": 3.0
+  },
+  "grasp_rejections": {},
+  "placement_rejections": {},
+  "initial_reference": "episode_frame0_tcp_to_demonstrated_closure_tcp_xy",
+  "full_contiguous_frames": true,
+  "subsampled": false,
+  "kinematic_proxy_only": true,
+  "object_pose_verified": false,
+  "contact_verified": false,
+  "collision_verified": false,
+  "rule_version": "failure_segments_v1",
+  "fps": 15.0,
+  "numeric_source_sha256": "917cde35b9391a8d6ef062b4c2be421cac2a5f0066db741638977f72b5f51e0f",
+  "spec_sha256": "8700b7012a5f03ab822c3c8202d1f73f4f9dd685f534e82d4f098ea83a587209",
+  "training_modified": false,
+  "automatic_selection": true
+}

@@ -1,0 +1,41 @@
+{
+  "task": "stack_bowls_two",
+  "total_frames": 15609,
+  "episodes": 50,
+  "qualified_far_grasps": 20,
+  "second_placements_with_height_samples": 50,
+  "selected_frames": 1114,
+  "selected_fraction": 0.07136908193990646,
+  "stage_frames": {
+    "far_grasp_position": 172,
+    "far_grasp_align": 160,
+    "far_grasp_descend": 196,
+    "far_grasp_settle": 115,
+    "far_grasp_close": 220,
+    "second_place_height_band": 251
+  },
+  "initial_reference": "episode_frame0_tcp_to_demonstrated_closure_tcp_xy",
+  "height_reference": "tcp_height_above_demonstrated_release_tcp",
+  "kinematic_proxy_only": true,
+  "object_pose_verified": false,
+  "collision_verified": false,
+  "rule_version": "targeted_far_grasp_place_v2",
+  "fps": 15.0,
+  "settings": {
+    "far_initial_xy_min_m": 0.25,
+    "far_position_xy_min_m": 0.05,
+    "far_position_xy_max_m": 0.2,
+    "far_position_lookback_seconds": 2.0,
+    "progress_window_seconds": 0.2,
+    "minimum_xy_progress_m": 0.002,
+    "minimum_direction_progress_degrees": 2.0,
+    "place_height_min_m": 0.03,
+    "place_height_max_m": 0.08,
+    "open_threshold": 0.95,
+    "include_far_grasp_core": true
+  },
+  "numeric_source_sha256": "917cde35b9391a8d6ef062b4c2be421cac2a5f0066db741638977f72b5f51e0f",
+  "spec_sha256": "8700b7012a5f03ab822c3c8202d1f73f4f9dd685f534e82d4f098ea83a587209",
+  "training_modified": false,
+  "automatic_selection": true
+}

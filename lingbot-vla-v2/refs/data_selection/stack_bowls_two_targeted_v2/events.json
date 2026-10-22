@@ -1,0 +1,1635 @@
+[
+  {
+    "kind": "grasp",
+    "episode_index": 1450,
+    "arm": "right",
+    "closure_frame": 55,
+    "initial_xy_distance_m": 0.05307550506110999,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1450,
+    "arm": "right",
+    "closure_frame": 194,
+    "initial_xy_distance_m": 0.33882952743795064,
+    "qualified_far": true,
+    "far_position_frames": [
+      162,
+      163,
+      164,
+      165,
+      166
+    ],
+    "core_frames": 32
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1451,
+    "arm": "left",
+    "closure_frame": 57,
+    "initial_xy_distance_m": 0.15248045901626828,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1451,
+    "arm": "right",
+    "closure_frame": 210,
+    "initial_xy_distance_m": 0.19328418224706806,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1452,
+    "arm": "left",
+    "closure_frame": 58,
+    "initial_xy_distance_m": 0.1887297148538626,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1452,
+    "arm": "right",
+    "closure_frame": 212,
+    "initial_xy_distance_m": 0.21536034113929264,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1453,
+    "arm": "left",
+    "closure_frame": 55,
+    "initial_xy_distance_m": 0.07435672052070948,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1453,
+    "arm": "left",
+    "closure_frame": 193,
+    "initial_xy_distance_m": 0.30654739655771673,
+    "qualified_far": true,
+    "far_position_frames": [
+      160,
+      161,
+      162,
+      163,
+      164
+    ],
+    "core_frames": 33
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1454,
+    "arm": "left",
+    "closure_frame": 55,
+    "initial_xy_distance_m": 0.08016815626805175,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1454,
+    "arm": "right",
+    "closure_frame": 212,
+    "initial_xy_distance_m": 0.10520117804276204,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1455,
+    "arm": "right",
+    "closure_frame": 57,
+    "initial_xy_distance_m": 0.1636984510913047,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1455,
+    "arm": "right",
+    "closure_frame": 200,
+    "initial_xy_distance_m": 0.2935244188961177,
+    "qualified_far": true,
+    "far_position_frames": [
+      164,
+      165,
+      166,
+      167,
+      168
+    ],
+    "core_frames": 35
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1456,
+    "arm": "right",
+    "closure_frame": 55,
+    "initial_xy_distance_m": 0.05065329231932943,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1456,
+    "arm": "right",
+    "closure_frame": 196,
+    "initial_xy_distance_m": 0.1696761409835166,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1457,
+    "arm": "left",
+    "closure_frame": 217,
+    "initial_xy_distance_m": 0.11462517140122246,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1457,
+    "arm": "right",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.0944167792890696,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1458,
+    "arm": "left",
+    "closure_frame": 216,
+    "initial_xy_distance_m": 0.2500009018063199,
+    "qualified_far": true,
+    "far_position_frames": [
+      169,
+      170,
+      171,
+      172,
+      173,
+      174,
+      175,
+      176,
+      177,
+      178,
+      179,
+      180
+    ],
+    "core_frames": 34
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1458,
+    "arm": "right",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.12970681217607985,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1459,
+    "arm": "left",
+    "closure_frame": 58,
+    "initial_xy_distance_m": 0.17585788757178164,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1459,
+    "arm": "right",
+    "closure_frame": 214,
+    "initial_xy_distance_m": 0.20172215297083643,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1460,
+    "arm": "left",
+    "closure_frame": 219,
+    "initial_xy_distance_m": 0.274429431079552,
+    "qualified_far": true,
+    "far_position_frames": [
+      171,
+      172,
+      173,
+      174,
+      175,
+      176,
+      177,
+      178,
+      179,
+      180,
+      181,
+      182,
+      183
+    ],
+    "core_frames": 35
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1460,
+    "arm": "right",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.052742057615299605,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1461,
+    "arm": "left",
+    "closure_frame": 210,
+    "initial_xy_distance_m": 0.16450980061628967,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1461,
+    "arm": "right",
+    "closure_frame": 54,
+    "initial_xy_distance_m": 0.04856679609356181,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1462,
+    "arm": "left",
+    "closure_frame": 57,
+    "initial_xy_distance_m": 0.1138365535667135,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1462,
+    "arm": "left",
+    "closure_frame": 198,
+    "initial_xy_distance_m": 0.19772083783083502,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1463,
+    "arm": "right",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.14072839836022533,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1463,
+    "arm": "right",
+    "closure_frame": 194,
+    "initial_xy_distance_m": 0.2131691366796551,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1464,
+    "arm": "left",
+    "closure_frame": 240,
+    "initial_xy_distance_m": 0.3049442030768958,
+    "qualified_far": true,
+    "far_position_frames": [
+      200,
+      201,
+      202,
+      203,
+      204,
+      205,
+      206,
+      207,
+      208
+    ],
+    "core_frames": 33
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1464,
+    "arm": "right",
+    "closure_frame": 65,
+    "initial_xy_distance_m": 0.28212116275670085,
+    "qualified_far": true,
+    "far_position_frames": [
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ],
+    "core_frames": 35
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1465,
+    "arm": "left",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.09647253784731995,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1465,
+    "arm": "right",
+    "closure_frame": 216,
+    "initial_xy_distance_m": 0.19056358684331345,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1466,
+    "arm": "left",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.11508144097873153,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1466,
+    "arm": "right",
+    "closure_frame": 215,
+    "initial_xy_distance_m": 0.23739853391298885,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1467,
+    "arm": "right",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.08541146307692865,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1467,
+    "arm": "right",
+    "closure_frame": 197,
+    "initial_xy_distance_m": 0.2711121261292597,
+    "qualified_far": true,
+    "far_position_frames": [
+      163,
+      164,
+      165,
+      166,
+      167
+    ],
+    "core_frames": 34
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1468,
+    "arm": "right",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.0885203504663131,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1468,
+    "arm": "right",
+    "closure_frame": 197,
+    "initial_xy_distance_m": 0.3084902681186251,
+    "qualified_far": true,
+    "far_position_frames": [
+      165,
+      166,
+      167,
+      168
+    ],
+    "core_frames": 33
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1469,
+    "arm": "right",
+    "closure_frame": 58,
+    "initial_xy_distance_m": 0.22161606145643942,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1469,
+    "arm": "right",
+    "closure_frame": 194,
+    "initial_xy_distance_m": 0.14084721195508437,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1470,
+    "arm": "left",
+    "closure_frame": 58,
+    "initial_xy_distance_m": 0.1644720639679655,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1470,
+    "arm": "right",
+    "closure_frame": 217,
+    "initial_xy_distance_m": 0.2436947151166554,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1471,
+    "arm": "left",
+    "closure_frame": 213,
+    "initial_xy_distance_m": 0.13705870187399144,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1471,
+    "arm": "right",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.10072001253175766,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1472,
+    "arm": "left",
+    "closure_frame": 55,
+    "initial_xy_distance_m": 0.08756483382784493,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1472,
+    "arm": "right",
+    "closure_frame": 215,
+    "initial_xy_distance_m": 0.11193350859365325,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1473,
+    "arm": "left",
+    "closure_frame": 209,
+    "initial_xy_distance_m": 0.17038230693731485,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1473,
+    "arm": "right",
+    "closure_frame": 57,
+    "initial_xy_distance_m": 0.15375625117577088,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1474,
+    "arm": "right",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.1300125251774151,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1474,
+    "arm": "right",
+    "closure_frame": 199,
+    "initial_xy_distance_m": 0.23204572298132378,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1475,
+    "arm": "left",
+    "closure_frame": 217,
+    "initial_xy_distance_m": 0.21613149351221397,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1475,
+    "arm": "right",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.07086241713082135,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1476,
+    "arm": "left",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.13090626301280492,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1476,
+    "arm": "right",
+    "closure_frame": 209,
+    "initial_xy_distance_m": 0.13240383274265646,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1477,
+    "arm": "left",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.09304294215637118,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1477,
+    "arm": "right",
+    "closure_frame": 226,
+    "initial_xy_distance_m": 0.2945253591311226,
+    "qualified_far": true,
+    "far_position_frames": [
+      178,
+      179,
+      180,
+      181,
+      182,
+      183,
+      184,
+      185,
+      186,
+      187,
+      188,
+      189
+    ],
+    "core_frames": 34
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1478,
+    "arm": "right",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.1253422064394302,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1478,
+    "arm": "right",
+    "closure_frame": 195,
+    "initial_xy_distance_m": 0.1825939122935933,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1479,
+    "arm": "right",
+    "closure_frame": 57,
+    "initial_xy_distance_m": 0.17110630903350627,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1479,
+    "arm": "right",
+    "closure_frame": 197,
+    "initial_xy_distance_m": 0.28779461779673327,
+    "qualified_far": true,
+    "far_position_frames": [
+      161,
+      162,
+      163,
+      164,
+      165,
+      166
+    ],
+    "core_frames": 35
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1480,
+    "arm": "left",
+    "closure_frame": 217,
+    "initial_xy_distance_m": 0.21535904310547743,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1480,
+    "arm": "right",
+    "closure_frame": 58,
+    "initial_xy_distance_m": 0.1777816683922966,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1481,
+    "arm": "left",
+    "closure_frame": 57,
+    "initial_xy_distance_m": 0.1409213808653891,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1481,
+    "arm": "right",
+    "closure_frame": 208,
+    "initial_xy_distance_m": 0.19893855694512516,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1482,
+    "arm": "left",
+    "closure_frame": 58,
+    "initial_xy_distance_m": 0.14082921999787346,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1482,
+    "arm": "right",
+    "closure_frame": 221,
+    "initial_xy_distance_m": 0.28782973234244996,
+    "qualified_far": true,
+    "far_position_frames": [
+      176,
+      177,
+      178,
+      179,
+      180,
+      181,
+      182,
+      183,
+      184,
+      185,
+      186,
+      187
+    ],
+    "core_frames": 35
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1483,
+    "arm": "left",
+    "closure_frame": 55,
+    "initial_xy_distance_m": 0.10247181664938103,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1483,
+    "arm": "right",
+    "closure_frame": 209,
+    "initial_xy_distance_m": 0.19043240067996686,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1484,
+    "arm": "left",
+    "closure_frame": 57,
+    "initial_xy_distance_m": 0.10919773383263688,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1484,
+    "arm": "right",
+    "closure_frame": 218,
+    "initial_xy_distance_m": 0.3083284981897081,
+    "qualified_far": true,
+    "far_position_frames": [
+      177,
+      178,
+      179,
+      180,
+      181,
+      182,
+      183,
+      184,
+      185,
+      186
+    ],
+    "core_frames": 34
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1485,
+    "arm": "left",
+    "closure_frame": 211,
+    "initial_xy_distance_m": 0.17515867066227933,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1485,
+    "arm": "right",
+    "closure_frame": 55,
+    "initial_xy_distance_m": 0.0822396030211874,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1486,
+    "arm": "left",
+    "closure_frame": 210,
+    "initial_xy_distance_m": 0.14234327930257512,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1486,
+    "arm": "right",
+    "closure_frame": 57,
+    "initial_xy_distance_m": 0.13112272778479966,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1487,
+    "arm": "left",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.09222924722800813,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1487,
+    "arm": "right",
+    "closure_frame": 216,
+    "initial_xy_distance_m": 0.12439773515739956,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1488,
+    "arm": "left",
+    "closure_frame": 58,
+    "initial_xy_distance_m": 0.10987115777542884,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1488,
+    "arm": "left",
+    "closure_frame": 211,
+    "initial_xy_distance_m": 0.24446840409037005,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1489,
+    "arm": "right",
+    "closure_frame": 55,
+    "initial_xy_distance_m": 0.07029057837392133,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1489,
+    "arm": "right",
+    "closure_frame": 207,
+    "initial_xy_distance_m": 0.2593302501602587,
+    "qualified_far": true,
+    "far_position_frames": [
+      166,
+      167,
+      168,
+      169,
+      170,
+      171,
+      172
+    ],
+    "core_frames": 37
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1490,
+    "arm": "left",
+    "closure_frame": 57,
+    "initial_xy_distance_m": 0.14688179559093156,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1490,
+    "arm": "right",
+    "closure_frame": 216,
+    "initial_xy_distance_m": 0.18261280315002998,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1491,
+    "arm": "left",
+    "closure_frame": 59,
+    "initial_xy_distance_m": 0.19148466282750934,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1491,
+    "arm": "right",
+    "closure_frame": 222,
+    "initial_xy_distance_m": 0.2845564972840543,
+    "qualified_far": true,
+    "far_position_frames": [
+      180,
+      181,
+      182,
+      183,
+      184,
+      185,
+      186,
+      187,
+      188,
+      189
+    ],
+    "core_frames": 34
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1492,
+    "arm": "left",
+    "closure_frame": 58,
+    "initial_xy_distance_m": 0.16958429493060423,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1492,
+    "arm": "left",
+    "closure_frame": 204,
+    "initial_xy_distance_m": 0.27738055838725795,
+    "qualified_far": true,
+    "far_position_frames": [
+      167,
+      168,
+      169,
+      170,
+      171,
+      172,
+      173
+    ],
+    "core_frames": 34
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1493,
+    "arm": "right",
+    "closure_frame": 55,
+    "initial_xy_distance_m": 0.08865359303205532,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1493,
+    "arm": "right",
+    "closure_frame": 194,
+    "initial_xy_distance_m": 0.3163995563935667,
+    "qualified_far": true,
+    "far_position_frames": [
+      160,
+      161,
+      162,
+      163,
+      164,
+      165
+    ],
+    "core_frames": 33
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1494,
+    "arm": "right",
+    "closure_frame": 55,
+    "initial_xy_distance_m": 0.08254865417861662,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1494,
+    "arm": "right",
+    "closure_frame": 208,
+    "initial_xy_distance_m": 0.26403341422889176,
+    "qualified_far": true,
+    "far_position_frames": [
+      163,
+      164,
+      165,
+      166,
+      167,
+      168,
+      169,
+      170
+    ],
+    "core_frames": 39
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1495,
+    "arm": "left",
+    "closure_frame": 215,
+    "initial_xy_distance_m": 0.18734478413894867,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1495,
+    "arm": "right",
+    "closure_frame": 58,
+    "initial_xy_distance_m": 0.1689774203038491,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1496,
+    "arm": "left",
+    "closure_frame": 59,
+    "initial_xy_distance_m": 0.2098207002070688,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1496,
+    "arm": "right",
+    "closure_frame": 222,
+    "initial_xy_distance_m": 0.2822940636652314,
+    "qualified_far": true,
+    "far_position_frames": [
+      175,
+      176,
+      177,
+      178,
+      179,
+      180,
+      181,
+      182,
+      183,
+      184,
+      185,
+      186
+    ],
+    "core_frames": 35
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1497,
+    "arm": "left",
+    "closure_frame": 56,
+    "initial_xy_distance_m": 0.10951018802582257,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1497,
+    "arm": "right",
+    "closure_frame": 211,
+    "initial_xy_distance_m": 0.1423517246447196,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1498,
+    "arm": "left",
+    "closure_frame": 55,
+    "initial_xy_distance_m": 0.06783058751343815,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1498,
+    "arm": "right",
+    "closure_frame": 215,
+    "initial_xy_distance_m": 0.0984018773444194,
+    "qualified_far": false
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1499,
+    "arm": "left",
+    "closure_frame": 226,
+    "initial_xy_distance_m": 0.26527597996752206,
+    "qualified_far": true,
+    "far_position_frames": [
+      174,
+      175,
+      176,
+      177,
+      178,
+      179,
+      180,
+      181,
+      182,
+      183,
+      184,
+      185,
+      186
+    ],
+    "core_frames": 37
+  },
+  {
+    "kind": "grasp",
+    "episode_index": 1499,
+    "arm": "right",
+    "closure_frame": 58,
+    "initial_xy_distance_m": 0.17916701380673614,
+    "qualified_far": false
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1450,
+    "arm": "right",
+    "selected_frames": [
+      264,
+      265,
+      266,
+      267,
+      268
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1451,
+    "arm": "right",
+    "selected_frames": [
+      260,
+      261,
+      262,
+      263,
+      264
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1452,
+    "arm": "right",
+    "selected_frames": [
+      258,
+      259,
+      260,
+      261,
+      262
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1453,
+    "arm": "left",
+    "selected_frames": [
+      253,
+      254,
+      255,
+      256,
+      257
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1454,
+    "arm": "right",
+    "selected_frames": [
+      265,
+      266,
+      267,
+      268,
+      269,
+      270
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1455,
+    "arm": "right",
+    "selected_frames": [
+      269,
+      270,
+      271,
+      272,
+      273
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1456,
+    "arm": "right",
+    "selected_frames": [
+      245,
+      246,
+      247,
+      248,
+      249
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1457,
+    "arm": "left",
+    "selected_frames": [
+      269,
+      270,
+      271,
+      272,
+      273
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1458,
+    "arm": "left",
+    "selected_frames": [
+      271,
+      272,
+      273,
+      274,
+      275
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1459,
+    "arm": "right",
+    "selected_frames": [
+      262,
+      263,
+      264,
+      265,
+      266
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1460,
+    "arm": "left",
+    "selected_frames": [
+      278,
+      279,
+      280,
+      281,
+      282
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1461,
+    "arm": "left",
+    "selected_frames": [
+      263,
+      264,
+      265,
+      266,
+      267
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1462,
+    "arm": "left",
+    "selected_frames": [
+      244,
+      245,
+      246,
+      247,
+      248
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1463,
+    "arm": "right",
+    "selected_frames": [
+      246,
+      247,
+      248,
+      249,
+      250
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1464,
+    "arm": "left",
+    "selected_frames": [
+      301,
+      302,
+      303,
+      304,
+      305
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1465,
+    "arm": "right",
+    "selected_frames": [
+      261,
+      262,
+      263,
+      264,
+      265
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1466,
+    "arm": "right",
+    "selected_frames": [
+      267,
+      268,
+      269,
+      270,
+      271
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1467,
+    "arm": "right",
+    "selected_frames": [
+      253,
+      254,
+      255,
+      256,
+      257
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1468,
+    "arm": "right",
+    "selected_frames": [
+      266,
+      267,
+      268,
+      269,
+      270
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1469,
+    "arm": "right",
+    "selected_frames": [
+      241,
+      242,
+      243,
+      244,
+      245
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1470,
+    "arm": "right",
+    "selected_frames": [
+      270,
+      271,
+      272,
+      273,
+      274
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1471,
+    "arm": "left",
+    "selected_frames": [
+      266,
+      267,
+      268,
+      269,
+      270
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1472,
+    "arm": "right",
+    "selected_frames": [
+      267,
+      268,
+      269,
+      270,
+      271
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1473,
+    "arm": "left",
+    "selected_frames": [
+      261,
+      262,
+      263,
+      264,
+      265
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1474,
+    "arm": "right",
+    "selected_frames": [
+      250,
+      251,
+      252,
+      253,
+      254
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1475,
+    "arm": "left",
+    "selected_frames": [
+      270,
+      271,
+      272,
+      273,
+      274
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1476,
+    "arm": "right",
+    "selected_frames": [
+      257,
+      258,
+      259,
+      260,
+      261
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1477,
+    "arm": "right",
+    "selected_frames": [
+      290,
+      291,
+      292,
+      293,
+      294
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1478,
+    "arm": "right",
+    "selected_frames": [
+      247,
+      248,
+      249,
+      250,
+      251
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1479,
+    "arm": "right",
+    "selected_frames": [
+      262,
+      263,
+      264,
+      265,
+      266
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1480,
+    "arm": "left",
+    "selected_frames": [
+      269,
+      270,
+      271,
+      272,
+      273
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1481,
+    "arm": "right",
+    "selected_frames": [
+      255,
+      256,
+      257,
+      258,
+      259
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1482,
+    "arm": "right",
+    "selected_frames": [
+      284,
+      285,
+      286,
+      287,
+      288
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1483,
+    "arm": "right",
+    "selected_frames": [
+      255,
+      256,
+      257,
+      258,
+      259
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1484,
+    "arm": "right",
+    "selected_frames": [
+      281,
+      282,
+      283,
+      284,
+      285
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1485,
+    "arm": "left",
+    "selected_frames": [
+      257,
+      258,
+      259,
+      260,
+      261
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1486,
+    "arm": "left",
+    "selected_frames": [
+      262,
+      263,
+      264,
+      265,
+      266
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1487,
+    "arm": "right",
+    "selected_frames": [
+      268,
+      269,
+      270,
+      271,
+      272
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1488,
+    "arm": "left",
+    "selected_frames": [
+      268,
+      269,
+      270,
+      271,
+      272
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1489,
+    "arm": "right",
+    "selected_frames": [
+      267,
+      268,
+      269,
+      270,
+      271
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1490,
+    "arm": "right",
+    "selected_frames": [
+      262,
+      263,
+      264,
+      265,
+      266
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1491,
+    "arm": "right",
+    "selected_frames": [
+      279,
+      280,
+      281,
+      282,
+      283
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1492,
+    "arm": "left",
+    "selected_frames": [
+      263,
+      264,
+      265,
+      266,
+      267
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1493,
+    "arm": "right",
+    "selected_frames": [
+      264,
+      265,
+      266,
+      267,
+      268
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1494,
+    "arm": "right",
+    "selected_frames": [
+      273,
+      274,
+      275,
+      276,
+      277
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1495,
+    "arm": "left",
+    "selected_frames": [
+      263,
+      264,
+      265,
+      266,
+      267
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1496,
+    "arm": "right",
+    "selected_frames": [
+      282,
+      283,
+      284,
+      285,
+      286
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1497,
+    "arm": "right",
+    "selected_frames": [
+      260,
+      261,
+      262,
+      263,
+      264
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1498,
+    "arm": "right",
+    "selected_frames": [
+      269,
+      270,
+      271,
+      272,
+      273
+    ]
+  },
+  {
+    "kind": "second_placement",
+    "episode_index": 1499,
+    "arm": "left",
+    "selected_frames": [
+      288,
+      289,
+      290,
+      291,
+      292
+    ]
+  }
+]

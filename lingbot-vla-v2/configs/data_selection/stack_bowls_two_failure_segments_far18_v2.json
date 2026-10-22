@@ -1,0 +1,8 @@
+{
+  "task": "stack_bowls_two",
+  "rule_version": "failure_segments_far18_v2",
+  "settings": {
+    "far_initial_xy_min_m": 0.18,
+    "action_horizon": 50
+  }
+}

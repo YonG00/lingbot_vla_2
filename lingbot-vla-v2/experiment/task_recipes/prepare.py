@@ -28,6 +28,7 @@ def preview(raw):
 
 def prepare(raw):
     import shutil
+    import os
     from experiment.official_control.prepare_adjust_bottle import validate_identity
     from experiment.official_control.baseline_pipeline import verify_checkpoint
     c,plan,groups,frames=preview(raw)
@@ -63,14 +64,19 @@ def prepare(raw):
     if not (Path(c['data']['dataset_root'])/'meta').is_dir():raise ValueError('dataset metadata missing')
     dataset_lines='robotwin '+c['data']['dataset_root']+'\n'
     out.mkdir(parents=True,exist_ok=False)
+    from experiment.data_selection.inheritance import freeze_registry,registry_digest
+    importance=freeze_registry(source,out,
+        explicit=os.environ.get('LINGBOT_SAMPLE_WEIGHT_CONFIG'))
     ids=sorted(e for values in groups.values() for e in values)
     report=dict(expected_frames=frames,episodes=len(ids),hf_steps=saves,recipe_sha256=digest(c),required_disk_gib=required/2**30,
         remediation_reserved_checkpoints=extra_saves,
         source_model=str(source),trainer_config_sha256=digest(cfg),task_groups_sha256=digest(groups),train_ids_sha256=digest(ids),
         evaluation_steps=[c['train']['steps'] if x=='final' else x for x in c['evaluation']['checkpoints']])
+    if importance is not None:report['sample_weight_registry_sha256']=registry_digest(importance)
     for name,value in [('recipe.json',c),('step_plan.json',plan),('task_groups.json',groups),('train_ids.json',ids),('trainer_config.json',cfg),('plan.json',report)]:
         (out/name).write_text(json.dumps(value,indent=2))
     (out/'datasets.txt').write_text(dataset_lines)
     command=[sys.executable,'-m','torch.distributed.run','--nproc_per_node=1','--master_port=29557',str(ROOT/'experiment/task_recipes/run.py'),'--stage','train','--out',str(out)]
-    (out/'train.sh').write_text('#!/bin/bash\nset -euo pipefail\ncd '+shlex.quote(str(ROOT))+'\nexec '+shlex.join(command)+'\n')
+    importance_export=('export LINGBOT_SAMPLE_WEIGHT_CONFIG='+shlex.quote(str(importance))+'\n') if importance else ''
+    (out/'train.sh').write_text('#!/bin/bash\nset -euo pipefail\n'+importance_export+'cd '+shlex.quote(str(ROOT))+'\nexec '+shlex.join(command)+'\n')
     return report

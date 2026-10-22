@@ -1,0 +1,230 @@
+[
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1453,
+    "arm": "left",
+    "start_frame": 129,
+    "end_frame": 224,
+    "stages": {
+      "aim": [
+        129,
+        164
+      ],
+      "align": [
+        165,
+        172
+      ],
+      "descend": [
+        173,
+        181
+      ],
+      "settle": [
+        182,
+        186
+      ],
+      "close": [
+        187,
+        197
+      ],
+      "lift": [
+        198,
+        224
+      ]
+    },
+    "initial_xy_distance_m": 0.30654739655771673,
+    "closure_frame": 193,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 96,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1458,
+    "arm": "left",
+    "start_frame": 127,
+    "end_frame": 246,
+    "stages": {
+      "aim": [
+        127,
+        186
+      ],
+      "align": [
+        187,
+        194
+      ],
+      "descend": [
+        195,
+        203
+      ],
+      "settle": [
+        204,
+        209
+      ],
+      "close": [
+        210,
+        220
+      ],
+      "lift": [
+        221,
+        246
+      ]
+    },
+    "initial_xy_distance_m": 0.2500009018063199,
+    "closure_frame": 216,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 120,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1460,
+    "arm": "left",
+    "start_frame": 129,
+    "end_frame": 249,
+    "stages": {
+      "aim": [
+        129,
+        188
+      ],
+      "align": [
+        189,
+        196
+      ],
+      "descend": [
+        197,
+        206
+      ],
+      "settle": [
+        207,
+        212
+      ],
+      "close": [
+        213,
+        223
+      ],
+      "lift": [
+        224,
+        249
+      ]
+    },
+    "initial_xy_distance_m": 0.274429431079552,
+    "closure_frame": 219,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 121,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1464,
+    "arm": "left",
+    "start_frame": 152,
+    "end_frame": 271,
+    "stages": {
+      "aim": [
+        152,
+        211
+      ],
+      "align": [
+        212,
+        219
+      ],
+      "descend": [
+        220,
+        228
+      ],
+      "settle": [
+        229,
+        233
+      ],
+      "close": [
+        234,
+        244
+      ],
+      "lift": [
+        245,
+        271
+      ]
+    },
+    "initial_xy_distance_m": 0.3049442030768958,
+    "closure_frame": 240,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 120,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1492,
+    "arm": "left",
+    "start_frame": 137,
+    "end_frame": 235,
+    "stages": {
+      "aim": [
+        137,
+        174
+      ],
+      "align": [
+        175,
+        182
+      ],
+      "descend": [
+        183,
+        192
+      ],
+      "settle": [
+        193,
+        197
+      ],
+      "close": [
+        198,
+        208
+      ],
+      "lift": [
+        209,
+        235
+      ]
+    },
+    "initial_xy_distance_m": 0.27738055838725795,
+    "closure_frame": 204,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 99,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1499,
+    "arm": "left",
+    "start_frame": 134,
+    "end_frame": 258,
+    "stages": {
+      "aim": [
+        134,
+        193
+      ],
+      "align": [
+        194,
+        201
+      ],
+      "descend": [
+        202,
+        212
+      ],
+      "settle": [
+        213,
+        219
+      ],
+      "close": [
+        220,
+        230
+      ],
+      "lift": [
+        231,
+        258
+      ]
+    },
+    "initial_xy_distance_m": 0.26527597996752206,
+    "closure_frame": 226,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 125,
+    "future_action_cross_boundary_anchors": 49
+  }
+]

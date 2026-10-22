@@ -56,3 +56,13 @@ run：`/data/outputs/20261022_1904_bowls200_from_recovery3_s160_bf16_m56_replay1
 ### 启动时更正：继续上一轮权重2的step200
 
 用户取消上述“重新从第三轮step160起训”的来源，改为继承刚刚抓碗动作已有进步的 `20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt`。旧19:04流水线已停止，最新新run为 `/data/outputs/20261022_1909_bowls_add200_from_weight2_s200_bf16_m56_replay10pct_grasp_place_weight3`。继续加训200步，保存仍为本轮step100/200，不累计来源步号；双规则并集3倍、10%复习、GBS56/GAS1、最终3回合全录像不变。配方为 `configs/training_recipes/stack_bowls_add200_from_weight2_s200_grasp_place_weight3.json`。
+
+## 重要性随任务继承，复习时仍生效
+
+用户要求：stack_bowls_two关键样本成为复习数据时，也保持训练阶段的重要性。样本权重在VLADataset.getitem按数据集＋原始episode/frame判定，不依赖主任务/复习身份；复习比例只决定抽样数量，不改变样本自身损失权重。当前双规则关键样本仍为3，其余为1；四项损失及按原样本数归约保持不变。不把本策略描述为不会遗忘的保证。
+
+新增 `sample_weight_registry.json` 按任务保存策略；每个任务配置和所选帧均拷贝到run内 `sample_weights/<task>/`，并校验配置/帧清单指纹。后续prepare从实际来源checkpoint所在run或随HF携带的registry继承，不依赖上次shell环境。显式新配置只更新对应任务，保留其他任务；未带策略的基线仍默认无加权。当前只支持同一合并数据集，不同数据源或任务帧坐标冲突会明确拒绝。
+
+run.py把冻结registry传入CPU/探针/训练子进程，生成train.sh也显式导出该路径；runtime.load_run验证策略未篡改。未来使用新代码的流水线在保存验证后给HF附带元数据，便于移动模型时保留。当前运行中的旧流水线不热更新，已单独补齐run的registry；下次续训前需要同步本次新代码。
+
+已补元数据：12:46 run保持抓碗7436帧×2；19:09 run保持抓碗＋第二放置并集11179帧×3。没有把历史2倍模型误记为3倍。6项纯标准库CPU测试通过（跨run无环境继承、多任务保留、同任务显式替换、文件独立性、篡改拒绝、旧run兼容）；尚未跑新的跨run GPU整链。

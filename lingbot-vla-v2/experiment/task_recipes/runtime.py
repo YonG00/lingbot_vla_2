@@ -22,6 +22,12 @@ def load_run(out):
     report=json.loads((out/'plan.json').read_text())
     for name,value in [('trainer_config',json.loads((out/'trainer_config.json').read_text())),('task_groups',groups),('train_ids',json.loads((out/'train_ids.json').read_text()))]:
         if digest(value)!=report[name+'_sha256']:raise ValueError('frozen '+name+' differs from prepared run')
+    if 'sample_weight_registry_sha256' in report:
+        from experiment.data_selection.inheritance import registry_digest
+        from experiment.data_selection.weights import SelectionWeights
+        registry=out/'sample_weight_registry.json'
+        if registry_digest(registry)!=report['sample_weight_registry_sha256']:raise ValueError('frozen task importance registry changed')
+        SelectionWeights(registry) # Includes selected-coordinate fingerprint checks.
     return c,p,groups
 
 
@@ -29,6 +35,42 @@ def pools_for(dataset,groups):
     if len(dataset._datasets)!=1:raise ValueError('one merged dataset required')
     raw=dataset._datasets[0].dataset.hf_dataset.select_columns(['episode_index'])
     return index_pools(groups,[int(row['episode_index']) for row in raw])
+
+
+def sampling_weights_for(dataset,c,out):
+    multiplier=c['train'].get('importance_sampling_multiplier',1.)
+    if multiplier==1:return {}
+    from experiment.data_selection.weights import SelectionWeights
+    policy=SelectionWeights(Path(out)/'sample_weight_registry.json')
+    raw=dataset._datasets[0].dataset.hf_dataset.select_columns(['episode_index','frame_index'])
+    weights={i:float(multiplier) for i,row in enumerate(raw)
+             if (int(row['episode_index']),int(row['frame_index'])) in policy.keys}
+    if len(weights)!=len(policy.keys):raise ValueError('sampling selection not fully represented in filtered dataset')
+    print('IMPORTANCE_SAMPLING',json.dumps(dict(multiplier=multiplier,selected=len(weights),normalization='within_task')),flush=True)
+    return weights
+
+
+def make_sampler(dataset,c,p,groups,out):
+    pools=pools_for(dataset,groups)
+    if 'target_segments' not in c['train']:
+        return PlannedSampler(p,pools,c['train']['seed'],sampling_weights_for(dataset,c,out))
+    from experiment.data_selection.inheritance import read_policies
+    from experiment.data_selection.weights import SelectionWeights
+    from experiment.task_recipes.segment_sampling import SegmentSampler
+    setting=c['train']['target_segments'];task=setting['task']
+    config=read_policies(Path(out)/'sample_weight_registry.json')[task]
+    policy=SelectionWeights(config);value=json.loads(config.read_text())
+    raw=dataset._datasets[0].dataset.hf_dataset.select_columns(['episode_index','frame_index'])
+    coordinates={(int(row['episode_index']),int(row['frame_index'])):i for i,row in enumerate(raw)}
+    events={kind:[] for kind in setting['ratios']}
+    for segment in value['sampling_segments']:
+        events[segment['kind']].append([coordinates[(segment['episode_index'],frame)] for frame in range(segment['start_frame'],segment['end_frame']+1)])
+    selected={i for groups_ in events.values() for event in groups_ for i in event}
+    if selected!={coordinates[key] for key in policy.keys}:raise ValueError('segment/weight selection mismatch')
+    background=[i for i in pools[task] if i not in selected]
+    sampler=SegmentSampler(p,pools,c['train']['seed'],task,events,background,setting['fraction'],setting['ratios'])
+    print('TARGET_SEGMENT_SAMPLING',json.dumps(dict(fraction=setting['fraction'],ratios=setting['ratios'],events={k:len(v) for k,v in events.items()},selected=len(selected),background=len(background),within_event='uniform_frame',between_events='uniform')),flush=True)
+    return sampler
 
 
 def install(out):
@@ -39,14 +81,14 @@ def install(out):
     def build_dataset(*args,**kwargs):
         dataset=original_dataset(*args,**kwargs)
         dataset.strict_getitem=True  # never silently replace a corrupt frame with another task
-        holder['pools']=pools_for(dataset,groups)
+        holder['sampler']=make_sampler(dataset,c,p,groups,out)
         return StreamDataset(dataset,len(p['steps'])*p['global_batch_size'])
     def build_loader(*args,**kwargs):
         from lingbotvla.distributed.parallel_state import get_parallel_state
         if get_parallel_state().dp_size!=1:raise ValueError('recipe v1 supports single GPU only')
         if kwargs.get('sampler') is not None or kwargs.get('rmpad',False) or kwargs.get('rmpad_with_pos_ids',False):raise ValueError('recipe sampler conflicts with existing sampler/packing')
         if kwargs['global_batch_size']!=p['global_batch_size']:raise ValueError('effective GBS differs from plan')
-        kwargs['sampler']=PlannedSampler(p,holder['pools'],c['train']['seed'])
+        kwargs['sampler']=holder['sampler']
         kwargs['train_steps']=len(p['steps'])
         print('RECIPE_SAMPLER',json.dumps(dict(recipe_sha256=p['recipe_sha256'],steps=len(p['steps']),batch=p['global_batch_size'])),flush=True)
         return original_loader(*args,**kwargs)

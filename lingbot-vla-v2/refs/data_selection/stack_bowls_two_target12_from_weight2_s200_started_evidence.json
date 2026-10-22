@@ -1,0 +1,122 @@
+{
+  "output": "/root/autodl-tmp/data/outputs/20261022_2149_bowls200_from_weight2_s200_bf16_m56_target90_far1_place2_loss2",
+  "recipe": {
+    "version": 1,
+    "source": {
+      "trainer_config": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/trainer_config.json",
+      "checkpoint": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt"
+    },
+    "data": {
+      "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+    },
+    "output_dir": "/root/autodl-tmp/data/outputs/20261022_2149_bowls200_from_weight2_s200_bf16_m56_target90_far1_place2_loss2",
+    "train": {
+      "mode": "sequential",
+      "micro_batch_size": 56,
+      "gradient_accumulation_steps": 1,
+      "seed": 3,
+      "episode_split": "all",
+      "main_tasks": {
+        "stack_bowls_two": {
+          "steps": 200,
+          "weight": 1
+        }
+      },
+      "replay": {
+        "fraction": 0,
+        "tasks": {},
+        "mode": "sample"
+      },
+      "task_order": [
+        "stack_bowls_two"
+      ],
+      "steps": 200,
+      "target_segments": {
+        "task": "stack_bowls_two",
+        "fraction": 0.9,
+        "ratios": {
+          "far_left_grasp": 1,
+          "second_bowl_place": 2
+        }
+      }
+    },
+    "checkpoint": {
+      "mode": "steps",
+      "every_steps": 200,
+      "save_final": true,
+      "hf_dtype": "bf16"
+    },
+    "evaluation": {
+      "episodes_per_task": 3,
+      "checkpoints": [
+        "final"
+      ],
+      "shared_model_session": true,
+      "max_parallel_tasks": 1,
+      "video_episodes": 3,
+      "tasks": [
+        "stack_bowls_two"
+      ],
+      "reuse_training_model": true
+    },
+    "runtime": {
+      "shutdown_after_completion": false
+    },
+    "remediation": {
+      "enabled": false,
+      "max_rounds": 1
+    }
+  },
+  "plan": {
+    "expected_frames": 15609,
+    "episodes": 50,
+    "hf_steps": [
+      200
+    ],
+    "recipe_sha256": "40510103eaa3751938fe9c629413593747b4cf65a8caf424924a94e60564d569",
+    "required_disk_gib": 16.063925973139703,
+    "remediation_reserved_checkpoints": 0,
+    "source_model": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt",
+    "trainer_config_sha256": "856db851f64abea4c6d417e2ac87632fb716117049205a0457f5df63af0c235f",
+    "task_groups_sha256": "9f8bc278dfdc4bd93dc41ea3b4cf0742fab2a25a9bf9c9d6bb46f728d45be3d3",
+    "train_ids_sha256": "1490efad008d1442c3bbaef1fed053e141407c1ca44bb68564ca8e8e577c5f56",
+    "evaluation_steps": [
+      200
+    ],
+    "sample_weight_registry_sha256": "25f6db563cdfa8dde4c175c0b5e4e121a317f8ff06bd2f725a2f31197f5d76a9"
+  },
+  "cpu": {
+    "state": "cpu_pass",
+    "episodes": 50,
+    "frames": 15609,
+    "original_beta_time_exact": true,
+    "al_enabled": false,
+    "ee_enabled": false,
+    "model_initialized": false,
+    "optimizer_steps": 0,
+    "gpu_tested": false,
+    "recipe_sampler": true,
+    "virtual_epoch_steps": 200,
+    "loader_microbatches": 1,
+    "real_frames": 15609,
+    "sample_weight_count": 56,
+    "sample_weight_selected": 50,
+    "sample_weight_normalization": "sample_count",
+    "sample_weight_multipliers": [
+      2.0
+    ],
+    "target_segment_sample_counts": {
+      "far_left_grasp": 3360,
+      "second_bowl_place": 6720,
+      "background": 1120
+    }
+  },
+  "probe.log": {
+    "steps": [],
+    "sampling": [
+      "TARGET_SEGMENT_SAMPLING {\"fraction\": 0.9, \"ratios\": {\"far_left_grasp\": 1, \"second_bowl_place\": 2}, \"events\": {\"far_left_grasp\": 6, \"second_bowl_place\": 50}, \"selected\": 4361, \"background\": 11248, \"within_event\": \"uniform_frame\", \"between_events\": \"uniform\"}"
+    ],
+    "tail": "0 20420 /root/autodl-tmp/data/miniconda3/envs/lingbotvla/lib/python3.12/site-packages/torch/_dynamo/exc.py:525] [28/0_1]         return hidden_states\n[rank0]:W1022 21:51:13.393000 20420 /root/autodl-tmp/data/miniconda3/envs/lingbotvla/lib/python3.12/site-packages/torch/_dynamo/exc.py:525] [28/0_1] \n[rank0]:W1022 21:51:13.393000 20420 /root/autodl-tmp/data/miniconda3/envs/lingbotvla/lib/python3.12/site-packages/torch/_dynamo/exc.py:525] [28/0_1] \n"
+  },
+  "gpu": "68837 MiB, 98 %"
+}

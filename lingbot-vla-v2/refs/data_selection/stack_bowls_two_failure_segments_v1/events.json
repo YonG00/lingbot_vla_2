@@ -1,0 +1,1880 @@
+[
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1453,
+    "arm": "left",
+    "start_frame": 129,
+    "end_frame": 224,
+    "stages": {
+      "aim": [
+        129,
+        164
+      ],
+      "align": [
+        165,
+        172
+      ],
+      "descend": [
+        173,
+        181
+      ],
+      "settle": [
+        182,
+        186
+      ],
+      "close": [
+        187,
+        197
+      ],
+      "lift": [
+        198,
+        224
+      ]
+    },
+    "initial_xy_distance_m": 0.30654739655771673,
+    "closure_frame": 193,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 96,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1458,
+    "arm": "left",
+    "start_frame": 127,
+    "end_frame": 246,
+    "stages": {
+      "aim": [
+        127,
+        186
+      ],
+      "align": [
+        187,
+        194
+      ],
+      "descend": [
+        195,
+        203
+      ],
+      "settle": [
+        204,
+        209
+      ],
+      "close": [
+        210,
+        220
+      ],
+      "lift": [
+        221,
+        246
+      ]
+    },
+    "initial_xy_distance_m": 0.2500009018063199,
+    "closure_frame": 216,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 120,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1460,
+    "arm": "left",
+    "start_frame": 129,
+    "end_frame": 249,
+    "stages": {
+      "aim": [
+        129,
+        188
+      ],
+      "align": [
+        189,
+        196
+      ],
+      "descend": [
+        197,
+        206
+      ],
+      "settle": [
+        207,
+        212
+      ],
+      "close": [
+        213,
+        223
+      ],
+      "lift": [
+        224,
+        249
+      ]
+    },
+    "initial_xy_distance_m": 0.274429431079552,
+    "closure_frame": 219,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 121,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1464,
+    "arm": "left",
+    "start_frame": 152,
+    "end_frame": 271,
+    "stages": {
+      "aim": [
+        152,
+        211
+      ],
+      "align": [
+        212,
+        219
+      ],
+      "descend": [
+        220,
+        228
+      ],
+      "settle": [
+        229,
+        233
+      ],
+      "close": [
+        234,
+        244
+      ],
+      "lift": [
+        245,
+        271
+      ]
+    },
+    "initial_xy_distance_m": 0.3049442030768958,
+    "closure_frame": 240,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 120,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1492,
+    "arm": "left",
+    "start_frame": 137,
+    "end_frame": 235,
+    "stages": {
+      "aim": [
+        137,
+        174
+      ],
+      "align": [
+        175,
+        182
+      ],
+      "descend": [
+        183,
+        192
+      ],
+      "settle": [
+        193,
+        197
+      ],
+      "close": [
+        198,
+        208
+      ],
+      "lift": [
+        209,
+        235
+      ]
+    },
+    "initial_xy_distance_m": 0.27738055838725795,
+    "closure_frame": 204,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 99,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "far_left_grasp",
+    "episode_index": 1499,
+    "arm": "left",
+    "start_frame": 134,
+    "end_frame": 258,
+    "stages": {
+      "aim": [
+        134,
+        193
+      ],
+      "align": [
+        194,
+        201
+      ],
+      "descend": [
+        202,
+        212
+      ],
+      "settle": [
+        213,
+        219
+      ],
+      "close": [
+        220,
+        230
+      ],
+      "lift": [
+        231,
+        258
+      ]
+    },
+    "initial_xy_distance_m": 0.26527597996752206,
+    "closure_frame": 226,
+    "endpoint": "closed_gripper_6cm_lift_and_vertical_plateau",
+    "frame_count": 125,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1450,
+    "arm": "right",
+    "start_frame": 217,
+    "end_frame": 304,
+    "stages": {
+      "place_aim": [
+        217,
+        263
+      ],
+      "place_approach": [
+        264,
+        270
+      ],
+      "place_settle": [
+        271,
+        278
+      ],
+      "place_release": [
+        279,
+        289
+      ],
+      "place_retreat": [
+        290,
+        304
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 88,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1451,
+    "arm": "right",
+    "start_frame": 230,
+    "end_frame": 300,
+    "stages": {
+      "place_aim": [
+        230,
+        259
+      ],
+      "place_approach": [
+        260,
+        266
+      ],
+      "place_settle": [
+        267,
+        274
+      ],
+      "place_release": [
+        275,
+        285
+      ],
+      "place_retreat": [
+        286,
+        300
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 71,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1452,
+    "arm": "right",
+    "start_frame": 232,
+    "end_frame": 298,
+    "stages": {
+      "place_aim": [
+        232,
+        257
+      ],
+      "place_approach": [
+        258,
+        265
+      ],
+      "place_settle": [
+        266,
+        272
+      ],
+      "place_release": [
+        273,
+        283
+      ],
+      "place_retreat": [
+        284,
+        298
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 67,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1453,
+    "arm": "left",
+    "start_frame": 215,
+    "end_frame": 293,
+    "stages": {
+      "place_aim": [
+        215,
+        252
+      ],
+      "place_approach": [
+        253,
+        260
+      ],
+      "place_settle": [
+        261,
+        268
+      ],
+      "place_release": [
+        269,
+        279
+      ],
+      "place_retreat": [
+        280,
+        293
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 79,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1454,
+    "arm": "right",
+    "start_frame": 232,
+    "end_frame": 306,
+    "stages": {
+      "place_aim": [
+        232,
+        264
+      ],
+      "place_approach": [
+        265,
+        272
+      ],
+      "place_settle": [
+        273,
+        280
+      ],
+      "place_release": [
+        281,
+        291
+      ],
+      "place_retreat": [
+        292,
+        306
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 75,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1455,
+    "arm": "right",
+    "start_frame": 222,
+    "end_frame": 309,
+    "stages": {
+      "place_aim": [
+        222,
+        268
+      ],
+      "place_approach": [
+        269,
+        275
+      ],
+      "place_settle": [
+        276,
+        283
+      ],
+      "place_release": [
+        284,
+        294
+      ],
+      "place_retreat": [
+        295,
+        309
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 88,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1456,
+    "arm": "right",
+    "start_frame": 216,
+    "end_frame": 285,
+    "stages": {
+      "place_aim": [
+        216,
+        244
+      ],
+      "place_approach": [
+        245,
+        251
+      ],
+      "place_settle": [
+        252,
+        259
+      ],
+      "place_release": [
+        260,
+        270
+      ],
+      "place_retreat": [
+        271,
+        285
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 70,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1457,
+    "arm": "left",
+    "start_frame": 237,
+    "end_frame": 308,
+    "stages": {
+      "place_aim": [
+        237,
+        268
+      ],
+      "place_approach": [
+        269,
+        276
+      ],
+      "place_settle": [
+        277,
+        283
+      ],
+      "place_release": [
+        284,
+        294
+      ],
+      "place_retreat": [
+        295,
+        308
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 72,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1458,
+    "arm": "left",
+    "start_frame": 237,
+    "end_frame": 311,
+    "stages": {
+      "place_aim": [
+        237,
+        270
+      ],
+      "place_approach": [
+        271,
+        277
+      ],
+      "place_settle": [
+        278,
+        285
+      ],
+      "place_release": [
+        286,
+        296
+      ],
+      "place_retreat": [
+        297,
+        311
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 75,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1459,
+    "arm": "right",
+    "start_frame": 234,
+    "end_frame": 302,
+    "stages": {
+      "place_aim": [
+        234,
+        261
+      ],
+      "place_approach": [
+        262,
+        268
+      ],
+      "place_settle": [
+        269,
+        276
+      ],
+      "place_release": [
+        277,
+        287
+      ],
+      "place_retreat": [
+        288,
+        302
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 69,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1460,
+    "arm": "left",
+    "start_frame": 240,
+    "end_frame": 318,
+    "stages": {
+      "place_aim": [
+        240,
+        277
+      ],
+      "place_approach": [
+        278,
+        285
+      ],
+      "place_settle": [
+        286,
+        292
+      ],
+      "place_release": [
+        293,
+        303
+      ],
+      "place_retreat": [
+        304,
+        318
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 79,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1461,
+    "arm": "left",
+    "start_frame": 230,
+    "end_frame": 303,
+    "stages": {
+      "place_aim": [
+        230,
+        262
+      ],
+      "place_approach": [
+        263,
+        270
+      ],
+      "place_settle": [
+        271,
+        277
+      ],
+      "place_release": [
+        278,
+        288
+      ],
+      "place_retreat": [
+        289,
+        303
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 74,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1462,
+    "arm": "left",
+    "start_frame": 218,
+    "end_frame": 285,
+    "stages": {
+      "place_aim": [
+        218,
+        243
+      ],
+      "place_approach": [
+        244,
+        251
+      ],
+      "place_settle": [
+        252,
+        259
+      ],
+      "place_release": [
+        260,
+        270
+      ],
+      "place_retreat": [
+        271,
+        285
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 68,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1463,
+    "arm": "right",
+    "start_frame": 214,
+    "end_frame": 286,
+    "stages": {
+      "place_aim": [
+        214,
+        245
+      ],
+      "place_approach": [
+        246,
+        252
+      ],
+      "place_settle": [
+        253,
+        260
+      ],
+      "place_release": [
+        261,
+        271
+      ],
+      "place_retreat": [
+        272,
+        286
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 73,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1464,
+    "arm": "left",
+    "start_frame": 261,
+    "end_frame": 340,
+    "stages": {
+      "place_aim": [
+        261,
+        300
+      ],
+      "place_approach": [
+        301,
+        307
+      ],
+      "place_settle": [
+        308,
+        315
+      ],
+      "place_release": [
+        316,
+        326
+      ],
+      "place_retreat": [
+        327,
+        340
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 80,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1465,
+    "arm": "right",
+    "start_frame": 236,
+    "end_frame": 301,
+    "stages": {
+      "place_aim": [
+        236,
+        260
+      ],
+      "place_approach": [
+        261,
+        267
+      ],
+      "place_settle": [
+        268,
+        275
+      ],
+      "place_release": [
+        276,
+        286
+      ],
+      "place_retreat": [
+        287,
+        301
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 66,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1466,
+    "arm": "right",
+    "start_frame": 235,
+    "end_frame": 306,
+    "stages": {
+      "place_aim": [
+        235,
+        266
+      ],
+      "place_approach": [
+        267,
+        273
+      ],
+      "place_settle": [
+        274,
+        281
+      ],
+      "place_release": [
+        282,
+        292
+      ],
+      "place_retreat": [
+        293,
+        306
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 72,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1467,
+    "arm": "right",
+    "start_frame": 218,
+    "end_frame": 293,
+    "stages": {
+      "place_aim": [
+        218,
+        252
+      ],
+      "place_approach": [
+        253,
+        260
+      ],
+      "place_settle": [
+        261,
+        267
+      ],
+      "place_release": [
+        268,
+        278
+      ],
+      "place_retreat": [
+        279,
+        293
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 76,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1468,
+    "arm": "right",
+    "start_frame": 219,
+    "end_frame": 305,
+    "stages": {
+      "place_aim": [
+        219,
+        265
+      ],
+      "place_approach": [
+        266,
+        272
+      ],
+      "place_settle": [
+        273,
+        280
+      ],
+      "place_release": [
+        281,
+        291
+      ],
+      "place_retreat": [
+        292,
+        305
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 87,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1469,
+    "arm": "right",
+    "start_frame": 214,
+    "end_frame": 280,
+    "stages": {
+      "place_aim": [
+        214,
+        240
+      ],
+      "place_approach": [
+        241,
+        248
+      ],
+      "place_settle": [
+        249,
+        255
+      ],
+      "place_release": [
+        256,
+        266
+      ],
+      "place_retreat": [
+        267,
+        280
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 67,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1470,
+    "arm": "right",
+    "start_frame": 238,
+    "end_frame": 309,
+    "stages": {
+      "place_aim": [
+        238,
+        269
+      ],
+      "place_approach": [
+        270,
+        276
+      ],
+      "place_settle": [
+        277,
+        284
+      ],
+      "place_release": [
+        285,
+        295
+      ],
+      "place_retreat": [
+        296,
+        309
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 72,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1471,
+    "arm": "left",
+    "start_frame": 233,
+    "end_frame": 305,
+    "stages": {
+      "place_aim": [
+        233,
+        265
+      ],
+      "place_approach": [
+        266,
+        272
+      ],
+      "place_settle": [
+        273,
+        280
+      ],
+      "place_release": [
+        281,
+        291
+      ],
+      "place_retreat": [
+        292,
+        305
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 73,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1472,
+    "arm": "right",
+    "start_frame": 235,
+    "end_frame": 307,
+    "stages": {
+      "place_aim": [
+        235,
+        266
+      ],
+      "place_approach": [
+        267,
+        273
+      ],
+      "place_settle": [
+        274,
+        281
+      ],
+      "place_release": [
+        282,
+        292
+      ],
+      "place_retreat": [
+        293,
+        307
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 73,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1473,
+    "arm": "left",
+    "start_frame": 229,
+    "end_frame": 300,
+    "stages": {
+      "place_aim": [
+        229,
+        260
+      ],
+      "place_approach": [
+        261,
+        267
+      ],
+      "place_settle": [
+        268,
+        275
+      ],
+      "place_release": [
+        276,
+        286
+      ],
+      "place_retreat": [
+        287,
+        300
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 72,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1474,
+    "arm": "right",
+    "start_frame": 219,
+    "end_frame": 290,
+    "stages": {
+      "place_aim": [
+        219,
+        249
+      ],
+      "place_approach": [
+        250,
+        256
+      ],
+      "place_settle": [
+        257,
+        264
+      ],
+      "place_release": [
+        265,
+        275
+      ],
+      "place_retreat": [
+        276,
+        290
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 72,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1475,
+    "arm": "left",
+    "start_frame": 237,
+    "end_frame": 310,
+    "stages": {
+      "place_aim": [
+        237,
+        269
+      ],
+      "place_approach": [
+        270,
+        277
+      ],
+      "place_settle": [
+        278,
+        284
+      ],
+      "place_release": [
+        285,
+        295
+      ],
+      "place_retreat": [
+        296,
+        310
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 74,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1476,
+    "arm": "right",
+    "start_frame": 229,
+    "end_frame": 296,
+    "stages": {
+      "place_aim": [
+        229,
+        256
+      ],
+      "place_approach": [
+        257,
+        263
+      ],
+      "place_settle": [
+        264,
+        271
+      ],
+      "place_release": [
+        272,
+        282
+      ],
+      "place_retreat": [
+        283,
+        296
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 68,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1477,
+    "arm": "right",
+    "start_frame": 248,
+    "end_frame": 329,
+    "stages": {
+      "place_aim": [
+        248,
+        289
+      ],
+      "place_approach": [
+        290,
+        297
+      ],
+      "place_settle": [
+        298,
+        304
+      ],
+      "place_release": [
+        305,
+        315
+      ],
+      "place_retreat": [
+        316,
+        329
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 82,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1478,
+    "arm": "right",
+    "start_frame": 215,
+    "end_frame": 288,
+    "stages": {
+      "place_aim": [
+        215,
+        246
+      ],
+      "place_approach": [
+        247,
+        254
+      ],
+      "place_settle": [
+        255,
+        262
+      ],
+      "place_release": [
+        263,
+        273
+      ],
+      "place_retreat": [
+        274,
+        288
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 74,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1479,
+    "arm": "right",
+    "start_frame": 219,
+    "end_frame": 301,
+    "stages": {
+      "place_aim": [
+        219,
+        261
+      ],
+      "place_approach": [
+        262,
+        268
+      ],
+      "place_settle": [
+        269,
+        276
+      ],
+      "place_release": [
+        277,
+        287
+      ],
+      "place_retreat": [
+        288,
+        301
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 83,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1480,
+    "arm": "left",
+    "start_frame": 237,
+    "end_frame": 309,
+    "stages": {
+      "place_aim": [
+        237,
+        268
+      ],
+      "place_approach": [
+        269,
+        275
+      ],
+      "place_settle": [
+        276,
+        283
+      ],
+      "place_release": [
+        284,
+        294
+      ],
+      "place_retreat": [
+        295,
+        309
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 73,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1481,
+    "arm": "right",
+    "start_frame": 228,
+    "end_frame": 295,
+    "stages": {
+      "place_aim": [
+        228,
+        254
+      ],
+      "place_approach": [
+        255,
+        262
+      ],
+      "place_settle": [
+        263,
+        269
+      ],
+      "place_release": [
+        270,
+        280
+      ],
+      "place_retreat": [
+        281,
+        295
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 68,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1482,
+    "arm": "right",
+    "start_frame": 244,
+    "end_frame": 323,
+    "stages": {
+      "place_aim": [
+        244,
+        283
+      ],
+      "place_approach": [
+        284,
+        290
+      ],
+      "place_settle": [
+        291,
+        298
+      ],
+      "place_release": [
+        299,
+        309
+      ],
+      "place_retreat": [
+        310,
+        323
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 80,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1483,
+    "arm": "right",
+    "start_frame": 229,
+    "end_frame": 295,
+    "stages": {
+      "place_aim": [
+        229,
+        254
+      ],
+      "place_approach": [
+        255,
+        261
+      ],
+      "place_settle": [
+        262,
+        269
+      ],
+      "place_release": [
+        270,
+        280
+      ],
+      "place_retreat": [
+        281,
+        295
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 67,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1484,
+    "arm": "right",
+    "start_frame": 240,
+    "end_frame": 320,
+    "stages": {
+      "place_aim": [
+        240,
+        280
+      ],
+      "place_approach": [
+        281,
+        288
+      ],
+      "place_settle": [
+        289,
+        295
+      ],
+      "place_release": [
+        296,
+        306
+      ],
+      "place_retreat": [
+        307,
+        320
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 81,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1485,
+    "arm": "left",
+    "start_frame": 231,
+    "end_frame": 297,
+    "stages": {
+      "place_aim": [
+        231,
+        256
+      ],
+      "place_approach": [
+        257,
+        264
+      ],
+      "place_settle": [
+        265,
+        272
+      ],
+      "place_release": [
+        273,
+        283
+      ],
+      "place_retreat": [
+        284,
+        297
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 67,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1486,
+    "arm": "left",
+    "start_frame": 230,
+    "end_frame": 302,
+    "stages": {
+      "place_aim": [
+        230,
+        261
+      ],
+      "place_approach": [
+        262,
+        268
+      ],
+      "place_settle": [
+        269,
+        276
+      ],
+      "place_release": [
+        277,
+        287
+      ],
+      "place_retreat": [
+        288,
+        302
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 73,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1487,
+    "arm": "right",
+    "start_frame": 236,
+    "end_frame": 307,
+    "stages": {
+      "place_aim": [
+        236,
+        267
+      ],
+      "place_approach": [
+        268,
+        274
+      ],
+      "place_settle": [
+        275,
+        282
+      ],
+      "place_release": [
+        283,
+        293
+      ],
+      "place_retreat": [
+        294,
+        307
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 72,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1488,
+    "arm": "left",
+    "start_frame": 232,
+    "end_frame": 307,
+    "stages": {
+      "place_aim": [
+        232,
+        267
+      ],
+      "place_approach": [
+        268,
+        274
+      ],
+      "place_settle": [
+        275,
+        282
+      ],
+      "place_release": [
+        283,
+        293
+      ],
+      "place_retreat": [
+        294,
+        307
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 76,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1489,
+    "arm": "right",
+    "start_frame": 229,
+    "end_frame": 308,
+    "stages": {
+      "place_aim": [
+        229,
+        266
+      ],
+      "place_approach": [
+        267,
+        274
+      ],
+      "place_settle": [
+        275,
+        282
+      ],
+      "place_release": [
+        283,
+        293
+      ],
+      "place_retreat": [
+        294,
+        308
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 80,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1490,
+    "arm": "right",
+    "start_frame": 236,
+    "end_frame": 302,
+    "stages": {
+      "place_aim": [
+        236,
+        261
+      ],
+      "place_approach": [
+        262,
+        268
+      ],
+      "place_settle": [
+        269,
+        276
+      ],
+      "place_release": [
+        277,
+        287
+      ],
+      "place_retreat": [
+        288,
+        302
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 67,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1491,
+    "arm": "right",
+    "start_frame": 243,
+    "end_frame": 318,
+    "stages": {
+      "place_aim": [
+        243,
+        278
+      ],
+      "place_approach": [
+        279,
+        286
+      ],
+      "place_settle": [
+        287,
+        293
+      ],
+      "place_release": [
+        294,
+        304
+      ],
+      "place_retreat": [
+        305,
+        318
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 76,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1492,
+    "arm": "left",
+    "start_frame": 225,
+    "end_frame": 302,
+    "stages": {
+      "place_aim": [
+        225,
+        262
+      ],
+      "place_approach": [
+        263,
+        270
+      ],
+      "place_settle": [
+        271,
+        277
+      ],
+      "place_release": [
+        278,
+        288
+      ],
+      "place_retreat": [
+        289,
+        302
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 78,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1493,
+    "arm": "right",
+    "start_frame": 216,
+    "end_frame": 303,
+    "stages": {
+      "place_aim": [
+        216,
+        263
+      ],
+      "place_approach": [
+        264,
+        271
+      ],
+      "place_settle": [
+        272,
+        278
+      ],
+      "place_release": [
+        279,
+        289
+      ],
+      "place_retreat": [
+        290,
+        303
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 88,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1494,
+    "arm": "right",
+    "start_frame": 230,
+    "end_frame": 313,
+    "stages": {
+      "place_aim": [
+        230,
+        272
+      ],
+      "place_approach": [
+        273,
+        279
+      ],
+      "place_settle": [
+        280,
+        287
+      ],
+      "place_release": [
+        288,
+        298
+      ],
+      "place_retreat": [
+        299,
+        313
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 84,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1495,
+    "arm": "left",
+    "start_frame": 235,
+    "end_frame": 304,
+    "stages": {
+      "place_aim": [
+        235,
+        262
+      ],
+      "place_approach": [
+        263,
+        270
+      ],
+      "place_settle": [
+        271,
+        278
+      ],
+      "place_release": [
+        279,
+        289
+      ],
+      "place_retreat": [
+        290,
+        304
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 70,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1496,
+    "arm": "right",
+    "start_frame": 244,
+    "end_frame": 321,
+    "stages": {
+      "place_aim": [
+        244,
+        281
+      ],
+      "place_approach": [
+        282,
+        288
+      ],
+      "place_settle": [
+        289,
+        296
+      ],
+      "place_release": [
+        297,
+        307
+      ],
+      "place_retreat": [
+        308,
+        321
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 78,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1497,
+    "arm": "right",
+    "start_frame": 231,
+    "end_frame": 300,
+    "stages": {
+      "place_aim": [
+        231,
+        259
+      ],
+      "place_approach": [
+        260,
+        267
+      ],
+      "place_settle": [
+        268,
+        274
+      ],
+      "place_release": [
+        275,
+        285
+      ],
+      "place_retreat": [
+        286,
+        300
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 70,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1498,
+    "arm": "right",
+    "start_frame": 235,
+    "end_frame": 309,
+    "stages": {
+      "place_aim": [
+        235,
+        268
+      ],
+      "place_approach": [
+        269,
+        275
+      ],
+      "place_settle": [
+        276,
+        283
+      ],
+      "place_release": [
+        284,
+        294
+      ],
+      "place_retreat": [
+        295,
+        309
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 75,
+    "future_action_cross_boundary_anchors": 49
+  },
+  {
+    "kind": "second_bowl_place",
+    "episode_index": 1499,
+    "arm": "left",
+    "start_frame": 248,
+    "end_frame": 328,
+    "stages": {
+      "place_aim": [
+        248,
+        287
+      ],
+      "place_approach": [
+        288,
+        294
+      ],
+      "place_settle": [
+        295,
+        302
+      ],
+      "place_release": [
+        303,
+        313
+      ],
+      "place_retreat": [
+        314,
+        328
+      ]
+    },
+    "placement_ordinal": 2,
+    "endpoint": "release_complete_and_3cm_retreat",
+    "frame_count": 81,
+    "future_action_cross_boundary_anchors": 49
+  }
+]

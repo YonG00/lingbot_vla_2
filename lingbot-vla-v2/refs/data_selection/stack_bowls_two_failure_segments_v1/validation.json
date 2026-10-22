@@ -1,0 +1,20 @@
+{
+  "all_segments_contiguous": true,
+  "within_episode": true,
+  "duplicate_union_coordinates": false,
+  "overlapping_kind_frames": 63,
+  "selected_count": 4361,
+  "far_left_episodes": [
+    1453,
+    1458,
+    1460,
+    1464,
+    1492,
+    1499
+  ],
+  "numeric_source_sha256": "917cde35b9391a8d6ef062b4c2be421cac2a5f0066db741638977f72b5f51e0f",
+  "spec_sha256": "8700b7012a5f03ab822c3c8202d1f73f4f9dd685f534e82d4f098ea83a587209",
+  "selected_sha256": "40542fdebc73c2b1c88392e4aefd3d5050a468b0d358c0012d1f40f614699ce1",
+  "cpu_contract_tests": 3,
+  "training_started": false
+}

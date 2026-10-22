@@ -22,6 +22,7 @@ def worker(raw,launch):
     def run(command,log):
         env=dict(os.environ,PYTHONPATH=str(ROOT),CUDA_VISIBLE_DEVICES='0',HF_HUB_OFFLINE='1',HF_DATASETS_OFFLINE='1',TRANSFORMERS_OFFLINE='1',
             AL_DYNAMO_CACHE_SIZE_LIMIT='0',LOCAL_RANK='0',RANK='0',WORLD_SIZE='1',MASTER_ADDR='127.0.0.1',MASTER_PORT='29556',PYTHONUNBUFFERED='1')
+        if (out/'sample_weight_registry.json').exists():env['LINGBOT_SAMPLE_WEIGHT_CONFIG']=str(out/'sample_weight_registry.json')
         if (out/'trainer_config.json').exists():env['QWEN3VL_PATH']=json.loads((out/'trainer_config.json').read_text())['model']['tokenizer_path']
         for k in ['LINGBOT_PRECISION_AUDIT','LINGBOTVLA_TRAINING_CONFIG','AL_VLM_ATTENTION']:env.pop(k,None)
         with log.open('x') as stream:
@@ -47,6 +48,9 @@ def worker(raw,launch):
         report=json.loads((out/'plan.json').read_text())
         verified=[verify_checkpoint(out/f'checkpoints/global_step_{step}/hf_ckpt') for step in report['hf_steps']]
         (out/'verified_checkpoints.json').write_text(json.dumps(verified,indent=2))
+        from experiment.data_selection.inheritance import freeze_registry
+        for step in report['hf_steps']:
+            freeze_registry(out,out/f'checkpoints/global_step_{step}/hf_ckpt')
         results=[]
         for step in report['evaluation_steps']:
             if not c['evaluation']['tasks']:continue

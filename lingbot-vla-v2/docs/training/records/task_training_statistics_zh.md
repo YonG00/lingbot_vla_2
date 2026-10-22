@@ -273,3 +273,25 @@ R17分组混合为未启动计划，不新增已完成累计。25任务分组、
 |stack_bowls_two|200|10080|1120|0/3，OIDN错误0，3份视频完整|无|
 
 来源为第三轮补课step160；独立实验结果不覆盖生产基线累计统计。筛选阶段FM/Depth/Future Depth/Video×2，按原样本数归约。
+
+### 2026-10-22 夹碗独立实验分支更新
+
+|实验|来源|stack_bowls_two实际新增步数|最终闭环|备注|
+|---|---|---:|---|---|
+|20261022_2006 calibration30_weight3|recovery3-step160|200|0/3|OIDN错误0，3视频；独立实验|
+|20261022_2045 sample3_loss3|recovery3-step160|200|0/3|OIDN错误0，3视频；独立实验|
+|20261022_2120 target90_far1_place2_loss2|recovery3-step160|待完成（计划200）|待测|远抓30%/放置60%/同任务其余10%，目标loss2倍|
+
+以上各实验均从recovery3-step160分叉，不将不同实验的200步相加为模型累计训练量。
+
+### 2026-10-22 训练来源纠正
+
+用户明确本次起点为 `20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt`，而非 recovery3-step160。`20261022_2120_bowls200_from_recovery3_s160_bf16_m56_target90_far1_place2_loss2` 来源错误；实际已完成200步、最终0/3、OIDN错误0，不作为用户请求的续训结果，不计入正确来源模型继承链。原日志、视频和模型未删除。
+
+正确配方 `configs/training_recipes/stack_bowls200_from_weight2_s200_target90_far1_place2_loss2.json` 已上传并重新启动流水线：来自第一版step200，再训200；目标池90%内远左抓:第二放置=1:2，同任务其他帧10%，目标loss2倍；GBS56/GAS1，仅保存最终200，最终3回合且全部录像。状态以新run实际记录为准。
+
+### 2026-10-22 用户将左远抓门槛改为18cm
+
+25cm/6段版本 `20261022_2149_bowls200_from_weight2_s200_bf16_m56_target90_far1_place2_loss2` 在实际76/200步停止，进程及后代已终止，未完成最终测评；不将这76步并入新模型继承链。用户选择≥18cm，重新筛得14段左远抓1506帧，第二放置仍50段3743帧，联合去重5135/15609帧（32.90%）。
+
+新配方 `configs/training_recipes/stack_bowls200_from_weight2_s200_far18cm_target90_loss2.json` 继续从第一版weight2sample-step200重新开始，不继承被停76步权重。30%左远抓/60%第二放置/10%同任务非目标帧，目标loss2倍；200步，GBS56/GAS1，只存最终200，最后三回合全录像。新流水线已启动，实际CPU/GPU/正式步数后续取证。
