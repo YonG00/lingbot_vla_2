@@ -108,7 +108,7 @@ def _validate(raw):
         cp.setdefault('every_tasks',1);integer(cp['every_tasks'],'every_tasks')
     else:raise ValueError('checkpoint mode must be steps or task')
     if cp['save_final'] is not True or cp['hf_dtype']!='bf16':raise ValueError('v1 requires final BF16 HF; no silent precision/save change')
-    e=c['evaluation'];keys(e,['tasks','episodes_per_task','checkpoints','shared_model_session','max_parallel_tasks','scheduling','video_episodes','render_sync','reuse_training_model'],'evaluation')
+    e=c['evaluation'];keys(e,['tasks','episodes_per_task','checkpoints','shared_model_session','max_parallel_tasks','scheduling','video_episodes','render_sync','reuse_training_model','single_task_episode_workers','single_task_episode_seeds'],'evaluation')
     e.setdefault('tasks',list(t.get('task_order',main)))
     if not isinstance(e['tasks'],list) or len(e['tasks'])!=len(set(e['tasks'])):raise ValueError('evaluation tasks must be unique list')
     for name in e['tasks']:
@@ -118,10 +118,16 @@ def _validate(raw):
     e.setdefault('max_parallel_tasks',1)
     if type(e['max_parallel_tasks']) is not int or not 1<=e['max_parallel_tasks']<=8:
         raise ValueError('max_parallel_tasks must be an integer from 1 to 8')
+    ew=e.get('single_task_episode_workers',1)
+    if type(ew)is not int or not 1<=ew<=8:raise ValueError('single_task_episode_workers must be 1..8')
+    if len(e['tasks'])==1 and ew>1 and not e['shared_model_session']:raise ValueError('episode parallel requires shared model')
+    if 'single_task_episode_seeds' in e:
+        seeds=e['single_task_episode_seeds']
+        if len(e['tasks'])!=1 or ew<=1 or not isinstance(seeds,list) or len(seeds)!=e['episodes_per_task'] or any(type(s)is not int or s<0 for s in seeds) or len(set(seeds))!=len(seeds):raise ValueError('explicit episode seeds require single task episode parallel and unique valid seeds')
     if e['max_parallel_tasks']>1 and not e['shared_model_session']:
         raise ValueError('parallel evaluation requires shared_model_session')
     if e.get('scheduling','batches') not in ['batches','rolling']:raise ValueError('invalid evaluation scheduling')
-    if e.get('scheduling')=='rolling' and (e['max_parallel_tasks']<=1 or not e['shared_model_session']):
+    if e.get('scheduling')=='rolling' and (max(e['max_parallel_tasks'],ew if len(e['tasks'])==1 else 1)<=1 or not e['shared_model_session']):
         raise ValueError('rolling requires parallel shared evaluation')
     from experiment.official_control.recording import video_count
     video_count(e['episodes_per_task'],e.get('video_episodes'))

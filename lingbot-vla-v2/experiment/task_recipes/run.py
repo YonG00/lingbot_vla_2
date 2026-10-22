@@ -61,17 +61,15 @@ def worker(raw,launch):
                 results.extend(read_completed(directory,c,step))
                 continue
             directory.mkdir(exist_ok=False)
-            cfg=json.loads((out/'trainer_config.json').read_text());jobs=[]
-            for task in c['evaluation']['tasks']:
-                jobs.append(dict(task=task,label=f'recipe_{step}',model=str(out/f'checkpoints/global_step_{step}/hf_ckpt'),
-                    destination=str(directory/task),episodes=c['evaluation']['episodes_per_task'],require_baseline=False,
-                    robotwin=str(ROOT.parent/'RoboTwin-lingbot'),qwen=cfg['model']['tokenizer_path'],sim_python='/data/miniconda3/envs/RoboTwin/bin/python'))
-                if 'video_episodes' in c['evaluation']:jobs[-1]['video_episodes']=c['evaluation']['video_episodes']
-                if 'render_sync' in c['evaluation']:jobs[-1]['render_sync']=c['evaluation']['render_sync']
+            cfg=json.loads((out/'trainer_config.json').read_text())
+            from experiment.task_recipes.resident_evaluation import jobs_for
+            from experiment.official_control.episode_parallel import workers_for
+            jobs=jobs_for(c,out,step,cfg)
+            workers=workers_for(c['evaluation'])
             if c['evaluation']['shared_model_session']:
-                if c['evaluation']['max_parallel_tasks']>1:
+                if workers>1 or any('episode_index' in job for job in jobs):
                     from experiment.official_control.parallel_evaluation import run_jobs
-                    run_jobs(jobs,directory,c['evaluation']['max_parallel_tasks'],scheduling=c['evaluation'].get('scheduling','batches'))
+                    run_jobs(jobs,directory,workers,scheduling=c['evaluation'].get('scheduling','batches'))
                 else:
                     from experiment.official_control.shared_evaluation import run_jobs
                     run_jobs(jobs,directory)

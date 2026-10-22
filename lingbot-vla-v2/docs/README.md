@@ -75,3 +75,5 @@
 - [夹碗约30%阶段均匀校准V3](training/recipes/stack_bowls_calibration30_v3_zh.md)
 
 - [夹碗失败目标完整片段：左手远抓与第二碗放置](training/recipes/stack_bowls_failure_segments_v1_zh.md)
+
+- [单任务多回合并行闭环评测](training/recipes/single_task_episode_parallel_zh.md)

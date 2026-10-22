@@ -96,7 +96,8 @@ def jobs_for(c,out,step,cfg):
         for key in ['video_episodes','render_sync']:
             if key in c['evaluation']:j[key]=c['evaluation'][key]
         jobs.append(j)
-    return jobs
+    from experiment.official_control.episode_parallel import split_jobs
+    return split_jobs(jobs,c['evaluation'])
 
 
 def read_completed(directory,c,step):
@@ -144,7 +145,8 @@ def evaluate_resident(model,step,out):
     directory=out/f'evaluation_{step}';directory.mkdir(exist_ok=False)
     policy=make_policy(model,cfg)
     jobs=jobs_for(c,out,step,cfg)
-    serve_policy(policy,jobs,directory,c['evaluation']['max_parallel_tasks'],c['evaluation'].get('scheduling','batches'))
+    from experiment.official_control.episode_parallel import workers_for
+    serve_policy(policy,jobs,directory,workers_for(c['evaluation']),c['evaluation'].get('scheduling','batches'))
 
 
 def serve_policy(policy,jobs,directory,workers,scheduling='batches'):

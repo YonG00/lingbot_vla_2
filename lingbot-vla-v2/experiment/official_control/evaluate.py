@@ -79,6 +79,11 @@ def execute(job, shared=None):
                        '--output_dir', str(destination / 'results'), '--test_num', str(episodes)]
         if job.get('video_episodes') is not None:
             sim_command.extend(['--global_view_episodes',str(job['video_episodes'])])
+        if 'scene_seed' in job:
+            if episodes!=1 or job.get('expected_seeds')!=[job['scene_seed']]:raise ValueError('episode seed contract')
+            env['LINGBOT_EPISODE_SCENE_SEED']=str(job['scene_seed'])
+            env['LINGBOT_DESCRIPTION_EPISODE_COUNT']=str(job['description_episode_count'])
+            env['LINGBOT_EPISODE_INDEX']=str(job['episode_index'])
         if 'render_sync' in job:sim_command.extend(['--render_sync',job['render_sync']])
         (destination / 'commands.json').write_text(json.dumps(dict(server=server_command, simulation=sim_command), indent=2))
         state('starting')
@@ -134,6 +139,7 @@ def execute(job, shared=None):
         summary = dict(state='complete', task=task, label=job['label'], model=job['model'],
                        successes=int(rates[-1][0]), episodes=episodes, success_rate=rate, seeds=seeds,
                        oidn_errors=0, client_sha256=client_hash, dtype='float32', action_chunk=50,recorded_episodes=expected_videos)
+        if 'job_id' in job:summary.update(job_id=job['job_id'],episode_index=job['episode_index'],scene_seed=job['scene_seed'])
         if shared is not None:
             summary.update(server_pid=shared['process'].pid, shared_server=True)
         (destination / 'summary.json').write_text(json.dumps(summary, indent=2))
@@ -205,7 +211,12 @@ if __name__ == '__main__':
             from experiment.official_control.render_sync import install_policy_trace
             install_policy_trace(WebsocketClientPolicy,os.environ['LINGBOT_POLICY_TRACE'])
         sys.argv = [str(robo / 'script/eval_policy_client_lingbotvla.py')] + sys.argv[3:]
-        runpy.run_path(sys.argv[0], run_name='__main__')
+        if os.environ.get('LINGBOT_EPISODE_SCENE_SEED') is None:
+            runpy.run_path(sys.argv[0], run_name='__main__')
+        else:
+            from experiment.official_control.episode_parallel import compile_episode_client
+            code=compile_episode_client(Path(sys.argv[0]).read_text(),sys.argv[0],int(os.environ['LINGBOT_EPISODE_SCENE_SEED']),int(os.environ['LINGBOT_DESCRIPTION_EPISODE_COUNT']),int(os.environ['LINGBOT_EPISODE_INDEX']))
+            exec(code,dict(__name__='__main__',__file__=sys.argv[0]))
     elif len(sys.argv) == 3 and sys.argv[1] == '--job':
         raise SystemExit(execute(json.loads(Path(sys.argv[2]).read_text())))
     else:

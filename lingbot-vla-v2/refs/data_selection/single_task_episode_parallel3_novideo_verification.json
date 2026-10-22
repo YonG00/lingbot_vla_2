@@ -1,0 +1,50 @@
+{
+  "state": "complete",
+  "seeds": [
+    100000,
+    100001,
+    100002
+  ],
+  "successes": 1,
+  "episodes": 3,
+  "serial_successes": 0,
+  "per_seed_outcomes_match": false,
+  "serial_outcomes": [
+    [
+      100000,
+      0
+    ],
+    [
+      100001,
+      0
+    ],
+    [
+      100002,
+      0
+    ]
+  ],
+  "parallel_outcomes": [
+    [
+      100000,
+      0
+    ],
+    [
+      100001,
+      0
+    ],
+    [
+      100002,
+      1
+    ]
+  ],
+  "one_model_load": true,
+  "server_pid": 26162,
+  "overlap_three_simulators": true,
+  "recorded_episodes": 0,
+  "oidn_errors": 0,
+  "peak_gpu_mib": 43218.0,
+  "elapsed_seconds": 174.70671767368913,
+  "simulator_window_seconds": 116.59731960296631,
+  "timing_comparison": "prior serial recorded videos; timing is not a controlled speedup comparison",
+  "directory": "/root/autodl-tmp/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/episode_parallel3_novideo_20261022_224804"
+}
