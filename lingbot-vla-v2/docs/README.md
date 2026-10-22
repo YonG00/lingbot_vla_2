@@ -1,5 +1,7 @@
 # docs/ 索引 —— 按功能分区
 
+新同事复现基线：[三阶段环境、硬件、启动与预算说明](training/reproduction/three_stage_baseline_zh.md)。
+
 > **本目录分两层**（2026-10-11 整理）：
 > ① **官方原有文档**（`open_loop_*`、`phase*_guide`、`single_task_train_guide`、`task_split_guide`、
 > `norm_stats_guide`、`episode_filter_guide`、`eval_step_limit_guide`、`multi_ckpt_eval_guide`、

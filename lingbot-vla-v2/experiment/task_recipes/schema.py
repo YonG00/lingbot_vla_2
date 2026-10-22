@@ -60,7 +60,11 @@ def _validate(raw):
         if any(v['weight']!=1 for v in main.values()):raise ValueError('grouped mode requires equal task weights')
     elif any(key in t for key in ['tasks_per_group','steps_per_group']):raise ValueError('group settings require grouped mode')
     r=t.setdefault('replay',dict(fraction=0,tasks={}))
-    keys(r,['fraction','tasks','mode','switch_every_steps','pool_file','pool_snapshot','tasks_per_step'],'replay')
+    keys(r,['fraction','tasks','mode','switch_every_steps','pool_file','pool_snapshot','tasks_per_step','completed_only'],'replay')
+    if 'completed_only' in r:
+        if type(r['completed_only']) is not bool:raise ValueError('completed_only must be boolean')
+        if r['completed_only'] and (t['mode']!='sequential' or r.get('mode')!='round_robin' or r.get('tasks_per_step',1)!=1):
+            raise ValueError('completed_only requires sequential single-task round_robin replay')
     r.setdefault('mode','sample')
     if r['mode'] not in ['sample','round_robin']:raise ValueError('invalid replay mode')
     if r['mode']=='round_robin':

@@ -1,0 +1,14 @@
+{
+  "state": "complete_without_final_evaluation",
+  "training_complete": true,
+  "confirmed_optimizer_steps": 160,
+  "checkpoints": [
+    {
+      "path": "/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    }
+  ],
+  "evaluation": [],
+  "evaluation_skipped_by_user": true
+}

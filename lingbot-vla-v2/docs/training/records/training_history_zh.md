@@ -390,3 +390,18 @@ R17正式启动取证：真实CPU装配通过（1250轨迹、250626帧、1000虚
 首批8/15（53.33%），其余20任务未评测，不补零、不冒充25任务整体成绩。第二批有5条调度start事件，但在建立新推理连接/产生完整成绩前已中止，未计入测评结果。结果、完整训练与停止证据见[完成审计](../../../refs/training_records/20261022_R17_completed_first5.json)。
 
 初步判断：adjust3/3、bell3/3、dump2/3保留部分能力；hammer从R16的1/3到0/3、alarm历史9680的4/4到0/3为下降线索。alarm缺R16同任务训前基线，各次种子也不完全相同；不能据此断言本轮混训导致遗忘或整体恢复成功。
+
+
+## R17之后：三轮退步补课与新任务抽检（2026-10-22）
+
+父目录：`/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct`。沿R17-step1000继续，旧规则每退步任务80更新、10%单任务复习每5步切换，GBS56/GAS1/BF16；每轮新优化器。以下均为实际完成，不含被停止的1119预备流程及GPU探针。三轮共400正式更新；新复现基线第三阶段已另改每项100步，不追改这些历史80步。
+
+| 轮次 / run子目录 | 来源 | 实际训练 | 保存 | 后置闭环 |
+|---|---|---|---|---|
+| 1 / `20261022_1128_round_1_recovery` | R17-step1000 | beat_block_hammer80→click_alarmclock80，共160 | 最终160，1708张量BF16 | basket3/3、stand2/3、bread_basket2/3、hanging_mug1/3、a2b_right0/3；8/15 |
+| 2 / `20261022_1150_round_2_recovery` | 第1轮step160 | place_a2b_right80 | 最终80，1708张量BF16 | press_stapler3/3、a2b_left1/3、shoe1/3、empty_cup1/3、microwave1/3；7/15 |
+| 3 / `20261022_1209_round_3_recovery` | 第2轮step80 | place_shoe80→open_microwave80，共160 | 最终160，1708张量BF16 | 用户要求不测；保存校验后结束进程，GPU已释放 |
+
+第1/2轮各五项是不同中间模型的新任务扫描，补过的任务未复测，不能称补课恢复有效。第三轮终态`complete_without_final_evaluation`，不是评测通过。最终模型为父目录/`20261022_1209_round_3_recovery/checkpoints/global_step_160/hf_ckpt`，不自动关机。正式更新首末时间尚未另行归档，不以控制器时间冒充训练耗时。
+
+第1/2轮证据：[完整报告](../../../refs/training_records/20261022_recovery_rounds12_completed.json)；第3轮：[用户跳过评测的保存终态](../../../refs/training_records/20261022_recovery_round3_no_eval.json)。历史最高成绩累计表更新为`refs/training_records/replay_pool_9680_through_recovery_round2.json`，仍25曾成功任务，≥1/3资格仍24。

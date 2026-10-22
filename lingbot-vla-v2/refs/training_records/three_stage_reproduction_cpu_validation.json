@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-22",
+  "local_standard_library_tests_passed": 95,
+  "shell_syntax": "pass",
+  "documentation_links": "pass",
+  "server_tiny_cpu_conversion": {
+    "state": "pass",
+    "tensors": 2,
+    "float": "FP32 to BF16 exact equality",
+    "integers": "unchanged",
+    "source": "unchanged",
+    "gpu_used": false
+  },
+  "full_model_conversion": "not_tested",
+  "reproduction_gpu_training": "not_tested",
+  "full_three_stage_closed_loop": "not_tested"
+}

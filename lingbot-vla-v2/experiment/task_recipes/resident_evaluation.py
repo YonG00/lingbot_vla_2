@@ -92,7 +92,7 @@ def jobs_for(c,out,step,cfg):
         j=dict(task=task,label=f'recipe_{step}',model=str(out/f'checkpoints/global_step_{step}/hf_ckpt'),
             destination=str(directory/task),episodes=c['evaluation']['episodes_per_task'],require_baseline=False,
             robotwin=str(root.parent/'RoboTwin-lingbot'),qwen=cfg['model']['tokenizer_path'],
-            sim_python='/data/miniconda3/envs/RoboTwin/bin/python')
+            sim_python=os.environ.get('LINGBOT_SIM_PYTHON','/data/miniconda3/envs/RoboTwin/bin/python'))
         for key in ['video_episodes','render_sync']:
             if key in c['evaluation']:j[key]=c['evaluation'][key]
         jobs.append(j)

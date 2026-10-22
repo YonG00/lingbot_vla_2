@@ -39,8 +39,15 @@ def build_plan(c):
     replay_order=list(r['tasks']);replay_cursor=0;replay_task=None;replay_used=0
     replay_tasks=[];replay_count=r.get('tasks_per_step',1)
     group_counts=Counter();group_rng=random.Random(t['seed']);group=[]
+    completed=set();previous=None
     for step in range(t['steps']):
+        if r.get('completed_only'):
+            current=ordered[step]
+            if previous is not None and previous!=current:completed.add(previous)
+            previous=current
+            replay_order=[name for name in r['tasks'] if name in completed and name!=current]
         review_n=int((step+1)*batch*fraction)-int(step*batch*fraction)
+        if r.get('completed_only') and not replay_order:review_n=0
         counts=Counter()
         chosen=None
         if t['mode']=='grouped':
@@ -72,7 +79,7 @@ def build_plan(c):
             before=int(step*batch*fraction);after=before+review_n
             replay_counts={task:(after+slot)//replay_count-(before+slot)//replay_count for slot,task in enumerate(replay_tasks)}
             counts.update(replay_counts);replay_used+=1
-        elif r.get('mode','sample')=='round_robin' and fraction>0:
+        elif r.get('mode','sample')=='round_robin' and fraction>0 and not (r.get('completed_only') and not replay_order):
             if replay_task is None or replay_used>=r['switch_every_steps'] or replay_task==chosen:
                 for _ in replay_order:
                     candidate=replay_order[replay_cursor%len(replay_order)];replay_cursor+=1

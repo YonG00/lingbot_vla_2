@@ -97,3 +97,5 @@ R16完成后，累计资格池更新为`refs/training_records/replay_pool_9680_t
 R16后置抽检完成后资格池另存`refs/training_records/replay_pool_9680_through_R16_retention3.json`，三个旧任务均1/3，无新增资格，仍24任务；今后需要最新测评来源时使用此文件，不追改旧训练冻结池。
 
 R17首批5项完整测后，登记表另存`refs/training_records/replay_pool_9680_through_R17_first5.json`。历史≥1/3资格仍24项，曾成功任务仍25项；最新0/3不删除旧资格，后20项没有本轮测评记录。
+
+R17后补课巡检使用`configs/training_recipes/recovery_scout3_from_R17.json`及`experiment/task_recipes/recovery_cycle.py`：以历史最高成功率为参照，退步任务各80更新，加入10%单任务复习、每5更新轮换、排除当前主任务；GBS56实际为50主任务＋6复习（10.7%）。三轮均为补课后抽检5个未补课、未抽检任务，每项3回合、不录像；第三轮抽检发现的退步只登记待处理。补课任务不复测，因此不宣称修复成功。每轮沿用500间隔及最终保存，不足500仅最终；容量不足等待，不删档、不改节奏。

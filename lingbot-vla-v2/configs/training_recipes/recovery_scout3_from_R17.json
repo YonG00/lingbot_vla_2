@@ -1,0 +1,18 @@
+{
+  "output_dir": "/data/outputs/20261022_recovery_scout3_from_R17_replay10pct",
+  "history_file": "refs/training_records/replay_pool_9680_through_R17_first5.json",
+  "initial_report": "refs/training_records/20261022_R17_completed_first5.json",
+  "initial_lessons": [
+    "beat_block_hammer",
+    "click_alarmclock"
+  ],
+  "source_run": "/data/outputs/20261022_0926_restore25_group3_hold3_from_R16_bf16_m56_add1000",
+  "source_step": 1000,
+  "template": "configs/training_recipes/sequential_handover200_bowls200_no_replay_from_R14.json",
+  "max_rounds": 3,
+  "steps_per_task": 80,
+  "seed": 20261022,
+  "review_fraction": 0.1,
+  "review_switch_every_steps": 5,
+  "storage_wait_seconds": 86400
+}

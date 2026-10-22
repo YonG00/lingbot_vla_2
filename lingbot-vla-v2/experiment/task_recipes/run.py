@@ -34,6 +34,8 @@ def worker(raw,launch):
         logs=Path('/root/tf-logs')
         if logs.is_dir():
             name=out.name+'_'+out.parent.name if 'remediation_round_' in out.name else out.name
+            prefix=os.environ.get('LINGBOT_TENSORBOARD_RUN_PREFIX')
+            if prefix:name=prefix+'_'+name
             link=logs/name
             assert not link.exists() and not link.is_symlink(),'TensorBoard link already exists'
             link.symlink_to(out/'runs',target_is_directory=True)
@@ -61,7 +63,7 @@ def worker(raw,launch):
             for task in c['evaluation']['tasks']:
                 jobs.append(dict(task=task,label=f'recipe_{step}',model=str(out/f'checkpoints/global_step_{step}/hf_ckpt'),
                     destination=str(directory/task),episodes=c['evaluation']['episodes_per_task'],require_baseline=False,
-                    robotwin=str(ROOT.parent/'RoboTwin-lingbot'),qwen=cfg['model']['tokenizer_path'],sim_python='/data/miniconda3/envs/RoboTwin/bin/python'))
+                    robotwin=str(ROOT.parent/'RoboTwin-lingbot'),qwen=cfg['model']['tokenizer_path'],sim_python=os.environ.get('LINGBOT_SIM_PYTHON','/data/miniconda3/envs/RoboTwin/bin/python')))
                 if 'video_episodes' in c['evaluation']:jobs[-1]['video_episodes']=c['evaluation']['video_episodes']
                 if 'render_sync' in c['evaluation']:jobs[-1]['render_sync']=c['evaluation']['render_sync']
             if c['evaluation']['shared_model_session']:

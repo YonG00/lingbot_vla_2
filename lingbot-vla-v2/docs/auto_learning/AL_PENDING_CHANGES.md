@@ -456,3 +456,11 @@ BF16最终HF1708张量完整，约11.88GiB；CPU整链、三步GPU dtype/梯度�
 #89上机更新：真实CPU数据装配通过；6步GPU实际日志完整、跨两组三任务，无OOM，allocated77.70GiB/reserved86.04GiB；正式训练至少6/1000。服务器与本地4个修改源码哈希一致，未重置远端工作区。83项本地/服务器纯CPU通过；最终1000步与闭环尚待完成，不冒充效果验收。证据refs/training_records/20261022_R17_started.json。
 
 #89终态：R17完成1000连续更新与两份BF16 HF。用户改为只评首批5项，8/15，驻留PID2841、零重载、5连接94请求；按用户要求停止后续评测，不将后20项记失败。原训练已成功完成，流程stopped_by_user是评测缩减。完成证据refs/training_records/20261022_R17_completed_first5.json，恢复效果仅可对已测5项讨论，未做全25验收。
+
+**#90 历史退步补课与三轮新任务巡检（2026-10-22）：本地/服务器68项配方CPU测试通过；首轮已后台启动，真实CPU预检中，GPU与正式训练尚待确认。** 独立控制器不改变旧remediation规则；首轮hammer/alarm各80，10%单任务复习每5步切换，基于R17-step1000。**不变量**：历史最高成功率精确分数比较、错误不算失败、已补课任务不抽检、最多三轮、无视频、保存间隔500＋最终；容量不足等待。**症状**：按成功次数比较、重复抽检、训练失败仍进入下一轮或无授权删档。**回滚**：不使用recovery_cycle入口，旧配方不受影响。**验证入口**：test_recovery_cycle及运行目录status.json、round_N_completed.json。当前目录/data/outputs/20261022_1119_recovery_scout3_from_R17_replay10pct；仅首轮容量足够，后续清理未授权。
+
+**#91 可移植三阶段基线复现（2026-10-22）：🧪 本地95项标准库CPU契约/回归通过，真实转换及GPU全链未验证，未同步启动。** 新入口`tools/reproduce_baseline.sh`/`experiment/reproduction/run.py`，冻结课程与无服务器路径的训练模板位于`configs/reproduction/`，说明`docs/training/reproduction/three_stage_baseline_zh.md`。基础认知50×100/只复习已学任务；有效主链R3～R16共9150；第三阶段25项grouped1000后五批检查、每退步任务补100＋10%复习。默认2000间隔＋各job最终HF，参数可调；空间按最坏额外五份最终HF预算，禁止自动删除/关机。新增可选`train.replay.completed_only`仅限sequential/round_robin/单复习任务，默认缺省保持旧行为；仿真Python可由`LINGBOT_SIM_PYTHON`覆盖，旧入口默认不变。**不变量**：全部50覆盖、未来任务不能作为第一阶段复习、GBS守恒、25项每项恰检查一次、精确分数判退步、先混合1000再轮查、最终补课不复测、FP32输入不改。**症状**：漏任务/重复扫描、提前复习未来任务、旧路径泄漏、半存档误记完成、失败job被当作可精确续训。**回滚**：不用新入口、不启用completed_only；不设LINGBOT_SIM_PYTHON恢复旧默认（须新进程）。**验证入口**：experiment.reproduction.test_contracts、task_recipes全套及official_control录制/共享/并行/render契约，默认预览无输出副作用；GPU/真实转换待用户开空闲卡后另行验收。
+
+#91补充验证：GPU空闲后，隔离临时目录的真实torch/safetensors微型CPU转换通过，确认浮点BF16精确值、整数保持、FP32输入不变及完成副本复用；不把微型两张量测试冒充完整模型转换或GPU验收。
+
+#91资源补充：新控制器仅对自身子进程设置`LINGBOT_TENSORBOARD_RUN_PREFIX`为输出目录名，避免多次复现的stage1/stage2同名链接冲突；缺省旧入口命名保持不变。

@@ -69,3 +69,8 @@ R16完成后已核对实际目录，共9份正式HF，未删除任何存档；�
 2026-10-22 R17启动前按用户指令只删除R16/global_step_500，共12768173061字节（约11.89GiB）；保留并复核R16/global_step_800为1708张量BF16。其他run及R16日志评测未删。清理后空闲43.22GiB，本轮新500/1000的安全预算29.13GiB，仍有14.09GiB预算外余量。当前正式HF共8份；R17两份未生成前不计入库存。
 
 R17完成后500/1000均已复核完整，首批5任务测后停止未删除任何存档；本次未改变保存与保留策略。
+
+2026-10-22补课第一轮完成后，用户明确批准删除R17/global_step_500与R16/global_step_800，合计释放约23.78GiB，空闲增至31.22GiB；保留R17/global_step_1000及补课首轮global_step_160（1708张量BF16），全部历史日志评测保留。R16已无权重存档，上表早期保留状态由本条覆盖。清理证据：`/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/authorized_cleanup.json`。后两轮仍按原保存规则运行。
+
+
+2026-10-22补课三轮完成：新增三份BF16 HF，均1708张量，保留在`20261022_1128_recovery_scout3_from_R17_replay10pct`下：`20261022_1128_round_1_recovery/checkpoints/global_step_160`、`20261022_1150_round_2_recovery/checkpoints/global_step_80`、`20261022_1209_round_3_recovery/checkpoints/global_step_160`。最后一份是当前最新模型，用户明确跳过最终评测，不记为已通过闭环；日志与前两轮评测全部保留。R16-step800与R17-step500仍为已授权删除状态，不因新基线文档引用历史R16而恢复存在。
