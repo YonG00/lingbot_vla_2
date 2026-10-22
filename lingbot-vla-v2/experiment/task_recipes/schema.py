@@ -30,8 +30,8 @@ def _validate(raw):
     if not isinstance(c.get('output_dir'),str) or not c['output_dir']:raise ValueError('output_dir required')
     keys(c['data'],['dataset_root'],'data')
     if not isinstance(c['data'].get('dataset_root'),str) or not c['data']['dataset_root']:raise ValueError('dataset_root required')
-    t=c['train'];keys(t,['mode','steps','micro_batch_size','gradient_accumulation_steps','seed','main_tasks','replay','episode_split','task_order'],'train')
-    if t['mode'] not in ['mixed','task_units','sequential']:raise ValueError('mode must be mixed, task_units or sequential')
+    t=c['train'];keys(t,['mode','steps','micro_batch_size','gradient_accumulation_steps','seed','main_tasks','replay','episode_split','task_order','tasks_per_group','steps_per_group'],'train')
+    if t['mode'] not in ['mixed','grouped','task_units','sequential']:raise ValueError('invalid training mode')
     for name in ['micro_batch_size','gradient_accumulation_steps']:integer(t[name],name)
     if type(t['seed']) is not int or t['seed']<0:raise ValueError('seed must be nonnegative integer')
     if t.get('episode_split','all') not in ['all','train']:raise ValueError('episode_split must be all or train')
@@ -53,6 +53,12 @@ def _validate(raw):
         if any(v['weight']!=1 for v in main.values()):raise ValueError('sequential mode uses task_order and steps, not task weights')
     elif 'task_order' in t:raise ValueError('task_order only applies to sequential mode')
     integer(t['steps'],'steps')
+    if t['mode']=='grouped':
+        for key in ['tasks_per_group','steps_per_group']:integer(t[key],key)
+        if not t['tasks_per_group']<=len(main):raise ValueError('group larger than task pool')
+        if t['tasks_per_group']>t['micro_batch_size']*t['gradient_accumulation_steps']:raise ValueError('batch cannot cover group')
+        if any(v['weight']!=1 for v in main.values()):raise ValueError('grouped mode requires equal task weights')
+    elif any(key in t for key in ['tasks_per_group','steps_per_group']):raise ValueError('group settings require grouped mode')
     r=t.setdefault('replay',dict(fraction=0,tasks={}))
     keys(r,['fraction','tasks','mode','switch_every_steps','pool_file','pool_snapshot','tasks_per_step'],'replay')
     r.setdefault('mode','sample')
@@ -65,6 +71,7 @@ def _validate(raw):
         if r['mode']!='round_robin':raise ValueError('tasks_per_step requires round_robin replay')
         integer(r['tasks_per_step'],'tasks_per_step')
     f=r['fraction']
+    if t['mode']=='grouped' and f!=0:raise ValueError('grouped main pool is already the review pool; separate replay unsupported')
     if type(f) not in (int,float) or not math.isfinite(f) or not 0<=f<1:raise ValueError('replay fraction must be in [0,1)')
     if t['micro_batch_size']*t['gradient_accumulation_steps']*(1-f)<1:raise ValueError('every update must contain at least one main sample')
     if not isinstance(r['tasks'],dict) or bool(r['tasks'])!=(f>0):raise ValueError('replay tasks and fraction must agree')
@@ -127,6 +134,7 @@ def _validate(raw):
     if type(remedial['enabled']) is not bool:raise ValueError('remediation enabled must be boolean')
     integer(remedial['max_rounds'],'remediation.max_rounds')
     if remedial['enabled']:
+        if t['mode']=='grouped':raise ValueError('grouped mode does not support automatic remediation')
         if not e['tasks'] or e['episodes_per_task']!=3 or t['steps'] not in selected:
             raise ValueError('remediation requires final checkpoint evaluation with three episodes per task')
         if t['replay']['fraction']!=0:raise ValueError('remediation currently requires replay disabled')

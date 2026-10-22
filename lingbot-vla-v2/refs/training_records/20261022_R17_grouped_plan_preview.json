@@ -1,0 +1,211 @@
+{
+  "tasks": [
+    "adjust_bottle",
+    "beat_block_hammer",
+    "click_alarmclock",
+    "click_bell",
+    "dump_bin_bigbin",
+    "hanging_mug",
+    "move_playingcard_away",
+    "open_laptop",
+    "open_microwave",
+    "place_a2b_left",
+    "place_a2b_right",
+    "place_bread_basket",
+    "place_can_basket",
+    "place_container_plate",
+    "place_empty_cup",
+    "place_object_basket",
+    "place_object_stand",
+    "place_shoe",
+    "press_stapler",
+    "rotate_qrcode",
+    "shake_bottle",
+    "shake_bottle_horizontally",
+    "stack_blocks_two",
+    "stack_bowls_two",
+    "turn_switch"
+  ],
+  "criterion": "any historical success, includes place_a2b_right 1/4",
+  "optimizer_steps": 1000,
+  "global_batch_size": 56,
+  "tasks_per_group": 3,
+  "steps_per_group": 3,
+  "checkpoint_steps": [
+    500,
+    1000
+  ],
+  "progress_plan": {
+    "confirmed_optimizer_steps": 1000,
+    "main_steps": {},
+    "samples_by_task": {
+      "move_playingcard_away": 2240,
+      "place_object_stand": 2240,
+      "stack_blocks_two": 2240,
+      "shake_bottle": 2240,
+      "place_object_basket": 2240,
+      "place_bread_basket": 2240,
+      "place_a2b_right": 2240,
+      "stack_bowls_two": 2240,
+      "turn_switch": 2240,
+      "dump_bin_bigbin": 2240,
+      "click_alarmclock": 2240,
+      "adjust_bottle": 2240,
+      "hanging_mug": 2203,
+      "place_container_plate": 2240,
+      "click_bell": 2240,
+      "press_stapler": 2240,
+      "beat_block_hammer": 2240,
+      "open_laptop": 2240,
+      "place_shoe": 2240,
+      "shake_bottle_horizontally": 2240,
+      "open_microwave": 2240,
+      "place_empty_cup": 2258,
+      "place_can_basket": 2259,
+      "rotate_qrcode": 2240,
+      "place_a2b_left": 2240
+    },
+    "replay_samples": 0,
+    "group_participation_steps": {
+      "move_playingcard_away": 120,
+      "place_object_stand": 120,
+      "stack_blocks_two": 120,
+      "shake_bottle": 120,
+      "place_object_basket": 120,
+      "place_bread_basket": 120,
+      "place_a2b_right": 120,
+      "stack_bowls_two": 120,
+      "turn_switch": 120,
+      "dump_bin_bigbin": 120,
+      "click_alarmclock": 120,
+      "adjust_bottle": 120,
+      "hanging_mug": 118,
+      "place_container_plate": 120,
+      "click_bell": 120,
+      "press_stapler": 120,
+      "beat_block_hammer": 120,
+      "open_laptop": 120,
+      "place_shoe": 120,
+      "shake_bottle_horizontally": 120,
+      "open_microwave": 120,
+      "place_empty_cup": 121,
+      "place_can_basket": 121,
+      "rotate_qrcode": 120,
+      "place_a2b_left": 120
+    }
+  },
+  "first_rows": [
+    {
+      "step": 1,
+      "main_task": null,
+      "samples_by_task": {
+        "move_playingcard_away": 19,
+        "place_object_stand": 19,
+        "stack_blocks_two": 18
+      },
+      "replay_samples": 0,
+      "main_group": [
+        "move_playingcard_away",
+        "place_object_stand",
+        "stack_blocks_two"
+      ],
+      "group_index": 0
+    },
+    {
+      "step": 2,
+      "main_task": null,
+      "samples_by_task": {
+        "move_playingcard_away": 19,
+        "place_object_stand": 18,
+        "stack_blocks_two": 19
+      },
+      "replay_samples": 0,
+      "main_group": [
+        "move_playingcard_away",
+        "place_object_stand",
+        "stack_blocks_two"
+      ],
+      "group_index": 0
+    },
+    {
+      "step": 3,
+      "main_task": null,
+      "samples_by_task": {
+        "move_playingcard_away": 18,
+        "place_object_stand": 19,
+        "stack_blocks_two": 19
+      },
+      "replay_samples": 0,
+      "main_group": [
+        "move_playingcard_away",
+        "place_object_stand",
+        "stack_blocks_two"
+      ],
+      "group_index": 0
+    },
+    {
+      "step": 4,
+      "main_task": null,
+      "samples_by_task": {
+        "shake_bottle": 19,
+        "place_object_basket": 19,
+        "place_bread_basket": 18
+      },
+      "replay_samples": 0,
+      "main_group": [
+        "shake_bottle",
+        "place_object_basket",
+        "place_bread_basket"
+      ],
+      "group_index": 1
+    },
+    {
+      "step": 5,
+      "main_task": null,
+      "samples_by_task": {
+        "shake_bottle": 19,
+        "place_object_basket": 18,
+        "place_bread_basket": 19
+      },
+      "replay_samples": 0,
+      "main_group": [
+        "shake_bottle",
+        "place_object_basket",
+        "place_bread_basket"
+      ],
+      "group_index": 1
+    },
+    {
+      "step": 6,
+      "main_task": null,
+      "samples_by_task": {
+        "shake_bottle": 18,
+        "place_object_basket": 19,
+        "place_bread_basket": 19
+      },
+      "replay_samples": 0,
+      "main_group": [
+        "shake_bottle",
+        "place_object_basket",
+        "place_bread_basket"
+      ],
+      "group_index": 1
+    }
+  ],
+  "final_row": {
+    "step": 1000,
+    "main_task": null,
+    "samples_by_task": {
+      "hanging_mug": 19,
+      "place_can_basket": 19,
+      "place_empty_cup": 18
+    },
+    "replay_samples": 0,
+    "main_group": [
+      "hanging_mug",
+      "place_can_basket",
+      "place_empty_cup"
+    ],
+    "group_index": 333
+  }
+}

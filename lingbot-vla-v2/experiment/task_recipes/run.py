@@ -11,7 +11,7 @@ ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT))
 from experiment.task_recipes.prepare import preview,prepare
 from experiment.task_recipes.runtime import install,load_run
-from experiment.task_recipes.planning import confirmed_progress
+from experiment.task_recipes.planning import confirmed_progress,probe_steps
 from experiment.task_recipes.naming import dated_run_path
 
 
@@ -40,7 +40,8 @@ def worker(raw,launch):
         here=str(Path(__file__).resolve())
         state('cpu_preflight');run([sys.executable,here,'--stage','cpu','--out',str(out)],out/'cpu.log')
         state('gpu_probe');run([sys.executable,here,'--stage','smoke','--out',str(out)],out/'probe.log')
-        assert json.loads((out/'probe/summary.json').read_text())['state']=='three_step_probe_complete'
+        probe=json.loads((out/'probe/summary.json').read_text())
+        assert probe['state'] in ['three_step_probe_complete','probe_complete'] and probe.get('optimizer_steps',3)==probe_steps(c)
         state('training',steps=c['train']['steps']);run(['bash',str(out/'train.sh')],out/'train.log')
         from experiment.official_control.baseline_pipeline import verify_checkpoint
         report=json.loads((out/'plan.json').read_text())
@@ -115,7 +116,7 @@ def main():
         for k in ['HF_HUB_OFFLINE','HF_DATASETS_OFFLINE','TRANSFORMERS_OFFLINE']:os.environ[k]='1'
         if a.stage=='smoke':
             from experiment.official_control.bf16_trial import smoke
-            return smoke(a.out)
+            return smoke(a.out,steps=probe_steps(c))
         import runpy
         assert json.loads((a.out/'cpu_report.json').read_text())['state']=='cpu_pass'
         os.chdir(ROOT);sys.argv=['tasks/vla/train_lingbotvla.py',str(a.out/'trainer_config.json')]

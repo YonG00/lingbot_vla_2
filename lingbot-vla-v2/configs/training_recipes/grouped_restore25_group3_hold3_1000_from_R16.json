@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/trainer_config.json",
+    "checkpoint": "/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/restore25_group3_hold3_from_R16_bf16_m56_add1000",
+  "train": {
+    "mode": "grouped",
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "adjust_bottle": {
+        "weight": 1
+      },
+      "beat_block_hammer": {
+        "weight": 1
+      },
+      "click_alarmclock": {
+        "weight": 1
+      },
+      "click_bell": {
+        "weight": 1
+      },
+      "dump_bin_bigbin": {
+        "weight": 1
+      },
+      "hanging_mug": {
+        "weight": 1
+      },
+      "move_playingcard_away": {
+        "weight": 1
+      },
+      "open_laptop": {
+        "weight": 1
+      },
+      "open_microwave": {
+        "weight": 1
+      },
+      "place_a2b_left": {
+        "weight": 1
+      },
+      "place_a2b_right": {
+        "weight": 1
+      },
+      "place_bread_basket": {
+        "weight": 1
+      },
+      "place_can_basket": {
+        "weight": 1
+      },
+      "place_container_plate": {
+        "weight": 1
+      },
+      "place_empty_cup": {
+        "weight": 1
+      },
+      "place_object_basket": {
+        "weight": 1
+      },
+      "place_object_stand": {
+        "weight": 1
+      },
+      "place_shoe": {
+        "weight": 1
+      },
+      "press_stapler": {
+        "weight": 1
+      },
+      "rotate_qrcode": {
+        "weight": 1
+      },
+      "shake_bottle": {
+        "weight": 1
+      },
+      "shake_bottle_horizontally": {
+        "weight": 1
+      },
+      "stack_blocks_two": {
+        "weight": 1
+      },
+      "stack_bowls_two": {
+        "weight": 1
+      },
+      "turn_switch": {
+        "weight": 1
+      }
+    },
+    "replay": {
+      "fraction": 0,
+      "tasks": {}
+    },
+    "steps": 1000,
+    "tasks_per_group": 3,
+    "steps_per_group": 3
+  },
+  "checkpoint": {
+    "mode": "steps",
+    "every_steps": 500,
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true,
+    "max_parallel_tasks": 5,
+    "video_episodes": 2,
+    "reuse_training_model": true
+  },
+  "runtime": {
+    "shutdown_after_completion": false
+  },
+  "remediation": {
+    "enabled": false,
+    "max_rounds": 1
+  }
+}

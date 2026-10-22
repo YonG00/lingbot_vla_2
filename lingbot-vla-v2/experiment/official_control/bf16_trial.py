@@ -58,14 +58,15 @@ def prepare(source, out):
         parameter_dtype='bf16', compute_dtype='bf16', hf_export_dtype='bf16'), indent=2))
 
 
-def smoke(out):
+def smoke(out,steps=3):
     import subprocess
+    if type(steps) is not int or steps<1:raise ValueError('positive probe steps required')
     assert not subprocess.check_output(['nvidia-smi', '--query-compute-apps=pid', '--format=csv,noheader']).strip()
     assert json.loads((out / 'cpu_report.json').read_text())['state'] == 'cpu_pass'
     probe = out / 'probe'
     probe.mkdir(exist_ok=False)
     cfg = json.loads((out / 'trainer_config.json').read_text())
-    cfg['train'].update(output_dir=str(probe), max_steps=3, save_steps=0, save_epochs=0,
+    cfg['train'].update(output_dir=str(probe), max_steps=steps, save_steps=0, save_epochs=0,
         smoke_no_checkpoint=True, save_hf_weights=False, dcp_save_mode='always', disk_guard=False)
     config = probe / 'trainer_config.json'
     config.write_text(json.dumps(cfg, indent=2))
@@ -102,7 +103,7 @@ def smoke(out):
     sys.argv = ['tasks/vla/train_lingbotvla.py', str(config)]
     runpy.run_path(sys.argv[0], run_name='__main__')
     assert (probe / 'precision_audit.json').is_file()
-    (probe / 'summary.json').write_text(json.dumps(dict(state='three_step_probe_complete',
+    (probe / 'summary.json').write_text(json.dumps(dict(state='three_step_probe_complete' if steps==3 else 'probe_complete',optimizer_steps=steps,
         peak_allocated_gib=torch.cuda.max_memory_allocated()/2**30,
         peak_reserved_gib=torch.cuda.max_memory_reserved()/2**30, micro=56, gas=1), indent=2))
 

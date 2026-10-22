@@ -185,3 +185,9 @@ prepare生成`save_steps=0, save_at_steps=[...]`；训练器通过纯CPU的check
 新配方在evaluation中设置`"reuse_training_model": true`，同时保持`"shared_model_session": true`、`"checkpoints": ["final"]`。适用于单GPU，支持`max_parallel_tasks`为1到8及原有batches/rolling。流程为最终HF完成并验证后，释放优化器和教师、保留策略模型，内存转FP32并直接接并行仿真；不会再读HF权重。转换精度仍可能出现显存波动，判断是否复用应看`evaluation_<step>/handoff.json`中的训练/服务PID相同、weight_loads=0，以及status中的model_loads=0/reused_training_model=true。
 
 旧配方未设置该参数时仍采用原重载行为；评测中间存档必须重载，禁止把最终内存模型冒充中间存档。此开关失败明确报错，不自动回退。1步训练→两路单回合驻留GPU接口验证已通过（同PID、零重载）；完整正式训练保存交接以新R16终态为准，见改动台账#87。
+
+## 分组混合复习（grouped）
+
+`train.mode="grouped"`、`steps=1000`、`tasks_per_group=3`、`steps_per_group=3`；main_tasks列25个等权任务，不写逐任务steps或task_order，额外replay设fraction=0、tasks={}。均衡选组三任务、每组维持3步；GBS56每步19/19/18轮换，完整三步后各任务56样本。随机种子固定时计划和恢复确定；每25组（75更新）25任务样本精确相等。1000步的尾组只有1步，全程56000样本、每任务2203～2259，不能宣称每任务恰好2240。该轮没有额外10%复习，因为25任务池本身就是复习内容。
+
+配置`configs/training_recipes/grouped_restore25_group3_hold3_1000_from_R16.json`；名单和计划预览见`refs/training_records/20261022_R17_grouped_plan_preview.json`。旧mixed仍每步按全任务比例混合，sequential/task_units不变；新grouped不支持自动补课。新模式GPU探针跨两组（本配方6步），旧模式仍3步。2026-10-22真实CPU及跨两组6步GPU探测通过，R17正式训练已开始；最终训练与闭环效果待完成。

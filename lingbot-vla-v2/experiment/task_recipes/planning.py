@@ -10,6 +10,11 @@ def digest(value):
     return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 
 
+def probe_steps(c):
+    t=c['train']
+    return min(t['steps'],2*t['steps_per_group']) if t['mode']=='grouped' else 3
+
+
 class FairChoice:
     def __init__(self,weights):
         self.weights={k:Fraction(str(v)) for k,v in weights.items()}
@@ -33,11 +38,20 @@ def build_plan(c):
     rows=[]
     replay_order=list(r['tasks']);replay_cursor=0;replay_task=None;replay_used=0
     replay_tasks=[];replay_count=r.get('tasks_per_step',1)
+    group_counts=Counter();group_rng=random.Random(t['seed']);group=[]
     for step in range(t['steps']):
         review_n=int((step+1)*batch*fraction)-int(step*batch*fraction)
         counts=Counter()
         chosen=None
-        if t['mode']=='sequential':
+        if t['mode']=='grouped':
+            if step%t['steps_per_group']==0:
+                candidates=sorted(main);group_rng.shuffle(candidates)
+                group=sorted(candidates,key=lambda task:group_counts[task])[:t['tasks_per_group']]
+                group_counts.update(group)
+            base,extra=divmod(batch,len(group))
+            offset=step%t['steps_per_group']
+            counts.update({task:base+int((slot+offset)%len(group)<extra) for slot,task in enumerate(group)})
+        elif t['mode']=='sequential':
             chosen=ordered[step]
             counts[chosen]=batch-review_n
         elif t['mode']=='task_units':
@@ -70,6 +84,7 @@ def build_plan(c):
         else:
             for _ in range(review_n):counts[replay.next()]+=1
         rows.append(dict(step=step+1,main_task=chosen,samples_by_task=dict(counts),replay_samples=review_n))
+        if t['mode']=='grouped':rows[-1].update(main_group=list(group),group_index=step//t['steps_per_group'])
         if r.get('mode','sample')=='round_robin':
             if replay_count==1:rows[-1]['replay_task']=replay_task if review_n else None
             else:rows[-1].update(replay_tasks=list(replay_tasks),replay_samples_by_task=replay_counts)
@@ -132,4 +147,8 @@ def confirmed_progress(plan,step):
     for row in plan['steps'][:step]:
         samples.update(row['samples_by_task']);review+=row['replay_samples']
         if row['main_task'] is not None:main[row['main_task']]+=1
-    return dict(confirmed_optimizer_steps=step,main_steps=dict(main),samples_by_task=dict(samples),replay_samples=review)
+    result=dict(confirmed_optimizer_steps=step,main_steps=dict(main),samples_by_task=dict(samples),replay_samples=review)
+    if plan['mode']=='grouped':
+        participation=Counter(task for row in plan['steps'][:step] for task in row['main_group'])
+        result['group_participation_steps']=dict(participation)
+    return result

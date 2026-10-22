@@ -1,0 +1,114 @@
+{
+  "run": "/data/outputs/20261022_0926_restore25_group3_hold3_from_R16_bf16_m56_add1000",
+  "status": {
+    "state": "training",
+    "steps": 1000
+  },
+  "cleanup": {
+    "retained": {
+      "path": "/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    },
+    "removed": [
+      {
+        "path": "/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_500",
+        "bytes": 12768173061
+      }
+    ],
+    "free_gib": 43.22107696533203
+  },
+  "cpu": {
+    "state": "cpu_pass",
+    "episodes": 1250,
+    "frames": 250626,
+    "original_beta_time_exact": true,
+    "al_enabled": false,
+    "ee_enabled": false,
+    "model_initialized": false,
+    "optimizer_steps": 0,
+    "gpu_tested": false,
+    "recipe_sampler": true,
+    "virtual_epoch_steps": 1000,
+    "loader_microbatches": 1,
+    "real_frames": 250626,
+    "boundary_sample_count": 1250
+  },
+  "probe": {
+    "state": "probe_complete",
+    "optimizer_steps": 6,
+    "peak_allocated_gib": 77.69790410995483,
+    "peak_reserved_gib": 86.0390625,
+    "micro": 56,
+    "gas": 1
+  },
+  "plan": {
+    "expected_frames": 250626,
+    "episodes": 1250,
+    "hf_steps": [
+      500,
+      1000
+    ],
+    "recipe_sha256": "4cf0c84c94e13d9cb014a17c78fba73013fa4b31c586776d3878a0dae93abe39",
+    "required_disk_gib": 29.127851946279407,
+    "remediation_reserved_checkpoints": 0,
+    "source_model": "/root/autodl-tmp/data/outputs/20261021_2159_remaining10_80each_from_R15_bf16_m56_replay10pct_resident/checkpoints/global_step_800/hf_ckpt",
+    "trainer_config_sha256": "06a29fe1ba7294124c2632446a73653712b340894cba3cb9749e3079d2ddc265",
+    "task_groups_sha256": "51c0fee34e2e9576d687dc4d864ec669fac63970f01f472ae37c5563fd8414e2",
+    "train_ids_sha256": "f91178668dfa0dfbf16f5685e425e9dcb4a8970645b5062eabf59c9ffd351aeb",
+    "evaluation_steps": [
+      1000
+    ]
+  },
+  "train_logged_steps": 6,
+  "train_steps": [
+    [
+      "4",
+      "1000",
+      "8.465"
+    ],
+    [
+      "5",
+      "1000",
+      "8.789"
+    ],
+    [
+      "6",
+      "1000",
+      "8.372"
+    ]
+  ],
+  "train_tail": ", Expert_LR 2.83e-04, StepTime 8.789s, Depth_Forward_Time  0.773s, Ignore_Batch_Num 0\n\nEpoch 1/1:   1%|          | 6/1000 [01:15<2:44:19,  9.92s/it]10/22/2026 09:31:30 - INFO - __main__ - Step 6/1000, Epoch 1, Loss 0.0390, VLA_Loss 0.0336, Depth_Loss 0.4025, Future_Depth_Loss 0.5963, FutureVideo_Loss 0.0673, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 0.7539, AvgSigmoid 0.0781, GradNorm 0.3184, LR 1.00e-04, Expert_LR 2.83e-04, StepTime 8.372s, Depth_Forward_Time  0.766s, Ignore_Batch_Num 0\n",
+  "probe_logged_steps": 6,
+  "probe_steps": [
+    [
+      "4",
+      "1000",
+      "9.043"
+    ],
+    [
+      "5",
+      "1000",
+      "9.048"
+    ],
+    [
+      "6",
+      "1000",
+      "9.061"
+    ]
+  ],
+  "probe_tail": "elper:114] 10/22/2026 09:29:47 >> VRAM usage after epoch 1: cur 27.26GB, max 77.70GB.\n10/22/2026 09:29:47 - INFO - __main__ - [smoke] NO_CHECKPOINT\uff1a\u8df3\u8fc7\u6536\u5c3e DCP/HF (step=6, reached_max_steps=True, al_finished=False)\n\nStep: 6/6 [01:10<00:00, 11.78s/it]\n10/22/2026 09:29:47 - INFO - __main__ - \u8bad\u7ec3\u7ed3\u675f: epoch=1/1, global_step=6\u3002\n10/22/2026 09:29:48 - INFO - __main__ - [async_hf] summary: {\"total\": 0, \"hf_success\": 0, \"hf_failed\": 0, \"eval_submitted\": 0, \"eval_skipped\": 0, \"eval_failed\": 0, \"failures\": []}\n",
+  "group_settings": {
+    "mode": "grouped",
+    "steps": 1000,
+    "micro_batch_size": 56,
+    "tasks_per_group": 3,
+    "steps_per_group": 3
+  },
+  "source_hashes": {
+    "experiment/task_recipes/planning.py": "35a0f9ca169252460648100b6e971f4d727511f8aa088b746fb0626a8efc382a",
+    "experiment/task_recipes/schema.py": "b2d12fdd424c2393815d3e886d82ca996c52b39901cdcc9ae7d9ecce0579436f",
+    "experiment/task_recipes/run.py": "a3caf1d4853acce2bf5adbd1f2ae183a1186e05e2c8cf975574a8023d4f66ebc",
+    "experiment/official_control/bf16_trial.py": "d9d7877ec1452c6be68683a0543cc13fbba35464729b881473dccc9e20c02cce"
+  }
+}
