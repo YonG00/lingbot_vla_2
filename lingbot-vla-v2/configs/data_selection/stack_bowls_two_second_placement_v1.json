@@ -1,0 +1,30 @@
+{
+  "task": "stack_bowls_two",
+  "rule_version": "second_placement_v1",
+  "settings": {
+    "placement_ordinal": 2,
+    "approach_search_seconds": 2.0,
+    "aiming_search_seconds": 4.0,
+    "approach_distance_min_m": 0.08,
+    "approach_distance_max_m": 0.11,
+    "approach_downward_degrees": 45.0,
+    "minimum_descent_m": 0.04,
+    "perpendicular_tolerance_m": 0.02,
+    "forward_fraction": 0.7,
+    "reverse_tolerance_m": 0.002,
+    "closed_threshold": 0.2,
+    "open_threshold": 0.95,
+    "release_drift_m": 0.015,
+    "settle_distance_m": 0.01,
+    "settle_hold_seconds": 0.13,
+    "retreat_seconds": 3.0,
+    "retreat_height_m": 0.03,
+    "selected_stages": [
+      "place_aim",
+      "place_approach",
+      "place_settle",
+      "place_release",
+      "place_retreat"
+    ]
+  }
+}

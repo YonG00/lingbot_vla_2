@@ -65,3 +65,7 @@
 
 * 工具脚本索引：`tools/README.md`
 * 训练机工作副本说明：`/workspace/lingbot_work/README_COPY.md`（机器侧，不入库）
+
+- [夹碗样本筛选与逐样本损失加权实验](training/recipes/stack_bowls_sample_weighting_zh.md)
+
+- [第二次放碗自动样本筛选](training/recipes/stack_bowls_second_placement_selection_zh.md)

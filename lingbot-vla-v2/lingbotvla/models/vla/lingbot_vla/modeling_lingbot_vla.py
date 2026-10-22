@@ -2,6 +2,7 @@ from logging import raiseExceptions
 import einops
 import numpy as np
 import torch
+from lingbotvla.utils.sample_loss_weight import weighted_mean
 from torch import nn
 import torch.nn.functional as F
 from torch import Tensor, nn
@@ -1415,7 +1416,7 @@ class FlowMatching(nn.Module):
             v_t = self.action_out_proj(suffix_out)
         return v_t
 
-    def depth_emb_forward(self, hidden_states, depth_targets=None, img_masks=None, future_depth_targets=None):
+    def depth_emb_forward(self, hidden_states, depth_targets=None, img_masks=None, future_depth_targets=None, sample_loss_weight=None):
         chunk_size = self.llm_image_token_size * self.llm_image_token_size
         num_images = img_masks.shape[1] if img_masks is not None and img_masks.ndim == 2 else 3
         if img_masks is not None:
@@ -1425,7 +1426,7 @@ class FlowMatching(nn.Module):
         align_embs = torch.cat([image_embs, align_embs], dim=1)
         depth_preds = self.depth_align_embs.repeat(align_embs.shape[0], 1, 1).to(dtype=align_embs.dtype, device=align_embs.device)
         depth_preds = self.depth_align_head(align_embs, depth_preds).contiguous().float()
-        current_loss = self._emb_loss(depth_preds, depth_targets)
+        current_loss = self._emb_loss(depth_preds, depth_targets, sample_loss_weight)
 
         if self.use_future_depth:
             future_align_embs = self._future_depth_task_tokens(hidden_states)
@@ -1437,7 +1438,7 @@ class FlowMatching(nn.Module):
             future_align_embs = torch.cat([future_image_embs, future_align_embs], dim=1)
             future_depth_preds = self.future_depth_align_embs.repeat(future_align_embs.shape[0], 1, 1).to(dtype=future_align_embs.dtype, device=future_align_embs.device)
             future_depth_preds = self.future_depth_align_head(future_align_embs, future_depth_preds).contiguous().float()
-            future_loss = self._emb_loss(future_depth_preds, future_depth_targets)
+            future_loss = self._emb_loss(future_depth_preds, future_depth_targets, sample_loss_weight)
             return current_loss, future_loss, depth_preds, future_depth_preds
 
         return current_loss, 0, depth_preds, None
@@ -1448,6 +1449,7 @@ class FlowMatching(nn.Module):
         future_video_targets=None,
         future_video_cls_targets=None,
         future_video_current_patch=None,
+        sample_loss_weight=None,
     ):
         if self.align_type != 'query':
             raise ValueError("future-video alignment is only supported for query align mode.")
@@ -1499,9 +1501,9 @@ class FlowMatching(nn.Module):
                 dtype=video_align_embs.dtype, device=video_align_embs.device
             )
             video_preds = self.future_video_align_head(video_align_embs, video_preds).contiguous().float()
-            loss, metrics = self._video_emb_loss(video_preds, future_video_targets)
+            loss, metrics = self._video_emb_loss(video_preds, future_video_targets, sample_loss_weight=sample_loss_weight)
         if use_cls:
-            cls_loss, cls_metrics = self._video_cls_loss(cls_preds, future_video_cls_targets)
+            cls_loss, cls_metrics = self._video_cls_loss(cls_preds, future_video_cls_targets, sample_loss_weight=sample_loss_weight)
             loss = cls_loss if loss is None else loss + cls_loss
             metrics.update(cls_metrics)
         return loss, video_preds, metrics
@@ -1510,6 +1512,7 @@ class FlowMatching(nn.Module):
         self,
         hidden_states,
         current_video_targets=None,
+        sample_loss_weight=None,
     ):
         if self.align_type != 'query':
             raise ValueError("current-video alignment is only supported for query align mode.")
@@ -1531,10 +1534,11 @@ class FlowMatching(nn.Module):
             preds,
             current_video_targets,
             metric_prefix="current_video",
+            sample_loss_weight=sample_loss_weight,
         )
         return loss, preds, metrics
 
-    def _video_emb_loss(self, video_preds, future_video_targets, metric_prefix="future_video"):
+    def _video_emb_loss(self, video_preds, future_video_targets, metric_prefix="future_video", sample_loss_weight=None):
         align_params = getattr(getattr(self, "config", None), "align_params", {}) or {}
         video_cfg = align_params.get("video", {}) if hasattr(align_params, "get") else {}
         use_smooth_l1 = bool(video_cfg.get("use_smooth_l1_loss", True))
@@ -1546,12 +1550,12 @@ class FlowMatching(nn.Module):
         metrics = {}
         loss = None
         if use_smooth_l1:
-            smooth_l1_loss = self._emb_loss(video_preds, future_video_targets)
+            smooth_l1_loss = self._emb_loss(video_preds, future_video_targets, sample_loss_weight)
             metrics[f"align/{metric_prefix}_smooth_l1_loss"] = smooth_l1_loss.detach()
             loss = smooth_l1_loss
         if use_mse:
             target = future_video_targets.to(dtype=video_preds.dtype, device=video_preds.device)
-            mse_loss = F.mse_loss(video_preds.float(), target.float().detach())
+            mse_loss = (F.mse_loss(video_preds.float(), target.float().detach()) if sample_loss_weight is None else weighted_mean(F.mse_loss(video_preds.float(), target.float().detach(), reduction="none"), sample_loss_weight))
             mse_weight = float(video_cfg.get("mse_loss_weight", 1.0))
             metrics[f"align/{metric_prefix}_mse_loss"] = mse_loss.detach()
             metrics[f"align/{metric_prefix}_mse_loss_weighted"] = (mse_loss * mse_weight).detach()
@@ -1561,15 +1565,17 @@ class FlowMatching(nn.Module):
             target = future_video_targets.to(dtype=video_preds.dtype, device=video_preds.device)
             pred_norm = F.normalize(video_preds.float(), dim=-1, eps=1e-6)
             target_norm = F.normalize(target.float().detach(), dim=-1, eps=1e-6)
-            cosine_loss = 1.0 - F.cosine_similarity(pred_norm, target_norm, dim=-1, eps=1e-6).mean()
+            cosine_loss = (1.0 - F.cosine_similarity(pred_norm, target_norm, dim=-1, eps=1e-6).mean() if sample_loss_weight is None else weighted_mean(1.0 - F.cosine_similarity(pred_norm, target_norm, dim=-1, eps=1e-6), sample_loss_weight))
             cosine_weight = float(video_cfg.get("cosine_loss_weight", 1.0))
             metrics[f"align/{metric_prefix}_cosine_loss"] = cosine_loss.detach()
             metrics[f"align/{metric_prefix}_cosine_loss_weighted"] = (cosine_loss * cosine_weight).detach()
             weighted_cosine_loss = cosine_loss * cosine_weight
             loss = weighted_cosine_loss if loss is None else loss + weighted_cosine_loss
+        if sample_loss_weight is not None:
+            _, metrics = self._video_emb_loss(video_preds, future_video_targets, metric_prefix)
         return loss, metrics
 
-    def _video_cls_loss(self, cls_preds, future_video_cls_targets):
+    def _video_cls_loss(self, cls_preds, future_video_cls_targets, sample_loss_weight=None):
         align_params = getattr(getattr(self, "config", None), "align_params", {}) or {}
         video_cfg = align_params.get("video", {}) if hasattr(align_params, "get") else {}
         cls_loss_type = str(video_cfg.get("cls_loss_type", "cosine")).lower()
@@ -1581,17 +1587,17 @@ class FlowMatching(nn.Module):
         metrics = {}
         loss = None
         if cls_loss_type in ("smooth_l1", "smoothl1", "huber"):
-            smooth_l1_loss = F.smooth_l1_loss(cls_preds.float(), target.float().detach())
+            smooth_l1_loss = (F.smooth_l1_loss(cls_preds.float(), target.float().detach()) if sample_loss_weight is None else weighted_mean(F.smooth_l1_loss(cls_preds.float(), target.float().detach(), reduction="none"), sample_loss_weight))
             metrics["align/future_video_cls_smooth_l1_loss"] = smooth_l1_loss.detach()
             loss = smooth_l1_loss
         if cls_loss_type in ("mse", "mse_cosine", "cosine_mse"):
-            mse_loss = F.mse_loss(cls_preds.float(), target.float().detach())
+            mse_loss = (F.mse_loss(cls_preds.float(), target.float().detach()) if sample_loss_weight is None else weighted_mean(F.mse_loss(cls_preds.float(), target.float().detach(), reduction="none"), sample_loss_weight))
             metrics["align/future_video_cls_mse_loss"] = mse_loss.detach()
             loss = mse_loss
         if cls_loss_type in ("cosine", "mse_cosine", "cosine_mse"):
             pred_norm = F.normalize(cls_preds.float(), dim=-1, eps=1e-6)
             target_norm = F.normalize(target.float().detach(), dim=-1, eps=1e-6)
-            cosine_loss = 1.0 - F.cosine_similarity(pred_norm, target_norm, dim=-1, eps=1e-6).mean()
+            cosine_loss = (1.0 - F.cosine_similarity(pred_norm, target_norm, dim=-1, eps=1e-6).mean() if sample_loss_weight is None else weighted_mean(1.0 - F.cosine_similarity(pred_norm, target_norm, dim=-1, eps=1e-6), sample_loss_weight))
             metrics["align/future_video_cls_cosine_loss"] = cosine_loss.detach()
             loss = cosine_loss if loss is None else loss + cosine_loss
         if loss is None:
@@ -1599,11 +1605,13 @@ class FlowMatching(nn.Module):
         weighted_loss = loss * cls_weight
         metrics["align/future_video_cls_loss"] = loss.detach()
         metrics["align/future_video_cls_loss_weighted"] = weighted_loss.detach()
+        if sample_loss_weight is not None:
+            _, metrics = self._video_cls_loss(cls_preds, future_video_cls_targets)
         return weighted_loss, metrics
 
-    def _emb_loss(self, emb_preds, emb_targets):
+    def _emb_loss(self, emb_preds, emb_targets, sample_loss_weight=None):
         l1_loss = F.smooth_l1_loss(emb_preds.float(), emb_targets.float().detach(), reduction="none")
-        return l1_loss.mean()
+        return weighted_mean(l1_loss, sample_loss_weight)
 
 ModelClass = LingbotVlaPolicy
 

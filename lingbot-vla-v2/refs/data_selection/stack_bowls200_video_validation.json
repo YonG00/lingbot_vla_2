@@ -1,0 +1,20 @@
+[
+  {
+    "file": "episode0_global.mp4",
+    "bytes": 4597410,
+    "duration_seconds": 440.0,
+    "frames": 880
+  },
+  {
+    "file": "episode1_global.mp4",
+    "bytes": 4881100,
+    "duration_seconds": 471.0,
+    "frames": 942
+  },
+  {
+    "file": "episode2_global.mp4",
+    "bytes": 4849658,
+    "duration_seconds": 467.0,
+    "frames": 934
+  }
+]

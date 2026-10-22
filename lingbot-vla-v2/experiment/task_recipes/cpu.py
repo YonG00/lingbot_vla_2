@@ -32,7 +32,17 @@ def check(out):
         batch=next(iter(loader))
         assert len(batch)==c['train']['gradient_accumulation_steps']
         assert all(x['actions'].shape==(c['train']['micro_batch_size'],50,55) and torch.isfinite(x['actions']).all() for x in batch)
+        import os
+        sample_weight_audit={}
+        if os.environ.get('LINGBOT_SAMPLE_WEIGHT_CONFIG'):
+            from experiment.data_selection.weights import SelectionWeights
+            multiplier=SelectionWeights(os.environ['LINGBOT_SAMPLE_WEIGHT_CONFIG']).multiplier
+            weights=batch[0]['sample_loss_weight']
+            assert weights.shape==(c['train']['micro_batch_size'],)
+            assert set(weights.tolist())<={1.,multiplier} and (weights==multiplier).any(),'sample weights absent or invalid'
+            sample_weight_audit=dict(sample_weight_count=len(weights),sample_weight_selected=int((weights==multiplier).sum()),sample_weight_normalization='sample_count',sample_weight_multiplier=multiplier)
+            print('SAMPLE_WEIGHT_CPU_PASS',json.dumps(sample_weight_audit),flush=True)
         assert isinstance(loader.state_dict(),dict)
-        return dict(recipe_sampler=True,virtual_epoch_steps=len(loader),loader_microbatches=len(batch),real_frames=sum(map(len,pools.values())))
+        return dict(recipe_sampler=True,virtual_epoch_steps=len(loader),loader_microbatches=len(batch),real_frames=sum(map(len,pools.values())),**sample_weight_audit)
     cpu_check(Path(out),expected_steps=c['train']['steps'],expected_save_steps=save_interval(c),expected_fp32=False,
         expected_mixed=False,expected_export='bf16',expected_episodes=plan['episodes'],expected_gas=c['train']['gradient_accumulation_steps'],dataset_check=dataset_check)

@@ -1,9 +1,15 @@
 {
   "snapshot": "86f6728",
-  "meaning": "repository initial code snapshot, not independently verified upstream release",
+  "meaning": "sample-weighting experimental variant; baseline hashes preserved separately; not official baseline",
   "restored_sha256": {
+    "lingbotvla/models/vla/lingbot_vla/configuration_lingbot_vla.py": "37987af05ca8980debf5bfe81211cc2a9db1b2fb0e14e15076fa6497c5baf023",
+    "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla.py": "cf99d3bccdab5571f932bdf0f1f61e539f03f58a4312ad8d7f74c96225c55150",
+    "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla_v2.py": "90663415d1b5dce6775af95f47735a76fdf5273f3154a19a69274eb1faf1aaaf"
+  },
+  "baseline_restored_sha256": {
     "lingbotvla/models/vla/lingbot_vla/configuration_lingbot_vla.py": "37987af05ca8980debf5bfe81211cc2a9db1b2fb0e14e15076fa6497c5baf023",
     "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla.py": "af6a365f05e4ccd7d2585368412be5d186a3afdabfc6e9eaf0c97e71a51037dc",
     "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla_v2.py": "9b3c9a2ad6823f9d58da51b732477785a1e4db0d29db80e030e094c7b605e40c"
-  }
+  },
+  "experiment": "stack_bowls_sample_weighting"
 }

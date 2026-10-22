@@ -1,0 +1,18 @@
+{
+  "date": "2026-10-22",
+  "branch": "experiment/stack_bowls_sample_weighting",
+  "tests": 9,
+  "passed": 9,
+  "skipped": 0,
+  "device": "cpu",
+  "torch": "2.2.2",
+  "full_model_import_tested": true,
+  "gpu_tested": true,
+  "closed_loop_tested": false,
+  "training_started": true,
+  "numpy": "1.26.4",
+  "static_compilation_files": 10,
+  "diff_check_passed": true,
+  "normalization": "sample_count",
+  "gpu_probe_steps": 3
+}

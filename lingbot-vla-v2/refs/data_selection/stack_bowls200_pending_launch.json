@@ -1,0 +1,30 @@
+{
+  "source": {
+    "trainer_config": "/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/trainer_config.json",
+    "checkpoint": "/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160/hf_ckpt"
+  },
+  "normalization": "sample_count",
+  "multiplier": 2,
+  "weight_environment": "LINGBOT_SAMPLE_WEIGHT_CONFIG",
+  "weight_config_generated_by": "tools/select_grasp_sequence.py",
+  "replay_fraction": 0.1,
+  "replay_switch_every_steps": 5,
+  "save_steps": [
+    200
+  ],
+  "training_started": true,
+  "storage_blocked": false,
+  "required_disk_gib": 16.063925973139703,
+  "available_disk_gib": 54.94195556640625,
+  "output_dir": "/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample",
+  "phase": "training_complete_evaluation_complete",
+  "remote_root": "/data/experiments/stack_bowls_sample_weighting/lingbot-vla-v2",
+  "local_tests_passed": 72,
+  "remote_loss_tests_passed": 9,
+  "source_snapshot_files_verified": 2640,
+  "latest_confirmed_step": 200,
+  "evaluation_successes": 0,
+  "evaluation_episodes": 3,
+  "oidn_errors": 0,
+  "recorded_episodes": 3
+}

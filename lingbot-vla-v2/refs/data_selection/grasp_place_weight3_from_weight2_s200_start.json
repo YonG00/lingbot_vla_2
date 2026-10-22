@@ -1,0 +1,21 @@
+{
+  "output_dir": "/data/outputs/20261022_1909_bowls_add200_from_weight2_s200_bf16_m56_replay10pct_grasp_place_weight3",
+  "source_checkpoint": "/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt",
+  "steps": 200,
+  "hf_steps": [
+    100,
+    200
+  ],
+  "micro": 56,
+  "gas": 1,
+  "replay_fraction": 0.1,
+  "multiplier": 3,
+  "normalization": "sample_count",
+  "combination": "union_no_stacking",
+  "union_selected_frames": 11179,
+  "old_source160_pipeline_stopped": true,
+  "formal_training_confirmed": true,
+  "formal_training_process_started": true,
+  "latest_completed_step": 5,
+  "phase": "training"
+}

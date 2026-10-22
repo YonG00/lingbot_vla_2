@@ -390,3 +390,33 @@ R17正式启动取证：真实CPU装配通过（1250轨迹、250626帧、1000虚
 首批8/15（53.33%），其余20任务未评测，不补零、不冒充25任务整体成绩。第二批有5条调度start事件，但在建立新推理连接/产生完整成绩前已中止，未计入测评结果。结果、完整训练与停止证据见[完成审计](../../../refs/training_records/20261022_R17_completed_first5.json)。
 
 初步判断：adjust3/3、bell3/3、dump2/3保留部分能力；hammer从R16的1/3到0/3、alarm历史9680的4/4到0/3为下降线索。alarm缺R16同任务训前基线，各次种子也不完全相同；不能据此断言本轮混训导致遗忘或整体恢复成功。
+
+
+### 2026-10-22 夹碗样本加权独立实验（启动检查中）
+
+来源：`20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160`（不是180）。独立分支 `experiment/stack_bowls_sample_weighting`；独立服务器目录 `/data/experiments/stack_bowls_sample_weighting`。
+
+run：`/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample`。计划stack_bowls_two 200步，BF16/micro56/GAS1；10%单任务复习每5步轮换，沿用第三轮25任务池、排除当前主任务；500间隔＋最终保存不变，仅产生step200。命中样本的FM/Depth/Future Depth/Video乘2，再按原样本数（FM掩码按原有效元素数）归约，不除权重和；正则保持原值。离线50轨迹15609帧，7436帧命中（47.64%）。训后夹碗3回合、前2回合录像，驻留评测；无补课，无自动关机。
+
+本地9项新CPU契约＋63项配方测试通过，服务器9项CPU契约通过，源码2640文件逐项SHA256校验。真实数据CPU装配检查进行中，GPU探针和正式训练尚待完成，不能记为已训200步。
+
+启动确认：真实CPU1250轨迹250626帧通过，首批56样本中24个权重2；3步GPU探针通过，allocated77.82GiB/reserved86.20GiB，BF16参数/计算/梯度检查通过。正式已完成至少109/200步，近期4.792秒/步。原基线目录未修改；训练与闭环尚未完成。证据：refs/data_selection/stack_bowls200_started_evidence.json。
+
+完成审计：200次正式更新完成，12:49:02–13:06:10约17分08秒，13:07:07完成训练收尾；step200的1708个BF16张量头部及分片完整性检查通过，约11.89GiB。首/末20步平均总loss0.036275→0.031415，FM0.03054→0.02602；仅为训练拟合。原始自动仿真跑3回合0/3，但OIDN CUDA不支持/invalid handle导致renderer gate拒绝，结果不作为有效clean成绩。独立目录漏带.runtime为已确认部署问题；不将pipeline failed写成训练未完成。
+
+2026-10-22 18:33重新评测：用户取消分支同步，故未合并基线提交；仅在独立服务器目录补只读.runtime链接，显式指定已有OIDN库，并使用基线已验证仿真客户端作为评测依赖。OIDN CUDA预检通过。评测step200、stack_bowls_two、3回合全部录像、固定种子100000/100001/100002；新目录 `evaluation_200_renderfixed_videos3_20261022_183342/stack_bowls_two`，成绩待完成，无自动关机。
+
+18:33新评测已完成：stack_bowls_two 0/3，种子100000/100001/100002，FP32推理/动作块50，OIDN错误0，3回合全局视频完整，已用ffprobe验证880/942/934帧，时长440/471/467秒。新结果有效，区别于原始渲染异常0/3。说明本次200步加权专训仍未通关，不能仅以训练loss下降判断学会；缺同源step160的配对有效成绩，不能量化相对改善。正式摘要 refs/data_selection/stack_bowls200_clean_eval_videos3.json。结果目录为本run下 evaluation_200_renderfixed_videos3_20261022_183342/stack_bowls_two。
+
+
+### 2026-10-22 19:04 双规则并集权重3（启动检查中）
+
+来源第三轮补课step160，非上一轮加权200。run `20261022_1904_bowls200_from_recovery3_s160_bf16_m56_replay10pct_grasp_place_weight3`；stack_bowls_two计划200步，10%复习，每5步轮换；BF16/micro56/GAS1。抓取与第二次放置规则并集11179帧（71.62%），命中样本四项损失3倍、按原样本分母；重叠不叠乘。用户新授权100/200存档。训完step200驻留3回合全录像，显式使用已验证仿真目录及OIDN库。CPU检查进行中，GPU和正式进度尚未确认；未自动关机。
+
+用户启动中更正来源：以第三轮step160为起点的19:04流水线已停止，正式日志已确认更新0步（探针与正式启动不计成完成训练），不使用其模型。新起点改为上一轮 `20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt`，继续加训200步；双规则/3倍/10%复习/100和200保存不变。新run以from_weight2_s200命名，避免混淆继承关系。
+
+新run：`/data/outputs/20261022_1909_bowls_add200_from_weight2_s200_bf16_m56_replay10pct_grasp_place_weight3`，来源明确为上一轮weight2sample-step200；真实CPU检查进行中。原19:04运行只记录为已停止，不计入已完成训练累计。
+
+新来源启动取证：真实CPU通过，首批41/56样本权重3；GPU探针3更新通过，allocated77.71GiB/reserved85.72GiB。正式配置model_path确认为上一轮weight2sample-step200，最新已记录更新0/200。100/200保存计划已冻结，旧来源流水线不再运行。证据 refs/data_selection/grasp_place_weight3_from_weight2_s200_started_evidence.json。
+
+正式更新确认：19:13:59已完成5/200，来源为weight2sample-step200；Loss0.0566、GradNorm0.7617，均有限。前几步仍含编译开销，不将其用作稳定训练速度。保存和闭环尚未完成。

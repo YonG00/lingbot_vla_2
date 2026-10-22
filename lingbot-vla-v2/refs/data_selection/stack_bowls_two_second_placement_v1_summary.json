@@ -1,0 +1,53 @@
+{
+  "task": "stack_bowls_two",
+  "target_placement_ordinal": 2,
+  "episodes": 50,
+  "total_frames": 15609,
+  "placement_pairs": 100,
+  "accepted_target_sequences": 50,
+  "selected_frames": 3743,
+  "selected_fraction": 0.2397975526939586,
+  "rejections": {},
+  "stage_frames": {
+    "place_aim": 1707,
+    "place_approach": 371,
+    "place_settle": 386,
+    "place_release": 550,
+    "place_retreat": 729
+  },
+  "kinematic_proxy_only": true,
+  "collision_verified": false,
+  "object_pose_verified": false,
+  "rule_version": "second_placement_v1",
+  "fps": 15.0,
+  "settings": {
+    "placement_ordinal": 2,
+    "approach_search_seconds": 2.0,
+    "aiming_search_seconds": 4.0,
+    "approach_distance_min_m": 0.08,
+    "approach_distance_max_m": 0.11,
+    "approach_downward_degrees": 45.0,
+    "minimum_descent_m": 0.04,
+    "perpendicular_tolerance_m": 0.02,
+    "forward_fraction": 0.7,
+    "reverse_tolerance_m": 0.002,
+    "closed_threshold": 0.2,
+    "open_threshold": 0.95,
+    "release_drift_m": 0.015,
+    "settle_distance_m": 0.01,
+    "settle_hold_seconds": 0.13,
+    "retreat_seconds": 3.0,
+    "retreat_height_m": 0.03,
+    "selected_stages": [
+      "place_aim",
+      "place_approach",
+      "place_settle",
+      "place_release",
+      "place_retreat"
+    ]
+  },
+  "numeric_source_sha256": "917cde35b9391a8d6ef062b4c2be421cac2a5f0066db741638977f72b5f51e0f",
+  "spec_sha256": "8700b7012a5f03ab822c3c8202d1f73f4f9dd685f534e82d4f098ea83a587209",
+  "training_modified": false,
+  "automatic_selection": true
+}

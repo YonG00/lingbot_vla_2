@@ -1558,6 +1558,9 @@ def main():
             # 原实现只取最后一个 micro-batch（GAS=4 时只反映 1/4 样本，见 tb_task_loss.py 说明）。
             _task_loss_sum = {}
             _task_loss_cnt = {}
+            if os.environ.get("LINGBOT_SAMPLE_WEIGHT_CONFIG"):
+                if len(micro_batches) != 1 or (torch.distributed.is_initialized() and torch.distributed.get_world_size() != 1):
+                    raise ValueError("sample weighting requires single-device GAS=1 for exact batch normalization")
             for micro_batch in micro_batches:
                 future_video_targets = None
                 future_video_current_preds = None
@@ -1836,7 +1839,7 @@ def main():
                         scalar = _tb_scalar(value)
                         if scalar is not None:
                             writer.add_scalar(key, scalar, global_step)
-                    elif key.startswith(("align/", "ee_fk/")):
+                    elif key.startswith(("align/", "ee_fk/", "sample_weight/")):
                         scalar = _tb_scalar(value)
                         if scalar is not None:
                             writer.add_scalar(key, scalar, global_step)

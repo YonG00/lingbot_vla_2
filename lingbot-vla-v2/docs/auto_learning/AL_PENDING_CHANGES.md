@@ -456,3 +456,56 @@ BF16最终HF1708张量完整，约11.88GiB；CPU整链、三步GPU dtype/梯度�
 #89上机更新：真实CPU数据装配通过；6步GPU实际日志完整、跨两组三任务，无OOM，allocated77.70GiB/reserved86.04GiB；正式训练至少6/1000。服务器与本地4个修改源码哈希一致，未重置远端工作区。83项本地/服务器纯CPU通过；最终1000步与闭环尚待完成，不冒充效果验收。证据refs/training_records/20261022_R17_started.json。
 
 #89终态：R17完成1000连续更新与两份BF16 HF。用户改为只评首批5项，8/15，驻留PID2841、零重载、5连接94请求；按用户要求停止后续评测，不将后20项记失败。原训练已成功完成，流程stopped_by_user是评测缩减。完成证据refs/training_records/20261022_R17_completed_first5.json，恢复效果仅可对已测5项讨论，未做全25验收。
+
+
+## 2026-10-22：夹碗样本筛选实验隔离（待验证）
+
+- 分支：`experiment/stack_bowls_sample_weighting`；独立 worktree：`lingbot_stack_bowls_weighting`。
+- 基线代码提交：`459a943`，来源分支 `official_adjust_bottle_control`；实验计划来源模型为 R17 step1000，尚未启动本实验训练。
+- 本次只迁移 `experiment/data_selection/` 与 `tools/select_grasp_sequence.py`；恢复训练框架及其他未提交文档改动保留在原工作目录。
+- 任务范围：`stack_bowls_two`。目标阶段为瞄准、上方对准、下降、闭合；抬升用于确认。现有代码仅有对准前固定上下文，更早瞄准阶段尚待实现和验证。
+- 现有筛选是运动学代理标注，不等于碗边对准或接触成功；未接入 VLA、视频、深度训练损失。后续其他任务应独立配置规则及版本。
+- 不变量：基线已跟踪文件不因迁移改变；训练入口与默认损失保持原状。
+- 出错症状：基线仍出现筛选工具，或未显式启用时训练发生样本权重变化。
+- 快速回滚：继续使用原工作目录与原分支；当前筛选没有训练调用方，无需修改训练配置。
+- 验证入口：两目录 `git status --short`、`git branch --show-current`，迁移文件逐项 SHA256 比较及 Python 静态编译。
+- 状态：仅完成本地隔离和静态验证；未提交、未 push、未同步服务器、未启动训练。
+
+
+### 2026-10-22：逐样本四项损失加权（待完整模型验证）
+
+- 修改：VLADataset.getitem 传递 sample_loss_weight；V2 Policy/FlowMatching.forward 与共享 depth/video loss helpers 按样本归约；离线 selector 增加 aim 阶段及带指纹配置。
+- 本意：突出夹碗瞄准到闭合样本，FM/Depth/Future Depth/Video 统一权重2，保留原全局系数与正则。
+- 不变量：未设置 LINGBOT_SAMPLE_WEIGHT_CONFIG 时使用原损失语义；权重全1的结果和梯度与原公式一致；稳定原始轨迹帧坐标；不影响基线目录。
+- 症状：全1损失/梯度偏离、其他数据集误命中、清单改变未拒绝、样本标记消失、正则梯度被加权。
+- 回滚：取消 LINGBOT_SAMPLE_WEIGHT_CONFIG 后重启；筛选器不修改数据集。
+- 验证入口：experiment.data_selection.test_sample_weighting；refs/data_selection/stack_bowls_two_v1_summary.json；新指南见 docs/training/recipes/stack_bowls_sample_weighting_zh.md。
+- 限制：单卡/GAS1/非repeatFM；GPU模型整链、瞄准视频边界抽检及闭环尚待验证；未启动训练或同步服务器。
+
+验证补充：9项 CPU 契约测试全部通过，静态语法与 diff 空白检查通过；🧪 部分验证。代码仍未提交/push。
+
+2026-10-22用户明确更新：不按权重和，改按原样本数（FM掩码为原有效元素数）归一化；命中项绝对贡献×2，正则不变。开启配置要求 normalization=sample_count，旧清单拒绝；关闭仍用原计算。9项CPU契约需按新口径重跑，不能沿用旧结果。授权清理仅4/5/7/10已完成，最新step160保留。
+
+上机进展：服务器9项CPU契约和真实数据装配通过，首批24/56命中；3步GPU探针通过，正式200步训练已启动。仍为🧪部分验证，最终保存和闭环待完成。独立仿真代码仅链接原有assets只读资源；不覆盖基线。
+
+评测部署遗留取证：新目录缺少未跟踪的.runtime/OIDN2.5.1，训练后自动评测出现真实OIDN CUDA错误；模型已保存、训练完成，0/3仅原始无效结果。环境修复为独立目录.runtime只读链接＋ROBOTWIN_OIDN_LIBRARY_DIR显式路径，并使用已验证仿真客户端/录像钩子；不更改分支或基线文件。新3回合全录像评测18:33启动，CUDA预检通过，尚待结果和视频完整性验证。
+
+渲染修复后评测完成：3回合0/3、OIDN错误0、3份视频完整。样本加权的CPU数值/梯度、真实GPU训练200步、存档及闭环运行均有证据，但未证明提高任务成功率。基线分支同步已按用户要求取消。
+
+
+### 2026-10-22 第二次放碗自动筛选（CPU阶段）
+
+- 文件：experiment/data_selection/placement_sequence.py，tools/select_bowl_placement.py，configs/data_selection/stack_bowls_two_second_placement_v1.json。
+- 本意：针对第二碗放置磕碰问题标注接近、停稳、松爪、撤离，不改已验证抓碗规则。
+- 不变量：默认只选择时间排序第二次释放且同臂已有抓取抬升确认，恰好两次配对；原始episode/frame标识不变；不影响训练入口。
+- 症状：第一碗被误标成第二碗、未释放/未撤离仍通过、轨迹缺帧仍接受、训练在未启用时出现新权重。
+- 回滚：不调用独立select_bowl_placement.py，训练配置不变即不生效；旧抓取筛选器不改。
+- 验证：CPU test_placement_sequence；50条实数值轨迹扫描50段第二次放置/3743帧，视频边界抽检及训练收益未验证。
+
+
+### 2026-10-22 两套规则并集、权重3新实验（待上机）
+
+用户授权：来源第三轮step160，stack_bowls_two200步，100/200保存；沿用10%复习。combine_directories按episode/frame去重并保留两套阶段标签，重叠不叠乘；权重配置multiplier=3，FM/Depth/Future Depth/Video沿用原样本分母；关闭不变。CPU预检从配置读multiplier，不再硬编码2。
+不变量：重叠只有一条样本、权重仍3；来源数据/任务/规格指纹相同才合并；旧配置2仍可用。症状：重叠样本重复或权重9、旧测试被硬编码3破坏、指纹不同仍合并。回滚：选回旧weight_config.json并重启，不改旧模型；验证入口 test_combine、test_sample_weighting 和真实CPU报告。
+
+本轮驻留评测依赖：jobs_for增加可选LINGBOT_ROBOTWIN_ROOT（进程启动环境读取），默认原相邻目录不变；显式指向已验证仿真目录并指定ROBOTWIN_OIDN_LIBRARY_DIR。只读复用依赖，不同步分支或覆盖基线。症状：生成job.robotwin路径不符或录像钩子缺失；回退取消变量重启。验证入口jobs_for生成任务路径、运行前OIDN CUDA预检及最终录像计数。

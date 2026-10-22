@@ -1,0 +1,35 @@
+{
+  "task": "stack_bowls_two",
+  "rule_version": "grasp_sequence_v1",
+  "settings": {
+    "downward_degrees": 30.0,
+    "open_threshold": 0.95,
+    "closed_threshold": 0.2,
+    "closure_crossing": 0.5,
+    "search_before_seconds": 4.0,
+    "closing_timeout_seconds": 2.0,
+    "alignment_hold_seconds": 0.13,
+    "alignment_context_seconds": 0.5,
+    "aiming_search_seconds": 4.0,
+    "aiming_min_progress_m": 0.02,
+    "aiming_reverse_fraction": 0.3,
+    "alignment_speed_mps": 0.03,
+    "pregrasp_distance_min_m": 0.06,
+    "pregrasp_distance_max_m": 0.16,
+    "perpendicular_tolerance_m": 0.025,
+    "target_tolerance_m": 0.015,
+    "minimum_descent_m": 0.05,
+    "reverse_tolerance_m": 0.002,
+    "forward_fraction": 0.7,
+    "close_position_tolerance_m": 0.015,
+    "lift_timeout_seconds": 3.0,
+    "lift_confirmation_m": 0.03,
+    "selected_stages": [
+      "aim",
+      "align",
+      "descend",
+      "settle",
+      "close"
+    ]
+  }
+}

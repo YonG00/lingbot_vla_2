@@ -1,0 +1,27 @@
+{
+  "task": "stack_bowls_two",
+  "fps": 15.0,
+  "numeric_source_sha256": "917cde35b9391a8d6ef062b4c2be421cac2a5f0066db741638977f72b5f51e0f",
+  "spec_sha256": "8700b7012a5f03ab822c3c8202d1f73f4f9dd685f534e82d4f098ea83a587209",
+  "rule_version": "grasp_and_second_placement_union_v1",
+  "combination": "union_no_stacking",
+  "selected_frames": 11179,
+  "total_frames": 15609,
+  "selected_fraction": 0.7161893779229932,
+  "duplicate_memberships": 0,
+  "sources": [
+    {
+      "rule_version": "grasp_sequence_v1",
+      "selected_frames": 7436,
+      "selected_sha256": "20f7b508e02df6f8ac7ebbcc69996883b8652e783e7aa31e2910a59a950b31e2"
+    },
+    {
+      "rule_version": "second_placement_v1",
+      "selected_frames": 3743,
+      "selected_sha256": "fde0a9fcc28738af55c8306e8a4b13e99b3e48079657af3fff4db5bc38333954"
+    }
+  ],
+  "training_modified": false,
+  "multiplier": 3.0,
+  "normalization": "sample_count"
+}

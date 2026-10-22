@@ -1,5 +1,6 @@
 import einops
 import torch
+from lingbotvla.utils.sample_loss_weight import weighted_mean
 from torch import Tensor, nn
 import torch.nn.functional as F
 from typing import List, Optional, Tuple, Union
@@ -781,6 +782,7 @@ class FlowMatchingV2(FlowMatchingV1):
         future_video_targets=None,
         future_video_cls_targets=None,
         future_video_current_patch=None,
+        sample_loss_weight=None,
     ) -> Tensor:
         dtype = state.dtype
         device = state.device
@@ -844,7 +846,7 @@ class FlowMatchingV2(FlowMatchingV1):
         )
         align_metrics = {}
         if self.config.align_params != {}:
-            loss_depth, loss_future_depth, depth_preds, future_depth_preds = self.depth_emb_forward(outputs_embeds, depth_targets, img_masks,future_depth_targets,)
+            loss_depth, loss_future_depth, depth_preds, future_depth_preds = self.depth_emb_forward(outputs_embeds, depth_targets, img_masks, future_depth_targets, sample_loss_weight=sample_loss_weight)
             loss_depth = loss_depth * self.config.align_params["depth_loss_weight"]
             loss_future_depth = loss_future_depth * self.config.align_params.get("future_depth_loss_weight", 1.0)
             loss_future_video = 0
@@ -856,6 +858,7 @@ class FlowMatchingV2(FlowMatchingV1):
                     future_video_targets,
                     future_video_cls_targets=future_video_cls_targets,
                     future_video_current_patch=future_video_current_patch,
+                    sample_loss_weight=sample_loss_weight,
                 )
                 video_total_loss = loss_video
                 if (
@@ -865,6 +868,7 @@ class FlowMatchingV2(FlowMatchingV1):
                     current_video_loss, current_video_preds, current_video_metrics = self.current_video_emb_forward(
                         outputs_embeds,
                         future_video_current_patch,
+                        sample_loss_weight=sample_loss_weight,
                     )
                     video_total_loss = video_total_loss + current_video_loss
                     video_metrics.update(current_video_metrics)
@@ -887,6 +891,15 @@ class FlowMatchingV2(FlowMatchingV1):
                 align_metrics["align/future_video_loss_weighted"] = (loss_video * video_weight).detach()
                 align_metrics["align/video_loss"] = video_total_loss.detach()
                 align_metrics["align/video_loss_weighted"] = loss_future_video.detach()
+                if sample_loss_weight is not None:
+                    unweighted_video, _ = self._video_emb_loss(future_video_preds, future_video_targets) if getattr(self, "use_future_video_patch", True) else (0, {})
+                    # CLS metrics already carry original unweighted losses.
+                    if getattr(self, "use_future_video_cls", False):
+                        unweighted_video = unweighted_video + video_metrics["align/future_video_cls_loss_weighted"]
+                    if current_video_preds is not None:
+                        unweighted_current, _ = self._video_emb_loss(current_video_preds, future_video_current_patch, metric_prefix="current_video")
+                        unweighted_video = unweighted_video + unweighted_current
+                    align_metrics["sample_weight/video_unweighted"] = unweighted_video.detach()
             self.steps += 1
         else:
             loss_depth = 0
@@ -1251,9 +1264,12 @@ class LingbotVlaV2Policy(PreTrainedModel):
         future_video_targets=None,
         future_video_cls_targets=None,
         future_video_current_patch=None,
+        sample_loss_weight=None,
         **kwargs
     ) -> tuple[Tensor, dict[str, Tensor]]:
         loss_dict = {}
+        if sample_loss_weight is not None and "repeat" in self.config.loss_type:
+            raise ValueError("sample weighting currently supports non-repeat FM only")
         if getattr(self.config, "action_fp32", False):
             state = state.float()
             actions = actions.float()
@@ -1285,6 +1301,7 @@ class LingbotVlaV2Policy(PreTrainedModel):
             future_video_targets=future_video_targets,
             future_video_cls_targets=future_video_cls_targets,
             future_video_current_patch=future_video_current_patch,
+            sample_loss_weight=sample_loss_weight,
         )
 
         if joint_mask is not None:
@@ -1295,13 +1312,21 @@ class LingbotVlaV2Policy(PreTrainedModel):
             masked_losses = losses * joint_mask
             valid_counts = joint_mask.sum(dim=(1, 2)).clamp(min=1)
             batch_mean_losses = masked_losses.sum(dim=(1, 2)) / valid_counts
-            loss_vla = masked_losses.sum() / joint_mask.sum().clamp(min=1)
+            loss_vla = weighted_mean(losses, sample_loss_weight, joint_mask)
         else:
             losses = losses[:, :, : self.config.action_dim]
             batch_mean_losses = losses.mean(dim=(1, 2))
-            loss_vla = losses.mean()
+            loss_vla = weighted_mean(losses, sample_loss_weight)
 
         loss_dict["batch_mean_losses"] = batch_mean_losses.detach()
+        if sample_loss_weight is not None:
+            loss_dict["sample_weight/fm_unweighted"] = weighted_mean(losses, None, joint_mask).detach()
+            loss_dict["sample_weight/mean"] = sample_loss_weight.float().mean().detach()
+            loss_dict["sample_weight/selected_fraction"] = (sample_loss_weight != 1).float().mean().detach()
+            if depth_preds is not None:
+                loss_dict["sample_weight/depth_unweighted"] = self.model._emb_loss(depth_preds, depth_targets).detach()
+            if future_depth_preds is not None:
+                loss_dict["sample_weight/future_depth_unweighted"] = self.model._emb_loss(future_depth_preds, future_depth_targets).detach()
         total_loss = (
             loss_vla
             + loss_depth

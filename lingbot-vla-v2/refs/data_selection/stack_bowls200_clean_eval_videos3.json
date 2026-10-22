@@ -1,0 +1,19 @@
+{
+  "state": "complete",
+  "task": "stack_bowls_two",
+  "label": "weight2sample_200_renderfixed",
+  "model": "/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt",
+  "successes": 0,
+  "episodes": 3,
+  "success_rate": 0.0,
+  "seeds": [
+    100000,
+    100001,
+    100002
+  ],
+  "oidn_errors": 0,
+  "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+  "dtype": "float32",
+  "action_chunk": 50,
+  "recorded_episodes": 3
+}

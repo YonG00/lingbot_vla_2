@@ -248,6 +248,15 @@ class VLADataset(Dataset):
         self.config = config
         self.chunk_size = chunk_size
         self.data_name = data_name
+        self.sample_selection_weights = None
+        weight_config = os.environ.get("LINGBOT_SAMPLE_WEIGHT_CONFIG")
+        if weight_config:
+            from experiment.data_selection.weights import SelectionWeights
+            self.sample_selection_weights = SelectionWeights(weight_config)
+            if data_name == self.sample_selection_weights.dataset_name and str(Path(repo_id).expanduser().resolve()) != self.sample_selection_weights.dataset_root:
+                raise ValueError("sample selection dataset root mismatch")
+            if config is not None and type(config).__name__ != "LingbotVLAV2Config":
+                raise ValueError("sample weighting supports LingbotVLAV2Config only")
         self.disabled_image_features = disabled_image_features
         self.use_depth_align = use_depth_align
         self.use_future_image = use_future_image
@@ -370,6 +379,12 @@ class VLADataset(Dataset):
         item = self.feature_transform.apply(raw_item)
         if self.transform is not None:
             item = self.transform(item, raw_item, self.feature_transform.feature_config.images, self.feature_transform.key_mapping)
+        if self.sample_selection_weights is not None:
+            weight = self.sample_selection_weights.weight(
+                self.data_name, raw_item["episode_index"].item(), raw_item["frame_index"].item())
+            entries = item if isinstance(item, list) else [item]
+            for entry in entries:
+                entry["sample_loss_weight"] = torch.tensor(weight, dtype=torch.float32)
         return item
 
     def __getitem__(self, idx):

@@ -1,0 +1,58 @@
+{
+  "active": {
+    "root": "/data/experiments/stack_bowls_sample_weighting/lingbot-vla-v2",
+    "launch": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample_pipeline",
+    "output": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample",
+    "selection": "/data/experiments/stack_bowls_sample_weighting/selection_stack_bowls_two_v1"
+  },
+  "source": {
+    "trainer_config": "/root/autodl-tmp/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/trainer_config.json",
+    "checkpoint": "/root/autodl-tmp/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160/hf_ckpt"
+  },
+  "cpu": {
+    "state": "cpu_pass",
+    "episodes": 1250,
+    "frames": 250626,
+    "virtual_epoch_steps": 200,
+    "sample_weight_count": 56,
+    "sample_weight_selected": 24,
+    "sample_weight_normalization": "sample_count"
+  },
+  "probe": {
+    "state": "three_step_probe_complete",
+    "optimizer_steps": 3,
+    "peak_allocated_gib": 77.82071018218994,
+    "peak_reserved_gib": 86.19921875,
+    "micro": 56,
+    "gas": 1
+  },
+  "status": {
+    "state": "training",
+    "steps": 200
+  },
+  "latest_completed_training_step": 109,
+  "recent_step_seconds": 4.792,
+  "free_bytes": 58814824448,
+  "cleanup": {
+    "deleted": [
+      {
+        "path": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/checkpoints/global_step_500",
+        "released_bytes": 12768219136
+      },
+      {
+        "path": "/data/outputs/20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/checkpoints/global_step_1000",
+        "released_bytes": 12768219136
+      },
+      {
+        "path": "/data/outputs/20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/checkpoints/global_step_400",
+        "released_bytes": 12768219136
+      },
+      {
+        "path": "/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1150_round_2_recovery/checkpoints/global_step_80",
+        "released_bytes": 12768219136
+      }
+    ],
+    "retained_source": "/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160",
+    "free_bytes": 58993475584
+  }
+}

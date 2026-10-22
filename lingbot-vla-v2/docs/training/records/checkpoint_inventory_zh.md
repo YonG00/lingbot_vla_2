@@ -69,3 +69,17 @@ R16完成后已核对实际目录，共9份正式HF，未删除任何存档；�
 2026-10-22 R17启动前按用户指令只删除R16/global_step_500，共12768173061字节（约11.89GiB）；保留并复核R16/global_step_800为1708张量BF16。其他run及R16日志评测未删。清理后空闲43.22GiB，本轮新500/1000的安全预算29.13GiB，仍有14.09GiB预算外余量。当前正式HF共8份；R17两份未生成前不计入库存。
 
 R17完成后500/1000均已复核完整，首批5任务测后停止未删除任何存档；本次未改变保存与保留策略。
+
+
+### 2026-10-22 用户授权清理（夹碗专训前）
+
+仅删除以下4个存档，各11.89GiB，共47.56GiB；不删除日志、评测及run其他文件：
+
+- `20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/checkpoints/global_step_500`
+- `20261021_1810_seven_tasks_from_R13_bf16_m56_replay20pct_checked/checkpoints/global_step_1000`
+- `20261021_2046_handover200_bowls200_from_R14_bf16_m56_no_replay/checkpoints/global_step_400`
+- `20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1150_round_2_recovery/checkpoints/global_step_80`
+
+路径均相对于 `/data/outputs/`。最新第三轮step160完整保留为夹碗训练起点；其他未指定存档保留。清理后空闲54.94GiB。本轮预计新增step200约11.89GiB，实际生成前不记为现有存档。
+
+夹碗独立实验step200已实际生成并校验：`20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt`，1708个BF16张量，12768173067字节。最新来源step160保留；本次评测未清理任何模型。
