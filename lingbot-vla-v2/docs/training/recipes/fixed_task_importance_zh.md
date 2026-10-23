@@ -1,0 +1,9 @@
+# 固定任务样本重要性
+
+2026-10-23用户确认：stack_bowls_two原7436个抓碗锚点今后作为复习也必须保持FM/Depth/FutureDepth/Video逐样本loss×2，其他帧×1，按原样本数归一化。不是放置加权8993版，也不是左手3倍版本。
+
+登记表 `configs/data_selection/fixed_task_importance.json` 指向 `refs/data_selection/stack_bowls_two_fixed_grasp2/weight_config.json`。固定坐标SHA256为96c7fbba45034128dba88c94911d0cc348554e7f14f7514836627eef235794c8，与当前真实0818训练策略一致。
+
+prepare根据主任务和复习task_groups解析固定策略，即使来源HF没有该策略，也会装入并冻结；优先纠正历史来源策略为当前固定值。若显式提供同任务不同坐标/权重则拒绝启动，避免静默覆盖。其他任务不注入该规则，dataset身份不符则拒绝。HF导出继续携带registry和选择文件。dataset按原始episode/frame赋权，不依赖该样本属于主任务还是复习。
+
+改固定规则须根据用户后续明确指示更新登记表或所指版本，不能只在启动环境变量中覆盖。回滚是取消该任务登记并显式选择原策略；当前服务器在已有训练退出后才同步此默认规则，不能对正在运行的冻结run追改。

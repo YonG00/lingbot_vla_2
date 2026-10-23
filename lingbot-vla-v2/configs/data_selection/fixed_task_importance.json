@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "policies": {
+    "stack_bowls_two": "refs/data_selection/stack_bowls_two_fixed_grasp2/weight_config.json"
+  }
+}

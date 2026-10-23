@@ -1,0 +1,130 @@
+{
+  "weighted_frames": 7436,
+  "multipliers": [
+    2.0
+  ],
+  "coordinates_sha256": "96c7fbba45034128dba88c94911d0cc348554e7f14f7514836627eef235794c8",
+  "pipeline_state": "complete",
+  "evaluation": [
+    {
+      "state": "complete",
+      "task": "stack_bowls_two",
+      "label": "recipe_100",
+      "model": "/root/autodl-tmp/data/outputs/20261023_0818_bowls_add100_from_original_s100_bf16_m56_original_grasp2_replay10pct_parallel3_novideo/checkpoints/global_step_100/hf_ckpt",
+      "successes": 1,
+      "episodes": 3,
+      "success_rate": 0.3333333333333333,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 0,
+      "server_pid": 3480,
+      "shared_server": true,
+      "episode_results": [
+        {
+          "state": "complete",
+          "task": "stack_bowls_two",
+          "label": "recipe_100",
+          "model": "/root/autodl-tmp/data/outputs/20261023_0818_bowls_add100_from_original_s100_bf16_m56_original_grasp2_replay10pct_parallel3_novideo/checkpoints/global_step_100/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100000
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 0,
+          "job_id": "stack_bowls_two:episode:0",
+          "episode_index": 0,
+          "scene_seed": 100000,
+          "server_pid": 3480,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "stack_bowls_two",
+          "label": "recipe_100",
+          "model": "/root/autodl-tmp/data/outputs/20261023_0818_bowls_add100_from_original_s100_bf16_m56_original_grasp2_replay10pct_parallel3_novideo/checkpoints/global_step_100/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100001
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 0,
+          "job_id": "stack_bowls_two:episode:1",
+          "episode_index": 1,
+          "scene_seed": 100001,
+          "server_pid": 3480,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "stack_bowls_two",
+          "label": "recipe_100",
+          "model": "/root/autodl-tmp/data/outputs/20261023_0818_bowls_add100_from_original_s100_bf16_m56_original_grasp2_replay10pct_parallel3_novideo/checkpoints/global_step_100/hf_ckpt",
+          "successes": 1,
+          "episodes": 1,
+          "success_rate": 1.0,
+          "seeds": [
+            100002
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 0,
+          "job_id": "stack_bowls_two:episode:2",
+          "episode_index": 2,
+          "scene_seed": 100002,
+          "server_pid": 3480,
+          "shared_server": true
+        }
+      ],
+      "episode_parallel": true
+    }
+  ],
+  "progress": {
+    "confirmed_optimizer_steps": 100,
+    "main_steps": {
+      "stack_bowls_two": 100
+    },
+    "samples_by_task": {
+      "stack_bowls_two": 5040,
+      "adjust_bottle": 28,
+      "beat_block_hammer": 28,
+      "click_alarmclock": 28,
+      "click_bell": 28,
+      "dump_bin_bigbin": 28,
+      "hanging_mug": 28,
+      "move_playingcard_away": 28,
+      "open_laptop": 28,
+      "open_microwave": 28,
+      "place_a2b_left": 28,
+      "place_a2b_right": 28,
+      "place_bread_basket": 28,
+      "place_can_basket": 28,
+      "place_container_plate": 28,
+      "place_empty_cup": 28,
+      "place_object_basket": 28,
+      "place_object_stand": 28,
+      "place_shoe": 28,
+      "press_stapler": 28,
+      "rotate_qrcode": 28
+    },
+    "replay_samples": 560
+  }
+}

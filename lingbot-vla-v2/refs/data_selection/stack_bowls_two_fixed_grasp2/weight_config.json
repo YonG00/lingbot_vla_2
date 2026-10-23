@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "normalization": "sample_count",
+  "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30",
+  "task": "stack_bowls_two",
+  "rule_version": "grasp_sequence_v1",
+  "dataset_name": "robotwin",
+  "multiplier": 2.0,
+  "selected_frames": "selected_frames.json",
+  "selected_frames_sha256": "20f7b508e02df6f8ac7ebbcc69996883b8652e783e7aa31e2910a59a950b31e2"
+}

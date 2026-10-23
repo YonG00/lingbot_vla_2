@@ -47,10 +47,18 @@ def find_source_registry(source_run):
     return None
 
 
-def freeze_registry(source_run,destination,explicit=None):
+def freeze_registry(source_run,destination,explicit=None,fixed=None):
     policies={};source=find_source_registry(source_run)
     if source:policies.update(read_policies(source))
     if explicit:policies.update(read_policies(explicit)) # Replace this task, preserve all others.
+    if fixed:
+        for task,path in fixed.items():
+            selected=read_policies(path)
+            if set(selected)!={task}:raise ValueError("fixed importance task mismatch")
+            if explicit and task in read_policies(explicit):
+                requested=SelectionWeights(read_policies(explicit)[task]);locked=SelectionWeights(path)
+                if requested.coordinate_weights!=locked.coordinate_weights:raise ValueError("explicit importance conflicts with fixed task policy: "+task)
+            policies.update(selected)
     if not policies:return None
     destination=Path(destination);registry=destination/NAME
     if registry.exists():raise ValueError('refuse overwrite frozen importance registry')

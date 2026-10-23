@@ -79,3 +79,6 @@
 - [单任务多回合并行闭环评测](training/recipes/single_task_episode_parallel_zh.md)
 
 - [夹碗1:5:4恢复训练与三回合并行评测](training/recipes/stack_bowls_mix154_recovery_zh.md)
+
+- [订书机抓后放置片段筛选](training/recipes/move_stapler_pad_postgrasp_selection_zh.md)
+- [固定任务重要性：夹碗复习维持2倍](training/recipes/fixed_task_importance_zh.md)

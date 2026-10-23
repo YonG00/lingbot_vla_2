@@ -65,8 +65,10 @@ def prepare(raw):
     dataset_lines='robotwin '+c['data']['dataset_root']+'\n'
     out.mkdir(parents=True,exist_ok=False)
     from experiment.data_selection.inheritance import freeze_registry,registry_digest
+    from experiment.data_selection.fixed_importance import fixed_policies
+    fixed=fixed_policies(ROOT,groups,c['data']['dataset_root'])
     importance=freeze_registry(source,out,
-        explicit=os.environ.get('LINGBOT_SAMPLE_WEIGHT_CONFIG'))
+        explicit=os.environ.get('LINGBOT_SAMPLE_WEIGHT_CONFIG'),fixed=fixed)
     ids=sorted(e for values in groups.values() for e in values)
     report=dict(expected_frames=frames,episodes=len(ids),hf_steps=saves,recipe_sha256=digest(c),required_disk_gib=required/2**30,
         remediation_reserved_checkpoints=extra_saves,

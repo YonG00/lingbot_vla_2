@@ -76,3 +76,7 @@ run.py把冻结registry传入CPU/探针/训练子进程，生成train.sh也显�
 规则 `configs/data_selection/stack_bowls_two_grasp_plus_place10_v1.json`；入口 `tools/select_bowl_grasp_place10.py`。不减少第一版任何抓取目标；50次第二放置分别取最终approach之前5帧（15FPS的1/3秒，且不越过place_aim起点），连续保留到release_end，包含下降、停稳、松爪，不包含后续撤离。新增1557/15609帧9.975%，原7436帧与其不重叠，合计8993帧57.614%，全部loss2。不是抽稀凑比例，也不是10%定额采样。
 
 配方 `configs/training_recipes/stack_bowls_add100_from_original_s100_grasp2_place10pct2_parallel3.json`，来源2339原方法step100，继续100步，保留主任务均匀/10%其他任务复习，原LR1e-4→5e-5按100步重启。仅最终100，单任务3回合并行全录像。候选通过FK和成功示范时序代理定位，没有物体接触测量或视频抽检。
+
+## 原抓取7436帧再训100、不录像三回合并行（2026-10-23）
+
+配方 `configs/training_recipes/stack_bowls_add100_from_original_s100_grasp2_parallel3_novideo.json`；来源2339-step100，直接读取该HF冻结策略并强制7436帧、唯一倍率2。原始训练字段（预算除外）与来源实际recipe比较一致；不使用新增1557放置目标，也不使用角色/概率加权。仅最终100，`single_task_episode_workers=3`、固定三个种子、`video_episodes=0`。三回合结果仍合并到任务summary，但不生成视频。

@@ -1,0 +1,52 @@
+{
+  "task": "move_stapler_pad",
+  "episodes": 50,
+  "total_frames": 7731,
+  "candidate_grasps": 50,
+  "accepted_sequences": 50,
+  "arm_counts": {
+    "left": 22,
+    "right": 28
+  },
+  "rejections": {},
+  "selected_frames": 2282,
+  "selected_fraction": 0.2951752683999483,
+  "broad_postgrasp_frames": 3595,
+  "broad_postgrasp_fraction": 0.46501099469667573,
+  "stage_frames": {
+    "place_aim_context": 250,
+    "preplace_hold": 284,
+    "place_descend_settle": 898,
+    "place_release": 550,
+    "episode_tail": 300
+  },
+  "anchors_reaching_episode_end": 2278,
+  "mean_real_future_frames": 23.348816827344436,
+  "kinematic_proxy_only": true,
+  "object_pose_verified": false,
+  "contact_verified": false,
+  "subsampled": false,
+  "rule_version": "stapler_postgrasp_place_v1",
+  "fps": 15.0,
+  "settings": {
+    "open_threshold": 0.95,
+    "closed_threshold": 0.2,
+    "lift_min_m": 0.08,
+    "preplace_distance_min_m": 0.08,
+    "preplace_distance_max_m": 0.12,
+    "preplace_height_min_m": 0.06,
+    "stable_speed_mps": 0.025,
+    "stable_frames": 2,
+    "aiming_context_seconds": 0.3333333333333333,
+    "max_release_drift_m": 0.015,
+    "min_descent_m": 0.05,
+    "reverse_tolerance_m": 0.002,
+    "forward_fraction": 0.7,
+    "max_perpendicular_m": 0.025,
+    "action_horizon": 50
+  },
+  "numeric_source_sha256": "b38534a4fcbd0f1634a46a24048af1d4539c1120582ddfeadab1e144c38244f7",
+  "spec_sha256": "8700b7012a5f03ab822c3c8202d1f73f4f9dd685f534e82d4f098ea83a587209",
+  "training_modified": false,
+  "automatic_selection": true
+}
