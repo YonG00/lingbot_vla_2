@@ -68,3 +68,7 @@
 `20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt` 已生成且验证1708个BF16张量，仅最终200。订书机原三视频保留，追加move_can_pot只评测不新增模型、不删任何存档。
 
 - move_can_pot独立录像评测完成，不生成/删除HF；0928-step200与0847来源保持不变，三份录像均可读取。
+
+### 2026-10-23 双瓶300存档计划
+
+`20261023_1016_dual_bottles300_from_0928_s200_bf16_m56_horizontal_grasp2_replay10pct_parallel3_video/checkpoints/global_step_300/hf_ckpt` 仅计划最终300，正式训练已开始，生成前不记现有模型。0928-step200来源保留，本轮无清理。

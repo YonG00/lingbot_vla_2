@@ -191,3 +191,13 @@ prepare生成`save_steps=0, save_at_steps=[...]`；训练器通过纯CPU的check
 `train.mode="grouped"`、`steps=1000`、`tasks_per_group=3`、`steps_per_group=3`；main_tasks列25个等权任务，不写逐任务steps或task_order，额外replay设fraction=0、tasks={}。均衡选组三任务、每组维持3步；GBS56每步19/19/18轮换，完整三步后各任务56样本。随机种子固定时计划和恢复确定；每25组（75更新）25任务样本精确相等。1000步的尾组只有1步，全程56000样本、每任务2203～2259，不能宣称每任务恰好2240。该轮没有额外10%复习，因为25任务池本身就是复习内容。
 
 配置`configs/training_recipes/grouped_restore25_group3_hold3_1000_from_R16.json`；名单和计划预览见`refs/training_records/20261022_R17_grouped_plan_preview.json`。旧mixed仍每步按全任务比例混合，sequential/task_units不变；新grouped不支持自动补课。新模式GPU探针跨两组（本配方6步），旧模式仍3步。2026-10-22真实CPU及跨两组6步GPU探测通过，R17正式训练已开始；最终训练与闭环效果待完成。
+
+## 重复续训跳过独立GPU探测（2026-10-23）
+
+用户要求节省重复加载与三步探测时间。后续模型、精度、micro/GAS和显存规格相同的已验证续训，在新配方明确设置 `runtime.gpu_probe_enabled=false`：CPU预检仍执行，通过后直接正式训练；状态记录gpu_probe_skipped，不伪造probe通过。首次新显存配置、精度/模型计算代码变更时可设置true。旧配方缺省仍true，保持历史行为；手动smoke入口仍可用。
+
+```json
+"runtime": {"shutdown_after_completion": false, "gpu_probe_enabled": false}
+```
+
+仅影响新启动流水线；不修改正在运行的1016双瓶300步冻结配置、不停止当前训练。跳过探测意味着省去一次模型加载和三个独立更新，实际节省时间随加载/编译耗时变化。此参数不跳过CPU、存档完整性或闭环检查，不改变保存节奏。

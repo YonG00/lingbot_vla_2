@@ -1,0 +1,143 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/trainer_config.json",
+    "checkpoint": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/dual_bottles300_from_0928_s200_bf16_m56_horizontal_grasp2_replay10pct_parallel3_video",
+  "train": {
+    "mode": "sequential",
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "pick_dual_bottles": {
+        "steps": 300,
+        "weight": 1
+      }
+    },
+    "replay": {
+      "mode": "round_robin",
+      "fraction": 0.1,
+      "tasks_per_step": 1,
+      "switch_every_steps": 5,
+      "tasks": {
+        "adjust_bottle": {
+          "weight": 1
+        },
+        "beat_block_hammer": {
+          "weight": 1
+        },
+        "click_alarmclock": {
+          "weight": 1
+        },
+        "click_bell": {
+          "weight": 1
+        },
+        "dump_bin_bigbin": {
+          "weight": 1
+        },
+        "hanging_mug": {
+          "weight": 1
+        },
+        "move_playingcard_away": {
+          "weight": 1
+        },
+        "open_laptop": {
+          "weight": 1
+        },
+        "open_microwave": {
+          "weight": 1
+        },
+        "place_a2b_left": {
+          "weight": 1
+        },
+        "place_a2b_right": {
+          "weight": 1
+        },
+        "place_bread_basket": {
+          "weight": 1
+        },
+        "place_can_basket": {
+          "weight": 1
+        },
+        "place_container_plate": {
+          "weight": 1
+        },
+        "place_empty_cup": {
+          "weight": 1
+        },
+        "place_object_basket": {
+          "weight": 1
+        },
+        "place_object_stand": {
+          "weight": 1
+        },
+        "place_shoe": {
+          "weight": 1
+        },
+        "press_stapler": {
+          "weight": 1
+        },
+        "rotate_qrcode": {
+          "weight": 1
+        },
+        "shake_bottle": {
+          "weight": 1
+        },
+        "shake_bottle_horizontally": {
+          "weight": 1
+        },
+        "stack_blocks_two": {
+          "weight": 1
+        },
+        "stack_bowls_two": {
+          "weight": 1
+        },
+        "turn_switch": {
+          "weight": 1
+        }
+      }
+    },
+    "task_order": [
+      "pick_dual_bottles"
+    ],
+    "steps": 300
+  },
+  "checkpoint": {
+    "mode": "steps",
+    "every_steps": 300,
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true,
+    "max_parallel_tasks": 1,
+    "video_episodes": 3,
+    "tasks": [
+      "pick_dual_bottles"
+    ],
+    "reuse_training_model": true,
+    "single_task_episode_workers": 3,
+    "single_task_episode_seeds": [
+      100000,
+      100001,
+      100002
+    ]
+  },
+  "runtime": {
+    "shutdown_after_completion": false
+  },
+  "remediation": {
+    "enabled": false,
+    "max_rounds": 1
+  }
+}

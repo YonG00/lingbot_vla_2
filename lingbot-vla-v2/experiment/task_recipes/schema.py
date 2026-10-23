@@ -161,7 +161,8 @@ def _validate(raw):
             raise ValueError('remediation requires final checkpoint evaluation with three episodes per task')
         if t['replay']['fraction']!=0:raise ValueError('remediation currently requires replay disabled')
     runtime=c.setdefault('runtime',{})
-    keys(runtime,['shutdown_after_completion'],'runtime')
+    keys(runtime,['shutdown_after_completion','gpu_probe_enabled'],'runtime')
+    if type(runtime.setdefault('gpu_probe_enabled',True))is not bool:raise ValueError('gpu_probe_enabled: boolean required')
     if runtime.get('shutdown_after_completion',False) is not False:raise ValueError('v1 does not perform shutdown; request it separately')
     runtime.setdefault('shutdown_after_completion',False)
     return c

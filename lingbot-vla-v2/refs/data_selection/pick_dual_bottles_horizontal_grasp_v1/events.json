@@ -1,0 +1,4102 @@
+[
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        42
+      ],
+      "forward_approach": [
+        43,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 0.4507569675936631,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0029419256074150755,
+    "lift_m": 0.08702086291056077,
+    "episode_index": 2150,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        42
+      ],
+      "forward_approach": [
+        43,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 5.759260726651696,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0029810236675239655,
+    "lift_m": 0.08774676407589022,
+    "episode_index": 2150,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        40
+      ],
+      "forward_approach": [
+        41,
+        50
+      ],
+      "settle": [
+        51,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.015220296694978881,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002305517613160729,
+    "lift_m": 0.08584810233471307,
+    "episode_index": 2151,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        40
+      ],
+      "forward_approach": [
+        41,
+        50
+      ],
+      "settle": [
+        51,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.008004643166146186,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002774612389069212,
+    "lift_m": 0.08584174133218214,
+    "episode_index": 2151,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        39
+      ],
+      "forward_approach": [
+        40,
+        48
+      ],
+      "settle": [
+        49,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.72148213153539,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0026500977158759,
+    "lift_m": 0.08829338628865369,
+    "episode_index": 2152,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        33
+      ],
+      "horizontal_align": [
+        34,
+        39
+      ],
+      "forward_approach": [
+        40,
+        48
+      ],
+      "settle": [
+        49,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 0.05217361383530653,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0029692923850477685,
+    "lift_m": 0.08925292424217934,
+    "episode_index": 2152,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 60,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 54,
+    "close_end_frame": 64,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        37
+      ],
+      "forward_approach": [
+        38,
+        47
+      ],
+      "settle": [
+        48,
+        53
+      ],
+      "close": [
+        54,
+        64
+      ],
+      "lift": [
+        65,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.715683585847588,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0030690627399124286,
+    "lift_m": 0.08610975586235359,
+    "episode_index": 2153,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 60,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 54,
+    "close_end_frame": 64,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        37
+      ],
+      "forward_approach": [
+        38,
+        47
+      ],
+      "settle": [
+        48,
+        53
+      ],
+      "close": [
+        54,
+        64
+      ],
+      "lift": [
+        65,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.7657589691158435,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0028728479770222795,
+    "lift_m": 0.0840952661162736,
+    "episode_index": 2153,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        41
+      ],
+      "forward_approach": [
+        42,
+        50
+      ],
+      "settle": [
+        51,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.5134294538510482,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0030362467378844907,
+    "lift_m": 0.0850662930495586,
+    "episode_index": 2154,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        41
+      ],
+      "forward_approach": [
+        42,
+        50
+      ],
+      "settle": [
+        51,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.0015358598501522046,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002723272140462066,
+    "lift_m": 0.08565682296997068,
+    "episode_index": 2154,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        41
+      ],
+      "forward_approach": [
+        42,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 6.2101870920856195,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0036446636205231323,
+    "lift_m": 0.08477804986165649,
+    "episode_index": 2155,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        41
+      ],
+      "forward_approach": [
+        42,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.023145663241593766,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0031528761146848525,
+    "lift_m": 0.08363571010980508,
+    "episode_index": 2155,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        33
+      ],
+      "horizontal_align": [
+        34,
+        40
+      ],
+      "forward_approach": [
+        41,
+        49
+      ],
+      "settle": [
+        50,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 5.857012897506917,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0031065530222341214,
+    "lift_m": 0.08349573787969744,
+    "episode_index": 2156,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        33
+      ],
+      "horizontal_align": [
+        34,
+        40
+      ],
+      "forward_approach": [
+        41,
+        49
+      ],
+      "settle": [
+        50,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 0.021854553083699085,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003323033433650872,
+    "lift_m": 0.08491898266096465,
+    "episode_index": 2156,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        41
+      ],
+      "forward_approach": [
+        42,
+        50
+      ],
+      "settle": [
+        51,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 0.0018468952515831908,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002755416402693865,
+    "lift_m": 0.08433016268593085,
+    "episode_index": 2157,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        41
+      ],
+      "forward_approach": [
+        42,
+        50
+      ],
+      "settle": [
+        51,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 0.018999956685760072,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0022677922489219198,
+    "lift_m": 0.08672584354455504,
+    "episode_index": 2157,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        33
+      ],
+      "horizontal_align": [
+        34,
+        39
+      ],
+      "forward_approach": [
+        40,
+        49
+      ],
+      "settle": [
+        50,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 0.019152052531104646,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003352242554649096,
+    "lift_m": 0.08801812290943123,
+    "episode_index": 2158,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        33
+      ],
+      "horizontal_align": [
+        34,
+        39
+      ],
+      "forward_approach": [
+        40,
+        49
+      ],
+      "settle": [
+        50,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 0.006563035891568408,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0017998917284429857,
+    "lift_m": 0.08898861951912329,
+    "episode_index": 2158,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        38
+      ],
+      "forward_approach": [
+        39,
+        48
+      ],
+      "settle": [
+        49,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.76867045971848,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0027254337545661728,
+    "lift_m": 0.0861324368882509,
+    "episode_index": 2159,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        38
+      ],
+      "forward_approach": [
+        39,
+        48
+      ],
+      "settle": [
+        49,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.754110402640325,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003120543348851986,
+    "lift_m": 0.08633987854525749,
+    "episode_index": 2159,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        36
+      ],
+      "horizontal_align": [
+        37,
+        41
+      ],
+      "forward_approach": [
+        42,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 0.5035893325468642,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0030828040460780335,
+    "lift_m": 0.08658004118837093,
+    "episode_index": 2160,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        42
+      ],
+      "forward_approach": [
+        43,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 5.676357617945729,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003504824162603498,
+    "lift_m": 0.08589441795348862,
+    "episode_index": 2160,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 62,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 56,
+    "close_end_frame": 66,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        39
+      ],
+      "forward_approach": [
+        40,
+        48
+      ],
+      "settle": [
+        49,
+        55
+      ],
+      "close": [
+        56,
+        66
+      ],
+      "lift": [
+        67,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 5.74611197627025,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0028587621368641697,
+    "lift_m": 0.08440407997249777,
+    "episode_index": 2161,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 62,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 56,
+    "close_end_frame": 66,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        38
+      ],
+      "forward_approach": [
+        39,
+        48
+      ],
+      "settle": [
+        49,
+        55
+      ],
+      "close": [
+        56,
+        66
+      ],
+      "lift": [
+        67,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 0.05271405476680078,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003217972982132473,
+    "lift_m": 0.0863569154610232,
+    "episode_index": 2161,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        36
+      ],
+      "horizontal_align": [
+        37,
+        42
+      ],
+      "forward_approach": [
+        43,
+        51
+      ],
+      "settle": [
+        52,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.4197009093831742,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.005258969857211476,
+    "lift_m": 0.08775631660026262,
+    "episode_index": 2162,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        42
+      ],
+      "forward_approach": [
+        43,
+        50
+      ],
+      "settle": [
+        51,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 5.7032568814458635,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0034769796869070415,
+    "lift_m": 0.08592211710587583,
+    "episode_index": 2162,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        38
+      ],
+      "forward_approach": [
+        39,
+        47
+      ],
+      "settle": [
+        48,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.169599123692176,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0023770464046511596,
+    "lift_m": 0.0826448889220931,
+    "episode_index": 2163,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        37
+      ],
+      "forward_approach": [
+        38,
+        47
+      ],
+      "settle": [
+        48,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 0.051772526665991664,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003114412889617593,
+    "lift_m": 0.0849235492297471,
+    "episode_index": 2163,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 60,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 54,
+    "close_end_frame": 64,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        37
+      ],
+      "forward_approach": [
+        38,
+        46
+      ],
+      "settle": [
+        47,
+        53
+      ],
+      "close": [
+        54,
+        64
+      ],
+      "lift": [
+        65,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.4158215008395825,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.00239075176010423,
+    "lift_m": 0.08490885146728622,
+    "episode_index": 2164,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 60,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 54,
+    "close_end_frame": 64,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        37
+      ],
+      "forward_approach": [
+        38,
+        46
+      ],
+      "settle": [
+        47,
+        53
+      ],
+      "close": [
+        54,
+        64
+      ],
+      "lift": [
+        65,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.732704618216274,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002213807771124586,
+    "lift_m": 0.08536034974495488,
+    "episode_index": 2164,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        41
+      ],
+      "forward_approach": [
+        42,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 5.226792571680509,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0037069728374396114,
+    "lift_m": 0.08472882503077783,
+    "episode_index": 2165,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        41
+      ],
+      "forward_approach": [
+        42,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.000339839291208236,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002766989937726114,
+    "lift_m": 0.08709437110223928,
+    "episode_index": 2165,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        41
+      ],
+      "forward_approach": [
+        42,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 5.713359935052412,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0033572648460732423,
+    "lift_m": 0.08265905568699772,
+    "episode_index": 2166,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        41
+      ],
+      "forward_approach": [
+        42,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.003847845099220983,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002283889189428444,
+    "lift_m": 0.08489761081657188,
+    "episode_index": 2166,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 84,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        37
+      ],
+      "forward_approach": [
+        38,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        84
+      ]
+    },
+    "horizontal_deviation_degrees": 6.1871881103308075,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0032557471207386914,
+    "lift_m": 0.08217879335418588,
+    "episode_index": 2167,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 84,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        37
+      ],
+      "forward_approach": [
+        38,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        84
+      ]
+    },
+    "horizontal_deviation_degrees": 5.754472879745969,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002696644564488937,
+    "lift_m": 0.08493604111498654,
+    "episode_index": 2167,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 84,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        36
+      ],
+      "forward_approach": [
+        37,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        84
+      ]
+    },
+    "horizontal_deviation_degrees": 5.177653679516435,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002649050818531842,
+    "lift_m": 0.0860669899503288,
+    "episode_index": 2168,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 84,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        37
+      ],
+      "forward_approach": [
+        38,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        84
+      ]
+    },
+    "horizontal_deviation_degrees": 5.733998846750684,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.004664566237614476,
+    "lift_m": 0.08640031038657559,
+    "episode_index": 2168,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        33
+      ],
+      "horizontal_align": [
+        34,
+        39
+      ],
+      "forward_approach": [
+        40,
+        49
+      ],
+      "settle": [
+        50,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 0.24592554306218747,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0032216881222656103,
+    "lift_m": 0.08765707656589772,
+    "episode_index": 2169,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        33
+      ],
+      "horizontal_align": [
+        34,
+        37
+      ],
+      "forward_approach": [
+        38,
+        49
+      ],
+      "settle": [
+        50,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 0.02735883054662515,
+    "approach_forward_fraction": 0.9166666666666666,
+    "approach_perpendicular_max_m": 0.0034421378477559592,
+    "lift_m": 0.08851806859028388,
+    "episode_index": 2169,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 60,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 54,
+    "close_end_frame": 64,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        37
+      ],
+      "forward_approach": [
+        38,
+        47
+      ],
+      "settle": [
+        48,
+        53
+      ],
+      "close": [
+        54,
+        64
+      ],
+      "lift": [
+        65,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 6.167246266666182,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0027318367187455367,
+    "lift_m": 0.08604032160947794,
+    "episode_index": 2170,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 60,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 54,
+    "close_end_frame": 64,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        37
+      ],
+      "forward_approach": [
+        38,
+        46
+      ],
+      "settle": [
+        47,
+        53
+      ],
+      "close": [
+        54,
+        64
+      ],
+      "lift": [
+        65,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.753905642391892,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0026725019948898587,
+    "lift_m": 0.08552623407736726,
+    "episode_index": 2170,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 65,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 90,
+    "close_start_frame": 59,
+    "close_end_frame": 69,
+    "stages": {
+      "reach_aim": [
+        0,
+        36
+      ],
+      "horizontal_align": [
+        37,
+        42
+      ],
+      "forward_approach": [
+        43,
+        52
+      ],
+      "settle": [
+        53,
+        58
+      ],
+      "close": [
+        59,
+        69
+      ],
+      "lift": [
+        70,
+        90
+      ]
+    },
+    "horizontal_deviation_degrees": 0.4576233645910159,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0031470163901145664,
+    "lift_m": 0.08977701474563848,
+    "episode_index": 2171,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 65,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 59,
+    "close_end_frame": 69,
+    "stages": {
+      "reach_aim": [
+        0,
+        36
+      ],
+      "horizontal_align": [
+        37,
+        40
+      ],
+      "forward_approach": [
+        41,
+        52
+      ],
+      "settle": [
+        53,
+        58
+      ],
+      "close": [
+        59,
+        69
+      ],
+      "lift": [
+        70,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 0.02924046782979247,
+    "approach_forward_fraction": 0.9166666666666666,
+    "approach_perpendicular_max_m": 0.003271689126776859,
+    "lift_m": 0.08306659304329156,
+    "episode_index": 2171,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 66,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 90,
+    "close_start_frame": 60,
+    "close_end_frame": 70,
+    "stages": {
+      "reach_aim": [
+        0,
+        36
+      ],
+      "horizontal_align": [
+        37,
+        42
+      ],
+      "forward_approach": [
+        43,
+        52
+      ],
+      "settle": [
+        53,
+        59
+      ],
+      "close": [
+        60,
+        70
+      ],
+      "lift": [
+        71,
+        90
+      ]
+    },
+    "horizontal_deviation_degrees": 0.2767542286545993,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.00325813021451582,
+    "lift_m": 0.08809842231566578,
+    "episode_index": 2172,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 66,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 90,
+    "close_start_frame": 60,
+    "close_end_frame": 70,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        42
+      ],
+      "forward_approach": [
+        43,
+        52
+      ],
+      "settle": [
+        53,
+        59
+      ],
+      "close": [
+        60,
+        70
+      ],
+      "lift": [
+        71,
+        90
+      ]
+    },
+    "horizontal_deviation_degrees": 5.725941682480431,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003521341199056985,
+    "lift_m": 0.08690394697526116,
+    "episode_index": 2172,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 65,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 59,
+    "close_end_frame": 69,
+    "stages": {
+      "reach_aim": [
+        0,
+        36
+      ],
+      "horizontal_align": [
+        37,
+        43
+      ],
+      "forward_approach": [
+        44,
+        51
+      ],
+      "settle": [
+        52,
+        58
+      ],
+      "close": [
+        59,
+        69
+      ],
+      "lift": [
+        70,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 5.71853842257622,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.004131000105859742,
+    "lift_m": 0.08966017470237642,
+    "episode_index": 2173,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 65,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 59,
+    "close_end_frame": 69,
+    "stages": {
+      "reach_aim": [
+        0,
+        36
+      ],
+      "horizontal_align": [
+        37,
+        41
+      ],
+      "forward_approach": [
+        42,
+        52
+      ],
+      "settle": [
+        53,
+        58
+      ],
+      "close": [
+        59,
+        69
+      ],
+      "lift": [
+        70,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.008674346907830408,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0019324285295830204,
+    "lift_m": 0.08182253538266504,
+    "episode_index": 2173,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 83,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        36
+      ],
+      "forward_approach": [
+        37,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        83
+      ]
+    },
+    "horizontal_deviation_degrees": 5.70648788859419,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0024848624787622876,
+    "lift_m": 0.08145732717808551,
+    "episode_index": 2174,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 83,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        36
+      ],
+      "forward_approach": [
+        37,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        83
+      ]
+    },
+    "horizontal_deviation_degrees": 5.762231970636645,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002750365851214703,
+    "lift_m": 0.08120927149835688,
+    "episode_index": 2174,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        39
+      ],
+      "forward_approach": [
+        40,
+        49
+      ],
+      "settle": [
+        50,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 5.8246524074716035,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.004622697003727732,
+    "lift_m": 0.0821078370362135,
+    "episode_index": 2175,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        37
+      ],
+      "horizontal_align": [
+        38,
+        39
+      ],
+      "forward_approach": [
+        40,
+        49
+      ],
+      "settle": [
+        50,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 0.0018098085505037637,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0035773385349684383,
+    "lift_m": 0.08170293611824841,
+    "episode_index": 2175,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 62,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 86,
+    "close_start_frame": 56,
+    "close_end_frame": 66,
+    "stages": {
+      "reach_aim": [
+        0,
+        33
+      ],
+      "horizontal_align": [
+        34,
+        39
+      ],
+      "forward_approach": [
+        40,
+        49
+      ],
+      "settle": [
+        50,
+        55
+      ],
+      "close": [
+        56,
+        66
+      ],
+      "lift": [
+        67,
+        86
+      ]
+    },
+    "horizontal_deviation_degrees": 0.4039598764116356,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003286294308557299,
+    "lift_m": 0.08630337092693086,
+    "episode_index": 2176,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 62,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 86,
+    "close_start_frame": 56,
+    "close_end_frame": 66,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        39
+      ],
+      "forward_approach": [
+        40,
+        49
+      ],
+      "settle": [
+        50,
+        55
+      ],
+      "close": [
+        56,
+        66
+      ],
+      "lift": [
+        67,
+        86
+      ]
+    },
+    "horizontal_deviation_degrees": 5.677719787858681,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003152283957126781,
+    "lift_m": 0.0865452579936995,
+    "episode_index": 2176,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 84,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        36
+      ],
+      "forward_approach": [
+        37,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        84
+      ]
+    },
+    "horizontal_deviation_degrees": 5.551862108438752,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002884634670089918,
+    "lift_m": 0.08821851802923053,
+    "episode_index": 2177,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 84,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        37
+      ],
+      "forward_approach": [
+        38,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        84
+      ]
+    },
+    "horizontal_deviation_degrees": 5.733932929326414,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002516049661471041,
+    "lift_m": 0.0853673636290927,
+    "episode_index": 2177,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 83,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        36
+      ],
+      "forward_approach": [
+        37,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        83
+      ]
+    },
+    "horizontal_deviation_degrees": 5.729772297401415,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0028331595402234593,
+    "lift_m": 0.08129984605888962,
+    "episode_index": 2178,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 83,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        36
+      ],
+      "forward_approach": [
+        37,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        83
+      ]
+    },
+    "horizontal_deviation_degrees": 5.756839062795714,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0027105847131411423,
+    "lift_m": 0.08138989048034162,
+    "episode_index": 2178,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 67,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 91,
+    "close_start_frame": 61,
+    "close_end_frame": 71,
+    "stages": {
+      "reach_aim": [
+        0,
+        36
+      ],
+      "horizontal_align": [
+        37,
+        43
+      ],
+      "forward_approach": [
+        44,
+        53
+      ],
+      "settle": [
+        54,
+        60
+      ],
+      "close": [
+        61,
+        71
+      ],
+      "lift": [
+        72,
+        91
+      ]
+    },
+    "horizontal_deviation_degrees": 0.3338236102092973,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0033454665967967362,
+    "lift_m": 0.09015983489281243,
+    "episode_index": 2179,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 67,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 91,
+    "close_start_frame": 61,
+    "close_end_frame": 71,
+    "stages": {
+      "reach_aim": [
+        0,
+        36
+      ],
+      "horizontal_align": [
+        37,
+        43
+      ],
+      "forward_approach": [
+        44,
+        53
+      ],
+      "settle": [
+        54,
+        60
+      ],
+      "close": [
+        61,
+        71
+      ],
+      "lift": [
+        72,
+        91
+      ]
+    },
+    "horizontal_deviation_degrees": 5.67671974567042,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003811242019435818,
+    "lift_m": 0.08959840589040535,
+    "episode_index": 2179,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 60,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 84,
+    "close_start_frame": 54,
+    "close_end_frame": 64,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        37
+      ],
+      "forward_approach": [
+        38,
+        47
+      ],
+      "settle": [
+        48,
+        53
+      ],
+      "close": [
+        54,
+        64
+      ],
+      "lift": [
+        65,
+        84
+      ]
+    },
+    "horizontal_deviation_degrees": 6.17359081282623,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0030844424491886253,
+    "lift_m": 0.08198357705718684,
+    "episode_index": 2180,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 60,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 84,
+    "close_start_frame": 54,
+    "close_end_frame": 64,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        37
+      ],
+      "forward_approach": [
+        38,
+        47
+      ],
+      "settle": [
+        48,
+        53
+      ],
+      "close": [
+        54,
+        64
+      ],
+      "lift": [
+        65,
+        84
+      ]
+    },
+    "horizontal_deviation_degrees": 0.026241621558732112,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002390120512296438,
+    "lift_m": 0.08151440550157563,
+    "episode_index": 2180,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 62,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 86,
+    "close_start_frame": 56,
+    "close_end_frame": 66,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        39
+      ],
+      "forward_approach": [
+        40,
+        48
+      ],
+      "settle": [
+        49,
+        55
+      ],
+      "close": [
+        56,
+        66
+      ],
+      "lift": [
+        67,
+        86
+      ]
+    },
+    "horizontal_deviation_degrees": 5.079157975877911,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002634896522412253,
+    "lift_m": 0.08522077992357002,
+    "episode_index": 2181,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 62,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 86,
+    "close_start_frame": 56,
+    "close_end_frame": 66,
+    "stages": {
+      "reach_aim": [
+        0,
+        33
+      ],
+      "horizontal_align": [
+        34,
+        39
+      ],
+      "forward_approach": [
+        40,
+        48
+      ],
+      "settle": [
+        49,
+        55
+      ],
+      "close": [
+        56,
+        66
+      ],
+      "lift": [
+        67,
+        86
+      ]
+    },
+    "horizontal_deviation_degrees": 0.0005819087642993479,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0030926412907505384,
+    "lift_m": 0.08565742375987595,
+    "episode_index": 2181,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 58,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 84,
+    "close_start_frame": 52,
+    "close_end_frame": 62,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        36
+      ],
+      "forward_approach": [
+        37,
+        46
+      ],
+      "settle": [
+        47,
+        51
+      ],
+      "close": [
+        52,
+        62
+      ],
+      "lift": [
+        63,
+        84
+      ]
+    },
+    "horizontal_deviation_degrees": 0.2818619214427996,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002706195245980851,
+    "lift_m": 0.08741122288718983,
+    "episode_index": 2182,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 58,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 84,
+    "close_start_frame": 52,
+    "close_end_frame": 62,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        36
+      ],
+      "forward_approach": [
+        37,
+        46
+      ],
+      "settle": [
+        47,
+        51
+      ],
+      "close": [
+        52,
+        62
+      ],
+      "lift": [
+        63,
+        84
+      ]
+    },
+    "horizontal_deviation_degrees": 5.703296289219927,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002507969854624029,
+    "lift_m": 0.0884818688844301,
+    "episode_index": 2182,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 62,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 86,
+    "close_start_frame": 56,
+    "close_end_frame": 66,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        38
+      ],
+      "forward_approach": [
+        39,
+        49
+      ],
+      "settle": [
+        50,
+        55
+      ],
+      "close": [
+        56,
+        66
+      ],
+      "lift": [
+        67,
+        86
+      ]
+    },
+    "horizontal_deviation_degrees": 0.20257280832757,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003383450797161129,
+    "lift_m": 0.08427931369230579,
+    "episode_index": 2183,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 62,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 56,
+    "close_end_frame": 66,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        39
+      ],
+      "forward_approach": [
+        40,
+        49
+      ],
+      "settle": [
+        50,
+        55
+      ],
+      "close": [
+        56,
+        66
+      ],
+      "lift": [
+        67,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 5.731361496657621,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002673383015266171,
+    "lift_m": 0.08986475378528413,
+    "episode_index": 2183,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 86,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        38
+      ],
+      "forward_approach": [
+        39,
+        48
+      ],
+      "settle": [
+        49,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        86
+      ]
+    },
+    "horizontal_deviation_degrees": 5.3208458938526935,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.00317349264598549,
+    "lift_m": 0.09101252034458907,
+    "episode_index": 2184,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        38
+      ],
+      "forward_approach": [
+        39,
+        48
+      ],
+      "settle": [
+        49,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 0.02671698110304121,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0019316624528544094,
+    "lift_m": 0.0823201387744733,
+    "episode_index": 2184,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        38
+      ],
+      "forward_approach": [
+        39,
+        48
+      ],
+      "settle": [
+        49,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.5165054659870485,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002896774284861072,
+    "lift_m": 0.0876348466495257,
+    "episode_index": 2185,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        38
+      ],
+      "forward_approach": [
+        39,
+        48
+      ],
+      "settle": [
+        49,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.703186537213238,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003054188446117402,
+    "lift_m": 0.08663857268033226,
+    "episode_index": 2185,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 65,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 59,
+    "close_end_frame": 69,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        42
+      ],
+      "forward_approach": [
+        43,
+        52
+      ],
+      "settle": [
+        53,
+        58
+      ],
+      "close": [
+        59,
+        69
+      ],
+      "lift": [
+        70,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 0.24290421762669967,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002989648385316118,
+    "lift_m": 0.08436251951844065,
+    "episode_index": 2186,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 65,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 59,
+    "close_end_frame": 69,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        41
+      ],
+      "forward_approach": [
+        42,
+        52
+      ],
+      "settle": [
+        53,
+        58
+      ],
+      "close": [
+        59,
+        69
+      ],
+      "lift": [
+        70,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 0.025148219719605912,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0030494917347414514,
+    "lift_m": 0.08515267507313373,
+    "episode_index": 2186,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 83,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        36
+      ],
+      "forward_approach": [
+        37,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        83
+      ]
+    },
+    "horizontal_deviation_degrees": 5.694584215933608,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0025791850344545008,
+    "lift_m": 0.08193395313010499,
+    "episode_index": 2187,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 83,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        37
+      ],
+      "forward_approach": [
+        38,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        83
+      ]
+    },
+    "horizontal_deviation_degrees": 5.755928722898984,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0023914273556885322,
+    "lift_m": 0.08018869302857712,
+    "episode_index": 2187,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 65,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 59,
+    "close_end_frame": 69,
+    "stages": {
+      "reach_aim": [
+        0,
+        40
+      ],
+      "horizontal_align": [
+        41,
+        42
+      ],
+      "forward_approach": [
+        43,
+        52
+      ],
+      "settle": [
+        53,
+        58
+      ],
+      "close": [
+        59,
+        69
+      ],
+      "lift": [
+        70,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 0.037017288906313436,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0042468165836395755,
+    "lift_m": 0.08753160031836338,
+    "episode_index": 2188,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 65,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 59,
+    "close_end_frame": 69,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        42
+      ],
+      "forward_approach": [
+        43,
+        51
+      ],
+      "settle": [
+        52,
+        58
+      ],
+      "close": [
+        59,
+        69
+      ],
+      "lift": [
+        70,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 0.02554639000891451,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0024507490715944785,
+    "lift_m": 0.08991950796516002,
+    "episode_index": 2188,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 66,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 90,
+    "close_start_frame": 60,
+    "close_end_frame": 70,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        42
+      ],
+      "forward_approach": [
+        43,
+        52
+      ],
+      "settle": [
+        53,
+        59
+      ],
+      "close": [
+        60,
+        70
+      ],
+      "lift": [
+        71,
+        90
+      ]
+    },
+    "horizontal_deviation_degrees": 0.4685848928390162,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0033085282614863975,
+    "lift_m": 0.08736301182694661,
+    "episode_index": 2189,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 66,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 90,
+    "close_start_frame": 60,
+    "close_end_frame": 70,
+    "stages": {
+      "reach_aim": [
+        0,
+        40
+      ],
+      "horizontal_align": [
+        41,
+        42
+      ],
+      "forward_approach": [
+        43,
+        52
+      ],
+      "settle": [
+        53,
+        59
+      ],
+      "close": [
+        60,
+        70
+      ],
+      "lift": [
+        71,
+        90
+      ]
+    },
+    "horizontal_deviation_degrees": 0.00043561611008259603,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003989806797311453,
+    "lift_m": 0.08762269026675262,
+    "episode_index": 2189,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 60,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 54,
+    "close_end_frame": 64,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        37
+      ],
+      "forward_approach": [
+        38,
+        47
+      ],
+      "settle": [
+        48,
+        53
+      ],
+      "close": [
+        54,
+        64
+      ],
+      "lift": [
+        65,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.544018326005883,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002791324504327531,
+    "lift_m": 0.08769884670458206,
+    "episode_index": 2190,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 60,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 85,
+    "close_start_frame": 54,
+    "close_end_frame": 64,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        37
+      ],
+      "forward_approach": [
+        38,
+        47
+      ],
+      "settle": [
+        48,
+        53
+      ],
+      "close": [
+        54,
+        64
+      ],
+      "lift": [
+        65,
+        85
+      ]
+    },
+    "horizontal_deviation_degrees": 5.753514553198543,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003051793064949296,
+    "lift_m": 0.08859516056158367,
+    "episode_index": 2190,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        42
+      ],
+      "forward_approach": [
+        43,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.010462813476256126,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0031739670545425044,
+    "lift_m": 0.08234144533572074,
+    "episode_index": 2191,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        41
+      ],
+      "forward_approach": [
+        42,
+        50
+      ],
+      "settle": [
+        51,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 5.760426143824759,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002970325568250609,
+    "lift_m": 0.09035627464383278,
+    "episode_index": 2191,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 83,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        31
+      ],
+      "horizontal_align": [
+        32,
+        36
+      ],
+      "forward_approach": [
+        37,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        83
+      ]
+    },
+    "horizontal_deviation_degrees": 5.488082568855511,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0028440457614036237,
+    "lift_m": 0.08540662532051113,
+    "episode_index": 2192,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 59,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 83,
+    "close_start_frame": 53,
+    "close_end_frame": 63,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        36
+      ],
+      "forward_approach": [
+        37,
+        46
+      ],
+      "settle": [
+        47,
+        52
+      ],
+      "close": [
+        53,
+        63
+      ],
+      "lift": [
+        64,
+        83
+      ]
+    },
+    "horizontal_deviation_degrees": 5.756133044516572,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002586899401863061,
+    "lift_m": 0.08332123997179397,
+    "episode_index": 2192,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 66,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 90,
+    "close_start_frame": 60,
+    "close_end_frame": 70,
+    "stages": {
+      "reach_aim": [
+        0,
+        40
+      ],
+      "horizontal_align": [
+        41,
+        42
+      ],
+      "forward_approach": [
+        43,
+        52
+      ],
+      "settle": [
+        53,
+        59
+      ],
+      "close": [
+        60,
+        70
+      ],
+      "lift": [
+        71,
+        90
+      ]
+    },
+    "horizontal_deviation_degrees": 0.4805828715710664,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0034201471869219537,
+    "lift_m": 0.08815849867845116,
+    "episode_index": 2193,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 66,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 90,
+    "close_start_frame": 60,
+    "close_end_frame": 70,
+    "stages": {
+      "reach_aim": [
+        0,
+        36
+      ],
+      "horizontal_align": [
+        37,
+        40
+      ],
+      "forward_approach": [
+        41,
+        52
+      ],
+      "settle": [
+        53,
+        59
+      ],
+      "close": [
+        60,
+        70
+      ],
+      "lift": [
+        71,
+        90
+      ]
+    },
+    "horizontal_deviation_degrees": 0.028210347083315625,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002864590458799447,
+    "lift_m": 0.08909658251132269,
+    "episode_index": 2193,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        41
+      ],
+      "forward_approach": [
+        42,
+        50
+      ],
+      "settle": [
+        51,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.021455351608450596,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.00310790046736957,
+    "lift_m": 0.08632053823037034,
+    "episode_index": 2194,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        41
+      ],
+      "forward_approach": [
+        42,
+        50
+      ],
+      "settle": [
+        51,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 5.676364283132178,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0029964197247097607,
+    "lift_m": 0.08506386425684409,
+    "episode_index": 2194,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 62,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 86,
+    "close_start_frame": 56,
+    "close_end_frame": 66,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        41
+      ],
+      "forward_approach": [
+        42,
+        50
+      ],
+      "settle": [
+        51,
+        55
+      ],
+      "close": [
+        56,
+        66
+      ],
+      "lift": [
+        67,
+        86
+      ]
+    },
+    "horizontal_deviation_degrees": 0.5060181451957325,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0025054996605347038,
+    "lift_m": 0.08065747770185394,
+    "episode_index": 2195,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 62,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 56,
+    "close_end_frame": 66,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        41
+      ],
+      "forward_approach": [
+        42,
+        50
+      ],
+      "settle": [
+        51,
+        55
+      ],
+      "close": [
+        56,
+        66
+      ],
+      "lift": [
+        67,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 5.734574383445515,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003166019860868577,
+    "lift_m": 0.08673271665197124,
+    "episode_index": 2195,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 86,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        40
+      ],
+      "forward_approach": [
+        41,
+        48
+      ],
+      "settle": [
+        49,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        86
+      ]
+    },
+    "horizontal_deviation_degrees": 0.01859998469491565,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.006599236559627473,
+    "lift_m": 0.08501324729184134,
+    "episode_index": 2196,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 61,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 86,
+    "close_start_frame": 55,
+    "close_end_frame": 65,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        40
+      ],
+      "forward_approach": [
+        41,
+        48
+      ],
+      "settle": [
+        49,
+        54
+      ],
+      "close": [
+        55,
+        65
+      ],
+      "lift": [
+        66,
+        86
+      ]
+    },
+    "horizontal_deviation_degrees": 5.676507088504127,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0031043812294245083,
+    "lift_m": 0.08263481262060735,
+    "episode_index": 2196,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 88,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        35
+      ],
+      "horizontal_align": [
+        36,
+        42
+      ],
+      "forward_approach": [
+        43,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        88
+      ]
+    },
+    "horizontal_deviation_degrees": 0.4578126594414986,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0021956993538708946,
+    "lift_m": 0.08059362716470175,
+    "episode_index": 2197,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 64,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 89,
+    "close_start_frame": 58,
+    "close_end_frame": 68,
+    "stages": {
+      "reach_aim": [
+        0,
+        34
+      ],
+      "horizontal_align": [
+        35,
+        41
+      ],
+      "forward_approach": [
+        42,
+        51
+      ],
+      "settle": [
+        52,
+        57
+      ],
+      "close": [
+        58,
+        68
+      ],
+      "lift": [
+        69,
+        89
+      ]
+    },
+    "horizontal_deviation_degrees": 5.730234595479279,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003380562126200514,
+    "lift_m": 0.0878951759775275,
+    "episode_index": 2197,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        39
+      ],
+      "forward_approach": [
+        40,
+        49
+      ],
+      "settle": [
+        50,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 0.5408320152994055,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.003189564455867445,
+    "lift_m": 0.08539466405795326,
+    "episode_index": 2198,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 63,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 87,
+    "close_start_frame": 57,
+    "close_end_frame": 67,
+    "stages": {
+      "reach_aim": [
+        0,
+        32
+      ],
+      "horizontal_align": [
+        33,
+        39
+      ],
+      "forward_approach": [
+        40,
+        49
+      ],
+      "settle": [
+        50,
+        56
+      ],
+      "close": [
+        57,
+        67
+      ],
+      "lift": [
+        68,
+        87
+      ]
+    },
+    "horizontal_deviation_degrees": 0.002239080903579066,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0034426352290190805,
+    "lift_m": 0.08428384185301085,
+    "episode_index": 2198,
+    "arm": "right"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 58,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 83,
+    "close_start_frame": 52,
+    "close_end_frame": 62,
+    "stages": {
+      "reach_aim": [
+        0,
+        30
+      ],
+      "horizontal_align": [
+        31,
+        35
+      ],
+      "forward_approach": [
+        36,
+        45
+      ],
+      "settle": [
+        46,
+        51
+      ],
+      "close": [
+        52,
+        62
+      ],
+      "lift": [
+        63,
+        83
+      ]
+    },
+    "horizontal_deviation_degrees": 6.119179800007152,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.0024443405826981264,
+    "lift_m": 0.08890615957658454,
+    "episode_index": 2199,
+    "arm": "left"
+  },
+  {
+    "accepted": true,
+    "closure_crossing_frame": 58,
+    "rejection": null,
+    "start_frame": 0,
+    "end_frame": 82,
+    "close_start_frame": 52,
+    "close_end_frame": 62,
+    "stages": {
+      "reach_aim": [
+        0,
+        29
+      ],
+      "horizontal_align": [
+        30,
+        35
+      ],
+      "forward_approach": [
+        36,
+        45
+      ],
+      "settle": [
+        46,
+        51
+      ],
+      "close": [
+        52,
+        62
+      ],
+      "lift": [
+        63,
+        82
+      ]
+    },
+    "horizontal_deviation_degrees": 5.732366952447905,
+    "approach_forward_fraction": 1.0,
+    "approach_perpendicular_max_m": 0.002489287363010975,
+    "lift_m": 0.08013743244419991,
+    "episode_index": 2199,
+    "arm": "right"
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "task": "pick_dual_bottles",
+  "rule_version": "dual_bottle_horizontal_grasp_v1",
+  "dataset_name": "robotwin",
+  "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30",
+  "normalization": "sample_count",
+  "multiplier": 2,
+  "selected_frames": "selected_frames.json",
+  "selected_frames_sha256": "b268012097b7031300bc1c071910b454884269d49a0b592666c30bccc40f5a56"
+}

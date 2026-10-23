@@ -65,3 +65,5 @@ JSON配置、数据清单和证据仍分别放configs、refs等工程目录，�
 新增训练文档先加入本索引；系统改动仍登记[AL改动台账](../auto_learning/AL_PENDING_CHANGES.md)。
 每轮训练结束后必须更新records所属阶段（stage2或stage3）中的流水、任务累计和存档清单；闭环未结束先标待定，完成后补齐，再检查、提交并push对应实验分支。
 运行目录新命名采用`YYYYMMDD_HHMM_说明`，如`20261020_2002_switch_pillbottle_stapler`；历史run保持原路径。
+
+- [pick_dual_bottles双手水平抓瓶样本筛选](recipes/pick_dual_bottles_target_selection_zh.md)。

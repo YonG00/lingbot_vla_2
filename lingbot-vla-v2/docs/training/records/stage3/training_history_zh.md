@@ -190,3 +190,15 @@ run `20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_repl
 三回合并行，种子100000/100001/100002，最终0/3（0/0/0）；同一FP32/B1共享服务15891，加载1次，耗时262.54秒（含服务启动），OIDN错误0、GPU进程已退出，未关机。三份1280×720全局视频经ffprobe核验，410/492/416帧，205/246/208秒，视频时间不是墙钟耗时。未训练此任务，正式新增步数0。
 
 评测根目录：`/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/evaluation_200_move_can_pot_videos3_20261023_100011`。摘要 `move_can_pot/summary.json`，录像 `move_can_pot/results/move_can_pot/episode0_global.mp4`、`episode1_global.mp4`、`episode2_global.mp4`。证据 `refs/data_selection/move_can_pot_0928_step200_video3_final.json`；此终态补全此前待测记录，不据0/3单独推断失败动作阶段。
+
+### 2026-10-23 pick_dual_bottles水平双手目标准备（未训练）
+
+用户强调瓶子立着、水平瞄准与伸长抓取。筛50条6129帧，左右各50段；保留伸手瞄准→水平前伸→闭爪→提起8cm，联合4382帧71.50%，无抽稀。50条原始HDF5逐帧身份一致，2150/2174/2199示范图抽检符合。选择器、参数和产物已准备，未设置启用的损失倍率、未启动训练，本任务新增步数0、无新闭环成绩。说明 `docs/training/recipes/pick_dual_bottles_target_selection_zh.md`，证据 `refs/data_selection/pick_dual_bottles_horizontal_grasp_v1/`。
+
+### 2026-10-23 10:16 双手水平抓瓶目标2倍训练300（已启动）
+
+run `20261023_1016_dual_bottles300_from_0928_s200_bf16_m56_horizontal_grasp2_replay10pct_parallel3_video`。严格从 `20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt` 开始，不使用0818或0847。主任务pick_dual_bottles计划300更新、GBS56/GAS1/BF16；50条6129帧均匀抽样，4382目标帧的FM/Depth/FutureDepth/Video逐样本loss2，按原样本数归约；同帧两手标签不叠倍率，剩余1747帧loss1，无目标采样概率倍率。10%复习，每5步换单任务；继承订书机4358与固定夹碗7436的重要性，在对应复习任务出现时才生效。
+
+本轮保持仅最终存档模式，保存step300；结束驻留模型三回合并行、全部录像，种子100000/100001/100002，无补课、不关机。启动前空闲约42GiB，单份预算16.06GiB，无删除。配方 `configs/training_recipes/pick_dual_bottles300_from_0928_s200_horizontal_grasp2_replay10pct_parallel3_video.json`。
+
+135项CPU回归通过；真实1300条256755帧整链通过，首批35/56样本命中loss2；GPU三步通过，allocated77.70GiB/reserved83.56GiB，正式训练已出现更新日志。探针3步不计正式300；尚未记录完成步数或闭环成功率。启动证据 `refs/data_selection/pick_dual_bottles300_started.json`。
