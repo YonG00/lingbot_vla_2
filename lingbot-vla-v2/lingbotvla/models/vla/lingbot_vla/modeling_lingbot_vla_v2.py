@@ -1,6 +1,6 @@
 import einops
 import torch
-from lingbotvla.utils.sample_loss_weight import weighted_mean, fm_weighted_mean
+from lingbotvla.utils.sample_loss_weight import weighted_mean, fm_weighted_mean, normalized_sample_weights, stage_fm_mean, stage_fm_metrics, stage_valid_mask
 from torch import Tensor, nn
 import torch.nn.functional as F
 from typing import List, Optional, Tuple, Union
@@ -783,6 +783,10 @@ class FlowMatchingV2(FlowMatchingV1):
         future_video_cls_targets=None,
         future_video_current_patch=None,
         sample_loss_weight=None,
+        stage_current_depth_weight=None,
+        stage_future_depth_weight=None,
+        stage_current_video_weight=None,
+        stage_future_video_weight=None,
     ) -> Tensor:
         dtype = state.dtype
         device = state.device
@@ -846,7 +850,10 @@ class FlowMatchingV2(FlowMatchingV1):
         )
         align_metrics = {}
         if self.config.align_params != {}:
-            loss_depth, loss_future_depth, depth_preds, future_depth_preds = self.depth_emb_forward(outputs_embeds, depth_targets, img_masks, future_depth_targets, sample_loss_weight=sample_loss_weight)
+            if stage_current_depth_weight is None:
+                loss_depth, loss_future_depth, depth_preds, future_depth_preds = self.depth_emb_forward(outputs_embeds, depth_targets, img_masks, future_depth_targets, sample_loss_weight=sample_loss_weight)
+            else:
+                loss_depth, loss_future_depth, depth_preds, future_depth_preds = self.depth_emb_forward(outputs_embeds, depth_targets, img_masks, future_depth_targets, sample_loss_weight=stage_current_depth_weight,future_sample_loss_weight=stage_future_depth_weight)
             loss_depth = loss_depth * self.config.align_params["depth_loss_weight"]
             loss_future_depth = loss_future_depth * self.config.align_params.get("future_depth_loss_weight", 1.0)
             loss_future_video = 0
@@ -858,7 +865,7 @@ class FlowMatchingV2(FlowMatchingV1):
                     future_video_targets,
                     future_video_cls_targets=future_video_cls_targets,
                     future_video_current_patch=future_video_current_patch,
-                    sample_loss_weight=sample_loss_weight,
+                    sample_loss_weight=sample_loss_weight if stage_future_video_weight is None else stage_future_video_weight,
                 )
                 video_total_loss = loss_video
                 if (
@@ -868,7 +875,7 @@ class FlowMatchingV2(FlowMatchingV1):
                     current_video_loss, current_video_preds, current_video_metrics = self.current_video_emb_forward(
                         outputs_embeds,
                         future_video_current_patch,
-                        sample_loss_weight=sample_loss_weight,
+                        sample_loss_weight=sample_loss_weight if stage_current_video_weight is None else stage_current_video_weight,
                     )
                     video_total_loss = video_total_loss + current_video_loss
                     video_metrics.update(current_video_metrics)
@@ -1266,9 +1273,30 @@ class LingbotVlaV2Policy(PreTrainedModel):
         future_video_current_patch=None,
         sample_loss_weight=None,
         action_loss_weight=None,
+        stage_fm_weight=None,
+        stage_current_depth_weight=None,
+        stage_future_depth_weight=None,
+        stage_current_video_weight=None,
+        stage_future_video_weight=None,
+        stage_ids=None,
+        stage_arm_index=None,
         **kwargs
     ) -> tuple[Tensor, dict[str, Tensor]]:
         loss_dict = {}
+        stage_mode=stage_fm_weight is not None
+        stage_kwargs={}
+        if stage_mode:
+            if "repeat" in self.config.loss_type:raise ValueError("stage weights do not support repeated FM")
+            if action_is_pad is None:raise ValueError("stage weighting requires real action padding")
+            auxiliary=dict(stage_current_depth_weight=stage_current_depth_weight,stage_future_depth_weight=stage_future_depth_weight,stage_current_video_weight=stage_current_video_weight,stage_future_video_weight=stage_future_video_weight)
+            if any(value is None for value in auxiliary.values()):raise ValueError("all stage auxiliary branches must be explicit")
+            for name,value in auxiliary.items():
+                if value.shape!=(len(actions),):raise ValueError('stage auxiliary batch shape')
+                stage_kwargs[name]=normalized_sample_weights(value)
+                loss_dict['stage_weight/'+name+'/mean']=value.float().mean().detach()
+                loss_dict['stage_weight/'+name+'/valid_fraction']=(value>0).float().mean().detach()
+            video_cfg=self.config.align_params.get('video',{})if getattr(self.config,'align_params',None)else {}
+            if int(video_cfg.get('num_future_frames',1))!=1 or (video_cfg.get('use_cls_loss',False)and video_cfg.get('cls_pool','last')!='last'):raise ValueError('stage visual policy currently requires a single future endpoint teacher')
         if sample_loss_weight is not None and "repeat" in self.config.loss_type:
             raise ValueError("sample weighting currently supports non-repeat FM only")
         if getattr(self.config, "action_fp32", False):
@@ -1302,7 +1330,8 @@ class LingbotVlaV2Policy(PreTrainedModel):
             future_video_targets=future_video_targets,
             future_video_cls_targets=future_video_cls_targets,
             future_video_current_patch=future_video_current_patch,
-            sample_loss_weight=sample_loss_weight,
+            sample_loss_weight=None if stage_mode else sample_loss_weight,
+            **stage_kwargs,
         )
 
         if joint_mask is not None:
@@ -1313,14 +1342,21 @@ class LingbotVlaV2Policy(PreTrainedModel):
             masked_losses = losses * joint_mask
             valid_counts = joint_mask.sum(dim=(1, 2)).clamp(min=1)
             batch_mean_losses = masked_losses.sum(dim=(1, 2)) / valid_counts
-            loss_vla = fm_weighted_mean(losses, sample_loss_weight, joint_mask, action_loss_weight)
+            loss_vla = None if stage_mode else fm_weighted_mean(losses, sample_loss_weight, joint_mask, action_loss_weight)
         else:
             losses = losses[:, :, : self.config.action_dim]
             batch_mean_losses = losses.mean(dim=(1, 2))
-            loss_vla = fm_weighted_mean(losses, sample_loss_weight, action_weights=action_loss_weight)
+            loss_vla = None if stage_mode else fm_weighted_mean(losses, sample_loss_weight, action_weights=action_loss_weight)
 
+        if stage_mode:
+            loss_vla=stage_fm_mean(losses,stage_fm_weight,joint_mask,action_is_pad)
+            stage_valid=stage_valid_mask(losses,joint_mask,action_is_pad)
+            batch_mean_losses=(losses.float()*stage_valid).sum(dim=(1,2))/stage_valid.sum(dim=(1,2)).clamp(min=1)
+            loss_dict.update(stage_fm_metrics(losses,stage_fm_weight,joint_mask,action_is_pad,stage_ids,stage_arm_index))
+            if depth_preds is not None:loss_dict['stage_weight/current_depth_unweighted']=self.model._emb_loss(depth_preds,depth_targets).detach()
+            if future_depth_preds is not None:loss_dict['stage_weight/future_depth_unweighted']=self.model._emb_loss(future_depth_preds,future_depth_targets).detach()
         loss_dict["batch_mean_losses"] = batch_mean_losses.detach()
-        if sample_loss_weight is not None:
+        if sample_loss_weight is not None and not stage_mode:
             loss_dict["sample_weight/fm_unweighted"] = weighted_mean(losses, None, joint_mask).detach()
             loss_dict["sample_weight/mean"] = sample_loss_weight.float().mean().detach()
             loss_dict["sample_weight/selected_fraction"] = (sample_loss_weight != 1).float().mean().detach()

@@ -393,6 +393,12 @@ class VLADataset(Dataset):
                         if active!=self.sample_selection_weights.action_expected_dimensions:
                             raise ValueError("arm action layout does not match actual transform mask")
                     entry["action_loss_weight"]=torch.tensor(correction,dtype=torch.float32)
+                if self.sample_selection_weights.stage_tables:
+                    from experiment.data_selection.stage_batch import build_stage_fields
+                    stage_fields=build_stage_fields(self.sample_selection_weights,self.data_name,
+                        int(raw_item["episode_index"].item()),int(raw_item["frame_index"].item()),entry,self.feature_transform)
+                    for name,value in stage_fields.items():
+                        entry[name]=torch.tensor(value,dtype=torch.int64 if name in ('stage_ids','stage_arm_index')else torch.float32)
         return item
 
     def __getitem__(self, idx):

@@ -3,8 +3,8 @@
   "meaning": "sample-weighting experimental variant; baseline hashes preserved separately; not official baseline",
   "restored_sha256": {
     "lingbotvla/models/vla/lingbot_vla/configuration_lingbot_vla.py": "37987af05ca8980debf5bfe81211cc2a9db1b2fb0e14e15076fa6497c5baf023",
-    "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla.py": "cf99d3bccdab5571f932bdf0f1f61e539f03f58a4312ad8d7f74c96225c55150",
-    "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla_v2.py": "8a95dc5d6856123b351b1417a9a53bc3eceaa9a9a8bd6638f071f8d1c39a064c"
+    "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla.py": "2ec4be28dcf5be8a2010134e4d6f439176e17ce6ccc2fa8bb01d135536b96d83",
+    "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla_v2.py": "c081452334301a43460fbc281a526dc250c6c8f077cff6a439ee5608c990ccfc"
   },
   "baseline_restored_sha256": {
     "lingbotvla/models/vla/lingbot_vla/configuration_lingbot_vla.py": "37987af05ca8980debf5bfe81211cc2a9db1b2fb0e14e15076fa6497c5baf023",

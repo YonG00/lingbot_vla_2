@@ -69,6 +69,11 @@ def prepare(raw):
     fixed=fixed_policies(ROOT,groups,c['data']['dataset_root'])
     importance=freeze_registry(source,out,
         explicit=os.environ.get('LINGBOT_SAMPLE_WEIGHT_CONFIG'),fixed=fixed)
+    if importance is not None:
+        from experiment.data_selection.weights import SelectionWeights
+        staged=SelectionWeights(importance).stage_tables
+        if staged and any(key in c['train'] for key in ['role_segments','target_segments']):raise ValueError('stage weighting requires uniform task sampling; legacy role/target modes are mutually exclusive')
+        if staged and c['train'].get('importance_sampling_multiplier',1)!=1:raise ValueError('stage weighting does not implicitly change sampling probabilities')
     ids=sorted(e for values in groups.values() for e in values)
     report=dict(expected_frames=frames,episodes=len(ids),hf_steps=saves,recipe_sha256=digest(c),required_disk_gib=required/2**30,
         remediation_reserved_checkpoints=extra_saves,

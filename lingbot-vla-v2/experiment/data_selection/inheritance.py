@@ -78,6 +78,10 @@ def freeze_registry(source_run,destination,explicit=None,fixed=None):
         target=destination/'sample_weights'/task;target.mkdir(parents=True,exist_ok=False)
         shutil.copy2(selected,target/'selected_frames.json')
         cfg=dict(cfg,selected_frames='selected_frames.json')
+        for field in ['stage_table','stage_policy']:
+            if field in cfg:
+                dependency=Path(cfg[field]);dependency=dependency if dependency.is_absolute()else policies[task].parent/dependency
+                name=field+'.json';shutil.copy2(dependency,target/name);cfg[field]=name
         (target/'weight_config.json').write_text(json.dumps(cfg,indent=2)+'\n')
         relative[task]=str((target/'weight_config.json').relative_to(destination))
     registry.write_text(json.dumps(dict(version=1,policies=relative,policy_sha256={task:registry_digest(destination/path) for task,path in relative.items()}),indent=2)+'\n')

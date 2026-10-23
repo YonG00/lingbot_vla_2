@@ -69,8 +69,37 @@ def check(out):
                 absolute=correction*weights[:,None]
                 left=absolute[:,layouts[0]['left']];right=absolute[:,layouts[0]['right']]
                 assert set(left.flatten().tolist())<={1.,2.,3.} and set(right.flatten().tolist())<={1.,2.}
-                assert (left==3).any(),'first batch must exercise left3 action path'
+                # Coverage may be zero when a staged/other task is the current main task.
                 sample_weight_audit.update(action_weight_shape=list(correction.shape),left_fm_multipliers=sorted(set(left.flatten().tolist())),right_fm_multipliers=sorted(set(right.flatten().tolist())),shared_visual_multipliers=sorted(set(weights.tolist())))
+            if policy.stage_tables:
+                stage=batch[0]['stage_fm_weight'];pads=batch[0]['action_is_pad'].bool();mask=batch[0]['joint_mask'].bool() & ~pads[:,:,None]
+                assert stage.shape==batch[0]['actions'].shape and torch.isfinite(stage).all()and (stage>=0).all()
+                assert (stage[~mask & pads[:,:,None].expand_as(stage)]==0).all()
+                for name in ['stage_current_depth_weight','stage_future_depth_weight','stage_current_video_weight','stage_future_video_weight']:
+                    assert batch[0][name].shape==weights.shape and torch.isfinite(batch[0][name]).all()and (batch[0][name]>=0).all()
+                assert batch[0]['stage_ids'].shape==(len(weights),50,2)and batch[0]['stage_arm_index'].shape==(len(weights),55)
+                raw=dataset._datasets[0].dataset.hf_dataset.select_columns(['episode_index','frame_index'])
+                terminal=[];stage_index=None;legacy_index=None
+                for i,row in enumerate(raw):
+                    ep=int(row['episode_index']);frame=int(row['frame_index']);table=policy.stage_tables.get(ep)
+                    if table and stage_index is None and table.frame_weights['fm'][ep]['left'][frame]==5:stage_index=i
+                    if table is None and legacy_index is None and policy.weight(policy.dataset_name,ep,frame)>1:legacy_index=i
+                    if table and frame==table.episodes[ep]['length']-1:
+                        item=dataset[i];assert item['stage_fm_weight'].shape==(50,55)
+                        assert item['action_is_pad'][1:].all()and (item['stage_fm_weight'][1:]==0).all()
+                        assert float(item['stage_future_depth_weight'])==0 and float(item['stage_future_video_weight'])==0
+                        terminal.append(ep)
+                assert set(terminal)==set(policy.stage_tables),'every staged episode terminal must be checked'
+                mixed_report={}
+                if stage_index is not None and legacy_index is not None:
+                    mixed=data.VLADataCollatorWithPacking()([dataset[stage_index],dataset[legacy_index]])
+                    assert mixed['stage_fm_weight'].shape==(2,50,55)
+                    assert (mixed['stage_ids'][0]>=0).all()and (mixed['stage_ids'][1]==-1).all()
+                    scalar=float(mixed['sample_loss_weight'][1]);valid=mixed['joint_mask'][1].bool() & ~mixed['action_is_pad'][1].bool()[:,None]
+                    assert (mixed['stage_fm_weight'][1][valid]==scalar).all(),'legacy replay importance changed'
+                    mixed_report=dict(samples=2,stage_current_depth=float(mixed['stage_current_depth_weight'][0]),stage_future_depth=float(mixed['stage_future_depth_weight'][0]),legacy_scalar=scalar,legacy_fm_importance_preserved=True)
+
+                sample_weight_audit.update(stage_normalization='weight_sum',stage_mixed_batch=mixed_report,stage_fm_shape=list(stage.shape),stage_active_weight_values=sorted(set(stage[mask].tolist())),stage_terminal_episodes=terminal,stage_future_depth_values=sorted(set(batch[0]['stage_future_depth_weight'].tolist())),stage_future_video_values=sorted(set(batch[0]['stage_future_video_weight'].tolist())))
             print('SAMPLE_WEIGHT_CPU_PASS',json.dumps(sample_weight_audit),flush=True)
         assert isinstance(loader.state_dict(),dict)
         return dict(recipe_sampler=True,virtual_epoch_steps=len(loader),loader_microbatches=len(batch),real_frames=sum(map(len,pools.values())),**sample_weight_audit,**segment_audit)

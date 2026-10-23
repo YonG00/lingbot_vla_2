@@ -67,3 +67,5 @@ JSON配置、数据清单和证据仍分别放configs、refs等工程目录，�
 运行目录新命名采用`YYYYMMDD_HHMM_说明`，如`20261020_2002_switch_pillbottle_stapler`；历史run保持原路径。
 
 - [pick_dual_bottles双手水平抓瓶样本筛选](recipes/pick_dual_bottles_target_selection_zh.md)。
+
+- [完整轨迹分阶段与多模态权重](recipes/full_trajectory_stage_multimodal_weighting_zh.md)

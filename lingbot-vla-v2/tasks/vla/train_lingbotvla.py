@@ -1458,6 +1458,8 @@ def main():
     #: STOP_AND_SAVE 请求：AL 开启时不在 unit 中途停 —— 等到边界再停+存档
     _al_stop_pending = False
 
+    stage_clip_updates=0
+    stage_clip_events=0
     for epoch in range(start_epoch, args.train.num_train_epochs):
         current_epoch_for_eval = epoch + 1
         if hasattr(train_dataloader, "set_epoch"):
@@ -1713,6 +1715,12 @@ def main():
             else:
                 grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm, foreach=True)
 
+            if any(key.startswith('stage_weight/')for key in loss_log):
+                stage_clip_updates+=1
+                stage_clip_events+=int(float(grad_norm)>max_grad_norm)
+                loss_log['stage_weight/grad_norm_before_clip']=grad_norm
+                loss_log['stage_weight/grad_clip_triggered']=float(float(grad_norm)>max_grad_norm)
+                loss_log['stage_weight/grad_clip_fraction']=stage_clip_events/stage_clip_updates
             if precision_audit is not None:
                 precision_audit.before_step()
             optimizer.step()
@@ -1839,7 +1847,7 @@ def main():
                         scalar = _tb_scalar(value)
                         if scalar is not None:
                             writer.add_scalar(key, scalar, global_step)
-                    elif key.startswith(("align/", "ee_fk/", "sample_weight/")):
+                    elif key.startswith(("align/", "ee_fk/", "sample_weight/", "stage_weight/")):
                         scalar = _tb_scalar(value)
                         if scalar is not None:
                             writer.add_scalar(key, scalar, global_step)

@@ -333,6 +333,13 @@ class VLADataCollatorWithPacking(DataCollator):
     )
 
     def __call__(self, features: Sequence[Dict[str, "torch.Tensor"]]) -> Dict[str, "torch.Tensor"]:
+        stage_names=('stage_fm_weight','stage_ids','stage_arm_index','stage_current_depth_weight','stage_future_depth_weight','stage_current_video_weight','stage_future_video_weight')
+        if any('stage_fm_weight'in feature for feature in features):
+            for feature in features:
+                if any(name not in feature for name in stage_names):raise ValueError('mixed batch missing stage metadata')
+                h,d=feature['actions'].shape
+                if feature['stage_fm_weight'].shape!=(h,d)or feature['stage_ids'].shape!=(h,2)or feature['stage_arm_index'].shape!=(d,)or feature['action_is_pad'].shape!=(h,):raise ValueError('stage collator time/action shape mismatch')
+                if any(feature[name].ndim!=0 for name in stage_names[3:]):raise ValueError('stage auxiliary weights must be scalar per sample')
         batch = {}
         keys = {key for feature in features for key in feature.keys()}
         for input_name in keys:

@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "normalization": "weight_sum",
+  "fm": {
+    "idle_or_prepare": 1.0,
+    "reach_aim": 1.0,
+    "fine_align": 2.0,
+    "pre_contact": 5.0,
+    "gripper_close": 5.0,
+    "grasp_lift": 2.0,
+    "transport": 1.0,
+    "target_align": 1.0,
+    "target_hold": 1.0,
+    "unknown": 1.0
+  },
+  "visual": {
+    "idle_or_prepare": 1.0,
+    "reach_aim": 1.0,
+    "fine_align": 2.0,
+    "pre_contact": 5.0,
+    "gripper_close": 5.0,
+    "grasp_lift": 2.0,
+    "transport": 1.0,
+    "target_align": 1.0,
+    "target_hold": 1.0,
+    "unknown": 1.0
+  },
+  "visual_branches": {
+    "current_depth": {
+      "idle_or_prepare": 1.0,
+      "reach_aim": 1.0,
+      "fine_align": 2.0,
+      "pre_contact": 5.0,
+      "gripper_close": 5.0,
+      "grasp_lift": 2.0,
+      "transport": 1.0,
+      "target_align": 1.0,
+      "target_hold": 1.0,
+      "unknown": 1.0
+    },
+    "future_depth": {
+      "idle_or_prepare": 1.0,
+      "reach_aim": 1.0,
+      "fine_align": 2.0,
+      "pre_contact": 5.0,
+      "gripper_close": 5.0,
+      "grasp_lift": 2.0,
+      "transport": 1.0,
+      "target_align": 1.0,
+      "target_hold": 1.0,
+      "unknown": 1.0
+    },
+    "current_video": {
+      "idle_or_prepare": 1.0,
+      "reach_aim": 1.0,
+      "fine_align": 2.0,
+      "pre_contact": 5.0,
+      "gripper_close": 5.0,
+      "grasp_lift": 2.0,
+      "transport": 1.0,
+      "target_align": 1.0,
+      "target_hold": 1.0,
+      "unknown": 1.0
+    },
+    "future_video": {
+      "idle_or_prepare": 1.0,
+      "reach_aim": 1.0,
+      "fine_align": 2.0,
+      "pre_contact": 5.0,
+      "gripper_close": 5.0,
+      "grasp_lift": 2.0,
+      "transport": 1.0,
+      "target_align": 1.0,
+      "target_hold": 1.0,
+      "unknown": 1.0
+    }
+  },
+  "future_video_rule": "target_endpoint",
+  "unknown_high_weight": false,
+  "review_threshold_fraction": 0.1,
+  "overrides": {
+    "fm": {
+      "left": {
+        "idle_or_prepare/initial_pose": 1.0,
+        "reach_aim/reach_very_far": 1.0,
+        "reach_aim/reach_far": 1.0,
+        "reach_aim/reach_middle": 1.0,
+        "reach_aim/reach_near": 1.0,
+        "fine_align/stable_horizontal_pregrasp": 2.0,
+        "pre_contact/forward_advance": 5.0,
+        "pre_contact/open_settle": 5.0,
+        "gripper_close/closing_transition": 5.0,
+        "grasp_lift/closed_hold_proxy": 2.0,
+        "grasp_lift/initial_clearance": 2.0,
+        "grasp_lift/lift_clearance": 2.0,
+        "transport/transport_far": 1.0,
+        "transport/transport_middle": 1.0,
+        "transport/transport_near": 1.0,
+        "target_align/held_target_alignment": 1.0,
+        "target_hold/closed_target_hold_proxy": 1.0
+      },
+      "right": {
+        "idle_or_prepare/initial_pose": 1.0,
+        "reach_aim/reach_far": 1.0,
+        "reach_aim/reach_middle": 1.0,
+        "reach_aim/reach_near": 1.0,
+        "fine_align/stable_horizontal_pregrasp": 2.0,
+        "pre_contact/forward_advance": 5.0,
+        "pre_contact/open_settle": 5.0,
+        "gripper_close/closing_transition": 5.0,
+        "grasp_lift/closed_hold_proxy": 2.0,
+        "grasp_lift/initial_clearance": 2.0,
+        "grasp_lift/lift_clearance": 2.0,
+        "transport/transport_middle": 1.0,
+        "transport/transport_near": 1.0,
+        "target_align/held_target_alignment": 1.0,
+        "target_hold/closed_target_hold_proxy": 1.0,
+        "reach_aim/reach_very_far": 1.0,
+        "transport/transport_far": 1.0
+      }
+    },
+    "visual": {
+      "left": {
+        "idle_or_prepare/initial_pose": 1.0,
+        "reach_aim/reach_very_far": 1.0,
+        "reach_aim/reach_far": 1.0,
+        "reach_aim/reach_middle": 1.0,
+        "reach_aim/reach_near": 1.0,
+        "fine_align/stable_horizontal_pregrasp": 2.0,
+        "pre_contact/forward_advance": 5.0,
+        "pre_contact/open_settle": 5.0,
+        "gripper_close/closing_transition": 5.0,
+        "grasp_lift/closed_hold_proxy": 2.0,
+        "grasp_lift/initial_clearance": 2.0,
+        "grasp_lift/lift_clearance": 2.0,
+        "transport/transport_far": 1.0,
+        "transport/transport_middle": 1.0,
+        "transport/transport_near": 1.0,
+        "target_align/held_target_alignment": 1.0,
+        "target_hold/closed_target_hold_proxy": 1.0
+      },
+      "right": {
+        "idle_or_prepare/initial_pose": 1.0,
+        "reach_aim/reach_far": 1.0,
+        "reach_aim/reach_middle": 1.0,
+        "reach_aim/reach_near": 1.0,
+        "fine_align/stable_horizontal_pregrasp": 2.0,
+        "pre_contact/forward_advance": 5.0,
+        "pre_contact/open_settle": 5.0,
+        "gripper_close/closing_transition": 5.0,
+        "grasp_lift/closed_hold_proxy": 2.0,
+        "grasp_lift/initial_clearance": 2.0,
+        "grasp_lift/lift_clearance": 2.0,
+        "transport/transport_middle": 1.0,
+        "transport/transport_near": 1.0,
+        "target_align/held_target_alignment": 1.0,
+        "target_hold/closed_target_hold_proxy": 1.0,
+        "reach_aim/reach_very_far": 1.0,
+        "transport/transport_far": 1.0
+      }
+    }
+  }
+}

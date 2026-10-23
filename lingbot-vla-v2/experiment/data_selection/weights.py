@@ -9,6 +9,7 @@ class SelectionWeights:
     def __init__(self, config_path):
         config_path = Path(config_path).resolve()
         c = json.loads(config_path.read_text())
+        self.stage_tables = {}
         if 'policies' in c:
             from .inheritance import read_policies
             policies=read_policies(config_path)
@@ -24,12 +25,14 @@ class SelectionWeights:
                 self.coordinate_weights.update(child.coordinate_weights)
                 self.action_overrides.update(child.action_overrides)
                 self.action_expected_dimensions.update(child.action_expected_dimensions)
+                if self.stage_tables.keys() & child.stage_tables.keys():raise ValueError("overlapping staged episodes")
+                self.stage_tables.update(child.stage_tables)
             self.multipliers=set(self.coordinate_weights.values())
             self.multiplier=next(iter(self.multipliers)) if len(self.multipliers)==1 else None
             return
         if c.get("version") != 1 or not c.get("dataset_name"):
             raise ValueError("weight config needs version=1 and dataset_name")
-        if c.get("normalization") != "sample_count":
+        if c.get("normalization") != "sample_count" and not (c.get("normalization")=="weight_sum" and "stage_table"in c):
             raise ValueError("weight config must explicitly select sample_count normalization")
         self.dataset_name = c["dataset_name"]
         self.dataset_root = str(Path(c["dataset_root"]).expanduser().resolve())
@@ -70,6 +73,13 @@ class SelectionWeights:
                 if not arms or not arms<={"left","right"}:raise ValueError("arm labels required for action weights")
                 self.action_overrides[pair]={dim:float(arm_weights[arm] if arm in arms else 1.)/float(value) for arm,dims in layout.items() for dim in dims}
         if not self.keys: raise ValueError("empty selection")
+        if 'stage_table' in c:
+            if arm_weights is not None or self.multiplier!=1 or c.get('use_selected_frame_weights',False):raise ValueError('stage policy must replace legacy task weighting')
+            from .full_stages import StageTable
+            stage=StageTable(c,config_path.parent)
+            expected={(e['episode_index'],f)for e in stage.table['episodes']for f in range(e['length'])}
+            if self.keys!=expected:raise ValueError('stage policy must register every original frame')
+            self.stage_tables={ep:stage for ep in stage.episodes}
         self.coordinate_weights=frame_weights
         self.multipliers=set(frame_weights.values())
 

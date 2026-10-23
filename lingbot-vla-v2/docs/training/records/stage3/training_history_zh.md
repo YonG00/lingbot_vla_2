@@ -226,3 +226,21 @@ run `20261023_1016_dual_bottles300_from_0928_s200_bf16_m56_horizontal_grasp2_rep
 1102 run实际从1016-step300续训200完成，仅最终step200，1708个BF16张量核验通过。主任务10080样本、复习1120。最终pick_dual_bottles三路0/3、种子100000/100001/100002，OIDN错误0，3回合录像，使用驻留共享服务；无补课、不关机。结果本run下 `evaluation_200/pick_dual_bottles`。证据 `refs/data_selection/pick_dual_bottles_left3_right2_final.json`；此前启动中的200步由此更新为完成，探针不计入。
 
 用户报告左手黑瓶始终未抓起。仅抽检首回合全局视频12帧：绿色瓶被碰倒后，手臂仍抬起并进入结束姿态，不能仅由此确认具体闭爪触发点或证明模型双臂容量不足。筛选是命令/运动学代理，未验证瓶身接触、实际夹持及随手提起。后续建议先做示范关键帧离线预测误差与执行50步对10步同种子对照，再决定继续训练方案；尚未执行这些诊断，不把推测当确定原因。抽帧图 `refs/data_selection/pick_dual_bottles_left3_right2_episode0_diagnosis.png`。
+
+### 2026-10-23 双瓶全轨迹阶段方案准备（非训练轮次）
+
+50示范6129帧完整双臂标注；每手17子阶段最大9.33%，FM及视觉按权重和归一化、最后接近/闭爪5。CPU174项和真实B2/50末尾检查通过，模型未初始化、训练0步、无新存档/闭环分数。完整说明：[阶段加权](../../recipes/full_trajectory_stage_multimodal_weighting_zh.md)。不得计入累计训练步数。
+
+### 2026-10-23 18:02 双瓶全阶段5倍方案（已提交后台流水线，训练终态待核验）
+
+run：`20261023_1802_dual_bottles200_from_0928_s200_bf16_m56_fullstage5_weightnorm_replay10pct_parallel3_video`，根目录 `/data/outputs/`。来源0928-step200，计划双瓶200步，BF16、micro56/GAS1，10%复习每5步换任务；完整17子阶段，接近/闭爪5、对准/提起2，按权重和归一化，动作padding不监督，继承夹碗与订书机重要性。仅最终step200存档；结束三回合并行带视频评测，不补课、不自动关机，按用户偏好跳过额外GPU三步探测。启动前97＋77项CPU通过，远端文件按SHA核验；实际训练步数、耗时、闭环成绩暂未确认，不计入累计完成。
+
+用户批准清理的1016-step300、1102-step200已删除模型存档，日志/视频保留，实测释放23.79GiB。来源0928-step200保留。
+
+### 2026-10-23 1802全阶段200完成与带视频重测终态
+
+覆盖此前启动中记录：0928-step200→正式200步，训练17分01秒，末步Loss0.0330、VLA0.0282、Depth0.3724、FutureDepth0.4809、FutureVideo0.0533，末步4.764秒。最终step200已生成。CPU97＋77通过；真实1300轨迹与GBS56通过，新阶段与旧2倍重要性混合检查通过。GPU正式200步完成，不能仅由loss推断成功率。
+
+初次resident评测使用实验目录的旧仿真客户端，接收录像参数但没有调用全局录像入口，评测后因missing or unexpected video异常，原流水线状态failed是评测验收失败，不能记作训练中断。保留该证据目录不覆盖。
+
+随后使用已有录像功能的官方对照仿真客户端，对同一step200、种子100000/100001/100002三回合并行重测，单模型服务、FP32推理，最终0/3，OIDN错误0。路径：`/data/outputs/20261023_1802_dual_bottles200_from_0928_s200_bf16_m56_fullstage5_weightnorm_replay10pct_parallel3_video/evaluation_200_pick_dual_bottles_videos3_20261023_182812`。三份视频位于 `pick_dual_bottles/results/pick_dual_bottles/episode0_global.mp4` 至 `episode2_global.mp4`，ffprobe时长300.5/300.5/305.5秒、大小3391925/3638966/3415252字节，均可读取。仅重测，没有续训、额外存档或关机。此处通过换用已有客户端完成录像，不代表旧客户端问题已在训练框架中永久修复。

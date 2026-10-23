@@ -1416,7 +1416,7 @@ class FlowMatching(nn.Module):
             v_t = self.action_out_proj(suffix_out)
         return v_t
 
-    def depth_emb_forward(self, hidden_states, depth_targets=None, img_masks=None, future_depth_targets=None, sample_loss_weight=None):
+    def depth_emb_forward(self, hidden_states, depth_targets=None, img_masks=None, future_depth_targets=None, sample_loss_weight=None, future_sample_loss_weight=None):
         chunk_size = self.llm_image_token_size * self.llm_image_token_size
         num_images = img_masks.shape[1] if img_masks is not None and img_masks.ndim == 2 else 3
         if img_masks is not None:
@@ -1438,7 +1438,7 @@ class FlowMatching(nn.Module):
             future_align_embs = torch.cat([future_image_embs, future_align_embs], dim=1)
             future_depth_preds = self.future_depth_align_embs.repeat(future_align_embs.shape[0], 1, 1).to(dtype=future_align_embs.dtype, device=future_align_embs.device)
             future_depth_preds = self.future_depth_align_head(future_align_embs, future_depth_preds).contiguous().float()
-            future_loss = self._emb_loss(future_depth_preds, future_depth_targets, sample_loss_weight)
+            future_loss = self._emb_loss(future_depth_preds, future_depth_targets, sample_loss_weight if future_sample_loss_weight is None else future_sample_loss_weight)
             return current_loss, future_loss, depth_preds, future_depth_preds
 
         return current_loss, 0, depth_preds, None

@@ -86,3 +86,5 @@
 - 训练记录分类：[阶段二技能训练/补课与阶段三难任务样本加权](training/records/README.md)。
 
 - [双瓶任务：伸手、水平瞄准、闭爪和提起目标筛选](training/recipes/pick_dual_bottles_target_selection_zh.md)。
+
+- [双瓶完整轨迹阶段加权](training/recipes/full_trajectory_stage_multimodal_weighting_zh.md)

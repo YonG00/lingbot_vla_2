@@ -60,3 +60,5 @@ run `20261023_1016_dual_bottles300_from_0928_s200_bf16_m56_horizontal_grasp2_rep
 147项CPU回归通过；真实1300轨迹256755帧CPU整链，首批左FM集合1/3、右1/2、共享视觉1/2，动作权重56×55。GPU三步通过（allocated77.71GiB/reserved83.95GiB），正式训练已出现更新；不将探针步数计入200。此次改FM路径故显式开启探测，后续同计算配置可跳过。启动前空闲约30GiB，单份预算16.06GiB。终态、HF及闭环待核验。此前两次准备失败均发生CPU/路径检查，未产生GPU或正式更新，日志保留。
 
 配方 `configs/training_recipes/pick_dual_bottles_add200_from_1016_s300_left3_right2_visual2.json`；权重 `refs/data_selection/pick_dual_bottles_left3_right2_v1/weight_config.json`；启动证据 `refs/data_selection/pick_dual_bottles_left3_right2_started.json`。
+
+新版完整轨迹标签与权重见[阶段加权说明](full_trajectory_stage_multimodal_weighting_zh.md)。旧目标筛选与旧实验保持原口径。

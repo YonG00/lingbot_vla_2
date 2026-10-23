@@ -105,6 +105,7 @@ class LossTests(unittest.TestCase):
         env=dict(torch=torch);exec(compile(ast.Module(body=[method],type_ignores=[]),str(path),'exec'),env)
         rows=[dict(episode_index=torch.tensor(1450),frame_index=torch.tensor(i)) for i in [3,4]]
         class Matcher:
+            stage_tables={}
             def weight(self,name,ep,frame):return 2. if frame==3 else 1.
             def relative_action_weights(self,*args):return None
         obj=types.SimpleNamespace(check_lerobot_item=lambda x:x,dataset=rows,use_future_image=False,
