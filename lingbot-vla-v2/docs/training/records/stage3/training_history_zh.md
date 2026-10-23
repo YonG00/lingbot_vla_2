@@ -244,3 +244,17 @@ run：`20261023_1802_dual_bottles200_from_0928_s200_bf16_m56_fullstage5_weightno
 初次resident评测使用实验目录的旧仿真客户端，接收录像参数但没有调用全局录像入口，评测后因missing or unexpected video异常，原流水线状态failed是评测验收失败，不能记作训练中断。保留该证据目录不覆盖。
 
 随后使用已有录像功能的官方对照仿真客户端，对同一step200、种子100000/100001/100002三回合并行重测，单模型服务、FP32推理，最终0/3，OIDN错误0。路径：`/data/outputs/20261023_1802_dual_bottles200_from_0928_s200_bf16_m56_fullstage5_weightnorm_replay10pct_parallel3_video/evaluation_200_pick_dual_bottles_videos3_20261023_182812`。三份视频位于 `pick_dual_bottles/results/pick_dual_bottles/episode0_global.mp4` 至 `episode2_global.mp4`，ffprobe时长300.5/300.5/305.5秒、大小3391925/3638966/3415252字节，均可读取。仅重测，没有续训、额外存档或关机。此处通过换用已有客户端完成录像，不代表旧客户端问题已在训练框架中永久修复。
+
+### 2026-10-23 18:38 双瓶完整阶段20倍对照启动
+
+run `20261023_1838_dual_bottles200_from_0928_s200_bf16_m56_fullstage20_weightnorm_replay10pct_parallel3_video`。从同一0928-step200重新训练，非1802-step200续训；计划200步、micro56/GAS1、BF16、10%轮换复习、仅最终200存档、结束三路带视频评测，不补课/不关机。标签及采样不变，原5倍阶段的动作与视觉左右手全部改20，1/2不变，仍按权重和归一化。独立配置 `refs/data_selection/pick_dual_bottles_full_stage_weight20_v1/`；全部帧数值核对与13项CPU契约通过，旧代码按哈希一致核验。评测环境显式使用已验证全局录像入口的官方对照客户端；后台运行中，不能将计划200计作已完成。
+
+### 2026-10-23 1838完整阶段20倍终态与5倍对照
+
+来源0928-step200，实际完成200步，BF16、GBS56/GAS1、10%复习；1708个BF16张量最终存档验证完成。训练进度条17分44秒，末步Loss0.0324/VLA0.0277、4.743秒。端到端流水线complete，训练模型驻留直接三路评测，FP32推理、同种子100000/100001/100002、同录像客户端SHA fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3；0/3，OIDN错误0，三视频ffprobe核验304/303/305秒。没有重载模型补测，也没有自动关机。
+
+完整对比报告位于 `refs/data_selection/pick_dual_bottles_full_stage_weight20_v1/completed_training_comparison.json`。最后151–200步按有效元素统计未加权FM：全体5倍0.021345→20倍0.021743（+1.86%）；接近/开爪稳定合并0.019817→0.020107（+1.46%）；闭爪0.029111→0.029160（+0.17%）；瞄准+4.38%、提起+4.45%、搬运+3.21%。这些为训练批次FM目标误差，不是固定验证集动作/末端误差，不代表统计显著差异。未单独记录forward_advance与open_settle，也未分左右手与夹爪维度。
+
+重点接近＋闭爪的后50步FM损失贡献从57.22%升至83.88%，证明倍率生效；后50步梯度均值0.380→0.479（+26.1%），整轮裁剪3/200→5/200、后150步均无裁剪，不支持“持续裁剪吞掉20倍”的解释。模型自身误差随训练下降，但对5倍没有显示改善；相同0/3不能推断动作轨迹完全相同。暂不建议继续盲目加倍率，应优先用固定样本/噪声验证、分臂子阶段指标与视频抓取事件定位；这些额外测试尚未执行。
+
+run `20261023_1838_dual_bottles200_from_0928_s200_bf16_m56_fullstage20_weightnorm_replay10pct_parallel3_video`，视频 `evaluation_200/pick_dual_bottles/results/pick_dual_bottles/episode{0,1,2}_global.mp4`。

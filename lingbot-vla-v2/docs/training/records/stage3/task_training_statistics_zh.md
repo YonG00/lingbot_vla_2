@@ -116,3 +116,11 @@ run `20261023_1102_dual_bottles_add200_from_1016_s300_bf16_m56_left3_right2_visu
 |pick_dual_bottles|0928-step200→200步；该分支双瓶定向主链200步，不累加独立1016/1102实验|step200三回合并行带视频0/3，OIDN错误0|
 
 run `20261023_1802_dual_bottles200_from_0928_s200_bf16_m56_fullstage5_weightnorm_replay10pct_parallel3_video`，重测 `evaluation_200_pick_dual_bottles_videos3_20261023_182812`；10%复习，未单独测复习任务，不登记其成功率。
+
+## 1838阶段20倍终态
+
+|任务|实际训练|同种子闭环|
+|---|---|---|
+|pick_dual_bottles|0928-step200重新训练200步，该分支定向主链200；不累加1802的独立200|0/3，三视频，OIDN错误0|
+
+最后50步重点阶段误差无改善，倍率确实生效但未提高本次成功率；见流水与对比JSON。

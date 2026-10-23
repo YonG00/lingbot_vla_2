@@ -1,0 +1,416 @@
+{
+  "1-50": {
+    "stage_weight/fm_unweighted": {
+      "values": {
+        "w5": 0.0318575887344814,
+        "w20": 0.032892326383617006
+      },
+      "change_pct": 3.248009941240926
+    },
+    "stage_weight/reach_aim/fm_unweighted": {
+      "values": {
+        "w5": 0.03193909797594911,
+        "w20": 0.032446728555695796
+      },
+      "change_pct": 1.5893704328435954
+    },
+    "stage_weight/fine_align/fm_unweighted": {
+      "values": {
+        "w5": 0.03278866885353628,
+        "w20": 0.033632511336718296
+      },
+      "change_pct": 2.5735795708919262
+    },
+    "stage_weight/pre_contact/fm_unweighted": {
+      "values": {
+        "w5": 0.03268505994360564,
+        "w20": 0.03295583306469835
+      },
+      "change_pct": 0.8284308536067986
+    },
+    "stage_weight/gripper_close/fm_unweighted": {
+      "values": {
+        "w5": 0.04604821514068564,
+        "w20": 0.04638960952357263
+      },
+      "change_pct": 0.7413846157640736
+    },
+    "stage_weight/grasp_lift/fm_unweighted": {
+      "values": {
+        "w5": 0.026346168452834204,
+        "w20": 0.027319607189489746
+      },
+      "change_pct": 3.694801915497603
+    },
+    "stage_weight/transport/fm_unweighted": {
+      "values": {
+        "w5": 0.0366336633139091,
+        "w20": 0.038862615097910086
+      },
+      "change_pct": 6.084435959629242
+    },
+    "stage_weight/target_align/fm_unweighted": {
+      "values": {
+        "w5": 0.024696377773573232,
+        "w20": 0.0266366065481153
+      },
+      "change_pct": 7.856329346477042
+    },
+    "stage_weight/target_hold/fm_unweighted": {
+      "values": {
+        "w5": 0.020241504278011805,
+        "w20": 0.021593202766074057
+      },
+      "change_pct": 6.677855901898511
+    },
+    "stage_weight/current_depth_unweighted": {
+      "values": {
+        "w5": 0.4093860673904419,
+        "w20": 0.412879473567009
+      },
+      "change_pct": 0.8533280575069746
+    },
+    "stage_weight/future_depth_unweighted": {
+      "values": {
+        "w5": 0.56315021276474,
+        "w20": 0.5720756554603577
+      },
+      "change_pct": 1.5849133132346704
+    },
+    "stage_weight/grad_norm_before_clip": {
+      "values": {
+        "w5": 0.5897265625,
+        "w20": 0.691484375
+      },
+      "change_pct": 17.255083791481752
+    },
+    "stage_weight/grad_clip_triggered": {
+      "values": {
+        "w5": 0.06,
+        "w20": 0.1
+      },
+      "change_pct": 66.66666666666667
+    },
+    "steptime": {
+      "values": {
+        "w5": 6.019576358795166,
+        "w20": 5.792276058197022
+      },
+      "change_pct": -3.7760182286920796
+    }
+  },
+  "51-100": {
+    "stage_weight/fm_unweighted": {
+      "values": {
+        "w5": 0.025790471933166123,
+        "w20": 0.026330306780957935
+      },
+      "change_pct": 2.093156143829966
+    },
+    "stage_weight/reach_aim/fm_unweighted": {
+      "values": {
+        "w5": 0.024974463710802596,
+        "w20": 0.025458807000107476
+      },
+      "change_pct": 1.939354113519487
+    },
+    "stage_weight/fine_align/fm_unweighted": {
+      "values": {
+        "w5": 0.025294220540623736,
+        "w20": 0.026246186671256333
+      },
+      "change_pct": 3.7635717183049477
+    },
+    "stage_weight/pre_contact/fm_unweighted": {
+      "values": {
+        "w5": 0.02615616136946386,
+        "w20": 0.026704785124613873
+      },
+      "change_pct": 2.0974933875064217
+    },
+    "stage_weight/gripper_close/fm_unweighted": {
+      "values": {
+        "w5": 0.03778149401480324,
+        "w20": 0.03858862651035229
+      },
+      "change_pct": 2.1363170424991695
+    },
+    "stage_weight/grasp_lift/fm_unweighted": {
+      "values": {
+        "w5": 0.021034760055074427,
+        "w20": 0.021983008746770925
+      },
+      "change_pct": 4.508008121859897
+    },
+    "stage_weight/transport/fm_unweighted": {
+      "values": {
+        "w5": 0.0292238169377583,
+        "w20": 0.029425548303822706
+      },
+      "change_pct": 0.6902978022824913
+    },
+    "stage_weight/target_align/fm_unweighted": {
+      "values": {
+        "w5": 0.019320694606338763,
+        "w20": 0.019935387657755026
+      },
+      "change_pct": 3.1815266683765886
+    },
+    "stage_weight/target_hold/fm_unweighted": {
+      "values": {
+        "w5": 0.01500270655212783,
+        "w20": 0.015726823513873486
+      },
+      "change_pct": 4.826575519754828
+    },
+    "stage_weight/current_depth_unweighted": {
+      "values": {
+        "w5": 0.3908206868171692,
+        "w20": 0.39779405057430267
+      },
+      "change_pct": 1.7842872683952127
+    },
+    "stage_weight/future_depth_unweighted": {
+      "values": {
+        "w5": 0.5285435128211975,
+        "w20": 0.5395583391189576
+      },
+      "change_pct": 2.0839961196319257
+    },
+    "stage_weight/grad_norm_before_clip": {
+      "values": {
+        "w5": 0.4369140625,
+        "w20": 0.52015625
+      },
+      "change_pct": 19.05230219043361
+    },
+    "stage_weight/grad_clip_triggered": {
+      "values": {
+        "w5": 0.0,
+        "w20": 0.0
+      },
+      "change_pct": null
+    },
+    "steptime": {
+      "values": {
+        "w5": 4.767148838043213,
+        "w20": 4.748258638381958
+      },
+      "change_pct": -0.3962578115981219
+    }
+  },
+  "101-150": {
+    "stage_weight/fm_unweighted": {
+      "values": {
+        "w5": 0.02327891552796371,
+        "w20": 0.023720280744631495
+      },
+      "change_pct": 1.8959870194021455
+    },
+    "stage_weight/reach_aim/fm_unweighted": {
+      "values": {
+        "w5": 0.02170414503101909,
+        "w20": 0.02234890631511826
+      },
+      "change_pct": 2.9706827114253542
+    },
+    "stage_weight/fine_align/fm_unweighted": {
+      "values": {
+        "w5": 0.02181179429189218,
+        "w20": 0.022836588320784352
+      },
+      "change_pct": 4.698348128439411
+    },
+    "stage_weight/pre_contact/fm_unweighted": {
+      "values": {
+        "w5": 0.02293489095568466,
+        "w20": 0.023349874788740652
+      },
+      "change_pct": 1.8093996341985497
+    },
+    "stage_weight/gripper_close/fm_unweighted": {
+      "values": {
+        "w5": 0.03327671620600754,
+        "w20": 0.03403404246589091
+      },
+      "change_pct": 2.2758443327008493
+    },
+    "stage_weight/grasp_lift/fm_unweighted": {
+      "values": {
+        "w5": 0.018799778222621518,
+        "w20": 0.019639417888508478
+      },
+      "change_pct": 4.466221122101488
+    },
+    "stage_weight/transport/fm_unweighted": {
+      "values": {
+        "w5": 0.027407856299607656,
+        "w20": 0.027712936778150597
+      },
+      "change_pct": 1.1131132446404068
+    },
+    "stage_weight/target_align/fm_unweighted": {
+      "values": {
+        "w5": 0.01778908901832419,
+        "w20": 0.018498896239476606
+      },
+      "change_pct": 3.990126871709143
+    },
+    "stage_weight/target_hold/fm_unweighted": {
+      "values": {
+        "w5": 0.013766039450269442,
+        "w20": 0.014227149020038793
+      },
+      "change_pct": 3.3496167974466085
+    },
+    "stage_weight/current_depth_unweighted": {
+      "values": {
+        "w5": 0.3831217080354691,
+        "w20": 0.38937156975269316
+      },
+      "change_pct": 1.6312992937078663
+    },
+    "stage_weight/future_depth_unweighted": {
+      "values": {
+        "w5": 0.5204826962947845,
+        "w20": 0.5330901801586151
+      },
+      "change_pct": 2.4222676284112454
+    },
+    "stage_weight/grad_norm_before_clip": {
+      "values": {
+        "w5": 0.406796875,
+        "w20": 0.505625
+      },
+      "change_pct": 24.29421932014595
+    },
+    "stage_weight/grad_clip_triggered": {
+      "values": {
+        "w5": 0.0,
+        "w20": 0.0
+      },
+      "change_pct": null
+    },
+    "steptime": {
+      "values": {
+        "w5": 4.767356996536255,
+        "w20": 4.748122243881226
+      },
+      "change_pct": -0.40346784746776443
+    }
+  },
+  "151-200": {
+    "stage_weight/fm_unweighted": {
+      "values": {
+        "w5": 0.02134545744676083,
+        "w20": 0.02174327506254747
+      },
+      "change_pct": 1.8637108938933
+    },
+    "stage_weight/reach_aim/fm_unweighted": {
+      "values": {
+        "w5": 0.01912636021272825,
+        "w20": 0.019840138944253658
+      },
+      "change_pct": 3.731910952144468
+    },
+    "stage_weight/fine_align/fm_unweighted": {
+      "values": {
+        "w5": 0.019161498343860797,
+        "w20": 0.020001356136288277
+      },
+      "change_pct": 4.383048639286424
+    },
+    "stage_weight/pre_contact/fm_unweighted": {
+      "values": {
+        "w5": 0.019816884851027377,
+        "w20": 0.020107060461704185
+      },
+      "change_pct": 1.4642846888307082
+    },
+    "stage_weight/gripper_close/fm_unweighted": {
+      "values": {
+        "w5": 0.029110893045497133,
+        "w20": 0.029160321990464855
+      },
+      "change_pct": 0.16979535767065457
+    },
+    "stage_weight/grasp_lift/fm_unweighted": {
+      "values": {
+        "w5": 0.01726340565912887,
+        "w20": 0.018030780169393443
+      },
+      "change_pct": 4.445093427198632
+    },
+    "stage_weight/transport/fm_unweighted": {
+      "values": {
+        "w5": 0.02483890150812515,
+        "w20": 0.02563731500911881
+      },
+      "change_pct": 3.214367192254808
+    },
+    "stage_weight/target_align/fm_unweighted": {
+      "values": {
+        "w5": 0.016104510494479165,
+        "w20": 0.016758707739000983
+      },
+      "change_pct": 4.062198877426826
+    },
+    "stage_weight/target_hold/fm_unweighted": {
+      "values": {
+        "w5": 0.013218581302845932,
+        "w20": 0.013839077176005464
+      },
+      "change_pct": 4.694118521069579
+    },
+    "stage_weight/current_depth_unweighted": {
+      "values": {
+        "w5": 0.38123069107532503,
+        "w20": 0.38668726503849027
+      },
+      "change_pct": 1.431305005316874
+    },
+    "stage_weight/future_depth_unweighted": {
+      "values": {
+        "w5": 0.5163054275512695,
+        "w20": 0.5292100352048874
+      },
+      "change_pct": 2.4994135186263255
+    },
+    "stage_weight/grad_norm_before_clip": {
+      "values": {
+        "w5": 0.379921875,
+        "w20": 0.4790625
+      },
+      "change_pct": 26.09500308451573
+    },
+    "stage_weight/grad_clip_triggered": {
+      "values": {
+        "w5": 0.0,
+        "w20": 0.0
+      },
+      "change_pct": null
+    },
+    "steptime": {
+      "values": {
+        "w5": 4.773732223510742,
+        "w20": 4.747246017456055
+      },
+      "change_pct": -0.5548322531423566
+    }
+  },
+  "summary": {
+    "w5": {
+      "last_step": "Step 200/200, Epoch 1, Loss 0.0330, VLA_Loss 0.0282, Depth_Loss 0.3724, Future_Depth_Loss 0.4809, FutureVideo_Loss 0.0533, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 1.2031, AvgSigmoid 0.0767, GradNorm 0.4941, LR 5.00e-05, Expert_LR 1.41e-04, StepTime 4.764s, Depth_Forward_Time  0.762s, Ignore_Batch_Num 0",
+      "clip_steps": 3.0,
+      "steps": 200,
+      "clip_final": 0.014999999664723873
+    },
+    "w20": {
+      "last_step": "Step 200/200, Epoch 1, Loss 0.0324, VLA_Loss 0.0277, Depth_Loss 0.3691, Future_Depth_Loss 0.4792, FutureVideo_Loss 0.0522, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 1.1797, AvgSigmoid 0.0767, GradNorm 0.5195, LR 5.00e-05, Expert_LR 1.41e-04, StepTime 4.743s, Depth_Forward_Time  0.761s, Ignore_Batch_Num 0",
+      "clip_steps": 5.0,
+      "steps": 200,
+      "clip_final": 0.02500000037252903
+    }
+  }
+}

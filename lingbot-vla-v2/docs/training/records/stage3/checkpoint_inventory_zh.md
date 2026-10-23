@@ -89,3 +89,7 @@
 
 - 已保留：0928-step200；`20261023_1802_dual_bottles200_from_0928_s200_bf16_m56_fullstage5_weightnorm_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt` 已生成，三片safetensors与index存在，最终200，无中间存档。
 - 用户批准删除：1016-step300、1102-step200模型目录，实际释放23.79GiB；其日志、视频、记录保留。旧条目中的“仍保留”已过期。
+
+## 1838最终存档已核验
+
+`20261023_1838_dual_bottles200_from_0928_s200_bf16_m56_fullstage20_weightnorm_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt`：1708 BF16张量，最终200存档，闭环0/3与三录像完成。来源0928-step200及1802的5倍对照保留，本轮无清理。
