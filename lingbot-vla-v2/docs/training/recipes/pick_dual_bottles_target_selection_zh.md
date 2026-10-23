@@ -48,3 +48,15 @@ run `20261023_1016_dual_bottles300_from_0928_s200_bf16_m56_horizontal_grasp2_rep
 本轮保持仅最终存档模式，保存step300；结束驻留模型三回合并行、全部录像，种子100000/100001/100002，无补课、不关机。启动前空闲约42GiB，单份预算16.06GiB，无删除。配方 `configs/training_recipes/pick_dual_bottles300_from_0928_s200_horizontal_grasp2_replay10pct_parallel3_video.json`。
 
 135项CPU回归通过；真实1300条256755帧整链通过，首批35/56样本命中loss2；GPU三步通过，allocated77.70GiB/reserved83.56GiB，正式训练已出现更新日志。探针3步不计正式300；尚未记录完成步数或闭环成功率。启动证据 `refs/data_selection/pick_dual_bottles300_started.json`。
+
+### 2026-10-23 11:02 分臂FM左3右2续训200（已启动）
+
+来源 `20261023_1016_dual_bottles300_from_0928_s200_bf16_m56_horizontal_grasp2_replay10pct_parallel3_video/checkpoints/global_step_300/hf_ckpt`。1016原轮正式完成300更新，主任务15120样本、复习1680，最终step300为1708 BF16张量，双瓶三回合并行0/3、三视频、OIDN错误0；证据 `refs/data_selection/pick_dual_bottles1016_final.json`。
+
+用户确认按动作维度修改，而非整帧全部3倍。新run `20261023_1102_dual_bottles_add200_from_1016_s300_bf16_m56_left3_right2_visual2_replay10pct_parallel3_video`，仍4382原目标：左臂六关节及左夹爪FM3，右臂六关节及右夹爪FM2；深度/未来深度/视频共享目标损失2。非目标动作1；左右目标时段边界只给正在目标中的手对应倍率，同帧不相乘。仍均匀主任务＋10%复习、每5步换任务，GBS56/GAS1/BF16，200步，仅最终200，结束驻留三回合并行全录像，100000/100001/100002，无补课、不关机。源300保留。
+
+左臂动作布局0–5及28，右臂6–11及29；经真实变换mask校验14个有效维度，其他padding不参与。保留原有效元素分母，FM单独应用按维度修正；共享视觉与正则不跟随左臂增加。新政策可随HF冻结继承。
+
+147项CPU回归通过；真实1300轨迹256755帧CPU整链，首批左FM集合1/3、右1/2、共享视觉1/2，动作权重56×55。GPU三步通过（allocated77.71GiB/reserved83.95GiB），正式训练已出现更新；不将探针步数计入200。此次改FM路径故显式开启探测，后续同计算配置可跳过。启动前空闲约30GiB，单份预算16.06GiB。终态、HF及闭环待核验。此前两次准备失败均发生CPU/路径检查，未产生GPU或正式更新，日志保留。
+
+配方 `configs/training_recipes/pick_dual_bottles_add200_from_1016_s300_left3_right2_visual2.json`；权重 `refs/data_selection/pick_dual_bottles_left3_right2_v1/weight_config.json`；启动证据 `refs/data_selection/pick_dual_bottles_left3_right2_started.json`。

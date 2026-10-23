@@ -1,0 +1,68 @@
+{
+  "output": "/root/autodl-tmp/data/outputs/20261023_1102_dual_bottles_add200_from_1016_s300_bf16_m56_left3_right2_visual2_replay10pct_parallel3_video",
+  "cpu": {
+    "state": "cpu_pass",
+    "episodes": 1300,
+    "frames": 256755,
+    "original_beta_time_exact": true,
+    "al_enabled": false,
+    "ee_enabled": false,
+    "model_initialized": false,
+    "optimizer_steps": 0,
+    "gpu_tested": false,
+    "recipe_sampler": true,
+    "virtual_epoch_steps": 200,
+    "loader_microbatches": 1,
+    "real_frames": 256755,
+    "sample_weight_count": 56,
+    "sample_weight_selected": 35,
+    "sample_weight_normalization": "sample_count",
+    "sample_weight_multipliers": [
+      2.0
+    ],
+    "action_weight_shape": [
+      56,
+      55
+    ],
+    "left_fm_multipliers": [
+      1.0,
+      3.0
+    ],
+    "right_fm_multipliers": [
+      1.0,
+      2.0
+    ],
+    "shared_visual_multipliers": [
+      1.0,
+      2.0
+    ]
+  },
+  "probe": {
+    "state": "three_step_probe_complete",
+    "optimizer_steps": 3,
+    "peak_allocated_gib": 77.70945310592651,
+    "peak_reserved_gib": 83.9453125,
+    "micro": 56,
+    "gas": 1
+  },
+  "pipeline": {
+    "state": "training",
+    "steps": 200
+  },
+  "probe.log": {
+    "step_lines": [
+      "Step: 1/3 [00:28<00:56, 28.01s/it]10/23/2026 11:03:47 - INFO - __main__ - Step 1/200, Epoch 1, Loss 0.0419, VLA_Loss 0.0347, Depth_Loss 0.6222, Future_Depth_Loss 0.8174, FutureVideo_Loss 0.0839, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, GradNorm 0.7461, LR 8.75e-05, Expert_LR 2.47e-04, StepTime 22.573s, Depth_Forward_Time  3.235s, Ignore_Batch_Num 0",
+      "Step: 2/3 [00:38<00:17, 17.97s/it]10/23/2026 11:03:58 - INFO - __main__ - Step 2/200, Epoch 1, Loss 0.0474, VLA_Loss 0.0395, Depth_Loss 0.6439, Future_Depth_Loss 0.9365, FutureVideo_Loss 0.1124, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 1.2656, AvgSigmoid 0.0796, GradNorm 1.5312, LR 6.25e-05, Expert_LR 1.77e-04, StepTime 10.931s, Depth_Forward_Time  0.784s, Ignore_Batch_Num 0",
+      "Step: 3/3 [00:48<00:00, 14.23s/it]10/23/2026 11:04:08 - INFO - __main__ - Step 3/200, Epoch 1, Loss 0.0490, VLA_Loss 0.0421, Depth_Loss 0.5801, Future_Depth_Loss 0.7741, FutureVideo_Loss 0.0861, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 1.3047, AvgSigmoid 0.0791, GradNorm 0.7891, LR 5.00e-05, Expert_LR 1.41e-04, StepTime 9.765s, Depth_Forward_Time  0.770s, Ignore_Batch_Num 0"
+    ],
+    "tail": "04:08 - INFO - __main__ - [smoke] NO_CHECKPOINT\uff1a\u8df3\u8fc7\u6536\u5c3e DCP/HF (step=3, reached_max_steps=True, al_finished=False)\n\nStep: 3/3 [00:48<00:00, 16.24s/it]\n10/23/2026 11:04:08 - INFO - __main__ - \u8bad\u7ec3\u7ed3\u675f: epoch=1/1, global_step=3\u3002\n10/23/2026 11:04:08 - INFO - __main__ - [async_hf] summary: {\"total\": 0, \"hf_success\": 0, \"hf_failed\": 0, \"eval_submitted\": 0, \"eval_skipped\": 0, \"eval_failed\": 0, \"failures\": []}\n"
+  },
+  "train.log": {
+    "step_lines": [
+      "Epoch 1/1:   0%|          | 1/200 [00:35<1:57:56, 35.56s/it]10/23/2026 11:05:12 - INFO - __main__ - Step 1/200, Epoch 1, Loss 0.0418, VLA_Loss 0.0346, Depth_Loss 0.6224, Future_Depth_Loss 0.8174, FutureVideo_Loss 0.0839, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, GradNorm 0.7500, LR 1.00e-04, Expert_LR 2.83e-04, StepTime 30.216s, Depth_Forward_Time  3.503s, Ignore_Batch_Num 0",
+      "Epoch 1/1:   1%|          | 2/200 [00:44<1:06:18, 20.09s/it]10/23/2026 11:05:21 - INFO - __main__ - Step 2/200, Epoch 1, Loss 0.0479, VLA_Loss 0.0400, Depth_Loss 0.6440, Future_Depth_Loss 0.9359, FutureVideo_Loss 0.1126, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 1.2656, AvgSigmoid 0.0796, GradNorm 1.6406, LR 1.00e-04, Expert_LR 2.83e-04, StepTime 9.262s, Depth_Forward_Time  0.763s, Ignore_Batch_Num 0"
+    ],
+    "tail": "  1%|          | 2/200 [00:44<1:06:18, 20.09s/it]10/23/2026 11:05:21 - INFO - __main__ - Step 2/200, Epoch 1, Loss 0.0479, VLA_Loss 0.0400, Depth_Loss 0.6440, Future_Depth_Loss 0.9359, FutureVideo_Loss 0.1126, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 1.2656, AvgSigmoid 0.0796, GradNorm 1.6406, LR 1.00e-04, Expert_LR 2.83e-04, StepTime 9.262s, Depth_Forward_Time  0.763s, Ignore_Batch_Num 0\n"
+  },
+  "gpu": "90203 MiB, 0 %"
+}

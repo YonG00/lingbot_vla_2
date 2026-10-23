@@ -1,0 +1,51 @@
+{
+  "task": "pick_dual_bottles",
+  "episodes": 50,
+  "total_frames": 6129,
+  "accepted_sequences": 100,
+  "arm_sequences": {
+    "left": 50,
+    "right": 50
+  },
+  "paired_episodes": 50,
+  "rejections": {},
+  "selected_frames": 4382,
+  "selected_fraction": 0.7149616576929352,
+  "both_arm_frames": 4374,
+  "stage_arm_frames": {
+    "reach_aim": 3414,
+    "horizontal_align": 608,
+    "forward_approach": 969,
+    "settle": 627,
+    "close": 1100,
+    "lift": 2038
+  },
+  "subsampled": false,
+  "kinematic_proxy_only": true,
+  "contact_verified": false,
+  "rule_version": "dual_bottle_horizontal_grasp_v1",
+  "fps": 15,
+  "settings": {
+    "open_threshold": 0.95,
+    "closed_threshold": 0.2,
+    "pregrasp_min_m": 0.06,
+    "pregrasp_max_m": 0.1,
+    "horizontal_degrees": 15.0,
+    "stable_speed_mps": 0.03,
+    "stable_frames": 2,
+    "perpendicular_m": 0.025,
+    "arrival_m": 0.015,
+    "closing_drift_m": 0.015,
+    "forward_fraction": 0.7,
+    "reverse_m": 0.002,
+    "aim_search_seconds": 4.0,
+    "aim_min_progress_m": 0.02,
+    "aim_reverse_fraction": 0.3,
+    "lift_min_m": 0.08,
+    "lift_timeout_seconds": 3.0
+  },
+  "numeric_source_sha256": "79b05cc76297e12bd7e771ba0a82c6a356262c4bb5c65a47862a36aa58eee124",
+  "spec_sha256": "8700b7012a5f03ab822c3c8202d1f73f4f9dd685f534e82d4f098ea83a587209",
+  "training_modified": false,
+  "automatic_selection": true
+}

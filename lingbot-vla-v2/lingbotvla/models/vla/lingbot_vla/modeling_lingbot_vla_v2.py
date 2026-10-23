@@ -1,6 +1,6 @@
 import einops
 import torch
-from lingbotvla.utils.sample_loss_weight import weighted_mean
+from lingbotvla.utils.sample_loss_weight import weighted_mean, fm_weighted_mean
 from torch import Tensor, nn
 import torch.nn.functional as F
 from typing import List, Optional, Tuple, Union
@@ -1265,6 +1265,7 @@ class LingbotVlaV2Policy(PreTrainedModel):
         future_video_cls_targets=None,
         future_video_current_patch=None,
         sample_loss_weight=None,
+        action_loss_weight=None,
         **kwargs
     ) -> tuple[Tensor, dict[str, Tensor]]:
         loss_dict = {}
@@ -1312,11 +1313,11 @@ class LingbotVlaV2Policy(PreTrainedModel):
             masked_losses = losses * joint_mask
             valid_counts = joint_mask.sum(dim=(1, 2)).clamp(min=1)
             batch_mean_losses = masked_losses.sum(dim=(1, 2)) / valid_counts
-            loss_vla = weighted_mean(losses, sample_loss_weight, joint_mask)
+            loss_vla = fm_weighted_mean(losses, sample_loss_weight, joint_mask, action_loss_weight)
         else:
             losses = losses[:, :, : self.config.action_dim]
             batch_mean_losses = losses.mean(dim=(1, 2))
-            loss_vla = weighted_mean(losses, sample_loss_weight)
+            loss_vla = fm_weighted_mean(losses, sample_loss_weight, action_weights=action_loss_weight)
 
         loss_dict["batch_mean_losses"] = batch_mean_losses.detach()
         if sample_loss_weight is not None:

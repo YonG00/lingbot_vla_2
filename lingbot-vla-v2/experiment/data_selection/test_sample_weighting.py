@@ -47,7 +47,7 @@ class SequenceTests(unittest.TestCase):
 
 try:
     import torch
-    from lingbotvla.utils.sample_loss_weight import weighted_mean
+    from lingbotvla.utils.sample_loss_weight import weighted_mean, fm_weighted_mean
 except ImportError:
     torch=None
 
@@ -106,8 +106,9 @@ class LossTests(unittest.TestCase):
         rows=[dict(episode_index=torch.tensor(1450),frame_index=torch.tensor(i)) for i in [3,4]]
         class Matcher:
             def weight(self,name,ep,frame):return 2. if frame==3 else 1.
+            def relative_action_weights(self,*args):return None
         obj=types.SimpleNamespace(check_lerobot_item=lambda x:x,dataset=rows,use_future_image=False,
-            feature_transform=types.SimpleNamespace(apply=lambda x:dict(state=torch.zeros(14))),transform=None,
+            feature_transform=types.SimpleNamespace(apply=lambda x:dict(state=torch.zeros(14),actions=torch.zeros(50,55))),transform=None,
             sample_selection_weights=Matcher(),data_name='robotwin')
         batch=torch.utils.data.default_collate([env['getitem'](obj,i) for i in range(2)])
         torch.testing.assert_close(batch['sample_loss_weight'],torch.tensor([2.,1.]))
@@ -119,7 +120,7 @@ class LossTests(unittest.TestCase):
         tree=ast.parse(path.read_text());policy=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='LingbotVlaV2Policy')
         method=next(n for n in policy.body if isinstance(n,ast.FunctionDef) and n.name=='forward')
         method.returns=None
-        env=dict(torch=torch,weighted_mean=weighted_mean)
+        env=dict(torch=torch,weighted_mean=weighted_mean,fm_weighted_mean=fm_weighted_mean)
         exec(compile(ast.Module(body=[method],type_ignores=[]),str(path),'exec'),env)
         class Fake:
             def forward(self,*a,**kw):
@@ -132,5 +133,10 @@ class LossTests(unittest.TestCase):
         grad=torch.autograd.grad(out[0],x)[0];torch.testing.assert_close(grad[0],2*grad[1])
         torch.testing.assert_close(out[6]['batch_mean_losses'],torch.ones(2))
         self.assertEqual(out[6]['router_z_loss'].item(),5.)
+        # Exercise the real policy method with FM-only arm corrections.
+        y=torch.ones(1,3,2,requires_grad=True)
+        split=env['forward'](obj,None,None,y,None,None,y,depth_targets=y,sample_loss_weight=torch.tensor([2.]),action_loss_weight=torch.tensor([[1.5,1.]]))
+        self.assertAlmostEqual(split[0].item(),16.5) # FM2.5 + three shared terms2 + regularizers8
+
 
 if __name__=='__main__':unittest.main()

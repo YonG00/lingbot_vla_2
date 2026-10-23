@@ -72,3 +72,15 @@
 ### 2026-10-23 双瓶300存档计划
 
 `20261023_1016_dual_bottles300_from_0928_s200_bf16_m56_horizontal_grasp2_replay10pct_parallel3_video/checkpoints/global_step_300/hf_ckpt` 仅计划最终300，正式训练已开始，生成前不记现有模型。0928-step200来源保留，本轮无清理。
+
+### 2026-10-23 分臂续训存档计划
+
+1016-step300已验证1708个BF16张量且保留。新run `20261023_1102_dual_bottles_add200_from_1016_s300_bf16_m56_left3_right2_visual2_replay10pct_parallel3_video` 只计划最终step200，尚未生成前不记现有；本次未删除产物。
+
+### 2026-10-23 1102-step200已完成
+
+`20261023_1102_dual_bottles_add200_from_1016_s300_bf16_m56_left3_right2_visual2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt` 已核验1708个BF16张量，仅最终200，原双瓶三份录像保留；追加三碗评测不生成或删除模型。1016来源仍保留。
+
+### 2026-10-23 1102最终200已生成
+
+`20261023_1102_dual_bottles_add200_from_1016_s300_bf16_m56_left3_right2_visual2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt` 已核验1708 BF16张量，三回合录像评测完成0/3。1016-step300来源保持，无删除；不是计划存档。

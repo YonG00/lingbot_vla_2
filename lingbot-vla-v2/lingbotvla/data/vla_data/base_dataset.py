@@ -385,6 +385,14 @@ class VLADataset(Dataset):
             entries = item if isinstance(item, list) else [item]
             for entry in entries:
                 entry["sample_loss_weight"] = torch.tensor(weight, dtype=torch.float32)
+                correction=self.sample_selection_weights.relative_action_weights(
+                    self.data_name,raw_item["episode_index"].item(),raw_item["frame_index"].item(),entry["actions"].shape[-1])
+                if correction is not None:
+                    if any(v!=1 for v in correction):
+                        active=set(torch.nonzero(entry["action_joint_mask"],as_tuple=False).flatten().tolist())
+                        if active!=self.sample_selection_weights.action_expected_dimensions:
+                            raise ValueError("arm action layout does not match actual transform mask")
+                    entry["action_loss_weight"]=torch.tensor(correction,dtype=torch.float32)
         return item
 
     def __getitem__(self, idx):

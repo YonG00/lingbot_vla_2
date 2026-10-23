@@ -61,6 +61,16 @@ def check(out):
             assert weights.shape==(c['train']['micro_batch_size'],)
             assert set(weights.tolist())<=({1.}|multipliers),'sample weights absent or invalid'
             sample_weight_audit=dict(sample_weight_count=len(weights),sample_weight_selected=int((weights!=1).sum()),sample_weight_normalization='sample_count',sample_weight_multipliers=sorted(multipliers))
+            if policy.action_overrides:
+                from experiment.data_selection.inheritance import read_policies
+                layouts=[json.loads(path.read_text())['arm_action_dimensions'] for path in read_policies(os.environ['LINGBOT_SAMPLE_WEIGHT_CONFIG']).values() if 'arm_action_dimensions' in json.loads(path.read_text())]
+                assert layouts and all(v==layouts[0]for v in layouts)
+                correction=batch[0]['action_loss_weight'];assert correction.shape==(len(weights),55)
+                absolute=correction*weights[:,None]
+                left=absolute[:,layouts[0]['left']];right=absolute[:,layouts[0]['right']]
+                assert set(left.flatten().tolist())<={1.,2.,3.} and set(right.flatten().tolist())<={1.,2.}
+                assert (left==3).any(),'first batch must exercise left3 action path'
+                sample_weight_audit.update(action_weight_shape=list(correction.shape),left_fm_multipliers=sorted(set(left.flatten().tolist())),right_fm_multipliers=sorted(set(right.flatten().tolist())),shared_visual_multipliers=sorted(set(weights.tolist())))
             print('SAMPLE_WEIGHT_CPU_PASS',json.dumps(sample_weight_audit),flush=True)
         assert isinstance(loader.state_dict(),dict)
         return dict(recipe_sampler=True,virtual_epoch_steps=len(loader),loader_microbatches=len(batch),real_frames=sum(map(len,pools.values())),**sample_weight_audit,**segment_audit)

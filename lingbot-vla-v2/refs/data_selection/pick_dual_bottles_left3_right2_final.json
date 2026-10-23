@@ -1,0 +1,139 @@
+{
+  "state": "complete",
+  "checkpoints": [
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261023_1102_dual_bottles_add200_from_1016_s300_bf16_m56_left3_right2_visual2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+      "tensors": 1708,
+      "floating_dtype": "BF16"
+    }
+  ],
+  "evaluation": [
+    {
+      "state": "complete",
+      "task": "pick_dual_bottles",
+      "label": "recipe_200",
+      "model": "/root/autodl-tmp/data/outputs/20261023_1102_dual_bottles_add200_from_1016_s300_bf16_m56_left3_right2_visual2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 3,
+      "server_pid": 32320,
+      "shared_server": true,
+      "episode_results": [
+        {
+          "state": "complete",
+          "task": "pick_dual_bottles",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261023_1102_dual_bottles_add200_from_1016_s300_bf16_m56_left3_right2_visual2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100000
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "pick_dual_bottles:episode:0",
+          "episode_index": 0,
+          "scene_seed": 100000,
+          "server_pid": 32320,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "pick_dual_bottles",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261023_1102_dual_bottles_add200_from_1016_s300_bf16_m56_left3_right2_visual2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100001
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "pick_dual_bottles:episode:1",
+          "episode_index": 1,
+          "scene_seed": 100001,
+          "server_pid": 32320,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "pick_dual_bottles",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261023_1102_dual_bottles_add200_from_1016_s300_bf16_m56_left3_right2_visual2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100002
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "pick_dual_bottles:episode:2",
+          "episode_index": 2,
+          "scene_seed": 100002,
+          "server_pid": 32320,
+          "shared_server": true
+        }
+      ],
+      "episode_parallel": true
+    }
+  ],
+  "remediation": [],
+  "progress": {
+    "confirmed_optimizer_steps": 200,
+    "main_steps": {
+      "pick_dual_bottles": 200
+    },
+    "samples_by_task": {
+      "pick_dual_bottles": 10080,
+      "adjust_bottle": 56,
+      "beat_block_hammer": 56,
+      "click_alarmclock": 56,
+      "click_bell": 56,
+      "dump_bin_bigbin": 56,
+      "hanging_mug": 56,
+      "move_playingcard_away": 56,
+      "open_laptop": 56,
+      "open_microwave": 56,
+      "place_a2b_left": 56,
+      "place_a2b_right": 56,
+      "place_bread_basket": 56,
+      "place_can_basket": 56,
+      "place_container_plate": 56,
+      "place_empty_cup": 56,
+      "place_object_basket": 28,
+      "place_object_stand": 28,
+      "place_shoe": 28,
+      "press_stapler": 28,
+      "rotate_qrcode": 28,
+      "shake_bottle": 28,
+      "shake_bottle_horizontally": 28,
+      "stack_blocks_two": 28,
+      "stack_bowls_two": 28,
+      "turn_switch": 28
+    },
+    "replay_samples": 1120
+  },
+  "shutdown": false
+}

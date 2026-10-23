@@ -4,7 +4,7 @@
   "restored_sha256": {
     "lingbotvla/models/vla/lingbot_vla/configuration_lingbot_vla.py": "37987af05ca8980debf5bfe81211cc2a9db1b2fb0e14e15076fa6497c5baf023",
     "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla.py": "cf99d3bccdab5571f932bdf0f1f61e539f03f58a4312ad8d7f74c96225c55150",
-    "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla_v2.py": "90663415d1b5dce6775af95f47735a76fdf5273f3154a19a69274eb1faf1aaaf"
+    "lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla_v2.py": "8a95dc5d6856123b351b1417a9a53bc3eceaa9a9a8bd6638f071f8d1c39a064c"
   },
   "baseline_restored_sha256": {
     "lingbotvla/models/vla/lingbot_vla/configuration_lingbot_vla.py": "37987af05ca8980debf5bfe81211cc2a9db1b2fb0e14e15076fa6497c5baf023",

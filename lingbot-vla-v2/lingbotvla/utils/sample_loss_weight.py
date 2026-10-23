@@ -15,3 +15,12 @@ def weighted_mean(values, weights=None, mask=None):
         return (per_sample * w.reshape(-1)).mean()
     valid = mask.float().expand_as(values)
     return (values.float() * valid * w).sum() / valid.sum().clamp(min=1)
+
+
+def fm_weighted_mean(values, weights=None, mask=None, action_weights=None):
+    """Apply per-action corrections without changing the unweighted denominator."""
+    if action_weights is None:return weighted_mean(values,weights,mask)
+    if values.ndim!=3 or action_weights.ndim!=2 or action_weights.shape!=(values.shape[0],values.shape[2]):
+        raise ValueError("FM action weights must be batch by action dimension")
+    correction=action_weights.detach().to(device=values.device,dtype=torch.float32)
+    return weighted_mean(values.float()*correction[:,None,:],weights,mask)
