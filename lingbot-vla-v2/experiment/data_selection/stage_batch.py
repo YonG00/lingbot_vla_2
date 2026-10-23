@@ -2,7 +2,7 @@
 from .full_stages import derive_arm_layout
 
 def build_stage_fields(policy,data_name,episode,frame,entry,feature_transform):
-    if not policy.stage_tables:return None
+    if not policy.stage_tables and not getattr(policy,'weight_sum',False):return None
     horizon,width=entry['actions'].shape
     pad=entry['action_is_pad'].bool().tolist()
     if len(pad)!=horizon:raise ValueError('action padding horizon mismatch')

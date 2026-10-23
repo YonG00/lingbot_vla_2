@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "task": "move_stapler_pad",
+  "dataset_name": "robotwin",
+  "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30",
+  "normalization": "weight_sum",
+  "multiplier": 1,
+  "use_selected_frame_weights": true,
+  "selected_frames": "selected_frames.json",
+  "selected_frames_sha256": "d4d354d91345f7f6ce963ea3903a9a930ec47e4abc62c19fc9c55ec607ec261f"
+}

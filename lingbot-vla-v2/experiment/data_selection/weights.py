@@ -10,11 +10,13 @@ class SelectionWeights:
         config_path = Path(config_path).resolve()
         c = json.loads(config_path.read_text())
         self.stage_tables = {}
+        self.weight_sum = c.get("normalization") == "weight_sum"
         if 'policies' in c:
             from .inheritance import read_policies
             policies=read_policies(config_path)
             children=[SelectionWeights(path) for path in policies.values()]
             if not children:raise ValueError("empty importance registry")
+            self.weight_sum=any(child.weight_sum for child in children)
             identities={(child.dataset_name,child.dataset_root) for child in children}
             if len(identities)!=1:raise ValueError("importance registry requires one merged dataset")
             self.dataset_name,self.dataset_root=identities.pop()
@@ -32,8 +34,8 @@ class SelectionWeights:
             return
         if c.get("version") != 1 or not c.get("dataset_name"):
             raise ValueError("weight config needs version=1 and dataset_name")
-        if c.get("normalization") != "sample_count" and not (c.get("normalization")=="weight_sum" and "stage_table"in c):
-            raise ValueError("weight config must explicitly select sample_count normalization")
+        if c.get("normalization") not in ("sample_count","weight_sum"):
+            raise ValueError("weight config must explicitly select sample_count or weight_sum normalization")
         self.dataset_name = c["dataset_name"]
         self.dataset_root = str(Path(c["dataset_root"]).expanduser().resolve())
         self.multiplier = c.get("multiplier", 2.)

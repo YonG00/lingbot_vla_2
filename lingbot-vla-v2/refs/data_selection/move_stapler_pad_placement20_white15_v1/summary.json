@@ -1,0 +1,34 @@
+{
+  "task": "move_stapler_pad",
+  "episodes": 50,
+  "frames": 7731,
+  "white_model": "048_stapler/base3",
+  "white_episodes": [
+    159,
+    162,
+    167,
+    169,
+    173,
+    179,
+    181,
+    183,
+    184
+  ],
+  "white_all_frames": 1458,
+  "placement_frames": 3595,
+  "overlap_frames": 695,
+  "effective_weight_frames": {
+    "1.0": 3373,
+    "20.0": 3595,
+    "15.0": 763
+  },
+  "normalization": "weight_sum",
+  "overlap_rule": "max",
+  "importance_sampling": false,
+  "subsampled": false,
+  "training_started": false,
+  "catalog_sha256": "f28a7f6d329de9ef1c6e907eb5adee8f1d7e2fe77ab701c4a8348ff1423304dd",
+  "placement_sha256": "6301c09b5e36fab8325e6c6522c782a118020f45ca3fd8821d4c4de916718add",
+  "status": "superseded_not_trained",
+  "superseded_by": "move_stapler_pad_early15_late20_white10_v1"
+}

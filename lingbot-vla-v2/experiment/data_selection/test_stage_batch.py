@@ -25,3 +25,15 @@ class StageBatchTests(unittest.TestCase):
   with tempfile.TemporaryDirectory()as t:
    p=Path(t);fixture(p);policy=SelectionWeights(p/'weight_config.json');policy.coordinate_weights[(8,0)]=2.
    v=build_stage_fields(policy,'robotwin',8,0,self.entry([False]*40+[True]*10),self.transform());self.assertEqual(v['stage_fm_weight'][0][0],2);self.assertEqual(v['stage_fm_weight'][40][0],0);self.assertEqual(v['stage_ids'][0],[-1,-1]);self.assertEqual(v['stage_current_depth_weight'],2);self.assertEqual(v['stage_future_depth_weight'],0)
+
+ def test_scalar_weight_sum_without_any_stage_table(self):
+  with tempfile.TemporaryDirectory()as t:
+   p=Path(t);cfg,_,_=fixture(p)
+   for key in ['stage_table','stage_table_sha256','stage_policy','stage_policy_sha256']:cfg.pop(key)
+   cfg.update(normalization='weight_sum',multiplier=1,use_selected_frame_weights=True)
+   selected=[dict(episode_index=8,frame_index=f,loss_weight=w)for f,w in enumerate([20,15,1])]
+   (p/'selected.json').write_text(json.dumps(selected));cfg['selected_frames_sha256']=hashlib.sha256((p/'selected.json').read_bytes()).hexdigest();(p/'weight_config.json').write_text(json.dumps(cfg));policy=SelectionWeights(p/'weight_config.json')
+   self.assertFalse(policy.stage_tables);self.assertTrue(policy.weight_sum)
+   for frame,expected in enumerate([20,15,1]):
+    result=build_stage_fields(policy,'robotwin',8,frame,self.entry([False]*40+[True]*10),self.transform())
+    self.assertEqual(result['stage_fm_weight'][0][0],expected);self.assertEqual(result['stage_current_depth_weight'],expected);self.assertEqual(result['stage_future_depth_weight'],0);self.assertEqual(result['stage_ids'][0],[-1,-1]);self.assertEqual(result['stage_fm_weight'][40][0],0)

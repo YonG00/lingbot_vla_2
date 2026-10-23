@@ -60,7 +60,7 @@ def check(out):
             weights=batch[0]['sample_loss_weight']
             assert weights.shape==(c['train']['micro_batch_size'],)
             assert set(weights.tolist())<=({1.}|multipliers),'sample weights absent or invalid'
-            sample_weight_audit=dict(sample_weight_count=len(weights),sample_weight_selected=int((weights!=1).sum()),sample_weight_normalization='sample_count',sample_weight_multipliers=sorted(multipliers))
+            sample_weight_audit=dict(sample_weight_count=len(weights),sample_weight_selected=int((weights!=1).sum()),sample_weight_normalization='weight_sum' if (policy.stage_tables or getattr(policy,'weight_sum',False)) else 'sample_count',sample_weight_multipliers=sorted(multipliers))
             if policy.action_overrides:
                 from experiment.data_selection.inheritance import read_policies
                 layouts=[json.loads(path.read_text())['arm_action_dimensions'] for path in read_policies(os.environ['LINGBOT_SAMPLE_WEIGHT_CONFIG']).values() if 'arm_action_dimensions' in json.loads(path.read_text())]
@@ -71,7 +71,7 @@ def check(out):
                 assert set(left.flatten().tolist())<={1.,2.,3.} and set(right.flatten().tolist())<={1.,2.}
                 # Coverage may be zero when a staged/other task is the current main task.
                 sample_weight_audit.update(action_weight_shape=list(correction.shape),left_fm_multipliers=sorted(set(left.flatten().tolist())),right_fm_multipliers=sorted(set(right.flatten().tolist())),shared_visual_multipliers=sorted(set(weights.tolist())))
-            if policy.stage_tables:
+            if policy.stage_tables or getattr(policy,'weight_sum',False):
                 stage=batch[0]['stage_fm_weight'];pads=batch[0]['action_is_pad'].bool();mask=batch[0]['joint_mask'].bool() & ~pads[:,:,None]
                 assert stage.shape==batch[0]['actions'].shape and torch.isfinite(stage).all()and (stage>=0).all()
                 assert (stage[~mask & pads[:,:,None].expand_as(stage)]==0).all()
@@ -79,9 +79,18 @@ def check(out):
                     assert batch[0][name].shape==weights.shape and torch.isfinite(batch[0][name]).all()and (batch[0][name]>=0).all()
                 assert batch[0]['stage_ids'].shape==(len(weights),50,2)and batch[0]['stage_arm_index'].shape==(len(weights),55)
                 raw=dataset._datasets[0].dataset.hf_dataset.select_columns(['episode_index','frame_index'])
-                terminal=[];stage_index=None;legacy_index=None
+                terminal=[];stage_index=None;legacy_index=None;active_staged=set();scalar_classes={}
                 for i,row in enumerate(raw):
                     ep=int(row['episode_index']);frame=int(row['frame_index']);table=policy.stage_tables.get(ep)
+                    if table:active_staged.add(ep)
+                    if table is None and getattr(policy,'weight_sum',False):
+                        scalar=float(policy.weight(policy.dataset_name,ep,frame))
+                        if str(scalar)not in scalar_classes:
+                            sample=dataset[i];pad=sample['action_is_pad'].bool()
+                            assert (sample['stage_fm_weight'][~pad]==scalar).all()and (sample['stage_fm_weight'][pad]==0).all()
+                            assert float(sample['stage_current_depth_weight'])==scalar and float(sample['stage_current_video_weight'])==scalar
+                            scalar_classes[str(scalar)]=dict(episode=ep,frame=frame,fm=scalar,current_visual=scalar)
+
                     if table and stage_index is None and table.frame_weights['fm'][ep]['left'][frame]==5:stage_index=i
                     if table is None and legacy_index is None and policy.weight(policy.dataset_name,ep,frame)>1:legacy_index=i
                     if table and frame==table.episodes[ep]['length']-1:
@@ -89,7 +98,7 @@ def check(out):
                         assert item['action_is_pad'][1:].all()and (item['stage_fm_weight'][1:]==0).all()
                         assert float(item['stage_future_depth_weight'])==0 and float(item['stage_future_video_weight'])==0
                         terminal.append(ep)
-                assert set(terminal)==set(policy.stage_tables),'every staged episode terminal must be checked'
+                assert set(terminal)==active_staged,'every staged episode terminal must be checked'
                 mixed_report={}
                 if stage_index is not None and legacy_index is not None:
                     mixed=data.VLADataCollatorWithPacking()([dataset[stage_index],dataset[legacy_index]])
@@ -99,7 +108,7 @@ def check(out):
                     assert (mixed['stage_fm_weight'][1][valid]==scalar).all(),'legacy replay importance changed'
                     mixed_report=dict(samples=2,stage_current_depth=float(mixed['stage_current_depth_weight'][0]),stage_future_depth=float(mixed['stage_future_depth_weight'][0]),legacy_scalar=scalar,legacy_fm_importance_preserved=True)
 
-                sample_weight_audit.update(stage_normalization='weight_sum',stage_mixed_batch=mixed_report,stage_fm_shape=list(stage.shape),stage_active_weight_values=sorted(set(stage[mask].tolist())),stage_terminal_episodes=terminal,stage_future_depth_values=sorted(set(batch[0]['stage_future_depth_weight'].tolist())),stage_future_video_values=sorted(set(batch[0]['stage_future_video_weight'].tolist())))
+                sample_weight_audit.update(scalar_weight_classes_verified=scalar_classes,stage_normalization='weight_sum',stage_mixed_batch=mixed_report,stage_fm_shape=list(stage.shape),stage_active_weight_values=sorted(set(stage[mask].tolist())),stage_terminal_episodes=terminal,stage_future_depth_values=sorted(set(batch[0]['stage_future_depth_weight'].tolist())),stage_future_video_values=sorted(set(batch[0]['stage_future_video_weight'].tolist())))
             print('SAMPLE_WEIGHT_CPU_PASS',json.dumps(sample_weight_audit),flush=True)
         assert isinstance(loader.state_dict(),dict)
         return dict(recipe_sampler=True,virtual_epoch_steps=len(loader),loader_microbatches=len(batch),real_frames=sum(map(len,pools.values())),**sample_weight_audit,**segment_audit)

@@ -71,3 +71,5 @@ JSON配置、数据清单和证据仍分别放configs、refs等工程目录，�
 - [完整轨迹分阶段与多模态权重](recipes/full_trajectory_stage_multimodal_weighting_zh.md)
 
 - [pick_diverse_bottles完整阶段与权重](recipes/pick_diverse_bottles_full_stage_weighting_zh.md)
+
+- [订书机早晚放置与白色样本权重](recipes/move_stapler_pad_sample_classes_zh.md)

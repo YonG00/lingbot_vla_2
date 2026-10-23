@@ -71,7 +71,8 @@ def prepare(raw):
         explicit=os.environ.get('LINGBOT_SAMPLE_WEIGHT_CONFIG'),fixed=fixed)
     if importance is not None:
         from experiment.data_selection.weights import SelectionWeights
-        staged=SelectionWeights(importance).stage_tables
+        loaded_importance=SelectionWeights(importance)
+        staged=loaded_importance.stage_tables or loaded_importance.weight_sum
         if staged and any(key in c['train'] for key in ['role_segments','target_segments']):raise ValueError('stage weighting requires uniform task sampling; legacy role/target modes are mutually exclusive')
         if staged and c['train'].get('importance_sampling_multiplier',1)!=1:raise ValueError('stage weighting does not implicitly change sampling probabilities')
     ids=sorted(e for values in groups.values() for e in values)

@@ -1,0 +1,70 @@
+{
+  "state": "cpu_pass",
+  "episodes": 50,
+  "frames": 7731,
+  "original_beta_time_exact": true,
+  "al_enabled": false,
+  "ee_enabled": false,
+  "model_initialized": false,
+  "optimizer_steps": 0,
+  "gpu_tested": false,
+  "recipe_sampler": true,
+  "virtual_epoch_steps": 200,
+  "loader_microbatches": 1,
+  "real_frames": 7731,
+  "sample_weight_count": 2,
+  "sample_weight_selected": 1,
+  "sample_weight_normalization": "weight_sum",
+  "sample_weight_multipliers": [
+    1.0,
+    10.0,
+    15.0,
+    20.0
+  ],
+  "scalar_weight_classes_verified": {
+    "1.0": {
+      "episode": 150,
+      "frame": 0,
+      "fm": 1.0,
+      "current_visual": 1.0
+    },
+    "15.0": {
+      "episode": 150,
+      "frame": 86,
+      "fm": 15.0,
+      "current_visual": 15.0
+    },
+    "20.0": {
+      "episode": 150,
+      "frame": 137,
+      "fm": 20.0,
+      "current_visual": 20.0
+    },
+    "10.0": {
+      "episode": 159,
+      "frame": 0,
+      "fm": 10.0,
+      "current_visual": 10.0
+    }
+  },
+  "stage_normalization": "weight_sum",
+  "stage_mixed_batch": {},
+  "stage_fm_shape": [
+    2,
+    50,
+    55
+  ],
+  "stage_active_weight_values": [
+    1.0,
+    20.0
+  ],
+  "stage_terminal_episodes": [],
+  "stage_future_depth_values": [
+    0.0,
+    1.0
+  ],
+  "stage_future_video_values": [
+    0.0,
+    1.0
+  ]
+}

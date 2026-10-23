@@ -90,3 +90,5 @@
 - [双瓶完整轨迹阶段加权](training/recipes/full_trajectory_stage_multimodal_weighting_zh.md)
 
 - [多样瓶子全轨迹分阶段](training/recipes/pick_diverse_bottles_full_stage_weighting_zh.md)
+
+- [订书机类别权重与200步配方](training/recipes/move_stapler_pad_sample_classes_zh.md)

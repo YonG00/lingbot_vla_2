@@ -1,0 +1,542 @@
+{
+  "task": "move_stapler_pad",
+  "episodes": 50,
+  "frames": 7731,
+  "white_model": "048_stapler/base3",
+  "white_episodes": [
+    159,
+    162,
+    167,
+    169,
+    173,
+    179,
+    181,
+    183,
+    184
+  ],
+  "white_all_frames": 1458,
+  "placement_frames": 3595,
+  "overlap_frames": 695,
+  "effective_weight_frames": {
+    "1.0": 3373,
+    "15.0": 1847,
+    "20.0": 1748,
+    "10.0": 763
+  },
+  "normalization": "weight_sum",
+  "overlap_rule": "max",
+  "importance_sampling": false,
+  "subsampled": false,
+  "training_started": false,
+  "early_placement_frames": 1847,
+  "late_placement_frames": 1748,
+  "white_other_multiplier": 10,
+  "early_placement_multiplier": 15,
+  "late_placement_multiplier": 20,
+  "placement_boundaries": [
+    {
+      "episode_index": 150,
+      "arm": "left",
+      "early_start": 86,
+      "early_end_exclusive": 137,
+      "late_start": 137,
+      "late_end_exclusive": 172,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 151,
+      "arm": "right",
+      "early_start": 79,
+      "early_end_exclusive": 105,
+      "late_start": 105,
+      "late_end_exclusive": 140,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 152,
+      "arm": "left",
+      "early_start": 81,
+      "early_end_exclusive": 106,
+      "late_start": 106,
+      "late_end_exclusive": 141,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 153,
+      "arm": "right",
+      "early_start": 82,
+      "early_end_exclusive": 117,
+      "late_start": 117,
+      "late_end_exclusive": 152,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 154,
+      "arm": "left",
+      "early_start": 80,
+      "early_end_exclusive": 119,
+      "late_start": 119,
+      "late_end_exclusive": 152,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 155,
+      "arm": "right",
+      "early_start": 82,
+      "early_end_exclusive": 128,
+      "late_start": 128,
+      "late_end_exclusive": 163,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 156,
+      "arm": "right",
+      "early_start": 83,
+      "early_end_exclusive": 111,
+      "late_start": 111,
+      "late_end_exclusive": 146,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 157,
+      "arm": "right",
+      "early_start": 84,
+      "early_end_exclusive": 109,
+      "late_start": 109,
+      "late_end_exclusive": 144,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 158,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 103,
+      "late_start": 103,
+      "late_end_exclusive": 138,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 159,
+      "arm": "right",
+      "early_start": 84,
+      "early_end_exclusive": 124,
+      "late_start": 124,
+      "late_end_exclusive": 160,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 160,
+      "arm": "right",
+      "early_start": 80,
+      "early_end_exclusive": 104,
+      "late_start": 104,
+      "late_end_exclusive": 139,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 161,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 113,
+      "late_start": 113,
+      "late_end_exclusive": 148,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 162,
+      "arm": "left",
+      "early_start": 83,
+      "early_end_exclusive": 117,
+      "late_start": 117,
+      "late_end_exclusive": 153,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 163,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 123,
+      "late_start": 123,
+      "late_end_exclusive": 158,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 164,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 112,
+      "late_start": 112,
+      "late_end_exclusive": 147,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 165,
+      "arm": "left",
+      "early_start": 80,
+      "early_end_exclusive": 120,
+      "late_start": 120,
+      "late_end_exclusive": 155,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 166,
+      "arm": "right",
+      "early_start": 82,
+      "early_end_exclusive": 123,
+      "late_start": 123,
+      "late_end_exclusive": 158,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 167,
+      "arm": "right",
+      "early_start": 83,
+      "early_end_exclusive": 121,
+      "late_start": 121,
+      "late_end_exclusive": 156,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 168,
+      "arm": "right",
+      "early_start": 81,
+      "early_end_exclusive": 118,
+      "late_start": 118,
+      "late_end_exclusive": 152,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 169,
+      "arm": "right",
+      "early_start": 83,
+      "early_end_exclusive": 129,
+      "late_start": 129,
+      "late_end_exclusive": 164,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 170,
+      "arm": "right",
+      "early_start": 83,
+      "early_end_exclusive": 107,
+      "late_start": 107,
+      "late_end_exclusive": 141,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 171,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 113,
+      "late_start": 113,
+      "late_end_exclusive": 148,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 172,
+      "arm": "left",
+      "early_start": 81,
+      "early_end_exclusive": 117,
+      "late_start": 117,
+      "late_end_exclusive": 152,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 173,
+      "arm": "right",
+      "early_start": 98,
+      "early_end_exclusive": 145,
+      "late_start": 145,
+      "late_end_exclusive": 179,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 174,
+      "arm": "right",
+      "early_start": 80,
+      "early_end_exclusive": 130,
+      "late_start": 130,
+      "late_end_exclusive": 164,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 175,
+      "arm": "right",
+      "early_start": 82,
+      "early_end_exclusive": 111,
+      "late_start": 111,
+      "late_end_exclusive": 146,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 176,
+      "arm": "right",
+      "early_start": 84,
+      "early_end_exclusive": 134,
+      "late_start": 134,
+      "late_end_exclusive": 168,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 177,
+      "arm": "right",
+      "early_start": 80,
+      "early_end_exclusive": 123,
+      "late_start": 123,
+      "late_end_exclusive": 158,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 178,
+      "arm": "right",
+      "early_start": 83,
+      "early_end_exclusive": 110,
+      "late_start": 110,
+      "late_end_exclusive": 145,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 179,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 127,
+      "late_start": 127,
+      "late_end_exclusive": 162,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 180,
+      "arm": "right",
+      "early_start": 85,
+      "early_end_exclusive": 128,
+      "late_start": 128,
+      "late_end_exclusive": 163,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 181,
+      "arm": "right",
+      "early_start": 83,
+      "early_end_exclusive": 124,
+      "late_start": 124,
+      "late_end_exclusive": 159,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 182,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 124,
+      "late_start": 124,
+      "late_end_exclusive": 159,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 183,
+      "arm": "right",
+      "early_start": 83,
+      "early_end_exclusive": 129,
+      "late_start": 129,
+      "late_end_exclusive": 165,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 184,
+      "arm": "right",
+      "early_start": 84,
+      "early_end_exclusive": 125,
+      "late_start": 125,
+      "late_end_exclusive": 160,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 185,
+      "arm": "right",
+      "early_start": 82,
+      "early_end_exclusive": 106,
+      "late_start": 106,
+      "late_end_exclusive": 141,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 186,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 125,
+      "late_start": 125,
+      "late_end_exclusive": 160,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 187,
+      "arm": "left",
+      "early_start": 81,
+      "early_end_exclusive": 112,
+      "late_start": 112,
+      "late_end_exclusive": 146,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 188,
+      "arm": "right",
+      "early_start": 81,
+      "early_end_exclusive": 130,
+      "late_start": 130,
+      "late_end_exclusive": 165,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 189,
+      "arm": "right",
+      "early_start": 92,
+      "early_end_exclusive": 136,
+      "late_start": 136,
+      "late_end_exclusive": 171,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 190,
+      "arm": "right",
+      "early_start": 92,
+      "early_end_exclusive": 128,
+      "late_start": 128,
+      "late_end_exclusive": 164,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 191,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 116,
+      "late_start": 116,
+      "late_end_exclusive": 151,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 192,
+      "arm": "left",
+      "early_start": 79,
+      "early_end_exclusive": 112,
+      "late_start": 112,
+      "late_end_exclusive": 147,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 193,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 119,
+      "late_start": 119,
+      "late_end_exclusive": 156,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 194,
+      "arm": "right",
+      "early_start": 81,
+      "early_end_exclusive": 123,
+      "late_start": 123,
+      "late_end_exclusive": 157,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 195,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 129,
+      "late_start": 129,
+      "late_end_exclusive": 164,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 196,
+      "arm": "left",
+      "early_start": 81,
+      "early_end_exclusive": 129,
+      "late_start": 129,
+      "late_end_exclusive": 165,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 197,
+      "arm": "right",
+      "early_start": 82,
+      "early_end_exclusive": 110,
+      "late_start": 110,
+      "late_end_exclusive": 145,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 198,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 109,
+      "late_start": 109,
+      "late_end_exclusive": 144,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    },
+    {
+      "episode_index": 199,
+      "arm": "left",
+      "early_start": 82,
+      "early_end_exclusive": 113,
+      "late_start": 113,
+      "late_end_exclusive": 148,
+      "evidence": "stable_preplace_end_then_final_descent_release_tail",
+      "proxy_only": true
+    }
+  ],
+  "placement_rule": "lift_confirm_to_preplace_end=early; final_descent_release_tail=late",
+  "contact_verified": false,
+  "catalog_sha256": "f28a7f6d329de9ef1c6e907eb5adee8f1d7e2fe77ab701c4a8348ff1423304dd",
+  "placement_sha256": "6301c09b5e36fab8325e6c6522c782a118020f45ca3fd8821d4c4de916718add"
+}
