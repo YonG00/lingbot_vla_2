@@ -58,3 +58,13 @@
 ### 2026-10-23 0847最终存档核验
 
 `20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt` 已生成且验证1708个BF16张量；按用户要求仅最终200，没有100。闭环完成0/3、三视频保留。0818来源未删除。白色目标扩展仅数据准备，不生成新HF；本次没有删模型。
+
+### 2026-10-23 0928存档计划
+
+`20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt` 仅计划最终200，正式训练已启动；生成前不记为现有模型。来源0847-step200保留，无删除。
+
+### 2026-10-23 0928最终存档已验证
+
+`20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt` 已生成且验证1708个BF16张量，仅最终200。订书机原三视频保留，追加move_can_pot只评测不新增模型、不删任何存档。
+
+- move_can_pot独立录像评测完成，不生成/删除HF；0928-step200与0847来源保持不变，三份录像均可读取。

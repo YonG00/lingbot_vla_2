@@ -1,0 +1,225 @@
+{
+  "summary": {
+    "state": "complete",
+    "task": "move_can_pot",
+    "label": "0928_step200_canpot_video3",
+    "model": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+    "successes": 0,
+    "episodes": 3,
+    "success_rate": 0.0,
+    "seeds": [
+      100000,
+      100001,
+      100002
+    ],
+    "oidn_errors": 0,
+    "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+    "dtype": "float32",
+    "action_chunk": 50,
+    "recorded_episodes": 3,
+    "server_pid": 15891,
+    "shared_server": true,
+    "episode_results": [
+      {
+        "state": "complete",
+        "task": "move_can_pot",
+        "label": "0928_step200_canpot_video3",
+        "model": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+        "successes": 0,
+        "episodes": 1,
+        "success_rate": 0.0,
+        "seeds": [
+          100000
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 1,
+        "job_id": "move_can_pot:episode:0",
+        "episode_index": 0,
+        "scene_seed": 100000,
+        "server_pid": 15891,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "move_can_pot",
+        "label": "0928_step200_canpot_video3",
+        "model": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+        "successes": 0,
+        "episodes": 1,
+        "success_rate": 0.0,
+        "seeds": [
+          100001
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 1,
+        "job_id": "move_can_pot:episode:1",
+        "episode_index": 1,
+        "scene_seed": 100001,
+        "server_pid": 15891,
+        "shared_server": true
+      },
+      {
+        "state": "complete",
+        "task": "move_can_pot",
+        "label": "0928_step200_canpot_video3",
+        "model": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+        "successes": 0,
+        "episodes": 1,
+        "success_rate": 0.0,
+        "seeds": [
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 1,
+        "job_id": "move_can_pot:episode:2",
+        "episode_index": 2,
+        "scene_seed": 100002,
+        "server_pid": 15891,
+        "shared_server": true
+      }
+    ],
+    "episode_parallel": true
+  },
+  "status": {
+    "state": "complete",
+    "workers": 3,
+    "completed": [
+      {
+        "state": "complete",
+        "task": "move_can_pot",
+        "label": "0928_step200_canpot_video3",
+        "model": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 3,
+        "server_pid": 15891,
+        "shared_server": true,
+        "episode_results": [
+          {
+            "state": "complete",
+            "task": "move_can_pot",
+            "label": "0928_step200_canpot_video3",
+            "model": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+            "successes": 0,
+            "episodes": 1,
+            "success_rate": 0.0,
+            "seeds": [
+              100000
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "recorded_episodes": 1,
+            "job_id": "move_can_pot:episode:0",
+            "episode_index": 0,
+            "scene_seed": 100000,
+            "server_pid": 15891,
+            "shared_server": true
+          },
+          {
+            "state": "complete",
+            "task": "move_can_pot",
+            "label": "0928_step200_canpot_video3",
+            "model": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+            "successes": 0,
+            "episodes": 1,
+            "success_rate": 0.0,
+            "seeds": [
+              100001
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "recorded_episodes": 1,
+            "job_id": "move_can_pot:episode:1",
+            "episode_index": 1,
+            "scene_seed": 100001,
+            "server_pid": 15891,
+            "shared_server": true
+          },
+          {
+            "state": "complete",
+            "task": "move_can_pot",
+            "label": "0928_step200_canpot_video3",
+            "model": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+            "successes": 0,
+            "episodes": 1,
+            "success_rate": 0.0,
+            "seeds": [
+              100002
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "recorded_episodes": 1,
+            "job_id": "move_can_pot:episode:2",
+            "episode_index": 2,
+            "scene_seed": 100002,
+            "server_pid": 15891,
+            "shared_server": true
+          }
+        ],
+        "episode_parallel": true
+      }
+    ],
+    "elapsed_seconds": 262.5406000390649,
+    "server_pid": 15891,
+    "model_loads": 1,
+    "reused_training_model": false
+  },
+  "videos": [
+    {
+      "path": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/evaluation_200_move_can_pot_videos3_20261023_100011/move_can_pot/results/move_can_pot/episode0_global.mp4",
+      "bytes": 2075730,
+      "stream": {
+        "width": 1280,
+        "height": 720,
+        "duration": "205.000000",
+        "nb_frames": "410"
+      }
+    },
+    {
+      "path": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/evaluation_200_move_can_pot_videos3_20261023_100011/move_can_pot/results/move_can_pot/episode1_global.mp4",
+      "bytes": 2577700,
+      "stream": {
+        "width": 1280,
+        "height": 720,
+        "duration": "246.000000",
+        "nb_frames": "492"
+      }
+    },
+    {
+      "path": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/evaluation_200_move_can_pot_videos3_20261023_100011/move_can_pot/results/move_can_pot/episode2_global.mp4",
+      "bytes": 2135641,
+      "stream": {
+        "width": 1280,
+        "height": 720,
+        "duration": "208.000000",
+        "nb_frames": "416"
+      }
+    }
+  ],
+  "destination": "/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/evaluation_200_move_can_pot_videos3_20261023_100011"
+}

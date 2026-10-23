@@ -172,3 +172,21 @@ CPU确认2800左抓/2800右抓/4480放置/1120背景、loss3/2/2/1正确。训�
 `20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video` 从0818-step100实际完成200更新；日志最后200/200为09:07:43，正式循环约17分14秒。主任务10080样本、复习1120。仅最终step200，1708个BF16张量核验通过。三回合并行带视频0/3，seeds100000/100001/100002，OIDN错误0，全部三回合录像、同一服务进程7237；未关机。结果目录为本run下 `evaluation_200/move_stapler_pad`，证据 `refs/data_selection/move_stapler_pad_broad200_final.json`。
 
 随后按用户最新要求，保留3595宽目标，增加白色base3的9条抓取段772帧，重叠9帧去重，联合4358/7731（56.37%），loss2，非目标loss1。已核对真实示范外观与原始HDF5映射，129项CPU测试通过。此次仅准备样本，未启动新训练，不新增完成步数；不使用先前口头提及的窄方案。详见订书机筛选指南与 `refs/data_selection/move_stapler_pad_broad_white_grasp_v1/cpu_verified.json`。
+
+### 2026-10-23 09:28 宽目标加白色抓取续训200（已启动）
+
+run `20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video`，来源 `20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt`。用户要求先启动再整理文档。目标4358/7731帧（原3595全保留，白色772中新增763、交界9去重），统一loss2、按样本数归约，主任务均匀、不加概率倍率；其余样本1。10%单任务轮换复习、每5步切换，夹碗固定原7436帧loss2。BF16/micro56/GAS1，200步，仅最终200存档，驻留三回合并行且全录像，无补课、不关机。
+
+服务器129项CPU回归通过；真实1300轨迹258357帧整链通过，首批28/56样本权重2；GPU三步通过（allocated77.70GiB/reserved83.56GiB）。正式已出现更新日志，完成步数及闭环待终态核验，不能记为200步完成。启动前空闲约54GiB，单份存档预算16.06GiB，无清理。配方 `configs/training_recipes/move_stapler_pad_add200_from_0847_white_grasp2_parallel3_video.json`；证据 `refs/data_selection/move_stapler_pad_white200_started.json`。
+
+### 2026-10-23 0928联合白色目标续训最终结果
+
+`20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video` 从0847-step200完成200正式更新；09:48:16最后200/200，正式循环17分15秒。主任务10080样本、复习1120；目标4358帧loss2。仅最终step200已核验1708个BF16张量。订书机三回合并行0/3，100000/100001/100002，OIDN错误0，三视频完整，同一驻留服务13720；无补课、未关机。结果本run下 `evaluation_200/move_stapler_pad`。证据 `refs/data_selection/move_stapler_pad_white200_final.json`。此前启动中条目由本终态补全。
+
+用户随后指定用同一step200独立测move_can_pot，三回合并行全录像，独立加载一次共享FP32服务；并非继续训练驻留服务。结果目录 `evaluation_200_move_can_pot_videos3_20261023_100011`，当前评测中，不记成功率或新增训练步数。
+
+### 2026-10-23 10:00 0928-step200独立测move_can_pot（完成）
+
+三回合并行，种子100000/100001/100002，最终0/3（0/0/0）；同一FP32/B1共享服务15891，加载1次，耗时262.54秒（含服务启动），OIDN错误0、GPU进程已退出，未关机。三份1280×720全局视频经ffprobe核验，410/492/416帧，205/246/208秒，视频时间不是墙钟耗时。未训练此任务，正式新增步数0。
+
+评测根目录：`/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/evaluation_200_move_can_pot_videos3_20261023_100011`。摘要 `move_can_pot/summary.json`，录像 `move_can_pot/results/move_can_pot/episode0_global.mp4`、`episode1_global.mp4`、`episode2_global.mp4`。证据 `refs/data_selection/move_can_pot_0928_step200_video3_final.json`；此终态补全此前待测记录，不据0/3单独推断失败动作阶段。

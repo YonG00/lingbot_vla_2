@@ -55,3 +55,9 @@
 目标统一loss2、按原样本数归约；重复边界只计2，不叠成4。其余3373帧loss1；未增加采样倍率，未改变训练配置或启动新训练。原3595坐标全部保留。未来可显式设置 `LINGBOT_SAMPLE_WEIGHT_CONFIG` 为联合weight_config.json；自动继承只在真正启动并冻结新run时发生。
 
 入口 `tools/select_stapler_white_grasp.py`，输入 `--frames-json`、经映射核验的 `--catalog`、原宽选择 `--broad-dir`、`--training-dataset-root` 和新 `--output-dir`。产物 `refs/data_selection/move_stapler_pad_broad_white_grasp_v1/` 含summary/events/white_grasp_frames/selected_frames/weight_config、型号目录、真实示范外观对照和CPU核验。服务器同名selection目录已生成；原数据只读。57项选择与损失测试＋72项配方测试共129项通过，真实全部目标2/全部非目标1及九条HDF5身份检查通过。
+
+### 2026-10-23 09:28 宽目标加白色抓取续训200（已启动）
+
+run `20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video`，来源 `20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt`。用户要求先启动再整理文档。目标4358/7731帧（原3595全保留，白色772中新增763、交界9去重），统一loss2、按样本数归约，主任务均匀、不加概率倍率；其余样本1。10%单任务轮换复习、每5步切换，夹碗固定原7436帧loss2。BF16/micro56/GAS1，200步，仅最终200存档，驻留三回合并行且全录像，无补课、不关机。
+
+服务器129项CPU回归通过；真实1300轨迹258357帧整链通过，首批28/56样本权重2；GPU三步通过（allocated77.70GiB/reserved83.56GiB）。正式已出现更新日志，完成步数及闭环待终态核验，不能记为200步完成。启动前空闲约54GiB，单份存档预算16.06GiB，无清理。配方 `configs/training_recipes/move_stapler_pad_add200_from_0847_white_grasp2_parallel3_video.json`；证据 `refs/data_selection/move_stapler_pad_white200_started.json`。
