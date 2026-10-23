@@ -1,0 +1,202 @@
+{
+  "1650": {
+    "left": "001_bottle/base10",
+    "right": "001_bottle/base14"
+  },
+  "1651": {
+    "left": "001_bottle/base5",
+    "right": "001_bottle/base7"
+  },
+  "1652": {
+    "left": "001_bottle/base8",
+    "right": "001_bottle/base2"
+  },
+  "1653": {
+    "left": "001_bottle/base15",
+    "right": "001_bottle/base2"
+  },
+  "1654": {
+    "left": "001_bottle/base0",
+    "right": "001_bottle/base14"
+  },
+  "1655": {
+    "left": "001_bottle/base8",
+    "right": "001_bottle/base4"
+  },
+  "1656": {
+    "left": "001_bottle/base12",
+    "right": "001_bottle/base4"
+  },
+  "1657": {
+    "left": "001_bottle/base2",
+    "right": "001_bottle/base0"
+  },
+  "1658": {
+    "left": "001_bottle/base13",
+    "right": "001_bottle/base10"
+  },
+  "1659": {
+    "left": "001_bottle/base12",
+    "right": "001_bottle/base7"
+  },
+  "1660": {
+    "left": "001_bottle/base16",
+    "right": "001_bottle/base14"
+  },
+  "1661": {
+    "left": "001_bottle/base7",
+    "right": "001_bottle/base2"
+  },
+  "1662": {
+    "left": "001_bottle/base5",
+    "right": "001_bottle/base0"
+  },
+  "1663": {
+    "left": "001_bottle/base13",
+    "right": "001_bottle/base0"
+  },
+  "1664": {
+    "left": "001_bottle/base14",
+    "right": "001_bottle/base15"
+  },
+  "1665": {
+    "left": "001_bottle/base5",
+    "right": "001_bottle/base14"
+  },
+  "1666": {
+    "left": "001_bottle/base12",
+    "right": "001_bottle/base16"
+  },
+  "1667": {
+    "left": "001_bottle/base5",
+    "right": "001_bottle/base0"
+  },
+  "1668": {
+    "left": "001_bottle/base13",
+    "right": "001_bottle/base13"
+  },
+  "1669": {
+    "left": "001_bottle/base0",
+    "right": "001_bottle/base11"
+  },
+  "1670": {
+    "left": "001_bottle/base12",
+    "right": "001_bottle/base2"
+  },
+  "1671": {
+    "left": "001_bottle/base2",
+    "right": "001_bottle/base15"
+  },
+  "1672": {
+    "left": "001_bottle/base16",
+    "right": "001_bottle/base7"
+  },
+  "1673": {
+    "left": "001_bottle/base4",
+    "right": "001_bottle/base14"
+  },
+  "1674": {
+    "left": "001_bottle/base4",
+    "right": "001_bottle/base3"
+  },
+  "1675": {
+    "left": "001_bottle/base11",
+    "right": "001_bottle/base16"
+  },
+  "1676": {
+    "left": "001_bottle/base15",
+    "right": "001_bottle/base7"
+  },
+  "1677": {
+    "left": "001_bottle/base12",
+    "right": "001_bottle/base2"
+  },
+  "1678": {
+    "left": "001_bottle/base2",
+    "right": "001_bottle/base0"
+  },
+  "1679": {
+    "left": "001_bottle/base17",
+    "right": "001_bottle/base4"
+  },
+  "1680": {
+    "left": "001_bottle/base16",
+    "right": "001_bottle/base7"
+  },
+  "1681": {
+    "left": "001_bottle/base16",
+    "right": "001_bottle/base8"
+  },
+  "1682": {
+    "left": "001_bottle/base10",
+    "right": "001_bottle/base4"
+  },
+  "1683": {
+    "left": "001_bottle/base14",
+    "right": "001_bottle/base15"
+  },
+  "1684": {
+    "left": "001_bottle/base15",
+    "right": "001_bottle/base13"
+  },
+  "1685": {
+    "left": "001_bottle/base4",
+    "right": "001_bottle/base16"
+  },
+  "1686": {
+    "left": "001_bottle/base8",
+    "right": "001_bottle/base14"
+  },
+  "1687": {
+    "left": "001_bottle/base7",
+    "right": "001_bottle/base7"
+  },
+  "1688": {
+    "left": "001_bottle/base3",
+    "right": "001_bottle/base7"
+  },
+  "1689": {
+    "left": "001_bottle/base14",
+    "right": "001_bottle/base13"
+  },
+  "1690": {
+    "left": "001_bottle/base0",
+    "right": "001_bottle/base14"
+  },
+  "1691": {
+    "left": "001_bottle/base6",
+    "right": "001_bottle/base18"
+  },
+  "1692": {
+    "left": "001_bottle/base2",
+    "right": "001_bottle/base0"
+  },
+  "1693": {
+    "left": "001_bottle/base2",
+    "right": "001_bottle/base5"
+  },
+  "1694": {
+    "left": "001_bottle/base4",
+    "right": "001_bottle/base14"
+  },
+  "1695": {
+    "left": "001_bottle/base14",
+    "right": "001_bottle/base2"
+  },
+  "1696": {
+    "left": "001_bottle/base5",
+    "right": "001_bottle/base5"
+  },
+  "1697": {
+    "left": "001_bottle/base5",
+    "right": "001_bottle/base7"
+  },
+  "1698": {
+    "left": "001_bottle/base15",
+    "right": "001_bottle/base2"
+  },
+  "1699": {
+    "left": "001_bottle/base6",
+    "right": "001_bottle/base14"
+  }
+}

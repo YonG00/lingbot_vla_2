@@ -99,3 +99,27 @@
 - 1913-step200已生成并核验1708 BF16张量，作为1940来源保留；1838-step200保留。
 - 1802-step200按用户授权删除，日志和视频保留，覆盖先前保留条目。
 - 1940仅计划最终200，生成前不记为现有存档。
+
+## 2026-10-23 用户指定仅保留1913与recovery3的清理结果
+
+清理前10份，已删除其余8份，实测释放95.14GiB，空闲113.23GiB。下列当前状态覆盖全部历史保留条目；仅删除模型step目录，日志、视频和配置保留。
+
+保留：
+- `/data/outputs/20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160`
+- `/data/outputs/20261023_1913_dual_bottles_add200_from_1838_s200_bf16_m56_fullstage20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200`
+
+已删除：
+- `/data/outputs/20261022_2045_bowls200_from_recovery3_s160_bf16_m56_replay10pct_sample3_loss3/checkpoints/global_step_200`
+- `/data/outputs/20261022_2120_bowls200_from_recovery3_s160_bf16_m56_target90_far1_place2_loss2/checkpoints/global_step_200`
+- `/data/outputs/20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2/checkpoints/global_step_200`
+- `/data/outputs/20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel/checkpoints/global_step_200`
+- `/data/outputs/20261023_0818_bowls_add100_from_original_s100_bf16_m56_original_grasp2_replay10pct_parallel3_novideo/checkpoints/global_step_100`
+- `/data/outputs/20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video/checkpoints/global_step_200`
+- `/data/outputs/20261023_0928_stapler_add200_from_0847_s200_bf16_m56_broad_whitegrasp2_replay10pct_parallel3_video/checkpoints/global_step_200`
+- `/data/outputs/20261023_1838_dual_bottles200_from_0928_s200_bf16_m56_fullstage20_weightnorm_replay10pct_parallel3_video/checkpoints/global_step_200`
+
+1940仍训练中，本次未停止进程、未改保存节奏；它结束可能新增存档，已询问用户后续处理，未将其提前计为存档。
+
+## 2026-10-23 20:10保留状态更新
+
+用户已明确1940继续并保留其新存档，覆盖上文“待确认”状态。现有：recovery3-step160、1913-step200、1940-step200（1708 BF16张量、闭环0/3、三录像完成）。2010仅计划最终200，尚未生成；无新删除。

@@ -270,3 +270,15 @@ run `20261023_1913_dual_bottles_add200_from_1838_s200_bf16_m56_fullstage20_weigh
 用户授权继续：run `20261023_1940_dual_bottles_add200_from_1913_s200_bf16_m56_fullstage20_weightnorm_noreplay_parallel3_video`。来源1913-step200，计划再200、GBS56/GAS1，20倍权重和归一化保持、复习0、仅最终200、结束三回合并行带视频，不补课/关机。代码未改，采样增强和监控细化仍暂缓；CPU preflight正在执行，未把本轮计划计为已完成。
 
 用户明确同意后，已删除1802五倍版本的 `checkpoints/global_step_200`，释放12768227328字节，删除后空闲19437617152字节；日志、评测视频、1838和1913均保留。新轮预算足够，未修改存档节奏。
+
+### pick_diverse_bottles阶段数据准备（非训练轮次）
+
+50示范6060帧、100抓取完整分段，独立20倍配置已准备；4＋13 CPU契约、原始映射与画面抽检通过。新增训练0步、无新Checkpoint、未评测；不能计入累计训练。见[说明](../../recipes/pick_diverse_bottles_full_stage_weighting_zh.md)。
+
+### 2026-10-23 1940完成；2010闭爪保持/初始提离15倍续训启动
+
+1940已完成正式200步，16分48秒，末步Loss0.0380/VLA0.0334，step200核验1708 BF16张量。驻留模型三回合并行带视频0/3，种子100000/100001/100002，OIDN错误0，3视频，流水线complete，11200双瓶样本、复习0。来源1838→1913→1940定向主链累计600步，不计独立5倍实验。
+
+用户先提出4倍后立即改口15，4倍版本没有生成/启动。新run `20261023_2010_dual_bottles_add200_from_1940_s200_bf16_m56_stage20_holdclear15_noreplay_parallel3_video` 从1940-step200继续计划200。仅 `grasp_lift/closed_hold_proxy`、`grasp_lift/initial_clearance` 的左右手FM与视觉子阶段override由2改15；继续提起仍2，接近开爪稳定闭爪仍20，其余1，权重和归一化。独立快照 `refs/data_selection/pick_dual_bottles_full_stage20_lift15_v1/`，逐帧全分支差异核对通过，标签与采样不变。GBS56/GAS1、无复习、最终200存档、结束三回合并行录像、不补课不关机。CPU预检已通过并进入模型加载，终态待验，不提前计为完成。
+
+先前清理后用户确认1940继续并保留新存档：当前保留recovery3-step160、1913-step200、1940-step200；本轮2010最终200获训练授权计划新增。本次无删除。

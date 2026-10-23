@@ -88,3 +88,5 @@
 - [双瓶任务：伸手、水平瞄准、闭爪和提起目标筛选](training/recipes/pick_dual_bottles_target_selection_zh.md)。
 
 - [双瓶完整轨迹阶段加权](training/recipes/full_trajectory_stage_multimodal_weighting_zh.md)
+
+- [多样瓶子全轨迹分阶段](training/recipes/pick_diverse_bottles_full_stage_weighting_zh.md)

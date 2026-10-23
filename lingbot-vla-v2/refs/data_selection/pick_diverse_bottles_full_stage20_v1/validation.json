@@ -1,0 +1,26 @@
+{
+  "task": "pick_diverse_bottles",
+  "episodes": 50,
+  "original_episode_range": [
+    1650,
+    1699
+  ],
+  "frames": 6060,
+  "raw_hdf5_state_mapping_verified_episodes": 50,
+  "raw_episode_mapping": "1650+k to raw episode k; all50 numeric states checked",
+  "paired_grasps": 100,
+  "full_coverage": true,
+  "subsampled": false,
+  "object_identity_source": "raw scene_info.json per episode {A}/{B}",
+  "visual_review_episodes": [
+    1650,
+    1674,
+    1699
+  ],
+  "visual_review_frames": 24,
+  "contact_verified": false,
+  "torch_imported": false,
+  "training_started": false,
+  "gpu_tested": false,
+  "tests": "4 new pure CPU contracts plus13 existing full-stage contracts passed"
+}

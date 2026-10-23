@@ -6,7 +6,9 @@ from .grasp_sequence import forward_kinematics,_runs
 from .dual_bottle_grasp import select_rows,Settings
 from .full_stages import validate_table,STAGES
 
-def build(rows,spec,fps):
+def build(rows,spec,fps,task='pick_dual_bottles',objects=None):
+    if task not in ('pick_dual_bottles','pick_diverse_bottles'):raise ValueError('unsupported bottle task')
+    if task=='pick_diverse_bottles'and objects is None:raise ValueError('diverse bottles require per-episode object identities')
     summary,events,_=select_rows(rows,spec,fps)
     if summary['paired_episodes']!=summary['episodes']:raise ValueError('all episodes require both grasps')
     grouped={}
@@ -15,6 +17,11 @@ def build(rows,spec,fps):
     for ep,items in sorted(grouped.items()):
         items.sort(key=lambda x:x['frame_index']);n=len(items);state=np.asarray([v['observation.state']for v in items]);arms={}
         for arm,j,obj in [('left',0,'001_bottle/base13'),('right',7,'001_bottle/base16')]:
+            if objects is not None:
+                identities=objects.get(str(ep),objects.get(ep))
+                if not isinstance(identities,dict)or set(identities)!={'left','right'}:raise ValueError('missing object identities: '+str(ep))
+                obj=identities[arm]
+                if not isinstance(obj,str)or not obj.startswith('001_bottle/base')or not obj[len('001_bottle/base'):].isdigit():raise ValueError('invalid bottle identity')
             e=next(v for v in events if v['episode_index']==ep and v['arm']==arm);p,_=forward_kinematics(state[:,j:j+6],spec[arm]);g=state[:,j+6];speed=np.linalg.norm(np.gradient(p,axis=0)*fps,axis=1)
             cs=e['close_start_frame'];ce=e['close_end_frame'];align_a,align_b=e['stages']['horizontal_align'];arrival=e['stages']['forward_approach'][1]
             candidates=np.flatnonzero((np.arange(n)>=e['end_frame'])&(p[:,2]-p[ce,2]>=.095)&(np.linalg.norm(p[:,:2]-p[ce,:2],axis=1)<=.015)&(g<=.2))
@@ -44,7 +51,7 @@ def build(rows,spec,fps):
             arms[arm]=segments
         episodes.append(dict(episode_index=ep,length=n,arms=arms))
     fingerprint=lambda x:hashlib.sha256(json.dumps(x,sort_keys=True,separators=(',',':')).encode()).hexdigest()
-    table=dict(schema_version=1,dataset_name='robotwin',task='pick_dual_bottles',fps=fps,coordinate_space='original_episode_frame',recognizer_version='dual_bottle_full_stages_v1',source_action_channels={'action':{'left':list(range(7)),'right':list(range(7,14))},'observation.state':{'left':list(range(7)),'right':list(range(7,14))}},numeric_source_sha256=fingerprint(sorted(rows,key=lambda x:(x['episode_index'],x['frame_index']))),kinematics_sha256=fingerprint(spec),episodes=episodes)
+    table=dict(schema_version=1,dataset_name='robotwin',task=task,fps=fps,coordinate_space='original_episode_frame',recognizer_version='dual_bottle_full_stages_v1',source_action_channels={'action':{'left':list(range(7)),'right':list(range(7,14))},'observation.state':{'left':list(range(7)),'right':list(range(7,14))}},numeric_source_sha256=fingerprint(sorted(rows,key=lambda x:(x['episode_index'],x['frame_index']))),kinematics_sha256=fingerprint(spec),episodes=episodes)
     validate_table(table);total=len(rows)
     for arm in ['left','right']:
         for name,count in substats[arm].items():

@@ -8,22 +8,22 @@ from experiment.data_selection.dual_bottle_full_stages import build
 from experiment.data_selection.full_stages import STAGES,StageTable
 
 def main():
- p=argparse.ArgumentParser(description=__doc__);p.add_argument('--frames-json',type=Path);p.add_argument('--dataset-root',type=Path,required=True);p.add_argument('--output-dir',type=Path,required=True);p.add_argument('--fps',type=float,default=15)
- a=p.parse_args();manifest=json.loads((ROOT/'refs/al_artifacts/al/task_splits_50/manifest.json').read_text());entry=manifest['tasks']['pick_dual_bottles'];ids=set(entry['train_ids']+entry['val_ids'])
+ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--task',choices=['pick_dual_bottles','pick_diverse_bottles'],default='pick_dual_bottles');p.add_argument('--object-map',type=Path);p.add_argument('--critical-weight',type=float,default=5.);p.add_argument('--frames-json',type=Path);p.add_argument('--dataset-root',type=Path,required=True);p.add_argument('--output-dir',type=Path,required=True);p.add_argument('--fps',type=float,default=15)
+ a=p.parse_args();manifest=json.loads((ROOT/'refs/al_artifacts/al/task_splits_50/manifest.json').read_text());entry=manifest['tasks'][a.task];ids=set(entry['train_ids']+entry['val_ids'])
  if a.frames_json:rows=json.loads(a.frames_json.read_text());fps=a.fps
  else:
   import pyarrow.dataset as ds
   fps=json.loads((a.dataset_root/'meta/info.json').read_text())['fps'];rows=ds.dataset(str(a.dataset_root/'data'),format='parquet').to_table(columns=['episode_index','frame_index','timestamp','index','observation.state'],filter=ds.field('episode_index').isin(sorted(ids)),use_threads=False).to_pylist()
  if {v['episode_index']for v in rows}!=ids:raise ValueError('manifest episode mismatch')
- spec=json.loads((ROOT/'configs/kinematics/robotwin_aloha_agilex_ee.json').read_text());table,summary=build(rows,spec,fps)
- values={s:1. for s in STAGES};values.update(fine_align=2.,pre_contact=5.,gripper_close=5.,grasp_lift=2.)
+ spec=json.loads((ROOT/'configs/kinematics/robotwin_aloha_agilex_ee.json').read_text());table,summary=build(rows,spec,fps,task=a.task,objects=json.loads(a.object_map.read_text())if a.object_map else None)
+ values={s:1. for s in STAGES};values.update(fine_align=2.,pre_contact=a.critical_weight,gripper_close=a.critical_weight,grasp_lift=2.)
  policy=dict(version=1,normalization='weight_sum',fm=values,visual=dict(values),visual_branches={name:dict(values)for name in ['current_depth','future_depth','current_video','future_video']},future_video_rule='target_endpoint',unknown_high_weight=False,review_threshold_fraction=.1,overrides={})
  policy['overrides']={branch:{arm:{seg['stage']+'/'+seg['substage']:values[seg['stage']]for ep in table['episodes']for seg in ep['arms'][arm]}for arm in ['left','right']}for branch in ['fm','visual']}
  selected=[dict(episode_index=ep['episode_index'],frame_index=f)for ep in table['episodes']for f in range(ep['length'])]
  a.output_dir.mkdir(parents=True,exist_ok=False)
  for name,obj in [('segments',table),('stage_loss_weights',policy),('selected_frames',selected)]: (a.output_dir/(name+'.json')).write_text(json.dumps(obj,ensure_ascii=False,indent=2)+'\n')
  sha=lambda name:hashlib.sha256((a.output_dir/name).read_bytes()).hexdigest()
- cfg=dict(version=1,task='pick_dual_bottles',dataset_name='robotwin',dataset_root=str(a.dataset_root.resolve()),normalization='weight_sum',multiplier=1,selected_frames='selected_frames.json',selected_frames_sha256=sha('selected_frames.json'),stage_table='segments.json',stage_table_sha256=sha('segments.json'),stage_policy='stage_loss_weights.json',stage_policy_sha256=sha('stage_loss_weights.json'))
+ cfg=dict(version=1,task=a.task,dataset_name='robotwin',dataset_root=str(a.dataset_root.resolve()),normalization='weight_sum',multiplier=1,selected_frames='selected_frames.json',selected_frames_sha256=sha('selected_frames.json'),stage_table='segments.json',stage_table_sha256=sha('segments.json'),stage_policy='stage_loss_weights.json',stage_policy_sha256=sha('stage_loss_weights.json'))
  (a.output_dir/'weight_config.json').write_text(json.dumps(cfg,indent=2)+'\n')
  stage=StageTable(cfg,a.output_dir);raw={a:Counter()for a in ['left','right']};windows={a:Counter()for a in ['left','right']};current=Counter();future=Counter();video=Counter();pads=0
  for ep,e in stage.episodes.items():
