@@ -82,3 +82,5 @@
 
 - [订书机抓后放置片段筛选](training/recipes/move_stapler_pad_postgrasp_selection_zh.md)
 - [固定任务重要性：夹碗复习维持2倍](training/recipes/fixed_task_importance_zh.md)
+
+- 训练记录分类：[阶段二技能训练/补课与阶段三难任务样本加权](training/records/README.md)。

@@ -1,0 +1,17 @@
+{
+  "continuous_segments": 50,
+  "selected_frames": 3595,
+  "coordinate_contract": "pass",
+  "output": "/root/autodl-tmp/data/outputs/20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video",
+  "registry": {
+    "version": 1,
+    "policies": {
+      "move_stapler_pad": "sample_weights/move_stapler_pad/weight_config.json",
+      "stack_bowls_two": "sample_weights/stack_bowls_two/weight_config.json"
+    },
+    "policy_sha256": {
+      "move_stapler_pad": "be33099f72df9aa87b3cb448ca5b5dd2610dca38def27ac2001baa38396cb3f2",
+      "stack_bowls_two": "8cd82ffd4d945b230aa2ceb60d39fe2e21380b5d26399074ec7229c59b653bd6"
+    }
+  }
+}

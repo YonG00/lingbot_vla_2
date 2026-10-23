@@ -1,0 +1,652 @@
+[
+  {
+    "episode_index": 150,
+    "tasks": [
+      "Grab the stapler with silver inner plates, place it on the Gray mat"
+    ],
+    "length": 172,
+    "source_episode": 0,
+    "scene": {
+      "{A}": "048_stapler/base1",
+      "{B}": "Gray",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 151,
+    "tasks": [
+      "Using the right arm, set the blue stapler with ergonomic curve on the Magenta colored mat"
+    ],
+    "length": 140,
+    "source_episode": 1,
+    "scene": {
+      "{A}": "048_stapler/base0",
+      "{B}": "Magenta",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 152,
+    "tasks": [
+      "Pick the handy blue stapler with metal parts up and position it on Yellow mat"
+    ],
+    "length": 141,
+    "source_episode": 2,
+    "scene": {
+      "{A}": "048_stapler/base6",
+      "{B}": "Yellow",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 153,
+    "tasks": [
+      "With the right arm, move the blue stapler to the Gray mat"
+    ],
+    "length": 152,
+    "source_episode": 3,
+    "scene": {
+      "{A}": "048_stapler/base6",
+      "{B}": "Gray",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 154,
+    "tasks": [
+      "Grab the red plastic stapler with smooth top using the left arm and shift it to Yellow"
+    ],
+    "length": 152,
+    "source_episode": 4,
+    "scene": {
+      "{A}": "048_stapler/base4",
+      "{B}": "Yellow",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 155,
+    "tasks": [
+      "the right arm places the compact bright blue stapler on the Red mat."
+    ],
+    "length": 163,
+    "source_episode": 5,
+    "scene": {
+      "{A}": "048_stapler/base6",
+      "{B}": "Red",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 156,
+    "tasks": [
+      "the right arm moves the blue stapler for paper fastening to the Red mat."
+    ],
+    "length": 146,
+    "source_episode": 6,
+    "scene": {
+      "{A}": "048_stapler/base6",
+      "{B}": "Gray",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 157,
+    "tasks": [
+      "the right arm places the desk stapler with red body on the Yellow mat."
+    ],
+    "length": 144,
+    "source_episode": 7,
+    "scene": {
+      "{A}": "048_stapler/base4",
+      "{B}": "Yellow",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 158,
+    "tasks": [
+      "Move the handy blue stapler with metal parts to the Black mat with the left arm"
+    ],
+    "length": 138,
+    "source_episode": 8,
+    "scene": {
+      "{A}": "048_stapler/base6",
+      "{B}": "Black",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 159,
+    "tasks": [
+      "Move the small office stapler to the Gray mat with the right arm"
+    ],
+    "length": 160,
+    "source_episode": 9,
+    "scene": {
+      "{A}": "048_stapler/base3",
+      "{B}": "Gray",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 160,
+    "tasks": [
+      "With the right arm, position the stapler with white metallic components on the Magenta mat"
+    ],
+    "length": 139,
+    "source_episode": 10,
+    "scene": {
+      "{A}": "048_stapler/base2",
+      "{B}": "Magenta",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 161,
+    "tasks": [
+      "Shift the stapler with smooth blue finish manually to the Blue mat"
+    ],
+    "length": 148,
+    "source_episode": 11,
+    "scene": {
+      "{A}": "048_stapler/base0",
+      "{B}": "Blue",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 162,
+    "tasks": [
+      "Grab the paper stapler with silver tray with the left arm and drop it on Yellow mat."
+    ],
+    "length": 153,
+    "source_episode": 12,
+    "scene": {
+      "{A}": "048_stapler/base3",
+      "{B}": "Yellow",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 163,
+    "tasks": [
+      "Move the plastic stapler with metal on base to the Blue mat with the left arm"
+    ],
+    "length": 158,
+    "source_episode": 13,
+    "scene": {
+      "{A}": "048_stapler/base0",
+      "{B}": "Blue",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 164,
+    "tasks": [
+      "Pick up the handheld red stapler and place it on Blue mat"
+    ],
+    "length": 147,
+    "source_episode": 14,
+    "scene": {
+      "{A}": "048_stapler/base5",
+      "{B}": "Blue",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 165,
+    "tasks": [
+      "Use the left arm to place the stapler with smooth blue finish onto the Magenta mat"
+    ],
+    "length": 155,
+    "source_episode": 15,
+    "scene": {
+      "{A}": "048_stapler/base0",
+      "{B}": "Magenta",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 166,
+    "tasks": [
+      "Lift the plastic stapler with metal top to the Yellow mat using the right arm"
+    ],
+    "length": 158,
+    "source_episode": 16,
+    "scene": {
+      "{A}": "048_stapler/base5",
+      "{B}": "Yellow",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 167,
+    "tasks": [
+      "Carry the stapler with orange button to the Black colored mat"
+    ],
+    "length": 156,
+    "source_episode": 17,
+    "scene": {
+      "{A}": "048_stapler/base3",
+      "{B}": "Black",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 168,
+    "tasks": [
+      "Stick the plastic blue stapler with metal parts on the Yellow mat."
+    ],
+    "length": 152,
+    "source_episode": 18,
+    "scene": {
+      "{A}": "048_stapler/base2",
+      "{B}": "Yellow",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 169,
+    "tasks": [
+      "Pick up the handheld stapler with the right arm and set it on Yellow"
+    ],
+    "length": 164,
+    "source_episode": 19,
+    "scene": {
+      "{A}": "048_stapler/base3",
+      "{B}": "Yellow",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 170,
+    "tasks": [
+      "Use the right arm and place the black stapler with rectangular base on Black mat."
+    ],
+    "length": 141,
+    "source_episode": 20,
+    "scene": {
+      "{A}": "048_stapler/base1",
+      "{B}": "Black",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 171,
+    "tasks": [
+      "Use the left arm to grab the manual blue stapler and place it on Magenta mat"
+    ],
+    "length": 148,
+    "source_episode": 21,
+    "scene": {
+      "{A}": "048_stapler/base0",
+      "{B}": "Magenta",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 172,
+    "tasks": [
+      "Use the left arm to shift the blue stapler onto the Yellow mat"
+    ],
+    "length": 152,
+    "source_episode": 22,
+    "scene": {
+      "{A}": "048_stapler/base0",
+      "{B}": "Yellow",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 173,
+    "tasks": [
+      "Slide the smooth plastic stapler to the Black colored mat."
+    ],
+    "length": 179,
+    "source_episode": 23,
+    "scene": {
+      "{A}": "048_stapler/base3",
+      "{B}": "Black",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 174,
+    "tasks": [
+      "Move the stapler with smooth blue finish to the Cyan mat."
+    ],
+    "length": 164,
+    "source_episode": 24,
+    "scene": {
+      "{A}": "048_stapler/base0",
+      "{B}": "Cyan",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 175,
+    "tasks": [
+      "Grab the stapler for stapling paper with the right arm and drop it on Cyan mat."
+    ],
+    "length": 146,
+    "source_episode": 25,
+    "scene": {
+      "{A}": "048_stapler/base2",
+      "{B}": "Cyan",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 176,
+    "tasks": [
+      "Stick the desk stapler with red body on the Gray mat."
+    ],
+    "length": 168,
+    "source_episode": 26,
+    "scene": {
+      "{A}": "048_stapler/base4",
+      "{B}": "Gray",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 177,
+    "tasks": [
+      "Set the small black stapler with metal core down on the Cyan mat"
+    ],
+    "length": 158,
+    "source_episode": 27,
+    "scene": {
+      "{A}": "048_stapler/base1",
+      "{B}": "Cyan",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 178,
+    "tasks": [
+      "Shift the blue stapler with white accents to the Gray mat"
+    ],
+    "length": 145,
+    "source_episode": 28,
+    "scene": {
+      "{A}": "048_stapler/base6",
+      "{B}": "Gray",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 179,
+    "tasks": [
+      "Set the stapler with orange button onto the Yellow colored mat."
+    ],
+    "length": 162,
+    "source_episode": 29,
+    "scene": {
+      "{A}": "048_stapler/base3",
+      "{B}": "Yellow",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 180,
+    "tasks": [
+      "Grab the blue stapler with curved design with the right arm and drop it on Cyan mat."
+    ],
+    "length": 163,
+    "source_episode": 30,
+    "scene": {
+      "{A}": "048_stapler/base2",
+      "{B}": "Cyan",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 181,
+    "tasks": [
+      "Set the handheld stapler down on the Green mat"
+    ],
+    "length": 159,
+    "source_episode": 31,
+    "scene": {
+      "{A}": "048_stapler/base3",
+      "{B}": "Green",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 182,
+    "tasks": [
+      "Move the handheld black stapler to the Black mat with the left arm"
+    ],
+    "length": 159,
+    "source_episode": 32,
+    "scene": {
+      "{A}": "048_stapler/base1",
+      "{B}": "Black",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 183,
+    "tasks": [
+      "Pick the stapler with orange button with the right arm and place it on Yellow mat"
+    ],
+    "length": 165,
+    "source_episode": 33,
+    "scene": {
+      "{A}": "048_stapler/base3",
+      "{B}": "Yellow",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 184,
+    "tasks": [
+      "Grab the white stapler with rounded design using the right arm and shift it to Red"
+    ],
+    "length": 160,
+    "source_episode": 34,
+    "scene": {
+      "{A}": "048_stapler/base3",
+      "{B}": "Red",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 185,
+    "tasks": [
+      "Set the compact black stapler down on the Red mat"
+    ],
+    "length": 141,
+    "source_episode": 35,
+    "scene": {
+      "{A}": "048_stapler/base1",
+      "{B}": "Red",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 186,
+    "tasks": [
+      "With the left arm, move the blue stapler with black handle area to the Blue mat"
+    ],
+    "length": 160,
+    "source_episode": 36,
+    "scene": {
+      "{A}": "048_stapler/base2",
+      "{B}": "Blue",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 187,
+    "tasks": [
+      "Lift the black stapler with shiny interior and drop it onto Magenta mat"
+    ],
+    "length": 146,
+    "source_episode": 37,
+    "scene": {
+      "{A}": "048_stapler/base1",
+      "{B}": "Magenta",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 188,
+    "tasks": [
+      "Lift the red stapler with black base to the Blue mat using the right arm"
+    ],
+    "length": 165,
+    "source_episode": 38,
+    "scene": {
+      "{A}": "048_stapler/base4",
+      "{B}": "Blue",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 189,
+    "tasks": [
+      "Grab the small handheld stapler, place it on the Green mat"
+    ],
+    "length": 171,
+    "source_episode": 39,
+    "scene": {
+      "{A}": "048_stapler/base4",
+      "{B}": "Green",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 190,
+    "tasks": [
+      "Set the stapler with curved blue top on the Green mat with the right arm."
+    ],
+    "length": 164,
+    "source_episode": 40,
+    "scene": {
+      "{A}": "048_stapler/base0",
+      "{B}": "Green",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 191,
+    "tasks": [
+      "Move the handheld black stapler with the left arm to the Gray mat"
+    ],
+    "length": 151,
+    "source_episode": 41,
+    "scene": {
+      "{A}": "048_stapler/base1",
+      "{B}": "Gray",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 192,
+    "tasks": [
+      "Shift the metal and plastic stapler to the Magenta mat"
+    ],
+    "length": 147,
+    "source_episode": 42,
+    "scene": {
+      "{A}": "048_stapler/base2",
+      "{B}": "Magenta",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 193,
+    "tasks": [
+      "Pick the blue stapler with black handle area up and position it on Cyan mat"
+    ],
+    "length": 156,
+    "source_episode": 43,
+    "scene": {
+      "{A}": "048_stapler/base2",
+      "{B}": "Cyan",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 194,
+    "tasks": [
+      "Pick the blue stapler with the right arm and place it on Cyan mat"
+    ],
+    "length": 157,
+    "source_episode": 44,
+    "scene": {
+      "{A}": "048_stapler/base0",
+      "{B}": "Cyan",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 195,
+    "tasks": [
+      "Pick up the small red stapler and place it on Yellow mat"
+    ],
+    "length": 164,
+    "source_episode": 45,
+    "scene": {
+      "{A}": "048_stapler/base5",
+      "{B}": "Yellow",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 196,
+    "tasks": [
+      "Lift the plastic blue stapler with metal parts to the Magenta mat using the left arm"
+    ],
+    "length": 165,
+    "source_episode": 46,
+    "scene": {
+      "{A}": "048_stapler/base2",
+      "{B}": "Magenta",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 197,
+    "tasks": [
+      "Set the compact black stapler down on the Black mat"
+    ],
+    "length": 145,
+    "source_episode": 47,
+    "scene": {
+      "{A}": "048_stapler/base1",
+      "{B}": "Black",
+      "{a}": "right"
+    }
+  },
+  {
+    "episode_index": 198,
+    "tasks": [
+      "Grab the stapler with black top section and drop it on Cyan mat."
+    ],
+    "length": 144,
+    "source_episode": 48,
+    "scene": {
+      "{A}": "048_stapler/base2",
+      "{B}": "Cyan",
+      "{a}": "left"
+    }
+  },
+  {
+    "episode_index": 199,
+    "tasks": [
+      "Pick up the compact blue stapler and place it on Green mat"
+    ],
+    "length": 148,
+    "source_episode": 49,
+    "scene": {
+      "{A}": "048_stapler/base2",
+      "{B}": "Green",
+      "{a}": "left"
+    }
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "state": "cpu_pass",
+  "white_episode_mapping_exact": [
+    159,
+    162,
+    167,
+    169,
+    173,
+    179,
+    181,
+    183,
+    184
+  ],
+  "broad_frames_preserved": 3595,
+  "target_weight": 2,
+  "non_target_frames": 3373,
+  "non_target_weight": 1,
+  "tests_passed": 129,
+  "training_started": false,
+  "visual_model_verified": true,
+  "object_contact_measured": false
+}

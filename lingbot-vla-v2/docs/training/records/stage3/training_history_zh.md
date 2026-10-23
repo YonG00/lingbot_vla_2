@@ -1,0 +1,174 @@
+# 阶段三：训练流水
+
+范围：针对难学任务筛选动作片段、调整逐样本损失及采样的独立实验。从20261022_1246夹碗实验开始；来源为阶段二第三轮补课step160。独立分叉不相加，计划/启动与完成严格区分。
+
+[分类入口](../README.md) · [阶段二来源记录](../stage2/training_history_zh.md)
+
+### 2026-10-22 夹碗样本加权独立实验（启动检查中）
+
+来源：`20261022_1128_recovery_scout3_from_R17_replay10pct/20261022_1209_round_3_recovery/checkpoints/global_step_160`（不是180）。独立分支 `experiment/stack_bowls_sample_weighting`；独立服务器目录 `/data/experiments/stack_bowls_sample_weighting`。
+
+run：`/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample`。计划stack_bowls_two 200步，BF16/micro56/GAS1；10%单任务复习每5步轮换，沿用第三轮25任务池、排除当前主任务；500间隔＋最终保存不变，仅产生step200。命中样本的FM/Depth/Future Depth/Video乘2，再按原样本数（FM掩码按原有效元素数）归约，不除权重和；正则保持原值。离线50轨迹15609帧，7436帧命中（47.64%）。训后夹碗3回合、前2回合录像，驻留评测；无补课，无自动关机。
+
+本地9项新CPU契约＋63项配方测试通过，服务器9项CPU契约通过，源码2640文件逐项SHA256校验。真实数据CPU装配检查进行中，GPU探针和正式训练尚待完成，不能记为已训200步。
+
+启动确认：真实CPU1250轨迹250626帧通过，首批56样本中24个权重2；3步GPU探针通过，allocated77.82GiB/reserved86.20GiB，BF16参数/计算/梯度检查通过。正式已完成至少109/200步，近期4.792秒/步。原基线目录未修改；训练与闭环尚未完成。证据：refs/data_selection/stack_bowls200_started_evidence.json。
+
+完成审计：200次正式更新完成，12:49:02–13:06:10约17分08秒，13:07:07完成训练收尾；step200的1708个BF16张量头部及分片完整性检查通过，约11.89GiB。首/末20步平均总loss0.036275→0.031415，FM0.03054→0.02602；仅为训练拟合。原始自动仿真跑3回合0/3，但OIDN CUDA不支持/invalid handle导致renderer gate拒绝，结果不作为有效clean成绩。独立目录漏带.runtime为已确认部署问题；不将pipeline failed写成训练未完成。
+
+2026-10-22 18:33重新评测：用户取消分支同步，故未合并基线提交；仅在独立服务器目录补只读.runtime链接，显式指定已有OIDN库，并使用基线已验证仿真客户端作为评测依赖。OIDN CUDA预检通过。评测step200、stack_bowls_two、3回合全部录像、固定种子100000/100001/100002；新目录 `evaluation_200_renderfixed_videos3_20261022_183342/stack_bowls_two`，成绩待完成，无自动关机。
+
+18:33新评测已完成：stack_bowls_two 0/3，种子100000/100001/100002，FP32推理/动作块50，OIDN错误0，3回合全局视频完整，已用ffprobe验证880/942/934帧，时长440/471/467秒。新结果有效，区别于原始渲染异常0/3。说明本次200步加权专训仍未通关，不能仅以训练loss下降判断学会；缺同源step160的配对有效成绩，不能量化相对改善。正式摘要 refs/data_selection/stack_bowls200_clean_eval_videos3.json。结果目录为本run下 evaluation_200_renderfixed_videos3_20261022_183342/stack_bowls_two。
+
+
+### 2026-10-22 19:04 双规则并集权重3（启动检查中）
+
+来源第三轮补课step160，非上一轮加权200。run `20261022_1904_bowls200_from_recovery3_s160_bf16_m56_replay10pct_grasp_place_weight3`；stack_bowls_two计划200步，10%复习，每5步轮换；BF16/micro56/GAS1。抓取与第二次放置规则并集11179帧（71.62%），命中样本四项损失3倍、按原样本分母；重叠不叠乘。用户新授权100/200存档。训完step200驻留3回合全录像，显式使用已验证仿真目录及OIDN库。CPU检查进行中，GPU和正式进度尚未确认；未自动关机。
+
+用户启动中更正来源：以第三轮step160为起点的19:04流水线已停止，正式日志已确认更新0步（探针与正式启动不计成完成训练），不使用其模型。新起点改为上一轮 `20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt`，继续加训200步；双规则/3倍/10%复习/100和200保存不变。新run以from_weight2_s200命名，避免混淆继承关系。
+
+新run：`/data/outputs/20261022_1909_bowls_add200_from_weight2_s200_bf16_m56_replay10pct_grasp_place_weight3`，来源明确为上一轮weight2sample-step200；真实CPU检查进行中。原19:04运行只记录为已停止，不计入已完成训练累计。
+
+新来源启动取证：真实CPU通过，首批41/56样本权重3；GPU探针3更新通过，allocated77.71GiB/reserved85.72GiB。正式配置model_path确认为上一轮weight2sample-step200，最新已记录更新0/200。100/200保存计划已冻结，旧来源流水线不再运行。证据 refs/data_selection/grasp_place_weight3_from_weight2_s200_started_evidence.json。
+
+正式更新确认：19:13:59已完成5/200，来源为weight2sample-step200；Loss0.0566、GradNorm0.7617，均有限。前几步仍含编译开销，不将其用作稳定训练速度。保存和闭环尚未完成。
+
+
+### 2026-10-22 20:06 约30%阶段校准V3（启动检查中）
+
+来源第三轮补课step160，stack_bowls_two计划200步，BF16/micro56/GAS1；10%复习每5步切换，100/200保存，最终3回合全部录像、驻留评测，无关机。run `20261022_2006_bowls200_from_recovery3_s160_bf16_m56_replay10pct_calibration30_weight3`。全部100次抓碗阶段均匀取点＋远定位＋第二放置高度带，合计4635帧29.69%，权重3按原样本分母，替换旧宽策略。100项本地及服务器CPU测试通过，真实装配通过，首批15/56加权；GPU探针正在运行，实际训练步数待确认。
+
+V3正式启动取证：来源第三轮step160确认；冻结策略恰为4635帧29.69%，没有继承旧70%并集；CPU通过、GPU三步探针通过（allocated77.71GiB/reserved85.72GiB），正式更新已记录15/200。安全预算29.13GiB，100/200计划不变，最终三回合全录像待完成。启动证据 refs/data_selection/stack_bowls_two_calibration30_v3_started_evidence.json。
+
+补记上一轮19:09宽规则实验终态：{"state": "complete", "evaluation": [{"state": "complete", "task": "stack_bowls_two", "label": "recipe_200", "model": "/root/autodl-tmp/data/outputs/20261022_1909_bowls_add200_from_weight2_s200_bf16_m56_replay10pct_grasp_place_weight3/checkpoints/global_step_200/hf_ckpt", "successes": 0, "episodes": 3, "success_rate": 0.0, "seeds": [100000, 100001, 100002], "oidn_errors": 0, "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3", "dtype": "float32", "action_chunk": 50, "recorded_episodes": 3, "server_pid": 6624, "shared_server": true}]}。其step100已按本次用户授权删除，最终step200保留；不与新V3运行混计。
+
+### 2026-10-22 双重加权实验准备与上一轮结果
+
+- `20261022_2006_bowls200_from_recovery3_s160_bf16_m56_replay10pct_calibration30_weight3`：实际完成200步；最终闭环0/3，种子100000/100001/100002，OIDN错误0，3回合视频完整。此结果不能证明成功率改善。
+- 新run：`20261022_2045_bowls200_from_recovery3_s160_bf16_m56_replay10pct_sample3_loss3`，起点仍为 recovery3-step160，不继承上一轮；主任务stack_bowls_two，计划200步，GBS56/GAS1，10%单任务复习每5步轮换。
+- 同一4635/15609（29.6944%）关键帧，任务内采样权重3，其余1；四项逐样本损失仍乘3，按原样本数归一化。预期主任务目标帧抽中率55.89%，不是保证每批固定比例；复习任务配额不变。用户明确改为仅保存step200，最终3回合闭环且全部留视频。
+- 本地66项配方契约测试通过，服务器37项选择/损失测试及66项配方测试通过；流水线已启动，CPU真实数据及GPU验证状态另记，当前不计为完成训练。
+
+- 双重加权实际启动核验：CPU真实数据预检通过，首批56样本中29个关键样本、loss权重3；GPU三步验证通过，峰值allocated77.71GiB/reserved85.72GiB。正式训练已确认42/200步，约4.8秒/步；实际日志确认4635个采样目标、采样倍率3，实际保存计划仅[200]。证据：`refs/data_selection/stack_bowls_two_sample3_loss3_started_evidence.json`。
+
+### 2026-10-22 目标片段90%、远抓与放置1:2实验
+
+上一轮 `20261022_2045_bowls200_from_recovery3_s160_bf16_m56_replay10pct_sample3_loss3` 实际完成200步，最终闭环0/3，OIDN错误0，三回合视频完整。
+
+新run `20261022_2120_bowls200_from_recovery3_s160_bf16_m56_target90_far1_place2_loss2`：来源recovery3-step160；计划200步、GBS56/GAS1、BF16，仅最终200存档；90%目标片段内远左抓:第二放置=1:2，10%同任务其他帧，目标loss2倍/原样本归一化，无其他任务复习。实际GPU验证和训练状态待后续取证，不计为完成。
+
+- 服务器真实数据CPU预检通过：50示范、15609帧，整轮精确远抓3360/放置6720/背景1120，首批50/56目标样本且loss权重2。GPU三步验证通过（allocated77.71GiB/reserved85.72GiB）；正式训练进程已进入200步循环，保存计划实际为[200]，当前尚未完成或测评。
+
+- 正式训练已确认执行4/200步，loss和梯度日志正常；证据 `refs/data_selection/stack_bowls_two_target12_started_evidence.json`。训练与最终闭环尚未完成。
+
+### 2026-10-22 训练来源纠正
+
+用户明确本次起点为 `20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200/hf_ckpt`，而非 recovery3-step160。`20261022_2120_bowls200_from_recovery3_s160_bf16_m56_target90_far1_place2_loss2` 来源错误；实际已完成200步、最终0/3、OIDN错误0，不作为用户请求的续训结果，不计入正确来源模型继承链。原日志、视频和模型未删除。
+
+正确配方 `configs/training_recipes/stack_bowls200_from_weight2_s200_target90_far1_place2_loss2.json` 已上传并重新启动流水线：来自第一版step200，再训200；目标池90%内远左抓:第二放置=1:2，同任务其他帧10%，目标loss2倍；GBS56/GAS1，仅保存最终200，最终3回合且全部录像。状态以新run实际记录为准。
+
+- 正确起点新run：`20261022_2149_bowls200_from_weight2_s200_bf16_m56_target90_far1_place2_loss2`，实际plan.source_model已核验为第一版weight2sample-step200。真实数据CPU通过，配额3360/6720/1120，目标loss2；当前GPU三步预检运行中，正式完成状态待记录。
+
+### 2026-10-22 用户将左远抓门槛改为18cm
+
+25cm/6段版本 `20261022_2149_bowls200_from_weight2_s200_bf16_m56_target90_far1_place2_loss2` 在实际76/200步停止，进程及后代已终止，未完成最终测评；不将这76步并入新模型继承链。用户选择≥18cm，重新筛得14段左远抓1506帧，第二放置仍50段3743帧，联合去重5135/15609帧（32.90%）。
+
+新配方 `configs/training_recipes/stack_bowls200_from_weight2_s200_far18cm_target90_loss2.json` 继续从第一版weight2sample-step200重新开始，不继承被停76步权重。30%左远抓/60%第二放置/10%同任务非目标帧，目标loss2倍；200步，GBS56/GAS1，只存最终200，最后三回合全录像。新流水线已启动，实际CPU/GPU/正式步数后续取证。
+
+- 18cm新run `20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2`：真实CPU检查通过，日志确认14/50片段、远抓3360/放置6720/其余1120配额与目标loss2，source_model为第一版step200、hf_steps=[200]；三步GPU预检执行中，证据 `refs/data_selection/stack_bowls_two_far18_started_evidence.json`。
+
+### 本次提交核验（2026-10-22）
+
+18cm规则正式训练已确认164/200步，约4.8秒/步，GPU三步验证通过（allocated77.71GiB/reserved85.87GiB）。来源是第一版weight2sample-step200，目标14/50段，配额3360/6720/1120，loss2倍，只保存最终200；最终闭环尚未完成。本次重跑69项配方＋30项非Torch筛选/继承测试，合计99项通过；训练在跑时未执行Torch导入测试或额外GPU测试。重依赖loss和实际GPU证据来自各轮启动前检查，不能当作本次重新执行。
+
+### 2026-10-22 18cm版本最终状态与退化分析
+
+`20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2` 实际完成200步，最终HF已验证1708张量BF16；闭环3回合0/3，种子100000/100001/100002，OIDN错误0，三份视频完整，结果位于run下 `evaluation_200/stack_bowls_two`。来源确认第一版weight2sample-step200。用户观察抓取退化，尚无独立分阶段成功率统计。
+
+训练loss前20均值0.04248→后20均值0.035895，FM0.03547→0.029295，梯度有限；不同采样/权重分布的loss不能横向作为成功率证据。第一版均匀主任务采样且7436抓取帧loss2；最新策略整任务替换后，原6293帧落入背景、loss变1，按抽样概率×loss倍率估算训练系数只剩原约8.3%，不是实测参数梯度。右手对准/下降/闭爪预计抽样1321→219次/11200总样本。
+
+当前证据支持采样覆盖与旧重要性丢失是退化的重要嫌疑，但不证明唯一原因；14个左远抓事件与60%第二放置不能覆盖完整左右手通用抓取。episode起始TCP距离是难度代理，非碗沿/夹爪相对几何判定。下一步建议第一版step200保留作对照，完整任务覆盖为主，目标小比例增强并保留原抓取权重；尚未授权或启动新训练。证据 `refs/data_selection/stack_bowls_weight2_vs_far18_final_analysis.json`。
+
+### 2026-10-22 18cm目标训练完成与并行评测验证
+
+`20261022_2200_bowls200_from_weight2_s200_bf16_m56_target90_far18cm1_place2_loss2` 实际完成200步，最终BF16 HF1708张量验证通过；驻留串行闭环0/3，seeds100000/100001/100002，OIDN错误0，3回合视频完整。
+
+用户批准单任务回合并行功能并要求本次验证不录像。基于同一个最终step200，额外启动3路单回合共享模型验证，输出 `episode_parallel3_novideo_20261022_224804`；不是新增训练。92项相关CPU测试通过，已见3路同时运行及零视频，最终汇总待完成。
+
+- 单任务回合并行验证完成：三个种子100000/100001/100002，结果0/1、0/1、1/1，合计1/3；共享服务26162只加载一次、3连接、B1，真实重叠，OIDN错误0、无录像；峰值42.21GiB，总耗时174.71秒。与该模型此前驻留串行0/3不一致，不计为训练进步。相同HF重载路径/同种子/无录像串行对照 `episode_serial_novideo_control_20261022_225402` 仍运行，94项CPU通过后按用户要求先push。
+
+### 2026-10-22 23:02 第一版抓取恢复1:5:4
+
+用户批准第二种方案并使用新多回合并行评测。新run `20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel`；来源第一版weight2sample-step200，计划200步，GBS56/GAS1，非目标10%/完整抓取50%/第二放置40%；抓取内左右手1:1、左loss3右loss2、放置2、背景1。仅保存最终200，驻留模型三回合并行且全部录像，不关机。服务器72项配方、42项选择/损失、9项并行回合契约测试通过；真实CPU和GPU预检状态后续记录，不计为已完成。
+
+- 本轮实际CPU通过：左右抓各2800/放置4480/背景1120；collator后首批权重3有14个、权重2有36个、权重1有6个。GPU三步验证通过；正式训练已启动，当前日志步数[]。并行job数3、固定种子和录像数量CPU校验通过，最终闭环待实际运行。证据 `refs/data_selection/stack_bowls_two_mix154_started_evidence.json`。
+
+### 2026-10-22 1:5:4最终闭环与诊断边界
+
+`20261022_2302_bowls200_from_weight2_s200_bf16_m56_mix154_left3_right2_place2_eval3parallel` 实际完成200步，最终BF16 HF保存在 `checkpoints/global_step_200/hf_ckpt`，三路共享驻留服务评测聚合完成，种子100000/100001/100002，0/3，OIDN错误0，全部三回合录像。结果位于 `evaluation_200/stack_bowls_two/summary.json`，分回合位于 `episodes/episode_000` 等。未关机。
+
+CPU确认2800左抓/2800右抓/4480放置/1120背景、loss3/2/2/1正确。训练total前20均值0.04609→后20均值0.04176，FM0.038505→0.034405、梯度有限；权重分布已改变，不能与第一版loss横比。第一版7436抓取目标已全部恢复；本轮仍差，说明“旧抓取覆盖不足”不能独立解释全部退化。
+
+第一版所谓抓碗改善来自用户视频观察，完整任务清洁重测同样0/3，尚无同条件分阶段抓取统计。另查已完成18cm模型不录像对照：同HF和相同三个场景种子，三路并行1/3、HF重新加载串行0/3，差异原因未确定，不能认为评测数值等价。当前未授权或启动新的GPU对照/训练。下一步建议固定串行链路做第一版与最新版本的成对抓取阶段比较，再判断续训步数/学习率/任务分布影响。证据 `refs/data_selection/stack_bowls_mix154_final_diagnosis.txt`。
+
+### 2026-10-22 23:39 第一版原方法续训100步对照
+
+用户将续训200改为100。run `20261022_2339_bowls_add100_from_weight2_s200_bf16_m56_original_recipe_replay10pct_serial3` 从第一版weight2sample-step200开始，恢复第一版全部train采样控制：均匀主任务、原7436帧loss2、10%其他任务单任务轮换复习每5步切换、GBS56/GAS1/BF16、seed3，关闭新角色/目标池/概率倍率参数。直接读取来源HF冻结的重要性配置并校验7436个坐标和唯一倍率2。与第一版实际recipe对照除预算100外train字段相同。
+
+原峰值LR1e-4和下限5e-5不变，本轮cosine按100步预算衰减；HF续训不恢复优化器状态，不能表述为无缝恢复原optimizer。仅最终100存档，最终固定100000/100001/100002串行三回合且全录像，复用驻留模型，不关机。启动比较脚本首次因浅拷贝误改内存steps字段在GPU前拒绝，已修为深拷贝并通过不修改原配置测试，未修改原始文件/模型。实际CPU/GPU/正式步数后续记录。
+
+- 原方法100步实际CPU预检通过，1250个示范/250626帧（含10%其他任务复习池），首批56样本中24个目标权重2，HF计划仅[100]；来源第一版step200已核验。当前GPU预检状态见 `refs/data_selection/stack_bowls_original100_started_evidence.json`，正式/闭环状态后续更新。
+
+### 2026-10-23 原方法100步终态与增加放碗约10%续训
+
+`20261022_2339_bowls_add100_from_weight2_s200_bf16_m56_original_recipe_replay10pct_serial3` 实际完成100步，来源第一版weight2sample-step200，最终串行3回合1/3，种子100000/100001/100002，OIDN错误0，3视频；最终step100保留。用户批准基于此step100再训100，并加入约10%放置样本2倍加权，评测改为最新单任务3回合并行。
+
+新run `20261023_0003_bowls_add100_from_original_s100_bf16_m56_grasp2_place10pct2_replay10pct_eval3parallel`：原7436抓取帧全部保留，新增第二碗最终下降前0.33秒至松爪结束共1557帧（9.98%）；并集8993帧57.61%，全部loss2，其他loss1，按原样本分母。主任务均匀采样、10%其他任务复习、GBS56/GAS1/BF16及原LR控制不变；不是额外10%定额采样，不启用角色采样/概率倍率。只存最终100，最终3回合并行全录像、复用模型，不关机。
+
+本地3项连续片段/边界契约通过，真实50条示范筛选与原目标超集检查通过；服务器整链CPU和GPU/正式训练状态另记，不把计划计为完成。
+
+- 新增放置9.98%版本真实CPU预检通过：原抓取全部保留，8993帧统一2倍，首批30/56加权。来源2339-step100、保存计划[100]及并行3回合/录像配置均已核验。服务器45项选择/CPU损失与72项配方测试通过，本地114项不导入Torch的CPU测试通过；GPU和正式训练状态以 `refs/data_selection/stack_bowls_place10_started_evidence.json` 为准，不当作闭环完成。
+
+### 2026-10-23 增加9.98%放置帧100步终态与耗时
+
+20261023_0003 run实际100步完成、来源2339-step100；最终三路驻留评测0/3，种子100000/100001/100002，OIDN错误0，三视频完整，三个回合均900步失败。结果和模型保持原目录，本次未删存档或改参数。
+
+评测总耗时350.735秒，三路启动差约4毫秒，总仿真窗口350.628秒，确认未串行。客户端循环累计口径326.5/282.0/279.6秒，客户端推理口径15.9/18.2/17.5秒；共享服务54次推理合计50.63秒、中位0.974秒。三视频1226/925/877帧（合计3028），2FPS，物理时长612.384/461.972/437.732秒；视频时间不是墙钟耗时。当前未分开计时物理步进、图像采集、录像及等待，不能声称录像单项解释全部增量。
+
+找到的旧快速试跑为18cm三路无录像：仿真窗口116.597秒、总174.707秒（含加载），43次推理合计22.75秒、中位0.512秒；其中第三回合310步成功退出，其余900步。它与本次模型、录像及动作轨迹不同，不是严格性能对照。用户所述“两回合带视频约2分钟”的具体目录待确认；已有录两回合旧档案实际测三回合，未找到严格匹配记录。本次仅只读诊断，没有GPU测试或改动评测。证据 refs/data_selection/stack_bowls_parallel_timing_comparison.json 和 stack_bowls_place10_final_evidence.json。
+
+### 2026-10-23 08:18 回到原抓取策略再训100步、不录像并行评测
+
+用户指定来源仍为 `20261022_2339_bowls_add100_from_weight2_s200_bf16_m56_original_recipe_replay10pct_serial3/checkpoints/global_step_100/hf_ckpt`，不使用0003新增放置目标那轮。新run `20261023_0818_bowls_add100_from_original_s100_bf16_m56_original_grasp2_replay10pct_parallel3_novideo`。直接继承来源冻结的7436抓取坐标、统一2倍loss；不加放碗目标，不使用分层采样或采样倍率；放碗仍可作为正常loss1普通样本出现。均匀主任务、10%其他任务复习每5步换任务、GBS56/GAS1/BF16、原LR保持。
+
+本轮计划100步，仅最终100，单任务3回合并行，不录像，种子100000/100001/100002，复用驻留模型、不关机。配方 `configs/training_recipes/stack_bowls_add100_from_original_s100_grasp2_parallel3_novideo.json`。CPU配方与拆分3个无视频job校验通过，服务器完整测试通过，真实数据/GPU/正式进度后续记录，暂不计为完成。启动前空闲约43GiB，安全预算16.06GiB，未删除产物。
+
+- 本轮实际CPU整链通过，首批24/56目标权重2；冻结策略恰7436帧且SHA与来源原策略一致，三个回合视频数均0。GPU三步验证通过（allocated77.71GiB/reserved85.72GiB）；正式训练进程已启动，尚未记录完成步数，闭环待完成。证据 `refs/data_selection/stack_bowls_original_grasp100_parallel3_novideo_started.json`。
+
+### 2026-10-23 0818原抓取100步最终结果与订书机准备
+
+0818 run从2339-step100实际续训100步完成，最终step100核验通过；三路并行不录像1/3，种子100000/100001/100002，对应0/0/1，无OIDN错误，复用驻留服务，未关机。原7436抓取帧统一2倍策略与固定规则坐标指纹一致。结果 `evaluation_100/stack_bowls_two/summary.json`，终态证据 `refs/data_selection/stack_bowls_original_grasp100_parallel3_novideo_final.json`。
+
+用户要求后续夹碗复习维持2倍，已增加固定登记与prepare自动冻结，来源策略缺失时也装入；明确冲突报错。不修改本轮冻结产物。当前训练完成后同步服务器并通过15项相关纯CPU契约及真实新任务复习链检查。
+
+订书机只完成准备：50条7731帧，窄候选50段2282帧29.52%（左22/右28），抓后搬运宽参考3595帧46.50%。本地/服务器数值筛选一致，未做视频抽检、未启动训练。后续训练完成三回合带视频并行评测是用户确认的要求，但尚无订书机训练预算/配方。50帧窗口的末尾填充风险和代理判据边界见专用指南。证据 `refs/data_selection/move_stapler_pad_preparation_cpu_verified.json`。本次完整CPU回归53项选择/损失、72项配方、9项回合并行，共134项通过。
+
+### 2026-10-23 0847 订书机宽片段200步（启动中）
+
+来源0818-step100，主任务move_stapler_pad，200步，3595/7731目标帧loss×2、主任务均匀采样，10%轮换复习、夹碗固定7436×2。GBS56/GAS1/BF16；用户最新授权仅保存200。最终驻留三回合并行、全录像、不关机。run `20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video`。目前CPU整链预检进行中，尚不累计完成步数或成功率。启动前可用30.43GiB，最终一份安全预算16.06GiB，无删除产物。
+
+- 启动检查更新：真实CPU1300条/258357帧通过，首批21/56命中2倍；50段连续坐标恰3595且覆盖到末帧。GPU三步通过，峰值allocated77.71GiB/reserved85.72GiB。流水线进入正式200步训练，尚未核验完成或闭环成功率。证据 `refs/data_selection/move_stapler_pad_broad200_started.json` 与 `move_stapler_pad_broad200_coordinate_contract.json`。
+
+### 2026-10-23 09:08 用户指定删除三版存档（已完成）
+
+- `/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200`：已删除。
+- `/root/autodl-tmp/data/outputs/20261022_2339_bowls_add100_from_weight2_s200_bf16_m56_original_recipe_replay10pct_serial3/checkpoints/global_step_100`：已删除。
+- `/root/autodl-tmp/data/outputs/20261023_0003_bowls_add100_from_original_s100_bf16_m56_grasp2_place10pct2_replay10pct_eval3parallel/checkpoints/global_step_100`：已删除。
+
+三份目录合计约35.68GiB；可用空间18.51→54.18GiB。仅删除上述存档，run目录、日志、评测和视频保留；0818来源及0847订书机run未改动。既往“保留”条目是历史状态，以本条后续清理事件为准。证据 `refs/data_selection/20261023_delete_1246_2339_0003_completed.json`。
+
+### 2026-10-23 0847宽片段订书机训练终态与白色扩展准备
+
+`20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video` 从0818-step100实际完成200更新；日志最后200/200为09:07:43，正式循环约17分14秒。主任务10080样本、复习1120。仅最终step200，1708个BF16张量核验通过。三回合并行带视频0/3，seeds100000/100001/100002，OIDN错误0，全部三回合录像、同一服务进程7237；未关机。结果目录为本run下 `evaluation_200/move_stapler_pad`，证据 `refs/data_selection/move_stapler_pad_broad200_final.json`。
+
+随后按用户最新要求，保留3595宽目标，增加白色base3的9条抓取段772帧，重叠9帧去重，联合4358/7731（56.37%），loss2，非目标loss1。已核对真实示范外观与原始HDF5映射，129项CPU测试通过。此次仅准备样本，未启动新训练，不新增完成步数；不使用先前口头提及的窄方案。详见订书机筛选指南与 `refs/data_selection/move_stapler_pad_broad_white_grasp_v1/cpu_verified.json`。

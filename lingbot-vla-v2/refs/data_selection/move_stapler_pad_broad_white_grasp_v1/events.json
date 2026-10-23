@@ -1,0 +1,434 @@
+[
+  {
+    "episode_index": 159,
+    "source_episode": 9,
+    "model": "048_stapler/base3",
+    "arm": "right",
+    "start_frame": 0,
+    "end_frame": 84,
+    "grasp": {
+      "closure_crossing_frame": 59,
+      "accepted": true,
+      "rejection": null,
+      "alignment_frame": 37,
+      "close_start_frame": 53,
+      "close_end_frame": 63,
+      "arrival_frame": 47,
+      "descent_m": 0.09056434026826521,
+      "forward_fraction": 1.0,
+      "downward_angle_at_close_deg": 0.027595826097355634,
+      "max_descent_perpendicular_error_m": 0.004451633060017191,
+      "lift_confirmation_frame": 79,
+      "stages": {
+        "aim": [
+          0,
+          29
+        ],
+        "align": [
+          30,
+          37
+        ],
+        "descend": [
+          38,
+          47
+        ],
+        "settle": [
+          48,
+          52
+        ],
+        "close": [
+          53,
+          63
+        ],
+        "lift": [
+          64,
+          84
+        ]
+      }
+    }
+  },
+  {
+    "episode_index": 162,
+    "source_episode": 12,
+    "model": "048_stapler/base3",
+    "arm": "left",
+    "start_frame": 0,
+    "end_frame": 83,
+    "grasp": {
+      "closure_crossing_frame": 58,
+      "accepted": true,
+      "rejection": null,
+      "alignment_frame": 36,
+      "close_start_frame": 52,
+      "close_end_frame": 62,
+      "arrival_frame": 46,
+      "descent_m": 0.0919838679583409,
+      "forward_fraction": 1.0,
+      "downward_angle_at_close_deg": 0.3548006309739547,
+      "max_descent_perpendicular_error_m": 0.004785463641444199,
+      "lift_confirmation_frame": 78,
+      "stages": {
+        "aim": [
+          0,
+          28
+        ],
+        "align": [
+          29,
+          36
+        ],
+        "descend": [
+          37,
+          46
+        ],
+        "settle": [
+          47,
+          51
+        ],
+        "close": [
+          52,
+          62
+        ],
+        "lift": [
+          63,
+          83
+        ]
+      }
+    }
+  },
+  {
+    "episode_index": 167,
+    "source_episode": 17,
+    "model": "048_stapler/base3",
+    "arm": "right",
+    "start_frame": 0,
+    "end_frame": 83,
+    "grasp": {
+      "closure_crossing_frame": 58,
+      "accepted": true,
+      "rejection": null,
+      "alignment_frame": 36,
+      "close_start_frame": 52,
+      "close_end_frame": 62,
+      "arrival_frame": 46,
+      "descent_m": 0.09141415318171453,
+      "forward_fraction": 1.0,
+      "downward_angle_at_close_deg": 0.1987507109814346,
+      "max_descent_perpendicular_error_m": 0.004332851183482578,
+      "lift_confirmation_frame": 78,
+      "stages": {
+        "aim": [
+          0,
+          28
+        ],
+        "align": [
+          29,
+          36
+        ],
+        "descend": [
+          37,
+          46
+        ],
+        "settle": [
+          47,
+          51
+        ],
+        "close": [
+          52,
+          62
+        ],
+        "lift": [
+          63,
+          83
+        ]
+      }
+    }
+  },
+  {
+    "episode_index": 169,
+    "source_episode": 19,
+    "model": "048_stapler/base3",
+    "arm": "right",
+    "start_frame": 0,
+    "end_frame": 83,
+    "grasp": {
+      "closure_crossing_frame": 59,
+      "accepted": true,
+      "rejection": null,
+      "alignment_frame": 37,
+      "close_start_frame": 53,
+      "close_end_frame": 63,
+      "arrival_frame": 47,
+      "descent_m": 0.09174650744863677,
+      "forward_fraction": 1.0,
+      "downward_angle_at_close_deg": 0.10093015275068688,
+      "max_descent_perpendicular_error_m": 0.005016738580631771,
+      "lift_confirmation_frame": 79,
+      "stages": {
+        "aim": [
+          0,
+          29
+        ],
+        "align": [
+          30,
+          37
+        ],
+        "descend": [
+          38,
+          47
+        ],
+        "settle": [
+          48,
+          52
+        ],
+        "close": [
+          53,
+          63
+        ],
+        "lift": [
+          64,
+          83
+        ]
+      }
+    }
+  },
+  {
+    "episode_index": 173,
+    "source_episode": 23,
+    "model": "048_stapler/base3",
+    "arm": "right",
+    "start_frame": 0,
+    "end_frame": 98,
+    "grasp": {
+      "closure_crossing_frame": 72,
+      "accepted": true,
+      "rejection": null,
+      "alignment_frame": 47,
+      "close_start_frame": 66,
+      "close_end_frame": 76,
+      "arrival_frame": 59,
+      "descent_m": 0.09080374771589994,
+      "forward_fraction": 1.0,
+      "downward_angle_at_close_deg": 0.02915605318606229,
+      "max_descent_perpendicular_error_m": 0.00767294250528859,
+      "lift_confirmation_frame": 94,
+      "stages": {
+        "aim": [
+          0,
+          39
+        ],
+        "align": [
+          40,
+          47
+        ],
+        "descend": [
+          48,
+          59
+        ],
+        "settle": [
+          60,
+          65
+        ],
+        "close": [
+          66,
+          76
+        ],
+        "lift": [
+          77,
+          98
+        ]
+      }
+    }
+  },
+  {
+    "episode_index": 179,
+    "source_episode": 29,
+    "model": "048_stapler/base3",
+    "arm": "left",
+    "start_frame": 0,
+    "end_frame": 82,
+    "grasp": {
+      "closure_crossing_frame": 57,
+      "accepted": true,
+      "rejection": null,
+      "alignment_frame": 34,
+      "close_start_frame": 51,
+      "close_end_frame": 61,
+      "arrival_frame": 44,
+      "descent_m": 0.08907780131470233,
+      "forward_fraction": 1.0,
+      "downward_angle_at_close_deg": 0.48350863487440243,
+      "max_descent_perpendicular_error_m": 0.004923208348056003,
+      "lift_confirmation_frame": 77,
+      "stages": {
+        "aim": [
+          0,
+          26
+        ],
+        "align": [
+          27,
+          34
+        ],
+        "descend": [
+          35,
+          44
+        ],
+        "settle": [
+          45,
+          50
+        ],
+        "close": [
+          51,
+          61
+        ],
+        "lift": [
+          62,
+          82
+        ]
+      }
+    }
+  },
+  {
+    "episode_index": 181,
+    "source_episode": 31,
+    "model": "048_stapler/base3",
+    "arm": "right",
+    "start_frame": 0,
+    "end_frame": 83,
+    "grasp": {
+      "closure_crossing_frame": 59,
+      "accepted": true,
+      "rejection": null,
+      "alignment_frame": 37,
+      "close_start_frame": 53,
+      "close_end_frame": 63,
+      "arrival_frame": 47,
+      "descent_m": 0.09137761834648728,
+      "forward_fraction": 1.0,
+      "downward_angle_at_close_deg": 0.48335435272860067,
+      "max_descent_perpendicular_error_m": 0.004542789516578327,
+      "lift_confirmation_frame": 79,
+      "stages": {
+        "aim": [
+          0,
+          29
+        ],
+        "align": [
+          30,
+          37
+        ],
+        "descend": [
+          38,
+          47
+        ],
+        "settle": [
+          48,
+          52
+        ],
+        "close": [
+          53,
+          63
+        ],
+        "lift": [
+          64,
+          83
+        ]
+      }
+    }
+  },
+  {
+    "episode_index": 183,
+    "source_episode": 33,
+    "model": "048_stapler/base3",
+    "arm": "right",
+    "start_frame": 0,
+    "end_frame": 83,
+    "grasp": {
+      "closure_crossing_frame": 59,
+      "accepted": true,
+      "rejection": null,
+      "alignment_frame": 37,
+      "close_start_frame": 53,
+      "close_end_frame": 63,
+      "arrival_frame": 47,
+      "descent_m": 0.09248630034217531,
+      "forward_fraction": 1.0,
+      "downward_angle_at_close_deg": 0.10119765610628345,
+      "max_descent_perpendicular_error_m": 0.005423369935665957,
+      "lift_confirmation_frame": 79,
+      "stages": {
+        "aim": [
+          0,
+          29
+        ],
+        "align": [
+          30,
+          37
+        ],
+        "descend": [
+          38,
+          47
+        ],
+        "settle": [
+          48,
+          52
+        ],
+        "close": [
+          53,
+          63
+        ],
+        "lift": [
+          64,
+          83
+        ]
+      }
+    }
+  },
+  {
+    "episode_index": 184,
+    "source_episode": 34,
+    "model": "048_stapler/base3",
+    "arm": "right",
+    "start_frame": 0,
+    "end_frame": 84,
+    "grasp": {
+      "closure_crossing_frame": 60,
+      "accepted": true,
+      "rejection": null,
+      "alignment_frame": 37,
+      "close_start_frame": 54,
+      "close_end_frame": 64,
+      "arrival_frame": 47,
+      "descent_m": 0.08994825888687219,
+      "forward_fraction": 1.0,
+      "downward_angle_at_close_deg": 0.10111635034585809,
+      "max_descent_perpendicular_error_m": 0.004503037767985299,
+      "lift_confirmation_frame": 80,
+      "stages": {
+        "aim": [
+          0,
+          29
+        ],
+        "align": [
+          30,
+          37
+        ],
+        "descend": [
+          38,
+          47
+        ],
+        "settle": [
+          48,
+          53
+        ],
+        "close": [
+          54,
+          64
+        ],
+        "lift": [
+          65,
+          84
+        ]
+      }
+    }
+  }
+]

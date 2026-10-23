@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "task": "move_stapler_pad",
+  "rule_version": "stapler_broad_plus_white_grasp_v1",
+  "dataset_name": "robotwin",
+  "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30",
+  "normalization": "sample_count",
+  "multiplier": 2,
+  "selected_frames": "selected_frames.json",
+  "selected_frames_sha256": "5aca2d73076abe43c5cacd30679c479c431d6a4e2c3ef6a6f1880a22643aa7d6"
+}

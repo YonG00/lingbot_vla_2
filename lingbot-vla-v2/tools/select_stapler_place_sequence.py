@@ -12,6 +12,7 @@ from experiment.data_selection.stapler_place_sequence import StaplerPlaceSetting
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--task',required=True)
+    p.add_argument('--selection-scope',choices=['preplace','postgrasp'],default='preplace')
     p.add_argument('--dataset-root',type=Path)
     p.add_argument('--frames-json',type=Path,help='已提取的只读数值轨迹缓存；和dataset-root二选一')
     p.add_argument('--fps',type=float)
@@ -44,6 +45,13 @@ def main():
         p.error('selection rule task must match --task; provide a task-specific --settings')
     settings=Settings(**rule['settings']);settings.validate()
     spec=json.loads(a.spec.read_text());summary,events,selected=select_rows(rows,spec,fps,settings)
+    if a.selection_scope=='postgrasp':
+        selected=events['broad_reference_rows']
+        summary.update(selected_frames=len(selected),selected_fraction=len(selected)/len(rows))
+        summary.pop('stage_frames',None)
+        summary.pop('anchors_reaching_episode_end',None)
+        summary.pop('mean_real_future_frames',None)
+    summary['selection_scope']=a.selection_scope
     digest=lambda obj:hashlib.sha256(json.dumps(obj,sort_keys=True,separators=(',',':')).encode()).hexdigest()
     summary.update(rule_version=rule['rule_version'],task=a.task,fps=fps,settings=asdict(settings),numeric_source_sha256=digest(sorted(rows,key=lambda r:(r['episode_index'],r['frame_index']))),spec_sha256=digest(spec),training_modified=False,automatic_selection=True)
     a.output_dir.mkdir(parents=True,exist_ok=False)

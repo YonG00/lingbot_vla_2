@@ -1,0 +1,46 @@
+{
+  "task": "move_stapler_pad",
+  "white_model": "048_stapler/base3",
+  "white_episodes": [
+    159,
+    162,
+    167,
+    169,
+    173,
+    179,
+    181,
+    183,
+    184
+  ],
+  "white_sequences": 9,
+  "white_grasp_frames": 772,
+  "broad_frames": 3595,
+  "new_frames": 763,
+  "overlap_frames": 9,
+  "selected_frames": 4358,
+  "total_frames": 7731,
+  "selected_fraction": 0.5637045660328548,
+  "arm_counts": {
+    "right": 7,
+    "left": 2
+  },
+  "stage_frames": {
+    "aim": 275,
+    "align": 72,
+    "descend": 92,
+    "settle": 48,
+    "close": 99,
+    "lift": 186
+  },
+  "subsampled": false,
+  "kinematic_proxy_only": true,
+  "loss_multiplier": 2,
+  "normalization": "sample_count",
+  "importance_sampling": false,
+  "rule_version": "stapler_broad_plus_white_grasp_v1",
+  "inputs_sha256": {
+    "/tmp/stapler_numeric_frames.json": "661ee246b18e75b9a04a09bda4109737589214ca81e5019cc8b5d0c17f17df5a",
+    "/tmp/stapler_episode_catalog.json": "f28a7f6d329de9ef1c6e907eb5adee8f1d7e2fe77ab701c4a8348ff1423304dd",
+    "/data/experiments/stack_bowls_sample_weighting/selection_stapler_broad200/selected_frames.json": "6301c09b5e36fab8325e6c6522c782a118020f45ca3fd8821d4c4de916718add"
+  }
+}

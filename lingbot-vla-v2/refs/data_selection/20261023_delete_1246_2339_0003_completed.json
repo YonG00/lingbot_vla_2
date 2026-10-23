@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-10-23T09:08:52.354391",
+  "authorization": "用户指定删除第一版1246、原方法2339、分叉0003的存档",
+  "deleted": [
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261022_1246_bowls200_from_recovery3_s160_bf16_m56_replay10pct_weight2sample/checkpoints/global_step_200",
+      "bytes": 12769699455
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261022_2339_bowls_add100_from_weight2_s200_bf16_m56_original_recipe_replay10pct_serial3/checkpoints/global_step_100",
+      "bytes": 12769699467
+    },
+    {
+      "path": "/root/autodl-tmp/data/outputs/20261023_0003_bowls_add100_from_original_s100_bf16_m56_grasp2_place10pct2_replay10pct_eval3parallel/checkpoints/global_step_100",
+      "bytes": 12769976096
+    }
+  ],
+  "preserved": "run目录、日志、评测与视频；0818及0847等其他run不变",
+  "free_before_gib": 18.505416870117188,
+  "free_after_gib": 54.1839599609375
+}

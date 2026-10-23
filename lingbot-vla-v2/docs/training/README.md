@@ -9,9 +9,9 @@ JSON配置、数据清单和证据仍分别放configs、refs等工程目录，�
 
 | 文档 | 入口 |
 |---|---|
-| 哪些模型仍保留、哪些已删除、哪些尚待生成 | [存档清单](records/checkpoint_inventory_zh.md) |
-| 任务训练步数与评测对照 | [查看](records/task_training_statistics_zh.md) |
-| 训练与闭环评测流水 | [查看](records/training_history_zh.md) |
+| 哪些模型仍保留、哪些已删除、哪些尚待生成 | [存档清单](records/README.md) |
+| 任务训练步数与评测对照 | [查看](records/README.md) |
+| 训练与闭环评测流水 | [查看](records/README.md) |
 
 ## 参数化课程与补课
 
@@ -56,12 +56,12 @@ JSON配置、数据清单和证据仍分别放configs、refs等工程目录，�
 
 ## 目录约定
 
-- `records/`：跨实验流水、任务累计和逐轮闭环对照。
+- `records/stage2/`：技能训练、复习与补课；`records/stage3/`：难学任务样本加权实验。各含流水、任务统计及存档记录，见[分类导航](records/README.md)。
 - `recipes/`：课程表、采样、存档和补课框架的使用说明。
 - `experiments/`：按实验主题分组，保留当时配置、结果与证据边界。
 - `data/`：数据筛选、审核方法和规模统计。
 - `evaluation/`：闭环评测环境和运行方法。
 
 新增训练文档先加入本索引；系统改动仍登记[AL改动台账](../auto_learning/AL_PENDING_CHANGES.md)。
-每轮训练结束后必须更新records中的流水、任务累计和存档清单；闭环未结束先标待定，完成后补齐，再检查、提交并push对应实验分支。
+每轮训练结束后必须更新records所属阶段（stage2或stage3）中的流水、任务累计和存档清单；闭环未结束先标待定，完成后补齐，再检查、提交并push对应实验分支。
 运行目录新命名采用`YYYYMMDD_HHMM_说明`，如`20261020_2002_switch_pillbottle_stapler`；历史run保持原路径。

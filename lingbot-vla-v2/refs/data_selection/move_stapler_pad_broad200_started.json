@@ -1,0 +1,49 @@
+{
+  "output": "/root/autodl-tmp/data/outputs/20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video",
+  "cpu": {
+    "state": "cpu_pass",
+    "episodes": 1300,
+    "frames": 258357,
+    "original_beta_time_exact": true,
+    "al_enabled": false,
+    "ee_enabled": false,
+    "model_initialized": false,
+    "optimizer_steps": 0,
+    "gpu_tested": false,
+    "recipe_sampler": true,
+    "virtual_epoch_steps": 200,
+    "loader_microbatches": 1,
+    "real_frames": 258357,
+    "sample_weight_count": 56,
+    "sample_weight_selected": 21,
+    "sample_weight_normalization": "sample_count",
+    "sample_weight_multipliers": [
+      2.0
+    ]
+  },
+  "probe": {
+    "state": "three_step_probe_complete",
+    "optimizer_steps": 3,
+    "peak_allocated_gib": 77.70731019973755,
+    "peak_reserved_gib": 85.724609375,
+    "micro": 56,
+    "gas": 1
+  },
+  "pipeline": {
+    "state": "training",
+    "steps": 200
+  },
+  "probe.log": {
+    "step_lines": [
+      "Step: 1/3 [00:25<00:51, 25.95s/it]10/23/2026 08:49:40 - INFO - __main__ - Step 1/200, Epoch 1, Loss 0.0486, VLA_Loss 0.0423, Depth_Loss 0.5848, Future_Depth_Loss 0.6498, FutureVideo_Loss 0.0641, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, GradNorm 0.7773, LR 8.75e-05, Expert_LR 2.47e-04, StepTime 21.049s, Depth_Forward_Time  3.427s, Ignore_Batch_Num 0",
+      "Step: 2/3 [00:36<00:16, 16.73s/it]10/23/2026 08:49:51 - INFO - __main__ - Step 2/200, Epoch 1, Loss 0.0561, VLA_Loss 0.0499, Depth_Loss 0.5448, Future_Depth_Loss 0.6418, FutureVideo_Loss 0.0775, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 0.7930, AvgSigmoid 0.0757, GradNorm 0.4473, LR 6.25e-05, Expert_LR 1.77e-04, StepTime 10.281s, Depth_Forward_Time  0.776s, Ignore_Batch_Num 0",
+      "Step: 3/3 [00:45<00:00, 13.47s/it]10/23/2026 08:50:00 - INFO - __main__ - Step 3/200, Epoch 1, Loss 0.0542, VLA_Loss 0.0481, Depth_Loss 0.5473, Future_Depth_Loss 0.6472, FutureVideo_Loss 0.0657, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 0.8320, AvgSigmoid 0.0747, GradNorm 0.5586, LR 5.00e-05, Expert_LR 1.41e-04, StepTime 9.570s, Depth_Forward_Time  0.772s, Ignore_Batch_Num 0"
+    ],
+    "tail": "50:00 - INFO - __main__ - [smoke] NO_CHECKPOINT\uff1a\u8df3\u8fc7\u6536\u5c3e DCP/HF (step=3, reached_max_steps=True, al_finished=False)\n\nStep: 3/3 [00:45<00:00, 15.27s/it]\n10/23/2026 08:50:00 - INFO - __main__ - \u8bad\u7ec3\u7ed3\u675f: epoch=1/1, global_step=3\u3002\n10/23/2026 08:50:01 - INFO - __main__ - [async_hf] summary: {\"total\": 0, \"hf_success\": 0, \"hf_failed\": 0, \"eval_submitted\": 0, \"eval_skipped\": 0, \"eval_failed\": 0, \"failures\": []}\n"
+  },
+  "train.log": {
+    "step_lines": [],
+    "tail": "Overwriting feature type 'VideoFrame' (VideoFrame -> VideoFrame)\n"
+  },
+  "gpu": "3 MiB, 0 %"
+}

@@ -1,0 +1,188 @@
+{
+  "output": "/root/autodl-tmp/data/outputs/20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video",
+  "cpu": {
+    "state": "cpu_pass",
+    "episodes": 1300,
+    "frames": 258357,
+    "original_beta_time_exact": true,
+    "al_enabled": false,
+    "ee_enabled": false,
+    "model_initialized": false,
+    "optimizer_steps": 0,
+    "gpu_tested": false,
+    "recipe_sampler": true,
+    "virtual_epoch_steps": 200,
+    "loader_microbatches": 1,
+    "real_frames": 258357,
+    "sample_weight_count": 56,
+    "sample_weight_selected": 21,
+    "sample_weight_normalization": "sample_count",
+    "sample_weight_multipliers": [
+      2.0
+    ]
+  },
+  "probe": {
+    "state": "three_step_probe_complete",
+    "optimizer_steps": 3,
+    "peak_allocated_gib": 77.70731019973755,
+    "peak_reserved_gib": 85.724609375,
+    "micro": 56,
+    "gas": 1
+  },
+  "pipeline": {
+    "state": "complete",
+    "checkpoints": [
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      }
+    ],
+    "evaluation": [
+      {
+        "state": "complete",
+        "task": "move_stapler_pad",
+        "label": "recipe_200",
+        "model": "/root/autodl-tmp/data/outputs/20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 3,
+        "server_pid": 7237,
+        "shared_server": true,
+        "episode_results": [
+          {
+            "state": "complete",
+            "task": "move_stapler_pad",
+            "label": "recipe_200",
+            "model": "/root/autodl-tmp/data/outputs/20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+            "successes": 0,
+            "episodes": 1,
+            "success_rate": 0.0,
+            "seeds": [
+              100000
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "recorded_episodes": 1,
+            "job_id": "move_stapler_pad:episode:0",
+            "episode_index": 0,
+            "scene_seed": 100000,
+            "server_pid": 7237,
+            "shared_server": true
+          },
+          {
+            "state": "complete",
+            "task": "move_stapler_pad",
+            "label": "recipe_200",
+            "model": "/root/autodl-tmp/data/outputs/20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+            "successes": 0,
+            "episodes": 1,
+            "success_rate": 0.0,
+            "seeds": [
+              100001
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "recorded_episodes": 1,
+            "job_id": "move_stapler_pad:episode:1",
+            "episode_index": 1,
+            "scene_seed": 100001,
+            "server_pid": 7237,
+            "shared_server": true
+          },
+          {
+            "state": "complete",
+            "task": "move_stapler_pad",
+            "label": "recipe_200",
+            "model": "/root/autodl-tmp/data/outputs/20261023_0847_stapler200_from_bowls0818_s100_bf16_m56_postgrasp2_replay10pct_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+            "successes": 0,
+            "episodes": 1,
+            "success_rate": 0.0,
+            "seeds": [
+              100002
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "recorded_episodes": 1,
+            "job_id": "move_stapler_pad:episode:2",
+            "episode_index": 2,
+            "scene_seed": 100002,
+            "server_pid": 7237,
+            "shared_server": true
+          }
+        ],
+        "episode_parallel": true
+      }
+    ],
+    "remediation": [],
+    "progress": {
+      "confirmed_optimizer_steps": 200,
+      "main_steps": {
+        "move_stapler_pad": 200
+      },
+      "samples_by_task": {
+        "move_stapler_pad": 10080,
+        "adjust_bottle": 56,
+        "beat_block_hammer": 56,
+        "click_alarmclock": 56,
+        "click_bell": 56,
+        "dump_bin_bigbin": 56,
+        "hanging_mug": 56,
+        "move_playingcard_away": 56,
+        "open_laptop": 56,
+        "open_microwave": 56,
+        "place_a2b_left": 56,
+        "place_a2b_right": 56,
+        "place_bread_basket": 56,
+        "place_can_basket": 56,
+        "place_container_plate": 56,
+        "place_empty_cup": 56,
+        "place_object_basket": 28,
+        "place_object_stand": 28,
+        "place_shoe": 28,
+        "press_stapler": 28,
+        "rotate_qrcode": 28,
+        "shake_bottle": 28,
+        "shake_bottle_horizontally": 28,
+        "stack_blocks_two": 28,
+        "stack_bowls_two": 28,
+        "turn_switch": 28
+      },
+      "replay_samples": 1120
+    },
+    "shutdown": false
+  },
+  "probe.log": {
+    "step_lines": [
+      "Step: 1/3 [00:25<00:51, 25.95s/it]10/23/2026 08:49:40 - INFO - __main__ - Step 1/200, Epoch 1, Loss 0.0486, VLA_Loss 0.0423, Depth_Loss 0.5848, Future_Depth_Loss 0.6498, FutureVideo_Loss 0.0641, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, GradNorm 0.7773, LR 8.75e-05, Expert_LR 2.47e-04, StepTime 21.049s, Depth_Forward_Time  3.427s, Ignore_Batch_Num 0",
+      "Step: 2/3 [00:36<00:16, 16.73s/it]10/23/2026 08:49:51 - INFO - __main__ - Step 2/200, Epoch 1, Loss 0.0561, VLA_Loss 0.0499, Depth_Loss 0.5448, Future_Depth_Loss 0.6418, FutureVideo_Loss 0.0775, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 0.7930, AvgSigmoid 0.0757, GradNorm 0.4473, LR 6.25e-05, Expert_LR 1.77e-04, StepTime 10.281s, Depth_Forward_Time  0.776s, Ignore_Batch_Num 0",
+      "Step: 3/3 [00:45<00:00, 13.47s/it]10/23/2026 08:50:00 - INFO - __main__ - Step 3/200, Epoch 1, Loss 0.0542, VLA_Loss 0.0481, Depth_Loss 0.5473, Future_Depth_Loss 0.6472, FutureVideo_Loss 0.0657, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 0.8320, AvgSigmoid 0.0747, GradNorm 0.5586, LR 5.00e-05, Expert_LR 1.41e-04, StepTime 9.570s, Depth_Forward_Time  0.772s, Ignore_Batch_Num 0"
+    ],
+    "tail": "50:00 - INFO - __main__ - [smoke] NO_CHECKPOINT\uff1a\u8df3\u8fc7\u6536\u5c3e DCP/HF (step=3, reached_max_steps=True, al_finished=False)\n\nStep: 3/3 [00:45<00:00, 15.27s/it]\n10/23/2026 08:50:00 - INFO - __main__ - \u8bad\u7ec3\u7ed3\u675f: epoch=1/1, global_step=3\u3002\n10/23/2026 08:50:01 - INFO - __main__ - [async_hf] summary: {\"total\": 0, \"hf_success\": 0, \"hf_failed\": 0, \"eval_submitted\": 0, \"eval_skipped\": 0, \"eval_failed\": 0, \"failures\": []}\n"
+  },
+  "train.log": {
+    "step_lines": [
+      "Epoch 1/1:  99%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 198/200 [17:04<00:09,  4.79s/it]10/23/2026 09:07:34 - INFO - __main__ - Step 198/200, Epoch 1, Loss 0.0262, VLA_Loss 0.0211, Depth_Loss 0.4315, Future_Depth_Loss 0.5112, FutureVideo_Loss 0.0530, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 0.7656, AvgSigmoid 0.0762, GradNorm 0.3398, LR 5.00e-05, Expert_LR 1.41e-04, StepTime 4.783s, Depth_Forward_Time  0.755s, Ignore_Batch_Num 0",
+      "Epoch 1/1: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2589| 199/200 [17:09<00:04,  4.79s/it]10/23/2026 09:07:39 - INFO - __main__ - Step 199/200, Epoch 1, Loss 0.0275, VLA_Loss 0.0222, Depth_Loss 0.4525, Future_Depth_Loss 0.5157, FutureVideo_Loss 0.0541, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 0.8320, AvgSigmoid 0.0767, GradNorm 0.3086, LR 5.00e-05, Expert_LR 1.41e-04, StepTime 4.795s, Depth_Forward_Time  0.763s, Ignore_Batch_Num 0",
+      "Epoch 1/1: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 200/200 [17:14<00:00,  4.79s/it]10/23/2026 09:07:43 - INFO - __main__ - Step 200/200, Epoch 1, Loss 0.0385, VLA_Loss 0.0332, Depth_Loss 0.4453, Future_Depth_Loss 0.5555, FutureVideo_Loss 0.0542, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 0.8047, AvgSigmoid 0.0747, GradNorm 0.3828, LR 5.00e-05, Expert_LR 1.41e-04, StepTime 4.784s, Depth_Forward_Time  0.758s, Ignore_Batch_Num 0"
+    ],
+    "tail": "heckpoints/global_step_200/hf_ckpt\", \"successes\": 0, \"episodes\": 1, \"success_rate\": 0.0, \"seeds\": [100001], \"oidn_errors\": 0, \"client_sha256\": \"fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3\", \"dtype\": \"float32\", \"action_chunk\": 50, \"recorded_episodes\": 1, \"job_id\": \"move_stapler_pad:episode:1\", \"episode_index\": 1, \"scene_seed\": 100001, \"server_pid\": 7237, \"shared_server\": true}\n"
+  },
+  "gpu": "0 MiB, 0 %"
+}
