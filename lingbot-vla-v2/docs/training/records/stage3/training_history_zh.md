@@ -288,3 +288,9 @@ run `20261023_1913_dual_bottles_add200_from_1838_s200_bf16_m56_fullstage20_weigh
 2010从1940-step200实际完成200步，16分49秒，末步Loss0.0353/VLA0.0307、Depth0.3559、FutureDepth0.4467、FutureVideo0.0442，4.739秒。最终step200核验1708 BF16张量，单模型驻留三回合并行带视频评测0/3，种子100000/100001/100002，OIDN错误0、3录像、pipeline complete，未关机。20倍主链累计800步，包含1838/1913/1940/2010各200，独立5倍实验不计。
 
 用户授权继续：run `20261023_2037_dual_bottles_add200_from_2010_s200_bf16_m56_stage20_holdclear15_noreplay_parallel3_video`。从2010-step200的HF权重继续计划200，新轮计数从0、非恢复优化器。全部阶段权重从来源冻结配置继承：接近开爪稳定闭爪20、closed_hold_proxy/initial_clearance15，其余不变。只训双瓶50条6129帧、micro56/GAS1、无复习、最终200存档，结束驻留模型三回合并行带视频，不补课不关机。启动时空闲89.4GiB，无清理；未改训练代码、采样、监控或存档节奏。本轮终态待验，不提前计入累计。
+
+### 2026-10-23 2037按用户要求停止；2041改10倍重训
+
+2037最后日志Step25/200时用户要求停下。已先停止pipeline、torchrun及rank进程组并核对所有后代退出/GPU无占用；没有生成最终Checkpoint或闭环评测。日志保留、status记录stopped_by_user。实际25次更新发生在已丢弃运行中，不记200完成，也不加入2010继承模型的800步主链。
+
+新run `20261023_2041_dual_bottles_add200_from_2010_s200_bf16_m56_stage20_holdclear10_noreplay_parallel3_video` 从相同2010-step200重新训练，非2037中断状态续训。仅左右FM/视觉 `grasp_lift/closed_hold_proxy` 和 `grasp_lift/initial_clearance` 从15改10，其他关键20、对准/继续提起2及其余1不变；权重和归一化、数据和采样不变。独立冻结快照 `refs/data_selection/pick_dual_bottles_full_stage20_lift10_v1/`，逐分支逐帧核对仅两子阶段变化。计划200、GBS56/GAS1、无复习、仅最终200，结束三回合并行带视频评测，不补课不关机，未删除旧存档。CPU预检后进入正式训练，终态待验。
