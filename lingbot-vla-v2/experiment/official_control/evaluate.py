@@ -77,6 +77,15 @@ def execute(job, shared=None):
                        '--port', str(port), '--robo_name', 'robotwin', '--video_fps', '10',
                        '--eval_video_log', 'False', '--eval_global_view_log', 'True', '--global_view_fps', '2',
                        '--output_dir', str(destination / 'results'), '--test_num', str(episodes)]
+        temporal=job.get('temporal_ensemble')
+        if temporal is not None:
+            from experiment.official_control.temporal_ensemble import TemporalEnsemble
+            TemporalEnsemble(**temporal)
+            env['LINGBOT_TEMPORAL_ENSEMBLE']=json.dumps(temporal)
+            env['LINGBOT_TEMPORAL_ENSEMBLE_AUDIT']=str(destination/'temporal_ensemble_audit.json')
+        else:
+            env.pop('LINGBOT_TEMPORAL_ENSEMBLE',None)
+            env.pop('LINGBOT_TEMPORAL_ENSEMBLE_AUDIT',None)
         if job.get('video_episodes') is not None:
             sim_command.extend(['--global_view_episodes',str(job['video_episodes'])])
         if 'scene_seed' in job:
@@ -139,6 +148,11 @@ def execute(job, shared=None):
         summary = dict(state='complete', task=task, label=job['label'], model=job['model'],
                        successes=int(rates[-1][0]), episodes=episodes, success_rate=rate, seeds=seeds,
                        oidn_errors=0, client_sha256=client_hash, dtype='float32', action_chunk=50,recorded_episodes=expected_videos)
+        if temporal is not None:
+            temporal_audit=json.loads((destination/'temporal_ensemble_audit.json').read_text())
+            assert temporal_audit['enabled'] and temporal_audit['ensemble_horizon']==temporal.get('horizon',8) and temporal_audit['decay']==temporal.get('decay',0.1)
+            assert temporal_audit['replan_every_actions']==1 and temporal_audit['executed_actions_per_response']==1 and temporal_audit['source_chunk_length']==50 and temporal_audit['requests']>0
+            summary['temporal_ensemble']=temporal_audit
         if 'job_id' in job:summary.update(job_id=job['job_id'],episode_index=job['episode_index'],scene_seed=job['scene_seed'])
         if shared is not None:
             summary.update(server_pid=shared['process'].pid, shared_server=True)
@@ -210,6 +224,11 @@ if __name__ == '__main__':
             from script.deploy.websocket_client_policy import WebsocketClientPolicy
             from experiment.official_control.render_sync import install_policy_trace
             install_policy_trace(WebsocketClientPolicy,os.environ['LINGBOT_POLICY_TRACE'])
+        if os.environ.get('LINGBOT_TEMPORAL_ENSEMBLE'):
+            from script.deploy.websocket_client_policy import WebsocketClientPolicy
+            from experiment.official_control.temporal_ensemble import install_client
+            install_client(WebsocketClientPolicy,**json.loads(os.environ['LINGBOT_TEMPORAL_ENSEMBLE']),audit_path=os.environ['LINGBOT_TEMPORAL_ENSEMBLE_AUDIT'])
+            print('EVAL_TEMPORAL_ENSEMBLE '+os.environ['LINGBOT_TEMPORAL_ENSEMBLE'],flush=True)
         sys.argv = [str(robo / 'script/eval_policy_client_lingbotvla.py')] + sys.argv[3:]
         if os.environ.get('LINGBOT_EPISODE_SCENE_SEED') is None:
             runpy.run_path(sys.argv[0], run_name='__main__')

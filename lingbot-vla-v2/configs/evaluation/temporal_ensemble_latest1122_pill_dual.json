@@ -1,0 +1,51 @@
+{
+  "destination": "/data/eval_results/20261024_1250_temporal8_latest1122_pill_dual",
+  "concurrency_levels": [
+    2
+  ],
+  "compare_reference": false,
+  "jobs": [
+    {
+      "task": "move_pillbottle_pad",
+      "label": "1122_temporal8",
+      "model": "/data/outputs/20261024_1122_lift_pot200_from_pill1050_s200_bf16_m56_ear_approach_grasp20_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+      "destination": "/data/eval_results/20261024_1250_temporal8_latest1122_pill_dual/parallel_2/move_pillbottle_pad",
+      "episodes": 3,
+      "video_episodes": 3,
+      "require_baseline": false,
+      "expected_seeds": [
+        100001,
+        100002,
+        100005
+      ],
+      "robotwin": "/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "temporal_ensemble": {
+        "horizon": 8,
+        "decay": 0.1
+      }
+    },
+    {
+      "task": "pick_dual_bottles",
+      "label": "1122_temporal8",
+      "model": "/data/outputs/20261024_1122_lift_pot200_from_pill1050_s200_bf16_m56_ear_approach_grasp20_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+      "destination": "/data/eval_results/20261024_1250_temporal8_latest1122_pill_dual/parallel_2/pick_dual_bottles",
+      "episodes": 3,
+      "video_episodes": 3,
+      "require_baseline": false,
+      "expected_seeds": [
+        100000,
+        100001,
+        100002
+      ],
+      "robotwin": "/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot",
+      "qwen": "/data/models/Qwen3-VL-4B-Instruct/Qwen3-VL-4B-Instruct",
+      "sim_python": "/data/miniconda3/envs/RoboTwin/bin/python",
+      "temporal_ensemble": {
+        "horizon": 8,
+        "decay": 0.1
+      }
+    }
+  ]
+}

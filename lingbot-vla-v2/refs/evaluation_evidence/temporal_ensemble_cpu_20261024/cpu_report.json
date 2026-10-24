@@ -1,0 +1,16 @@
+{
+  "state": "pass",
+  "tests": 52,
+  "skipped": 0,
+  "errors": 0,
+  "failures": 0,
+  "model_initialized": false,
+  "optimizer_steps": 0,
+  "gpu_tested": false,
+  "hashes": {
+    "experiment/official_control/evaluate.py": "de7d7cb031a9cf46ba51cc65198a30e24d2fdfa78fdd72587c410b37e89c333b",
+    "experiment/official_control/temporal_ensemble.py": "6e2daf21f97be7c6bca9153fd5ce8c6691ee94f117b9b5ffbfa2ff325ceab81b",
+    "experiment/official_control/test_temporal_ensemble.py": "ad57b6a58ab0aa65f46577c7aa34506c753e36b6e53262870a37de593ca6fcd2",
+    "experiment/official_control/test_recording.py": "ac177ce89944fdffef15db1ff6dfcbabb3c7b5c1eec5ea2ce7be7d18b152c162"
+  }
+}
