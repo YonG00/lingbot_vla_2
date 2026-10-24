@@ -81,3 +81,5 @@
 - `prepare_pillbottle_pad_weights.py`：药瓶15细类与分支差异化权重，按药瓶5cm预放置重新识别，CPU标注、不训练。
 
 - `prepare_lift_pot_weights.py`：双手半开锅耳接近/正式闭爪的五类关键片段，CPU标注，背景1、目标20。
+
+- `prepare_dual_tcp_pose_cache.py`：双瓶action/state双时钟的绝对TCP与右相对左位姿离线缓存，默认关闭训练目标、拒绝覆盖。

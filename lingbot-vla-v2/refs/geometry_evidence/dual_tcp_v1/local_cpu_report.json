@@ -1,0 +1,23 @@
+{
+  "state": "pass",
+  "tests": 17,
+  "errors": 0,
+  "failures": 0,
+  "skipped": 0,
+  "torch_version": "2.8.0",
+  "device": "cpu",
+  "readline_disabled_in_test_harness": true,
+  "model_initialized": false,
+  "optimizer_steps": 0,
+  "gpu_tested": false,
+  "real_50_episode_cache_generated": false,
+  "real_dataloader_tested": false,
+  "baseline_regression": {
+    "previous_passed": 205,
+    "current_passed": 219,
+    "unchanged_failed": 4
+  },
+  "archived_sapien_pose_groups": 200,
+  "position_max_error_m": 6.02577645336666e-07,
+  "rotation_element_max_error": 8.113232990436536e-07
+}

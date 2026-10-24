@@ -64,6 +64,11 @@ def prepare(raw):
     if not (Path(c['data']['dataset_root'])/'meta').is_dir():raise ValueError('dataset metadata missing')
     dataset_lines='robotwin '+c['data']['dataset_root']+'\n'
     out.mkdir(parents=True,exist_ok=False)
+    if 'tcp_geometry_config' in c:
+        from lingbotvla.losses.tcp_geometry_config import freeze_settings
+        t['tcp_geometry_config_path']=str(freeze_settings(path(c['tcp_geometry_config']),out/'tcp_geometry'))
+    elif 'tcp_geometry_config_path' in t:
+        t['tcp_geometry_config_path']=None
     from experiment.data_selection.inheritance import freeze_registry,registry_digest
     from experiment.data_selection.fixed_importance import fixed_policies
     fixed=fixed_policies(ROOT,groups,c['data']['dataset_root'])

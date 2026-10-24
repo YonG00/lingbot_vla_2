@@ -1,0 +1,29 @@
+{
+  "state": "pass",
+  "real_geometry_samples": [
+    {
+      "index": 0,
+      "truth_loss": 1.771495128366496e-08,
+      "left_cm": 6.9778234319528565e-06,
+      "right_cm": 8.383398380829021e-06,
+      "paired_steps": 14.0
+    },
+    {
+      "index": 3064,
+      "truth_loss": 2.1906485514477936e-08,
+      "left_cm": 7.39665620130836e-06,
+      "right_cm": 1.3341018529899884e-05,
+      "paired_steps": 0.0
+    },
+    {
+      "index": 6128,
+      "truth_loss": 2.092504480799562e-08,
+      "left_cm": 1.2578027963172644e-05,
+      "right_cm": 1.2157238415966276e-05,
+      "paired_steps": 0.0
+    }
+  ],
+  "recipe": "/data/experiments/stack_bowls_sample_weighting/lingbot-vla-v2/configs/training_recipes/dual_bottles200_from_1050_tcp_abs_rel.json",
+  "cpu_output": "/data/experiments/stack_bowls_sample_weighting/cpu_dual1050_20261024_1649",
+  "output": "/data/outputs/20261024_1649_dual_bottles200_from_1050_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video"
+}

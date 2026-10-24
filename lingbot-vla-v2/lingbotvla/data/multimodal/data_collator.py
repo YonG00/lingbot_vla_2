@@ -261,6 +261,12 @@ class OmniDataCollatorWithPacking(DataCollator):
     )
 
     def __call__(self, features: Sequence[Dict[str, "torch.Tensor"]]) -> Dict[str, "torch.Tensor"]:
+        geometry_names=('tcp_target_pose','tcp_target_relative','tcp_target_valid','tcp_geometry_gate')
+        if any('tcp_target_pose' in feature for feature in features):
+            for feature in features:
+                if any(name not in feature for name in geometry_names):raise ValueError('mixed batch missing TCP geometry fields')
+                h=feature['actions'].shape[0]
+                if feature['tcp_target_pose'].shape!=(h,2,4,4) or feature['tcp_target_relative'].shape!=(h,4,4) or feature['tcp_target_valid'].shape!=(h,2) or feature['tcp_geometry_gate'].shape!=(h,2,2):raise ValueError('TCP geometry collator shape')
         batch = {}
         keys = {key for feature in features for key in feature.keys()}
         for input_name in keys:
@@ -340,6 +346,12 @@ class VLADataCollatorWithPacking(DataCollator):
                 h,d=feature['actions'].shape
                 if feature['stage_fm_weight'].shape!=(h,d)or feature['stage_ids'].shape!=(h,2)or feature['stage_arm_index'].shape!=(d,)or feature['action_is_pad'].shape!=(h,):raise ValueError('stage collator time/action shape mismatch')
                 if any(feature[name].ndim!=0 for name in stage_names[3:]):raise ValueError('stage auxiliary weights must be scalar per sample')
+        geometry_names=('tcp_target_pose','tcp_target_relative','tcp_target_valid','tcp_geometry_gate')
+        if any('tcp_target_pose' in feature for feature in features):
+            for feature in features:
+                if any(name not in feature for name in geometry_names):raise ValueError('mixed batch missing TCP geometry fields')
+                h=feature['actions'].shape[0]
+                if feature['tcp_target_pose'].shape!=(h,2,4,4) or feature['tcp_target_relative'].shape!=(h,4,4) or feature['tcp_target_valid'].shape!=(h,2) or feature['tcp_geometry_gate'].shape!=(h,2,2):raise ValueError('TCP geometry collator shape')
         batch = {}
         keys = {key for feature in features for key in feature.keys()}
         for input_name in keys:

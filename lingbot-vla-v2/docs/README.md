@@ -104,3 +104,7 @@
 - [lift_pot锅耳接近夹取20倍](training/recipes/lift_pot_ear_weighting_zh.md)
 
 - [闭环时间集成与无卡CPU验证](training/recipes/temporal_ensemble_evaluation_zh.md)
+
+- [双臂绝对TCP与动态相对位姿Loss](training/recipes/dual_tcp_geometry_loss_zh.md)
+
+统一闭环评测（single/benchmark、默认3回合并行且无视频）：[使用说明](training/recipes/model_benchmark_zh.md)。

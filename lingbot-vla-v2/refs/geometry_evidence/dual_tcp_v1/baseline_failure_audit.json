@@ -1,0 +1,22 @@
+{
+  "baseline_commit": "e2724aa",
+  "baseline_passed": 205,
+  "current_passed_at_14_new_tests": 219,
+  "unchanged_failed_nodes": [
+    "tests/ee_fk/test_runtime_and_metrics.py::test_config_embedded_spec_and_invalid_values",
+    "tests/ee_fk/test_runtime_and_metrics.py::test_dto_scheduler_tensorboard_and_panel",
+    "tests/ee_fk/test_runtime_and_metrics.py::test_policy_preserves_fp32_gt_and_adds_loss_without_changing_interface",
+    "experiment/data_selection/test_stage_loss.py::StageLossTests::test_real_depth_helper_keeps_current_and_future_normalizers_separate"
+  ],
+  "reasons": [
+    "legacy ee_fk_spec config missing",
+    "torchdata unavailable locally",
+    "legacy ee_fk_target_actions hook absent",
+    "einops unavailable locally"
+  ],
+  "new_tests_passed": 17,
+  "new_test_failures": 0,
+  "real_cache_generated": false,
+  "real_dataloader_tested": false,
+  "gpu_tested": false
+}

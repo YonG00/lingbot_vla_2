@@ -377,3 +377,13 @@ run `20261023_1913_dual_bottles_add200_from_1838_s200_bf16_m56_fullstage20_weigh
 1122实际完成200步，训练耗时16:46，1708 BF16张量，pipeline complete；三回合并行带视频0/3，种子100000/100002/100003、OIDN错误0，三实际视频非空。11200主样本、复习0。最终训练日志见refs/evaluation_evidence/temporal_ensemble_cpu_20261024/source_1122_terminal_verified.json，模型保留。
 
 用户要求最新模型时间集成测试药瓶与双瓶，随后明确先无卡测试。已准备仅评测显式开关：每动作新预测、最近8预测对齐平均、decay0.1偏重较新；服务器52 CPU测试全通过，无跳过，不加载模型或仿真。没有新训练、没有时间集成闭环结果，没有排队GPU进程。计划来源1122-step200，两个任务各3回合带视频，后续开卡再执行。
+
+## 2026-10-24 16:49 双瓶双臂几何loss实验（进行中）
+
+来源1050-step200；run `20261024_1649_dual_bottles200_from_1050_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video`。计划200步，BF16 micro/GBS56 GAS1，不复习，最终200存档；绝对TCP位置/姿态1/0.1、动态相对0.1/0.01，原双瓶阶段20/保持提离15权重保留、权重和归一化。真实CPU17项及50条6129帧联调通过；当前仅进入training状态，实际完成步数与闭环待核验。训后双瓶3回合并行录像，时间集成关闭。
+
+## 2026-10-24 1649终态与1719续训
+
+1649真实完成200步、11200样本、复习0；step200校验1708张量、BF16。双瓶三回合并行0/3，种子100000/100001/100002，记录3回合视频、OIDN错误0。证据：refs/geometry_evidence/dual_tcp_v1/1649_terminal_1719_start.json。
+
+用户授权再训200并删除2109-step200；已释放11.894GiB，日志视频保留。新run `20261024_1719_dual_bottles_add200_from_1649_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video` 从1649-step200续训，两项几何系数、原阶段倍率、GBS56、不复习均保持；仅最终200存档，3回合并行带视频、关闭时间集成。已启动CPU预检，完成步数待核对。

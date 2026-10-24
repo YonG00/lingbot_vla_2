@@ -23,7 +23,8 @@ def validate(raw):
 
 def _validate(raw):
     c=deepcopy(raw)
-    keys(c,['version','source','data','output_dir','train','checkpoint','evaluation','runtime','remediation'],'recipe')
+    keys(c,['version','source','data','output_dir','train','checkpoint','evaluation','runtime','remediation','tcp_geometry_config'],'recipe')
+    if 'tcp_geometry_config' in c and (not isinstance(c['tcp_geometry_config'],str) or not c['tcp_geometry_config']):raise ValueError('explicit TCP geometry config path required')
     if type(c.get('version')) is not int or c['version']!=1:raise ValueError('recipe version must be 1')
     keys(c['source'],['trainer_config','checkpoint'],'source')
     if not all(isinstance(c['source'].get(k),str) and c['source'][k] for k in ['trainer_config','checkpoint']):raise ValueError('explicit source paths required')

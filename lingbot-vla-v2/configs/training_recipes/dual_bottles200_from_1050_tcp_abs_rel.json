@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "source": {
+    "trainer_config": "/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/trainer_config.json",
+    "checkpoint": "/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt"
+  },
+  "data": {
+    "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+  },
+  "output_dir": "/data/outputs/20261024_1648_dual_bottles200_from_1050_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video",
+  "train": {
+    "mode": "sequential",
+    "micro_batch_size": 56,
+    "gradient_accumulation_steps": 1,
+    "seed": 3,
+    "episode_split": "all",
+    "main_tasks": {
+      "pick_dual_bottles": {
+        "steps": 200,
+        "weight": 1
+      }
+    },
+    "replay": {
+      "fraction": 0,
+      "tasks": {}
+    },
+    "task_order": [
+      "pick_dual_bottles"
+    ],
+    "steps": 200
+  },
+  "checkpoint": {
+    "mode": "steps",
+    "every_steps": 200,
+    "save_final": true,
+    "hf_dtype": "bf16"
+  },
+  "evaluation": {
+    "episodes_per_task": 3,
+    "checkpoints": [
+      "final"
+    ],
+    "shared_model_session": true,
+    "max_parallel_tasks": 1,
+    "video_episodes": 3,
+    "tasks": [
+      "pick_dual_bottles"
+    ],
+    "reuse_training_model": true,
+    "single_task_episode_workers": 3,
+    "single_task_episode_seeds": [
+      100000,
+      100001,
+      100002
+    ]
+  },
+  "runtime": {
+    "shutdown_after_completion": false,
+    "gpu_probe_enabled": false
+  },
+  "remediation": {
+    "enabled": false,
+    "max_rounds": 1
+  },
+  "tcp_geometry_config": "/data/experiments/stack_bowls_sample_weighting/lingbot-vla-v2/refs/data_selection/pick_dual_bottles_tcp_pose_v1/geometry_config.abs_rel_v1.json"
+}

@@ -561,6 +561,8 @@ def main():
         config_kwargs=config_kwargs,
         moe_implementation=getattr(args.model, 'moe_implementation', None),
     )
+    # New geometry supervision is explicitly opt-in for each training run.
+    model.config.tcp_geometry_config_path = args.train.tcp_geometry_config_path
     if args.train.use_lora:
         if args.train.train_expert_only:
             raise ValueError("use_lora=true requires train_expert_only=false; LoRA freezes base weights itself.")
@@ -681,6 +683,11 @@ def main():
             args.data.chunk_size = args.train.chunk_size
             train_dataset = build_vla_dataset(dataset_config=args.data, model_config=args.model, config=model.config, processor=processor, use_depth_align=use_depth_align)
             args.train.compute_train_steps(args.data.max_seq_len, args.data.train_size, len(train_dataset))
+
+            if getattr(model.config, 'tcp_geometry_config_path', None):
+                from lingbotvla.losses.tcp_geometry import configure_policy_geometry
+                configure_policy_geometry(model, train_dataset, model.config.tcp_geometry_config_path)
+                logger.info_rank0('[tcp_geometry] configured; objectives remain independent of FM stage weights')
 
             # FK supervision must consume the exact packed layout and normalization
             # produced by this dataset.  Do not hand-code offsets here: arm/end/
@@ -1847,7 +1854,7 @@ def main():
                         scalar = _tb_scalar(value)
                         if scalar is not None:
                             writer.add_scalar(key, scalar, global_step)
-                    elif key.startswith(("align/", "ee_fk/", "sample_weight/", "stage_weight/")):
+                    elif key.startswith(("align/", "ee_fk/", "tcp_geometry/", "sample_weight/", "stage_weight/")):
                         scalar = _tb_scalar(value)
                         if scalar is not None:
                             writer.add_scalar(key, scalar, global_step)

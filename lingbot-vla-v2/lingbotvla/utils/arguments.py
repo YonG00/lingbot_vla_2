@@ -265,6 +265,9 @@ class TrainingArguments:
     low_noise_fm_enabled: bool = field(
         default=False, metadata={"help": "Mix 25% uniform t in [0.001,0.2] into FM training times."},
     )
+    tcp_geometry_config_path: Optional[str] = field(
+        default=None, metadata={"help": "Optional default-off absolute TCP / dual-arm relative geometry JSON; independent of legacy EE and low-noise FM."},
+    )
     ee_fk_loss_enabled: bool = field(
         default=False,
         metadata={"help": "Enable differentiable end-effector FK consistency loss in the low-noise FM interval."},

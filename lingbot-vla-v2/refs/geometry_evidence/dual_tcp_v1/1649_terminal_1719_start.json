@@ -1,0 +1,185 @@
+{
+  "previous": {
+    "state": "complete",
+    "checkpoints": [
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261024_1649_dual_bottles200_from_1050_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      }
+    ],
+    "evaluation": [
+      {
+        "state": "complete",
+        "task": "pick_dual_bottles",
+        "label": "recipe_200",
+        "model": "/root/autodl-tmp/data/outputs/20261024_1649_dual_bottles200_from_1050_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+        "successes": 0,
+        "episodes": 3,
+        "success_rate": 0.0,
+        "seeds": [
+          100000,
+          100001,
+          100002
+        ],
+        "oidn_errors": 0,
+        "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+        "dtype": "float32",
+        "action_chunk": 50,
+        "recorded_episodes": 3,
+        "server_pid": 7672,
+        "shared_server": true,
+        "episode_results": [
+          {
+            "state": "complete",
+            "task": "pick_dual_bottles",
+            "label": "recipe_200",
+            "model": "/root/autodl-tmp/data/outputs/20261024_1649_dual_bottles200_from_1050_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+            "successes": 0,
+            "episodes": 1,
+            "success_rate": 0.0,
+            "seeds": [
+              100000
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "recorded_episodes": 1,
+            "job_id": "pick_dual_bottles:episode:0",
+            "episode_index": 0,
+            "scene_seed": 100000,
+            "server_pid": 7672,
+            "shared_server": true
+          },
+          {
+            "state": "complete",
+            "task": "pick_dual_bottles",
+            "label": "recipe_200",
+            "model": "/root/autodl-tmp/data/outputs/20261024_1649_dual_bottles200_from_1050_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+            "successes": 0,
+            "episodes": 1,
+            "success_rate": 0.0,
+            "seeds": [
+              100001
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "recorded_episodes": 1,
+            "job_id": "pick_dual_bottles:episode:1",
+            "episode_index": 1,
+            "scene_seed": 100001,
+            "server_pid": 7672,
+            "shared_server": true
+          },
+          {
+            "state": "complete",
+            "task": "pick_dual_bottles",
+            "label": "recipe_200",
+            "model": "/root/autodl-tmp/data/outputs/20261024_1649_dual_bottles200_from_1050_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+            "successes": 0,
+            "episodes": 1,
+            "success_rate": 0.0,
+            "seeds": [
+              100002
+            ],
+            "oidn_errors": 0,
+            "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+            "dtype": "float32",
+            "action_chunk": 50,
+            "recorded_episodes": 1,
+            "job_id": "pick_dual_bottles:episode:2",
+            "episode_index": 2,
+            "scene_seed": 100002,
+            "server_pid": 7672,
+            "shared_server": true
+          }
+        ],
+        "episode_parallel": true
+      }
+    ],
+    "remediation": [],
+    "progress": {
+      "confirmed_optimizer_steps": 200,
+      "main_steps": {
+        "pick_dual_bottles": 200
+      },
+      "samples_by_task": {
+        "pick_dual_bottles": 11200
+      },
+      "replay_samples": 0
+    },
+    "shutdown": false
+  },
+  "deleted": "/data/outputs/20261023_2109_dual_bottles_add200_from_2010_s200_bf16_m56_stage20_holdclear15_noreplay_parallel3_video/checkpoints/global_step_200",
+  "freed_GiB": 11.894325256347656,
+  "new_recipe": {
+    "version": 1,
+    "source": {
+      "trainer_config": "/data/outputs/20261024_1649_dual_bottles200_from_1050_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video/trainer_config.json",
+      "checkpoint": "/data/outputs/20261024_1649_dual_bottles200_from_1050_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt"
+    },
+    "data": {
+      "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30"
+    },
+    "output_dir": "/data/outputs/20261024_1719_dual_bottles_add200_from_1649_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video",
+    "train": {
+      "mode": "sequential",
+      "micro_batch_size": 56,
+      "gradient_accumulation_steps": 1,
+      "seed": 3,
+      "episode_split": "all",
+      "main_tasks": {
+        "pick_dual_bottles": {
+          "steps": 200,
+          "weight": 1
+        }
+      },
+      "replay": {
+        "fraction": 0,
+        "tasks": {},
+        "mode": "sample"
+      },
+      "task_order": [
+        "pick_dual_bottles"
+      ],
+      "steps": 200
+    },
+    "checkpoint": {
+      "mode": "steps",
+      "every_steps": 200,
+      "save_final": true,
+      "hf_dtype": "bf16"
+    },
+    "evaluation": {
+      "episodes_per_task": 3,
+      "checkpoints": [
+        "final"
+      ],
+      "shared_model_session": true,
+      "max_parallel_tasks": 1,
+      "video_episodes": 3,
+      "tasks": [
+        "pick_dual_bottles"
+      ],
+      "reuse_training_model": true,
+      "single_task_episode_workers": 3,
+      "single_task_episode_seeds": [
+        100000,
+        100001,
+        100002
+      ]
+    },
+    "runtime": {
+      "shutdown_after_completion": false,
+      "gpu_probe_enabled": false
+    },
+    "remediation": {
+      "enabled": false,
+      "max_rounds": 1
+    },
+    "tcp_geometry_config": "/data/outputs/20261024_1649_dual_bottles200_from_1050_s200_bf16_m56_tcp_abs_rel_stage20_hold15_noreplay_parallel3_video/tcp_geometry/geometry_config.json"
+  }
+}

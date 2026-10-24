@@ -48,6 +48,7 @@ class RecordingTests(unittest.TestCase):
                 return SimpleNamespace(wait=lambda **kwargs:0,poll=lambda:0)
             job=dict(task='a',label='probe',episodes=3,video_episodes=2,model='/m',destination=str(dest),
                 robotwin=str(robo),qwen='/q',sim_python='/python',require_baseline=False)
+            if getattr(self,'task_config',None) is not None:job['task_config']=self.task_config
             if getattr(self,'temporal',None) is not None:job['temporal_ensemble']=self.temporal
             shared=dict(model='/m',process=SimpleNamespace(pid=42,poll=lambda:None),port=123,audit=audit)
             with patch.object(evaluate.subprocess,'Popen',side_effect=launch),patch.object(evaluate.subprocess,'check_output',return_value='/site'),patch.object(evaluate.urllib.request,'urlopen',return_value=contextlib.nullcontext(SimpleNamespace(status=200))),contextlib.redirect_stdout(io.StringIO()):
@@ -61,8 +62,14 @@ class RecordingTests(unittest.TestCase):
                 self.assertNotIn('LINGBOT_TEMPORAL_ENSEMBLE',self.simenv)
                 self.assertNotIn('temporal_ensemble',summary)
             command=commands[0]
+            self.assertEqual(command[command.index('--task_config')+1],getattr(self,'task_config','demo_clean'))
+            self.assertEqual(summary['task_config'],getattr(self,'task_config','demo_clean'))
             self.assertEqual(command[command.index('--test_num')+1],'3')
             self.assertEqual(command[command.index('--global_view_episodes')+1],'2')
+
+    def test_randomized_reaches_actual_command_and_summary(self):
+        self.task_config='demo_randomized'
+        self.test_three_rollout_results_with_only_two_videos_pass_real_summary_gate()
 
     def test_explicit_temporal_config_reaches_simulator_and_summary_gate(self):
         self.temporal=dict(horizon=8,decay=0.1)

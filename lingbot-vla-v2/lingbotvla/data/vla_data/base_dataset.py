@@ -257,6 +257,14 @@ class VLADataset(Dataset):
                 raise ValueError("sample selection dataset root mismatch")
             if config is not None and type(config).__name__ != "LingbotVLAV2Config":
                 raise ValueError("sample weighting supports LingbotVLAV2Config only")
+        self.tcp_geometry_cache = None
+        geometry_path = getattr(config, 'tcp_geometry_config_path', None)
+        if geometry_path:
+            from lingbotvla.losses.tcp_geometry_config import load_settings
+            geometry_settings = load_settings(geometry_path)
+            if any(geometry_settings[name]['enabled'] for name in ['absolute', 'relative']):
+                from lingbotvla.losses.tcp_geometry_data import PoseCache
+                self.tcp_geometry_cache = PoseCache(geometry_path, data_name, repo_id)
         self.disabled_image_features = disabled_image_features
         self.use_depth_align = use_depth_align
         self.use_future_image = use_future_image
@@ -399,6 +407,16 @@ class VLADataset(Dataset):
                         int(raw_item["episode_index"].item()),int(raw_item["frame_index"].item()),entry,self.feature_transform)
                     for name,value in stage_fields.items():
                         entry[name]=torch.tensor(value,dtype=torch.int64 if name in ('stage_ids','stage_arm_index')else torch.float32)
+        if getattr(self, 'tcp_geometry_cache', None) is not None:
+            entries = item if isinstance(item, list) else [item]
+            for entry in entries:
+                from lingbotvla.losses.ee_fk import build_action_layout
+                build_action_layout(self.feature_transform)  # Reject relative-action datasets.
+                fields = self.tcp_geometry_cache.sample(int(raw_item['episode_index'].item()),
+                    int(raw_item['frame_index'].item()), entry['actions'].shape[0],
+                    entry['action_is_pad'].bool().tolist(), self.feature_transform.actions_convert_from_state)
+                for name, value in fields.items():
+                    entry[name] = torch.as_tensor(value)
         return item
 
     def __getitem__(self, idx):

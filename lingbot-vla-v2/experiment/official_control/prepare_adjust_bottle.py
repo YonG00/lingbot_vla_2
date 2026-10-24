@@ -166,6 +166,8 @@ def cpu_check(out, *, expected_steps=500, expected_fp32=True, expected_mixed=Tru
     assert t['hf_export_dtype'] == expected_export
     assert parsed.train.auto_learning is None and parsed.train.global_batch_size == t['micro_batch_size'] * expected_gas
     config = LingbotVLAV2Config(**{**cfg['model'], **t})
+    # Match the trainer's explicit opt-in; generic config drops unknown kwargs.
+    config.tcp_geometry_config_path = t.get('tcp_geometry_config_path')
     # Execute original sampling method and prove no replacement RNG path is called.
     torch.manual_seed(3)
     model_tree = ast.parse((ROOT / 'lingbotvla/models/vla/lingbot_vla/modeling_lingbot_vla.py').read_text())

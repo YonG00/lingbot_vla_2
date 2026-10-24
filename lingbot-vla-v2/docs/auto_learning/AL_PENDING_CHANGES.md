@@ -17,6 +17,12 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**评测结果内容对齐参考benchmark（2026-10-24）：🧪 35项纯CPU测试通过，未同步/未GPU验证。** model_benchmark.reference_results按参考run_clean_benchmark.py的collect_results算术导出successes、episode_count、success_rate_percent（0—100），含逐任务、配置分组、总体、耗时及完成状态；benchmark_results.json公开统计与benchmark_audit.json内部审计分离，支持旧报告续测迁移。不变量：总体按成功回合数/有效总回合数，不将异常任务当模型失败；症状：百分比缩小100倍、缺项被记0分、续测读错公开格式；回滚：保留benchmark_audit内部报告供旧分析使用，公开schema_version=2；验证：test_model_benchmark参考算术/异常null/真实run导出与resume，加episode/recording/parallel回归35项。边界：参考当前脚本未定义JSON schema，本次只以真实统计内容构建明确格式，不宣称逐字段上游schema兼容。
+
+
+**统一单任务/全任务benchmark（2026-10-24）：🧪 CPU验证，未同步/未GPU验证。** 新增official_control/model_benchmark.py，复用episode_parallel分片与run_jobs，一个session_eval_server服务逐项处理clean/randomized，默认3回合、3路、不录像；evaluate.execute的task_config可选而默认clean不变。新增JSON汇总、错误与模型失败分离、冻结配置/来源元数据续测和同目录启动锁。任务总数50×2，回合300；单任务可独立选择配置和回合并行数。不变量：默认旧入口clean不变，同任务两配置分目录，一次一个模型服务，每个项目按显式种子聚合；症状：clean/random覆盖、缺项却complete、专家拒绝被计为0/3、切任务重复加载；回滚：继续使用原recipe入口，不调用新model_benchmark入口，evaluate不传task_config仍clean；验证：test_model_benchmark与旧episode/recording/parallel契约组。缺口：候选种子未预扫、randomized环境未上机验证、串并行等价未证明；说明见docs/training/recipes/model_benchmark_zh.md。已有TCP loss未提交改动保持原样，不混入本项同步。
+
+
 **#85 八路滚动调度与前N回合录像（2026-10-21）：🧪 本地/服务器60项CPU通过，实际八仿真同时运行，GPU资源已测，种子一致性失败。** run_jobs上限8，scheduling默认batches不变，rolling保持最多8个未完成任务、空位立即补后续任务；task_events记录实际调度起止。video_episodes默认全部，设2仅前两回合启动独立全景录像，成功率仍按episodes；子进程局部包装Base_Task录像启动方法，不改仿真源码、不改物理/策略图像/步数。汇总严格检查视频索引和实际应录数量，单回合试跑min(1,2)=1。用户进一步明确本次只试每任务1回合：模型R13-step1250，10任务，8路rolling，共10回合；对照文件从已核验原5＋5各3回合中提取第1回合，标记derived来源；不拿1回合对比3回合总成功数。配置parallel8_rolling_R13_one_episode.json，输出20261021_172229_parallel8_rolling_R13_one_episode。8进程活跃快照与峰值77148MiB，最终10任务仿真结束，bread_skillet种子100004≠原100003；整体状态failed，不能认定一致性通过。不变量：单模型、最多8路、回合数与录像数独立、原默认分批不变；症状：空位不补、超过8路、少录影响episodes/汇总、未授权改变原R13配置；回滚：新进程scheduling=batches且省略video_episodes回原录像方式，旧R13冻结合约不热改；验证：test_parallel_evaluation八线程/滚动补位/旧5＋5与6＋4屏障，test_recording真实execute汇总契约，test_evaluation_tasks参数边界及本轮benchmark/session_audit/gpu_samples/task_events。原R13完整评测结束后才同步启动，没有并占GPU。
 
 **#84启动实证（2026-10-21）：🧪 本地/服务器55项CPU、真实1250条280122帧CPU与三步GPU通过，正式7/1250。** run=20261021_1441_ten_tasks_from_R12_bf16_m56_replay20pct；三步allocated77.70GiB/reserved84.59GiB。实际冻结recipe为through_R12的17任务、fraction0.2、tasks_per_step2、RR10；两槽计划各7000条，逐步任务互异并排除当前主任务。500/1000/1250与最终5＋5各3回合已配置，完整后续阶段与闭环待验。启动证据20261021_R13_started.json，清理证据20261021_keep_R11_1200_R12_1350_completed.json。以下#84为初始实现记录，服务器待测描述已由本段更新。
@@ -682,3 +688,15 @@ V3上机部分验证：100项服务器CPU测试与真实装配通过，3步GPU�
 新增temporal_ensemble job开关，默认关闭；服务器仍chunk_ret=True，每次chunk50，客户端每执行一步重新请求，最近8预测按正确时间偏移及exp(-0.1*age)平均，较新优先。状态按客户端、reset隔离；共享模型不变。原ensemble字段未实际参与推理，本次不冒用其名称。
 
 不变量：预测age对齐取第age项、动作含合法零值、不跨回合/任务、默认chunk与环境残留安全、视频/物理步数/模型精度不变。故障症状：只平均各chunk第0步、仍连续执行50步、跨任务串历史、无审计却汇总成功、非有限动作。回滚：新job省略temporal_ensemble字段，或回退本次评测代码；不改模型。验证入口：test_temporal_ensemble.py与test_recording.py、temporal_ensemble_audit.json；服务器52项CPU全绿无跳过，模型未初始化/GPU未测。用户明确先无卡测试，无GPU启动或自动队列。
+
+### 2026-10-24 双臂绝对TCP与动态相对位姿辅助Loss（新增17项CPU通过，真实数据/GPU待验）
+
+新增独立tcp_geometry配置、可微FK复用、0.12m TCP偏移、动态右在左坐标系的相对Loss和V2 FM实际前向接入；不使用旧EE开关、不强制低噪FM、不新增动作头。默认None关闭，绝对/相对可分别启用与调位置/姿态系数，几何不继承FM20倍。离线生成器提供action与next-state两套原始坐标缓存，配方冻结依赖。
+
+不变量：a_hat=x_t-t*v_hat且不detach、只用物理绝对关节角、预测/专家同TCP与世界坐标、每未来动作查标签、左右各自mask且relative取相交、背景复习不误套、默认不自动继承、不改变FM/视觉/存档。错误症状：固定手间距/两手拉到零、锚点复制chunk、TCP少0.12m、速度直接进FK、预测NumPy截断梯度、padding分母/跨任务标签混入、额外20倍或夹爪几何梯度。回滚：本轮移除tcp_geometry_config/train.tcp_geometry_config_path，保持旧冻结目录与模型只读。
+
+验证入口：tests/tcp_geometry/test_geometry.py与refs/geometry_evidence/dual_tcp_v1。新17项全通过、200组既有SAPIEN参考一致，真实FM和V2总loss的CPU契约通过；较早回归219通过，同原HEAD4个既有失败均有对照。服务器认证前关闭，真实双瓶50条cache与DataLoader、GPU与正式训练尚未运行。没有新Checkpoint，没有训练授权或启动。
+
+### 2026-10-24 双臂几何真实数据预检与启动
+
+CPU检查器显式传入tcp_geometry_config_path，与训练入口一致，避免通用Config丢弃未知kwargs导致预检漏读标签。不变量：未指定路径仍为None；指定后collator必须包含逐动作TCP字段。症状：KeyError tcp_target_pose；回滚：本轮recipe移除tcp_geometry_config并重启。验证入口：tests/tcp_geometry及real_dataloader_cpu_report.json。17项CPU全通过，50条6129帧真值/归一化/padding有限梯度已验证；1050来源双瓶200步已发起，GPU/闭环待核验。实验代码指纹已更新，未修改官方baseline指纹。

@@ -38,6 +38,9 @@ def execute(job, shared=None):
     task = job.get('task', 'adjust_bottle')
     assert re.fullmatch(r'[a-z][a-z0-9_]*', task), 'invalid task name'
     assert episodes > 0
+    task_config = job.get('task_config', 'demo_clean')
+    if task_config not in ('demo_clean', 'demo_randomized'):
+        raise ValueError('invalid task_config')
     status = destination / 'status.json'
     server = simulation = None
     def state(value, **extra):
@@ -72,7 +75,7 @@ def execute(job, shared=None):
                           '--use_bf16', 'False', '--use_fp32', 'True', '--use_compile', 'False', '--port', str(port)]
         sim_command = [job['sim_python'], '-u', str(HERE), '--sim-client', str(robo),
                        '--config', 'policy/ACT/deploy_policy.yml', '--overrides',
-                       '--task_name', task, '--task_config', 'demo_clean',
+                       '--task_name', task, '--task_config', task_config,
                        '--train_config_name', 'official_control', '--seed', '0', '--policy_name', 'ACT',
                        '--port', str(port), '--robo_name', 'robotwin', '--video_fps', '10',
                        '--eval_video_log', 'False', '--eval_global_view_log', 'True', '--global_view_fps', '2',
@@ -145,7 +148,7 @@ def execute(job, shared=None):
         precision = json.loads((destination / 'precision_audit.json').read_text())
         assert set(precision['parameter_numel_by_dtype']) == {'torch.float32'} and precision['forward_samples']
         assert hashlib.sha256(client.read_bytes()).hexdigest() == client_hash
-        summary = dict(state='complete', task=task, label=job['label'], model=job['model'],
+        summary = dict(state='complete', task=task, task_config=task_config, label=job['label'], model=job['model'],
                        successes=int(rates[-1][0]), episodes=episodes, success_rate=rate, seeds=seeds,
                        oidn_errors=0, client_sha256=client_hash, dtype='float32', action_chunk=50,recorded_episodes=expected_videos)
         if temporal is not None:

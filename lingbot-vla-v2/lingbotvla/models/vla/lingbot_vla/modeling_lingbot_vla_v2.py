@@ -787,6 +787,7 @@ class FlowMatchingV2(FlowMatchingV1):
         stage_future_depth_weight=None,
         stage_current_video_weight=None,
         stage_future_video_weight=None,
+        geometry_context=None,
     ) -> Tensor:
         dtype = state.dtype
         device = state.device
@@ -933,6 +934,12 @@ class FlowMatchingV2(FlowMatchingV1):
         seq_wise_loss, router_z_loss, moe_metrics = self._moe_losses_and_metrics(
             router_logits_list, losses
         )
+        if geometry_context is not None:
+            if 'repeat' in loss_type:raise ValueError('TCP geometry does not support repeated FM')
+            runtime, fields = geometry_context
+            geometry_loss, geometry_metrics = runtime.from_flow(actions, noise, time, v_t, **fields)
+            moe_metrics.update(geometry_metrics)
+            moe_metrics['_tcp_geometry_loss'] = geometry_loss
         if align_metrics:
             moe_metrics.update(align_metrics)
         return losses, loss_depth, loss_future_depth, loss_future_video, depth_preds, seq_wise_loss, router_z_loss, moe_metrics, future_depth_preds, future_video_preds, current_video_preds
@@ -1280,6 +1287,10 @@ class LingbotVlaV2Policy(PreTrainedModel):
         stage_future_video_weight=None,
         stage_ids=None,
         stage_arm_index=None,
+        tcp_target_pose=None,
+        tcp_target_relative=None,
+        tcp_target_valid=None,
+        tcp_geometry_gate=None,
         **kwargs
     ) -> tuple[Tensor, dict[str, Tensor]]:
         loss_dict = {}
@@ -1299,6 +1310,15 @@ class LingbotVlaV2Policy(PreTrainedModel):
             if int(video_cfg.get('num_future_frames',1))!=1 or (video_cfg.get('use_cls_loss',False)and video_cfg.get('cls_pool','last')!='last'):raise ValueError('stage visual policy currently requires a single future endpoint teacher')
         if sample_loss_weight is not None and "repeat" in self.config.loss_type:
             raise ValueError("sample weighting currently supports non-repeat FM only")
+        geometry_kwargs={}
+        if getattr(self.config, 'tcp_geometry_config_path', None):
+            if not getattr(self, '_tcp_geometry_configured', False):raise ValueError('TCP geometry dataset layout has not been configured')
+            runtime=getattr(self, '_tcp_geometry_runtime', None)
+            if runtime is not None:
+                if 'repeat' in self.config.loss_type:raise ValueError('TCP geometry does not support repeated FM')
+                fields=dict(tcp_target_pose=tcp_target_pose,tcp_target_relative=tcp_target_relative,tcp_target_valid=tcp_target_valid,tcp_geometry_gate=tcp_geometry_gate,joint_mask=joint_mask,action_is_pad=action_is_pad)
+                if any(value is None for value in fields.values()):raise ValueError('TCP geometry requires offline targets and real masks')
+                geometry_kwargs['geometry_context']=(runtime,fields)
         if getattr(self.config, "action_fp32", False):
             state = state.float()
             actions = actions.float()
@@ -1332,6 +1352,7 @@ class LingbotVlaV2Policy(PreTrainedModel):
             future_video_current_patch=future_video_current_patch,
             sample_loss_weight=None if stage_mode else sample_loss_weight,
             **stage_kwargs,
+            **geometry_kwargs,
         )
 
         if joint_mask is not None:
@@ -1372,6 +1393,8 @@ class LingbotVlaV2Policy(PreTrainedModel):
             + seq_wise_loss
             + router_z_loss
         )
+        if geometry_kwargs:
+            total_loss = total_loss + moe_metrics.pop('_tcp_geometry_loss')
         loss_dict["router_z_loss"] = router_z_loss.detach() if torch.is_tensor(router_z_loss) else router_z_loss
         if moe_metrics:
             loss_dict.update(moe_metrics)
