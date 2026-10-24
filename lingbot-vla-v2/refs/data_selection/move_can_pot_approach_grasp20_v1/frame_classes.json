@@ -1,0 +1,2302 @@
+{
+  "schema_version": 1,
+  "dataset_name": "robotwin",
+  "task": "move_can_pot",
+  "coordinate_space": "original_episode_frame",
+  "label_source": "target_classes",
+  "fps": 15,
+  "source_action_channels": {
+    "action": {
+      "left": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "right": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "observation.state": {
+      "left": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "right": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    }
+  },
+  "episodes": [
+    {
+      "episode_index": 1100,
+      "length": 153,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 153,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 58,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 86,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 153,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1101,
+      "length": 149,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 3,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 3,
+            "end": 59,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 87,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1102,
+      "length": 146,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 146,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 3,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 3,
+            "end": 55,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 83,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 146,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1103,
+      "length": 151,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 6,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 6,
+            "end": 58,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 86,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1104,
+      "length": 150,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 8,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 8,
+            "end": 58,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 86,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1105,
+      "length": 156,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 156,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 61,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 89,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 156,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1106,
+      "length": 144,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 5,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 5,
+            "end": 56,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 56,
+            "end": 84,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1107,
+      "length": 151,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 57,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 85,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1108,
+      "length": 144,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 7,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 7,
+            "end": 55,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 83,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1109,
+      "length": 143,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 57,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 85,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1110,
+      "length": 151,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 56,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 56,
+            "end": 84,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1111,
+      "length": 148,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 148,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 60,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 88,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 148,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1112,
+      "length": 152,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 152,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 57,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 85,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 152,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1113,
+      "length": 155,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 61,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 89,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 155,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 155,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1114,
+      "length": 156,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 8,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 8,
+            "end": 62,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 90,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 156,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 156,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1115,
+      "length": 149,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 5,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 5,
+            "end": 57,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 85,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1116,
+      "length": 157,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 66,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 94,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 94,
+            "end": 157,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 157,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1117,
+      "length": 149,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 59,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 87,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1118,
+      "length": 151,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 8,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 8,
+            "end": 56,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 56,
+            "end": 84,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1119,
+      "length": 150,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 3,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 3,
+            "end": 56,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 56,
+            "end": 84,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1120,
+      "length": 142,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 142,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 3,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 3,
+            "end": 55,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 83,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 142,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1121,
+      "length": 151,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 60,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 88,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1122,
+      "length": 143,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 3,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 3,
+            "end": 54,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 82,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1123,
+      "length": 154,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 3,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 3,
+            "end": 58,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 86,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 154,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 154,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1124,
+      "length": 156,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 6,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 6,
+            "end": 58,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 86,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 156,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 156,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1125,
+      "length": 158,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 7,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 7,
+            "end": 64,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 92,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 158,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 158,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1126,
+      "length": 151,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 57,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 85,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1127,
+      "length": 159,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 159,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 63,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 91,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 159,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1128,
+      "length": 146,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 146,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 57,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 85,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 146,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1129,
+      "length": 141,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 141,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 3,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 3,
+            "end": 55,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 83,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 141,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1130,
+      "length": 149,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 8,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 8,
+            "end": 56,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 56,
+            "end": 84,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1131,
+      "length": 151,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 6,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 6,
+            "end": 58,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 86,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1132,
+      "length": 149,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 5,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 5,
+            "end": 55,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 83,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1133,
+      "length": 144,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 57,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 85,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1134,
+      "length": 151,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 58,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 86,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1135,
+      "length": 163,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 163,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 62,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 90,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 163,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1136,
+      "length": 166,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 166,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 3,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 3,
+            "end": 74,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 74,
+            "end": 101,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 166,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1137,
+      "length": 171,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 7,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 7,
+            "end": 66,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 94,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 94,
+            "end": 171,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 171,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1138,
+      "length": 149,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 3,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 3,
+            "end": 58,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 86,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1139,
+      "length": 147,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 147,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 52,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 80,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 147,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1140,
+      "length": 166,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 5,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 5,
+            "end": 65,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 94,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 94,
+            "end": 166,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 166,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1141,
+      "length": 155,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 5,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 5,
+            "end": 57,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 85,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 155,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 155,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1142,
+      "length": 146,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 55,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 83,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 146,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 146,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1143,
+      "length": 143,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 3,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 3,
+            "end": 55,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 83,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1144,
+      "length": 150,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 59,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 87,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1145,
+      "length": 150,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 57,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 85,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1146,
+      "length": 150,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 55,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 83,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1147,
+      "length": 149,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 6,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 6,
+            "end": 57,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 85,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1148,
+      "length": 158,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 158,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 4,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 4,
+            "end": 64,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 93,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 93,
+            "end": 158,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1149,
+      "length": 155,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 155,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 5,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 5,
+            "end": 58,
+            "classes": [
+              "approach"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 86,
+            "classes": [
+              "grasp"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 155,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

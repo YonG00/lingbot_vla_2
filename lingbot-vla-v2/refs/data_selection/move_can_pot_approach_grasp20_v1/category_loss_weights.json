@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "weighting_unit": "action_timestep",
+  "normalization": "weight_sum",
+  "overlap_rule": "max",
+  "future_video_rule": "target_endpoint",
+  "classes": {
+    "background": {
+      "fm": 1,
+      "visual": 1
+    },
+    "approach": {
+      "fm": 20,
+      "visual": 20
+    },
+    "grasp": {
+      "fm": 20,
+      "visual": 20
+    }
+  }
+}

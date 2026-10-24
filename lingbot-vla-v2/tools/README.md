@@ -73,3 +73,5 @@
 2. `machine` 上仓库可能有多个副本（原目录 + 工作副本），跑之前先 `cd` 到你要的那一份。
 3. AutoDL 遗留脚本（`misc/policy_server.sh`、`misc/eval_tasks.sh`）默认路径已改为
    **按脚本自身位置推导仓库根**；如需指向别处，显式 `export REPO=...` 覆盖。
+
+- `prepare_can_pot_grasp_weights.py`：move_can_pot活动手接近/闭爪/初始提离分类快照（CPU、不训练）。

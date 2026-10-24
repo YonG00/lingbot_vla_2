@@ -325,3 +325,11 @@ run `20261023_1913_dual_bottles_add200_from_1838_s200_bf16_m56_fullstage20_weigh
 ### 20261024_0814 订书机统一逐动作200步（运行中）
 
 来源1913-step200；run `/data/outputs/20261024_0814_stapler200_from_1913_s200_bf16_m56_early15_late20_white10_weightnorm_noreplay_parallel3_video`。50条7731帧，GBS56/GAS1/BF16，无复习，早期放置15/晚期20/白色其他10，逐动作查表、权重和归一化。正式CPU56与150边界通过，跳过GPU探测；已核实优化器step4/200，Loss0.0222，StepTime8.494秒。训练运行中，不计为已完成200；仅最终200存档，结束驻留三回合并行录像，评测待运行，无新增已完成存档。部署按文件哈希核对，未声称服务器Git HEAD对齐。
+
+### 20261024_0814 订书机最终终态
+
+1913-step200→200步已完成，训练16分47秒，最终Loss0.0312/VLA0.0269、4.743秒/步。1708 BF16张量存档核验通过；驻留模型三回合并行带视频0/3，OIDN错误0，3份录像及summary/status均complete。11200主任务样本，复习0。评测目录为该run下evaluation_200/move_stapler_pad；存档保留，无删除与关机。
+
+### 20261024_0844 move_can_pot 接近抓取20倍（启动）
+
+从1913-step200独立分叉，不继承0814订书机。run `/data/outputs/20261024_0844_can_pot200_from_1913_s200_bf16_m56_approach_grasp20_weightnorm_noreplay_parallel3_video`。50条7568帧，接近2694、抓取及初始3cm提离1401，共4095帧；活动手右29/左21条。逐动作/视觉20倍、其他1、weight_sum，不提高采样概率；GBS56、无复习、计划200步，仅最终200存档；驻留三回合并行带视频。真实CPU56、200个类别边界通过。运行中，不计完成200；闭环待测。

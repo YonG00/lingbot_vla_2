@@ -94,3 +94,5 @@
 - [订书机类别权重与200步配方](training/recipes/move_stapler_pad_sample_classes_zh.md)
 
 - [统一类别与逐动作加权框架](training/recipes/category_weighting_framework_zh.md)
+
+- [move_can_pot 接近抓取类别加权](training/recipes/move_can_pot_grasp_weighting_zh.md)
