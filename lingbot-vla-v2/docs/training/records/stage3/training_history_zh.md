@@ -321,3 +321,7 @@ run `20261023_1913_dual_bottles_add200_from_1838_s200_bf16_m56_fullstage20_weigh
 
 
 2026-10-24补验：开卡主机上完整CPU DataLoader通过，50条7731帧、动作权重[2,50,55]、150个类别边界，weight_sum/action_timestep；模型未初始化、优化器0步。195项CPU回归重跑全绿。此前-9保留为历史失败，不再阻塞本轮启动。证据：refs/data_selection/move_stapler_pad_categories_early15_late20_white10_v1/full_cpu_verified_20261024.json。GPU训练与闭环尚待实际终态，不能计入完成步数。
+
+### 20261024_0814 订书机统一逐动作200步（运行中）
+
+来源1913-step200；run `/data/outputs/20261024_0814_stapler200_from_1913_s200_bf16_m56_early15_late20_white10_weightnorm_noreplay_parallel3_video`。50条7731帧，GBS56/GAS1/BF16，无复习，早期放置15/晚期20/白色其他10，逐动作查表、权重和归一化。正式CPU56与150边界通过，跳过GPU探测；已核实优化器step4/200，Loss0.0222，StepTime8.494秒。训练运行中，不计为已完成200；仅最终200存档，结束驻留三回合并行录像，评测待运行，无新增已完成存档。部署按文件哈希核对，未声称服务器Git HEAD对齐。
