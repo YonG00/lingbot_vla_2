@@ -77,3 +77,5 @@
 - `prepare_can_pot_grasp_weights.py`：move_can_pot活动手接近/闭爪/初始提离分类快照（CPU、不训练）。
 
 - `prepare_stamp_seal_weights.py`：印章抓取/对准下放释放15类关键阶段快照，CPU标注，拒绝覆盖。
+
+- `prepare_pillbottle_pad_weights.py`：药瓶15细类与分支差异化权重，按药瓶5cm预放置重新识别，CPU标注、不训练。

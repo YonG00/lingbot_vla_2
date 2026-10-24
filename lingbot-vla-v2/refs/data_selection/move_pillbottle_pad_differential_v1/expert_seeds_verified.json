@@ -1,0 +1,47 @@
+{
+  "task": "move_pillbottle_pad",
+  "validated_seeds": [
+    100001,
+    100002,
+    100005
+  ],
+  "checks": [
+    {
+      "seed": 100000,
+      "expert_valid": false,
+      "error": null,
+      "episode_index": 0
+    },
+    {
+      "seed": 100001,
+      "expert_valid": true,
+      "error": null,
+      "episode_index": 0
+    },
+    {
+      "seed": 100002,
+      "expert_valid": true,
+      "error": null,
+      "episode_index": 1
+    },
+    {
+      "seed": 100003,
+      "expert_valid": false,
+      "error": null,
+      "episode_index": 2
+    },
+    {
+      "seed": 100004,
+      "expert_valid": false,
+      "error": null,
+      "episode_index": 2
+    },
+    {
+      "seed": 100005,
+      "expert_valid": true,
+      "error": null,
+      "episode_index": 2
+    }
+  ],
+  "policy_inference": false
+}

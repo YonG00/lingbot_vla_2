@@ -1,0 +1,1000 @@
+{
+  "episodes": 50,
+  "frames": 7345,
+  "selected_frames": 4605,
+  "selected_fraction": 0.6269571136827774,
+  "category_counts": {
+    "grasp/approach_12_to_9cm": 129,
+    "grasp/approach_9_to_6cm": 424,
+    "grasp/approach_6_to_1p5cm": 489,
+    "grasp/open_settle": 362,
+    "grasp/closing_first_half": 300,
+    "grasp/closing_second_half": 250,
+    "grasp/closed_hold_proxy": 625,
+    "grasp/lift_first_1p5cm": 122,
+    "grasp/lift_1p5_to_3cm": 145,
+    "place/prealign_move": 345,
+    "place/prealign_settle": 254,
+    "place/descent_4_to_1p5cm": 177,
+    "place/contact_pose_settle": 433,
+    "place/release_first_half": 200,
+    "place/release_second_half": 350
+  },
+  "category_fractions": {
+    "grasp/approach_12_to_9cm": 0.01756296800544588,
+    "grasp/approach_9_to_6cm": 0.057726344452008166,
+    "grasp/approach_6_to_1p5cm": 0.06657590197413206,
+    "grasp/open_settle": 0.04928522804628999,
+    "grasp/closing_first_half": 0.04084411164057182,
+    "grasp/closing_second_half": 0.03403675970047652,
+    "grasp/closed_hold_proxy": 0.08509189925119129,
+    "grasp/lift_first_1p5cm": 0.016609938733832538,
+    "grasp/lift_1p5_to_3cm": 0.019741320626276378,
+    "place/prealign_move": 0.04697072838665759,
+    "place/prealign_settle": 0.03458134785568414,
+    "place/descent_4_to_1p5cm": 0.024098025867937373,
+    "place/contact_pose_settle": 0.05895166780122532,
+    "place/release_first_half": 0.02722940776038121,
+    "place/release_second_half": 0.047651463580667124
+  },
+  "arms": {
+    "left": 24,
+    "right": 26
+  },
+  "events": [
+    {
+      "episode": 1600,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 55,
+          "ce": 65,
+          "le": 83,
+          "rs": 125,
+          "re": 135,
+          "gs": 31,
+          "pre_start": 102,
+          "pre_end": 114,
+          "n": 142,
+          "release_z": 0.8666553584340058,
+          "max_lift": 0.058663097164032285
+        }
+      ]
+    },
+    {
+      "episode": 1601,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 59,
+          "ce": 69,
+          "le": 87,
+          "rs": 131,
+          "re": 141,
+          "gs": 28,
+          "pre_start": 107,
+          "pre_end": 120,
+          "n": 148,
+          "release_z": 0.8656706911786031,
+          "max_lift": 0.05974968595720698
+        }
+      ]
+    },
+    {
+      "episode": 1602,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 54,
+          "ce": 64,
+          "le": 81,
+          "rs": 121,
+          "re": 131,
+          "gs": 25,
+          "pre_start": 98,
+          "pre_end": 109,
+          "n": 138,
+          "release_z": 0.866333904481884,
+          "max_lift": 0.05078781440506153
+        }
+      ]
+    },
+    {
+      "episode": 1603,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 61,
+          "ce": 71,
+          "le": 90,
+          "rs": 146,
+          "re": 156,
+          "gs": 35,
+          "pre_start": 120,
+          "pre_end": 135,
+          "n": 163,
+          "release_z": 0.8655170242680259,
+          "max_lift": 0.05284129634918888
+        }
+      ]
+    },
+    {
+      "episode": 1604,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 49,
+          "ce": 59,
+          "le": 76,
+          "rs": 119,
+          "re": 129,
+          "gs": 21,
+          "pre_start": 94,
+          "pre_end": 107,
+          "n": 136,
+          "release_z": 0.8676529834843568,
+          "max_lift": 0.0549470771003574
+        }
+      ]
+    },
+    {
+      "episode": 1605,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 56,
+          "ce": 66,
+          "le": 83,
+          "rs": 125,
+          "re": 135,
+          "gs": 28,
+          "pre_start": 101,
+          "pre_end": 114,
+          "n": 142,
+          "release_z": 0.866460954813378,
+          "max_lift": 0.059036267241251994
+        }
+      ]
+    },
+    {
+      "episode": 1606,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 53,
+          "ce": 63,
+          "le": 80,
+          "rs": 127,
+          "re": 137,
+          "gs": 28,
+          "pre_start": 104,
+          "pre_end": 116,
+          "n": 144,
+          "release_z": 0.8656961972606934,
+          "max_lift": 0.0623953264488849
+        }
+      ]
+    },
+    {
+      "episode": 1607,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 64,
+          "ce": 74,
+          "le": 92,
+          "rs": 141,
+          "re": 151,
+          "gs": 28,
+          "pre_start": 118,
+          "pre_end": 130,
+          "n": 158,
+          "release_z": 0.865407729960994,
+          "max_lift": 0.06252441055315905
+        }
+      ]
+    },
+    {
+      "episode": 1608,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 61,
+          "ce": 71,
+          "le": 90,
+          "rs": 148,
+          "re": 158,
+          "gs": 34,
+          "pre_start": 120,
+          "pre_end": 136,
+          "n": 165,
+          "release_z": 0.8662270521064581,
+          "max_lift": 0.051160962908800345
+        }
+      ]
+    },
+    {
+      "episode": 1609,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 48,
+          "ce": 58,
+          "le": 75,
+          "rs": 123,
+          "re": 133,
+          "gs": 20,
+          "pre_start": 98,
+          "pre_end": 112,
+          "n": 140,
+          "release_z": 0.8670385481132982,
+          "max_lift": 0.050873538790269235
+        }
+      ]
+    },
+    {
+      "episode": 1610,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 56,
+          "ce": 66,
+          "le": 84,
+          "rs": 130,
+          "re": 140,
+          "gs": 27,
+          "pre_start": 106,
+          "pre_end": 119,
+          "n": 147,
+          "release_z": 0.8655554395975337,
+          "max_lift": 0.06310010070791938
+        }
+      ]
+    },
+    {
+      "episode": 1611,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 64,
+          "ce": 74,
+          "le": 94,
+          "rs": 152,
+          "re": 162,
+          "gs": 34,
+          "pre_start": 128,
+          "pre_end": 141,
+          "n": 169,
+          "release_z": 0.8665583616689108,
+          "max_lift": 0.11122059688181363
+        }
+      ]
+    },
+    {
+      "episode": 1612,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 53,
+          "ce": 63,
+          "le": 80,
+          "rs": 125,
+          "re": 135,
+          "gs": 24,
+          "pre_start": 101,
+          "pre_end": 114,
+          "n": 142,
+          "release_z": 0.8664255560264751,
+          "max_lift": 0.05668127326303363
+        }
+      ]
+    },
+    {
+      "episode": 1613,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 60,
+          "ce": 70,
+          "le": 88,
+          "rs": 136,
+          "re": 146,
+          "gs": 36,
+          "pre_start": 113,
+          "pre_end": 125,
+          "n": 153,
+          "release_z": 0.8657703116263222,
+          "max_lift": 0.07127384366670753
+        }
+      ]
+    },
+    {
+      "episode": 1614,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 48,
+          "ce": 58,
+          "le": 75,
+          "rs": 121,
+          "re": 131,
+          "gs": 18,
+          "pre_start": 96,
+          "pre_end": 110,
+          "n": 138,
+          "release_z": 0.8677440502324208,
+          "max_lift": 0.05077840662670663
+        }
+      ]
+    },
+    {
+      "episode": 1615,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 53,
+          "ce": 63,
+          "le": 80,
+          "rs": 125,
+          "re": 135,
+          "gs": 26,
+          "pre_start": 101,
+          "pre_end": 114,
+          "n": 142,
+          "release_z": 0.8654458688882607,
+          "max_lift": 0.056810096417533984
+        }
+      ]
+    },
+    {
+      "episode": 1616,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 67,
+          "ce": 77,
+          "le": 96,
+          "rs": 154,
+          "re": 164,
+          "gs": 34,
+          "pre_start": 130,
+          "pre_end": 143,
+          "n": 171,
+          "release_z": 0.8663559804153947,
+          "max_lift": 0.08090245425572817
+        }
+      ]
+    },
+    {
+      "episode": 1617,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 61,
+          "ce": 71,
+          "le": 91,
+          "rs": 149,
+          "re": 159,
+          "gs": 30,
+          "pre_start": 121,
+          "pre_end": 138,
+          "n": 166,
+          "release_z": 0.8662625720915463,
+          "max_lift": 0.050961649347091575
+        }
+      ]
+    },
+    {
+      "episode": 1618,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 53,
+          "ce": 63,
+          "le": 80,
+          "rs": 124,
+          "re": 134,
+          "gs": 26,
+          "pre_start": 100,
+          "pre_end": 113,
+          "n": 141,
+          "release_z": 0.8655056273276517,
+          "max_lift": 0.057646013708584576
+        }
+      ]
+    },
+    {
+      "episode": 1619,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 62,
+          "ce": 72,
+          "le": 90,
+          "rs": 136,
+          "re": 146,
+          "gs": 28,
+          "pre_start": 112,
+          "pre_end": 125,
+          "n": 153,
+          "release_z": 0.8658340324225886,
+          "max_lift": 0.06049236910862121
+        }
+      ]
+    },
+    {
+      "episode": 1620,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 51,
+          "ce": 61,
+          "le": 78,
+          "rs": 124,
+          "re": 134,
+          "gs": 23,
+          "pre_start": 100,
+          "pre_end": 113,
+          "n": 141,
+          "release_z": 0.866849196462577,
+          "max_lift": 0.05170996754537982
+        }
+      ]
+    },
+    {
+      "episode": 1621,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 52,
+          "ce": 62,
+          "le": 81,
+          "rs": 138,
+          "re": 148,
+          "gs": 28,
+          "pre_start": 111,
+          "pre_end": 127,
+          "n": 155,
+          "release_z": 0.8670349288302822,
+          "max_lift": 0.058382253868934364
+        }
+      ]
+    },
+    {
+      "episode": 1622,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 49,
+          "ce": 59,
+          "le": 76,
+          "rs": 122,
+          "re": 132,
+          "gs": 20,
+          "pre_start": 96,
+          "pre_end": 111,
+          "n": 139,
+          "release_z": 0.8677410206666287,
+          "max_lift": 0.05077131258060896
+        }
+      ]
+    },
+    {
+      "episode": 1623,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 57,
+          "ce": 67,
+          "le": 86,
+          "rs": 138,
+          "re": 148,
+          "gs": 29,
+          "pre_start": 113,
+          "pre_end": 126,
+          "n": 155,
+          "release_z": 0.8680490388379123,
+          "max_lift": 0.07272309360601281
+        }
+      ]
+    },
+    {
+      "episode": 1624,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 62,
+          "ce": 72,
+          "le": 92,
+          "rs": 141,
+          "re": 151,
+          "gs": 32,
+          "pre_start": 117,
+          "pre_end": 130,
+          "n": 158,
+          "release_z": 0.866473107382195,
+          "max_lift": 0.058821474572795296
+        }
+      ]
+    },
+    {
+      "episode": 1625,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 58,
+          "ce": 68,
+          "le": 87,
+          "rs": 130,
+          "re": 140,
+          "gs": 33,
+          "pre_start": 106,
+          "pre_end": 118,
+          "n": 147,
+          "release_z": 0.8670561643601677,
+          "max_lift": 0.05151548073349044
+        }
+      ]
+    },
+    {
+      "episode": 1626,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 61,
+          "ce": 71,
+          "le": 90,
+          "rs": 146,
+          "re": 156,
+          "gs": 31,
+          "pre_start": 117,
+          "pre_end": 135,
+          "n": 163,
+          "release_z": 0.8665822296778921,
+          "max_lift": 0.05120401916152928
+        }
+      ]
+    },
+    {
+      "episode": 1627,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 61,
+          "ce": 71,
+          "le": 91,
+          "rs": 144,
+          "re": 154,
+          "gs": 37,
+          "pre_start": 119,
+          "pre_end": 132,
+          "n": 161,
+          "release_z": 0.8679516717496437,
+          "max_lift": 0.06893634650290636
+        }
+      ]
+    },
+    {
+      "episode": 1628,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 50,
+          "ce": 60,
+          "le": 77,
+          "rs": 116,
+          "re": 126,
+          "gs": 24,
+          "pre_start": 94,
+          "pre_end": 105,
+          "n": 133,
+          "release_z": 0.8672628674955603,
+          "max_lift": 0.05152760787937383
+        }
+      ]
+    },
+    {
+      "episode": 1629,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 50,
+          "ce": 60,
+          "le": 77,
+          "rs": 115,
+          "re": 125,
+          "gs": 23,
+          "pre_start": 93,
+          "pre_end": 104,
+          "n": 132,
+          "release_z": 0.8673630669076875,
+          "max_lift": 0.05039607502997734
+        }
+      ]
+    },
+    {
+      "episode": 1630,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 48,
+          "ce": 58,
+          "le": 75,
+          "rs": 119,
+          "re": 129,
+          "gs": 17,
+          "pre_start": 93,
+          "pre_end": 107,
+          "n": 136,
+          "release_z": 0.8663334833643836,
+          "max_lift": 0.051626138307613756
+        }
+      ]
+    },
+    {
+      "episode": 1631,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 51,
+          "ce": 61,
+          "le": 78,
+          "rs": 118,
+          "re": 128,
+          "gs": 23,
+          "pre_start": 95,
+          "pre_end": 106,
+          "n": 135,
+          "release_z": 0.8669993862811802,
+          "max_lift": 0.050800662597789814
+        }
+      ]
+    },
+    {
+      "episode": 1632,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 57,
+          "ce": 67,
+          "le": 85,
+          "rs": 138,
+          "re": 148,
+          "gs": 30,
+          "pre_start": 113,
+          "pre_end": 127,
+          "n": 155,
+          "release_z": 0.8664482393097952,
+          "max_lift": 0.05464652537423231
+        }
+      ]
+    },
+    {
+      "episode": 1633,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 56,
+          "ce": 66,
+          "le": 83,
+          "rs": 131,
+          "re": 141,
+          "gs": 28,
+          "pre_start": 107,
+          "pre_end": 120,
+          "n": 148,
+          "release_z": 0.8649376729250451,
+          "max_lift": 0.05370886087513771
+        }
+      ]
+    },
+    {
+      "episode": 1634,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 53,
+          "ce": 63,
+          "le": 80,
+          "rs": 122,
+          "re": 132,
+          "gs": 26,
+          "pre_start": 98,
+          "pre_end": 110,
+          "n": 139,
+          "release_z": 0.8663364495568844,
+          "max_lift": 0.05033487594952213
+        }
+      ]
+    },
+    {
+      "episode": 1635,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 53,
+          "ce": 63,
+          "le": 81,
+          "rs": 124,
+          "re": 134,
+          "gs": 28,
+          "pre_start": 100,
+          "pre_end": 113,
+          "n": 141,
+          "release_z": 0.8676131659760232,
+          "max_lift": 0.05876951966255539
+        }
+      ]
+    },
+    {
+      "episode": 1636,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 51,
+          "ce": 61,
+          "le": 78,
+          "rs": 115,
+          "re": 125,
+          "gs": 25,
+          "pre_start": 94,
+          "pre_end": 104,
+          "n": 132,
+          "release_z": 0.8658616773014346,
+          "max_lift": 0.050161061030661314
+        }
+      ]
+    },
+    {
+      "episode": 1637,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 49,
+          "ce": 59,
+          "le": 76,
+          "rs": 119,
+          "re": 129,
+          "gs": 20,
+          "pre_start": 95,
+          "pre_end": 107,
+          "n": 136,
+          "release_z": 0.8669377738636119,
+          "max_lift": 0.05640272561882442
+        }
+      ]
+    },
+    {
+      "episode": 1638,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 60,
+          "ce": 70,
+          "le": 88,
+          "rs": 127,
+          "re": 137,
+          "gs": 28,
+          "pre_start": 105,
+          "pre_end": 116,
+          "n": 144,
+          "release_z": 0.8653398151718655,
+          "max_lift": 0.05372819157339381
+        }
+      ]
+    },
+    {
+      "episode": 1639,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 52,
+          "ce": 62,
+          "le": 79,
+          "rs": 126,
+          "re": 136,
+          "gs": 23,
+          "pre_start": 102,
+          "pre_end": 115,
+          "n": 143,
+          "release_z": 0.8667262374044368,
+          "max_lift": 0.05187442510241913
+        }
+      ]
+    },
+    {
+      "episode": 1640,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 58,
+          "ce": 68,
+          "le": 86,
+          "rs": 135,
+          "re": 145,
+          "gs": 31,
+          "pre_start": 112,
+          "pre_end": 124,
+          "n": 152,
+          "release_z": 0.8662494149632796,
+          "max_lift": 0.06853288443892758
+        }
+      ]
+    },
+    {
+      "episode": 1641,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 49,
+          "ce": 59,
+          "le": 76,
+          "rs": 115,
+          "re": 125,
+          "gs": 22,
+          "pre_start": 93,
+          "pre_end": 104,
+          "n": 132,
+          "release_z": 0.8662282414039684,
+          "max_lift": 0.052392025683280274
+        }
+      ]
+    },
+    {
+      "episode": 1642,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 48,
+          "ce": 58,
+          "le": 75,
+          "rs": 124,
+          "re": 134,
+          "gs": 20,
+          "pre_start": 100,
+          "pre_end": 113,
+          "n": 141,
+          "release_z": 0.8671775930486615,
+          "max_lift": 0.05104358354713534
+        }
+      ]
+    },
+    {
+      "episode": 1643,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 52,
+          "ce": 62,
+          "le": 79,
+          "rs": 123,
+          "re": 133,
+          "gs": 23,
+          "pre_start": 99,
+          "pre_end": 112,
+          "n": 140,
+          "release_z": 0.8660275442532477,
+          "max_lift": 0.053796121005201036
+        }
+      ]
+    },
+    {
+      "episode": 1644,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 49,
+          "ce": 59,
+          "le": 76,
+          "rs": 117,
+          "re": 127,
+          "gs": 21,
+          "pre_start": 93,
+          "pre_end": 106,
+          "n": 134,
+          "release_z": 0.8667479847068268,
+          "max_lift": 0.053939191906223316
+        }
+      ]
+    },
+    {
+      "episode": 1645,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 52,
+          "ce": 62,
+          "le": 79,
+          "rs": 118,
+          "re": 128,
+          "gs": 23,
+          "pre_start": 96,
+          "pre_end": 107,
+          "n": 135,
+          "release_z": 0.8659620825571612,
+          "max_lift": 0.05370212608120095
+        }
+      ]
+    },
+    {
+      "episode": 1646,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 60,
+          "ce": 70,
+          "le": 90,
+          "rs": 148,
+          "re": 158,
+          "gs": 35,
+          "pre_start": 123,
+          "pre_end": 136,
+          "n": 165,
+          "release_z": 0.8669236483096019,
+          "max_lift": 0.0728616555842766
+        }
+      ]
+    },
+    {
+      "episode": 1647,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 57,
+          "ce": 67,
+          "le": 84,
+          "rs": 131,
+          "re": 141,
+          "gs": 28,
+          "pre_start": 107,
+          "pre_end": 120,
+          "n": 148,
+          "release_z": 0.8667995966423214,
+          "max_lift": 0.05784401748702106
+        }
+      ]
+    },
+    {
+      "episode": 1648,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 62,
+          "ce": 72,
+          "le": 91,
+          "rs": 140,
+          "re": 150,
+          "gs": 38,
+          "pre_start": 116,
+          "pre_end": 129,
+          "n": 157,
+          "release_z": 0.865551232655656,
+          "max_lift": 0.06942421372720742
+        }
+      ]
+    },
+    {
+      "episode": 1649,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 60,
+          "ce": 70,
+          "le": 88,
+          "rs": 133,
+          "re": 143,
+          "gs": 31,
+          "pre_start": 109,
+          "pre_end": 122,
+          "n": 150,
+          "release_z": 0.8664570152115846,
+          "max_lift": 0.06005367829839847
+        }
+      ]
+    }
+  ],
+  "contact_verified": false,
+  "subsampled": false,
+  "model_initialized": false,
+  "optimizer_steps": 0
+}

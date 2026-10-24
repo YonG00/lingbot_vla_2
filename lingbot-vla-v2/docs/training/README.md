@@ -79,3 +79,5 @@ JSON配置、数据清单和证据仍分别放configs、refs等工程目录，�
 - [move_can_pot 接近抓取20倍](recipes/move_can_pot_grasp_weighting_zh.md)
 
 - [stamp_seal关键阶段20倍与串行接续](recipes/stamp_seal_key_weighting_zh.md)
+
+- [药瓶放垫：1017来源差异化类别加权](recipes/move_pillbottle_pad_weighting_zh.md)

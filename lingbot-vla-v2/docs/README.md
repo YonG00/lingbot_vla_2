@@ -98,3 +98,5 @@
 - [move_can_pot 接近抓取类别加权](training/recipes/move_can_pot_grasp_weighting_zh.md)
 
 - [stamp_seal关键阶段20倍与串行接续](training/recipes/stamp_seal_key_weighting_zh.md)
+
+- [药瓶放垫：1017来源差异化类别加权](training/recipes/move_pillbottle_pad_weighting_zh.md)

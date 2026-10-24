@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "task": "move_pillbottle_pad",
+  "dataset_name": "robotwin",
+  "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30",
+  "weighting_unit": "action_timestep",
+  "normalization": "weight_sum",
+  "multiplier": 1,
+  "selected_frames": "selected_frames.json",
+  "selected_frames_sha256": "0d0eb7dd98e8797a1f6e6047f84fe82525a337d32658e940ba0543dd971278b2",
+  "category_table": "frame_classes.json",
+  "category_table_sha256": "761338072f895808d53196bcc2a27d0438b4a7204f0fb867024bbb020da319b3",
+  "category_weights": "category_loss_weights.json",
+  "category_weights_sha256": "66c347f855bc62936bd7e837522a05bd6c1899cff1bebfaa12362049034b4183"
+}

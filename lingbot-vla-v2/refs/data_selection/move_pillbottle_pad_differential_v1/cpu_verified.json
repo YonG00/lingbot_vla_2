@@ -1,0 +1,389 @@
+{
+  "state": "cpu_pass",
+  "episodes": 50,
+  "frames": 7345,
+  "boundary_samples": [
+    {
+      "index": 0,
+      "episode": 1600,
+      "frame": 0
+    },
+    {
+      "index": 142,
+      "episode": 1601,
+      "frame": 0
+    },
+    {
+      "index": 290,
+      "episode": 1602,
+      "frame": 0
+    },
+    {
+      "index": 428,
+      "episode": 1603,
+      "frame": 0
+    },
+    {
+      "index": 591,
+      "episode": 1604,
+      "frame": 0
+    },
+    {
+      "index": 727,
+      "episode": 1605,
+      "frame": 0
+    },
+    {
+      "index": 869,
+      "episode": 1606,
+      "frame": 0
+    },
+    {
+      "index": 1013,
+      "episode": 1607,
+      "frame": 0
+    },
+    {
+      "index": 1171,
+      "episode": 1608,
+      "frame": 0
+    },
+    {
+      "index": 1336,
+      "episode": 1609,
+      "frame": 0
+    },
+    {
+      "index": 1476,
+      "episode": 1610,
+      "frame": 0
+    },
+    {
+      "index": 1623,
+      "episode": 1611,
+      "frame": 0
+    },
+    {
+      "index": 1792,
+      "episode": 1612,
+      "frame": 0
+    },
+    {
+      "index": 1934,
+      "episode": 1613,
+      "frame": 0
+    },
+    {
+      "index": 2087,
+      "episode": 1614,
+      "frame": 0
+    },
+    {
+      "index": 2225,
+      "episode": 1615,
+      "frame": 0
+    },
+    {
+      "index": 2367,
+      "episode": 1616,
+      "frame": 0
+    },
+    {
+      "index": 2538,
+      "episode": 1617,
+      "frame": 0
+    },
+    {
+      "index": 2704,
+      "episode": 1618,
+      "frame": 0
+    },
+    {
+      "index": 2845,
+      "episode": 1619,
+      "frame": 0
+    },
+    {
+      "index": 2998,
+      "episode": 1620,
+      "frame": 0
+    },
+    {
+      "index": 3139,
+      "episode": 1621,
+      "frame": 0
+    },
+    {
+      "index": 3294,
+      "episode": 1622,
+      "frame": 0
+    },
+    {
+      "index": 3433,
+      "episode": 1623,
+      "frame": 0
+    },
+    {
+      "index": 3588,
+      "episode": 1624,
+      "frame": 0
+    },
+    {
+      "index": 3746,
+      "episode": 1625,
+      "frame": 0
+    },
+    {
+      "index": 3893,
+      "episode": 1626,
+      "frame": 0
+    },
+    {
+      "index": 4056,
+      "episode": 1627,
+      "frame": 0
+    },
+    {
+      "index": 4217,
+      "episode": 1628,
+      "frame": 0
+    },
+    {
+      "index": 4350,
+      "episode": 1629,
+      "frame": 0
+    },
+    {
+      "index": 4482,
+      "episode": 1630,
+      "frame": 0
+    },
+    {
+      "index": 4618,
+      "episode": 1631,
+      "frame": 0
+    },
+    {
+      "index": 4753,
+      "episode": 1632,
+      "frame": 0
+    },
+    {
+      "index": 4908,
+      "episode": 1633,
+      "frame": 0
+    },
+    {
+      "index": 5056,
+      "episode": 1634,
+      "frame": 0
+    },
+    {
+      "index": 5195,
+      "episode": 1635,
+      "frame": 0
+    },
+    {
+      "index": 5336,
+      "episode": 1636,
+      "frame": 0
+    },
+    {
+      "index": 5468,
+      "episode": 1637,
+      "frame": 0
+    },
+    {
+      "index": 5604,
+      "episode": 1638,
+      "frame": 0
+    },
+    {
+      "index": 5748,
+      "episode": 1639,
+      "frame": 0
+    },
+    {
+      "index": 5891,
+      "episode": 1640,
+      "frame": 0
+    },
+    {
+      "index": 6043,
+      "episode": 1641,
+      "frame": 0
+    },
+    {
+      "index": 6175,
+      "episode": 1642,
+      "frame": 0
+    },
+    {
+      "index": 6316,
+      "episode": 1643,
+      "frame": 0
+    },
+    {
+      "index": 6456,
+      "episode": 1644,
+      "frame": 0
+    },
+    {
+      "index": 6590,
+      "episode": 1645,
+      "frame": 0
+    },
+    {
+      "index": 6725,
+      "episode": 1646,
+      "frame": 0
+    },
+    {
+      "index": 6890,
+      "episode": 1647,
+      "frame": 0
+    },
+    {
+      "index": 7038,
+      "episode": 1648,
+      "frame": 0
+    },
+    {
+      "index": 7195,
+      "episode": 1649,
+      "frame": 0
+    }
+  ],
+  "original_beta_time_exact": true,
+  "al_enabled": false,
+  "ee_enabled": false,
+  "model_initialized": false,
+  "optimizer_steps": 0,
+  "gpu_tested": false,
+  "recipe_sampler": true,
+  "virtual_epoch_steps": 200,
+  "loader_microbatches": 1,
+  "real_frames": 7345,
+  "sample_weight_count": 56,
+  "sample_weight_selected": 0,
+  "sample_weight_normalization": "weight_sum",
+  "sample_weight_multipliers": [
+    1.0
+  ],
+  "category_boundary_samples_verified": 986,
+  "category_boundary_examples": [
+    {
+      "episode": 1600,
+      "frame": 0
+    },
+    {
+      "episode": 1600,
+      "frame": 31
+    },
+    {
+      "episode": 1600,
+      "frame": 33
+    },
+    {
+      "episode": 1600,
+      "frame": 42
+    },
+    {
+      "episode": 1600,
+      "frame": 49
+    },
+    {
+      "episode": 1600,
+      "frame": 55
+    },
+    {
+      "episode": 1600,
+      "frame": 61
+    },
+    {
+      "episode": 1600,
+      "frame": 66
+    }
+  ],
+  "weighting_unit": "action_timestep",
+  "scalar_weight_classes_verified": {},
+  "stage_normalization": "weight_sum",
+  "stage_mixed_batch": {},
+  "stage_fm_shape": [
+    56,
+    50,
+    55
+  ],
+  "stage_active_weight_values": [
+    1.0,
+    5.0,
+    10.0,
+    20.0
+  ],
+  "stage_terminal_episodes": [
+    1600,
+    1601,
+    1602,
+    1603,
+    1604,
+    1605,
+    1606,
+    1607,
+    1608,
+    1609,
+    1610,
+    1611,
+    1612,
+    1613,
+    1614,
+    1615,
+    1616,
+    1617,
+    1618,
+    1619,
+    1620,
+    1621,
+    1622,
+    1623,
+    1624,
+    1625,
+    1626,
+    1627,
+    1628,
+    1629,
+    1630,
+    1631,
+    1632,
+    1633,
+    1634,
+    1635,
+    1636,
+    1637,
+    1638,
+    1639,
+    1640,
+    1641,
+    1642,
+    1643,
+    1644,
+    1645,
+    1646,
+    1647,
+    1648,
+    1649
+  ],
+  "stage_future_depth_values": [
+    0.0,
+    1.0,
+    5.0,
+    10.0,
+    20.0
+  ],
+  "stage_future_video_values": [
+    0.0,
+    1.0,
+    5.0,
+    10.0,
+    20.0
+  ]
+}

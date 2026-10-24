@@ -1,0 +1,8 @@
+{
+  "deleted": "/data/outputs/20261024_0939_stamp_seal200_from_can0915_s200_bf16_m56_key20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200",
+  "released_gib": 11.895355224609375,
+  "free_after_gib": 17.672657012939453,
+  "authorization": "user explicitly approved deletion and launch",
+  "source_1017_preserved": true,
+  "logs_evaluation_videos_preserved": true
+}
