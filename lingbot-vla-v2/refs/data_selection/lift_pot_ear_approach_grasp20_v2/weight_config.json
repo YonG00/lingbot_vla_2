@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "task": "lift_pot",
+  "dataset_name": "robotwin",
+  "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30",
+  "weighting_unit": "action_timestep",
+  "normalization": "weight_sum",
+  "multiplier": 1,
+  "selected_frames": "selected_frames.json",
+  "selected_frames_sha256": "1a132c11794f73e1ee7f904f0911e92dc6bcce4bd724574edd0b452e31caca98",
+  "category_table": "frame_classes.json",
+  "category_table_sha256": "42bc1621be41c70a816c712f26708537f9f61720410f93966167ff707ff8f553",
+  "category_weights": "category_loss_weights.json",
+  "category_weights_sha256": "8a3ae2cb6d3edaa32f017dd8b8f832ad87f48f513568f1faf95f17b8b7c7e89d"
+}

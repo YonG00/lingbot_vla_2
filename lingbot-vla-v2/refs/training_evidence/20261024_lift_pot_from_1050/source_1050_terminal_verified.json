@@ -1,0 +1,119 @@
+[
+  {
+    "run": "20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video",
+    "task": "move_pillbottle_pad",
+    "optimizer_steps": 200,
+    "final_log": "Epoch 1/1: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 200/200 [16:45<00:00,  4.76s/it]10/24/2026 11:08:08 - INFO - __main__ - Step 200/200, Epoch 1, Loss 0.0387, VLA_Loss 0.0348, Depth_Loss 0.2951, Future_Depth_Loss 0.3743, FutureVideo_Loss 0.0409, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 0.8438, AvgSigmoid 0.0747, GradNorm 0.4492, LR 5.00e-05, Expert_LR 1.41e-04, StepTime 4.758s, Depth_Forward_Time  0.767s, Ignore_Batch_Num 0",
+    "checkpoint": [
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      }
+    ],
+    "summary": {
+      "state": "complete",
+      "task": "move_pillbottle_pad",
+      "label": "recipe_200",
+      "model": "/root/autodl-tmp/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100001,
+        100002,
+        100005
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 3,
+      "server_pid": 27976,
+      "shared_server": true,
+      "episode_results": [
+        {
+          "state": "complete",
+          "task": "move_pillbottle_pad",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100001
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "move_pillbottle_pad:episode:0",
+          "episode_index": 0,
+          "scene_seed": 100001,
+          "server_pid": 27976,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "move_pillbottle_pad",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100002
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "move_pillbottle_pad:episode:1",
+          "episode_index": 1,
+          "scene_seed": 100002,
+          "server_pid": 27976,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "move_pillbottle_pad",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100005
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "move_pillbottle_pad:episode:2",
+          "episode_index": 2,
+          "scene_seed": 100005,
+          "server_pid": 27976,
+          "shared_server": true
+        }
+      ],
+      "episode_parallel": true
+    },
+    "videos": [
+      {
+        "path": "/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/evaluation_200/move_pillbottle_pad/results/move_pillbottle_pad/episode0_global.mp4",
+        "bytes": 2882378
+      },
+      {
+        "path": "/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/evaluation_200/move_pillbottle_pad/results/move_pillbottle_pad/episode1_global.mp4",
+        "bytes": 2310777
+      },
+      {
+        "path": "/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/evaluation_200/move_pillbottle_pad/results/move_pillbottle_pad/episode2_global.mp4",
+        "bytes": 2607676
+      }
+    ]
+  }
+]

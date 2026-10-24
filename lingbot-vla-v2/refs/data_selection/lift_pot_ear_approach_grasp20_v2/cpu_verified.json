@@ -1,0 +1,383 @@
+{
+  "state": "cpu_pass",
+  "episodes": 50,
+  "frames": 5554,
+  "boundary_samples": [
+    {
+      "index": 0,
+      "episode": 600,
+      "frame": 0
+    },
+    {
+      "index": 113,
+      "episode": 601,
+      "frame": 0
+    },
+    {
+      "index": 226,
+      "episode": 602,
+      "frame": 0
+    },
+    {
+      "index": 341,
+      "episode": 603,
+      "frame": 0
+    },
+    {
+      "index": 447,
+      "episode": 604,
+      "frame": 0
+    },
+    {
+      "index": 555,
+      "episode": 605,
+      "frame": 0
+    },
+    {
+      "index": 666,
+      "episode": 606,
+      "frame": 0
+    },
+    {
+      "index": 776,
+      "episode": 607,
+      "frame": 0
+    },
+    {
+      "index": 884,
+      "episode": 608,
+      "frame": 0
+    },
+    {
+      "index": 996,
+      "episode": 609,
+      "frame": 0
+    },
+    {
+      "index": 1104,
+      "episode": 610,
+      "frame": 0
+    },
+    {
+      "index": 1220,
+      "episode": 611,
+      "frame": 0
+    },
+    {
+      "index": 1333,
+      "episode": 612,
+      "frame": 0
+    },
+    {
+      "index": 1440,
+      "episode": 613,
+      "frame": 0
+    },
+    {
+      "index": 1551,
+      "episode": 614,
+      "frame": 0
+    },
+    {
+      "index": 1666,
+      "episode": 615,
+      "frame": 0
+    },
+    {
+      "index": 1777,
+      "episode": 616,
+      "frame": 0
+    },
+    {
+      "index": 1893,
+      "episode": 617,
+      "frame": 0
+    },
+    {
+      "index": 2000,
+      "episode": 618,
+      "frame": 0
+    },
+    {
+      "index": 2114,
+      "episode": 619,
+      "frame": 0
+    },
+    {
+      "index": 2225,
+      "episode": 620,
+      "frame": 0
+    },
+    {
+      "index": 2336,
+      "episode": 621,
+      "frame": 0
+    },
+    {
+      "index": 2443,
+      "episode": 622,
+      "frame": 0
+    },
+    {
+      "index": 2552,
+      "episode": 623,
+      "frame": 0
+    },
+    {
+      "index": 2660,
+      "episode": 624,
+      "frame": 0
+    },
+    {
+      "index": 2771,
+      "episode": 625,
+      "frame": 0
+    },
+    {
+      "index": 2878,
+      "episode": 626,
+      "frame": 0
+    },
+    {
+      "index": 2987,
+      "episode": 627,
+      "frame": 0
+    },
+    {
+      "index": 3099,
+      "episode": 628,
+      "frame": 0
+    },
+    {
+      "index": 3210,
+      "episode": 629,
+      "frame": 0
+    },
+    {
+      "index": 3321,
+      "episode": 630,
+      "frame": 0
+    },
+    {
+      "index": 3433,
+      "episode": 631,
+      "frame": 0
+    },
+    {
+      "index": 3547,
+      "episode": 632,
+      "frame": 0
+    },
+    {
+      "index": 3665,
+      "episode": 633,
+      "frame": 0
+    },
+    {
+      "index": 3779,
+      "episode": 634,
+      "frame": 0
+    },
+    {
+      "index": 3889,
+      "episode": 635,
+      "frame": 0
+    },
+    {
+      "index": 3996,
+      "episode": 636,
+      "frame": 0
+    },
+    {
+      "index": 4111,
+      "episode": 637,
+      "frame": 0
+    },
+    {
+      "index": 4222,
+      "episode": 638,
+      "frame": 0
+    },
+    {
+      "index": 4336,
+      "episode": 639,
+      "frame": 0
+    },
+    {
+      "index": 4448,
+      "episode": 640,
+      "frame": 0
+    },
+    {
+      "index": 4556,
+      "episode": 641,
+      "frame": 0
+    },
+    {
+      "index": 4668,
+      "episode": 642,
+      "frame": 0
+    },
+    {
+      "index": 4782,
+      "episode": 643,
+      "frame": 0
+    },
+    {
+      "index": 4889,
+      "episode": 644,
+      "frame": 0
+    },
+    {
+      "index": 4997,
+      "episode": 645,
+      "frame": 0
+    },
+    {
+      "index": 5104,
+      "episode": 646,
+      "frame": 0
+    },
+    {
+      "index": 5216,
+      "episode": 647,
+      "frame": 0
+    },
+    {
+      "index": 5328,
+      "episode": 648,
+      "frame": 0
+    },
+    {
+      "index": 5442,
+      "episode": 649,
+      "frame": 0
+    }
+  ],
+  "original_beta_time_exact": true,
+  "al_enabled": false,
+  "ee_enabled": false,
+  "model_initialized": false,
+  "optimizer_steps": 0,
+  "gpu_tested": false,
+  "recipe_sampler": true,
+  "virtual_epoch_steps": 200,
+  "loader_microbatches": 1,
+  "real_frames": 5554,
+  "sample_weight_count": 56,
+  "sample_weight_selected": 0,
+  "sample_weight_normalization": "weight_sum",
+  "sample_weight_multipliers": [
+    1.0
+  ],
+  "category_boundary_samples_verified": 455,
+  "category_boundary_examples": [
+    {
+      "episode": 600,
+      "frame": 0
+    },
+    {
+      "episode": 600,
+      "frame": 55
+    },
+    {
+      "episode": 600,
+      "frame": 60
+    },
+    {
+      "episode": 600,
+      "frame": 65
+    },
+    {
+      "episode": 600,
+      "frame": 66
+    },
+    {
+      "episode": 600,
+      "frame": 67
+    },
+    {
+      "episode": 600,
+      "frame": 71
+    },
+    {
+      "episode": 600,
+      "frame": 79
+    }
+  ],
+  "weighting_unit": "action_timestep",
+  "scalar_weight_classes_verified": {},
+  "stage_normalization": "weight_sum",
+  "stage_mixed_batch": {},
+  "stage_fm_shape": [
+    56,
+    50,
+    55
+  ],
+  "stage_active_weight_values": [
+    1.0,
+    20.0
+  ],
+  "stage_terminal_episodes": [
+    600,
+    601,
+    602,
+    603,
+    604,
+    605,
+    606,
+    607,
+    608,
+    609,
+    610,
+    611,
+    612,
+    613,
+    614,
+    615,
+    616,
+    617,
+    618,
+    619,
+    620,
+    621,
+    622,
+    623,
+    624,
+    625,
+    626,
+    627,
+    628,
+    629,
+    630,
+    631,
+    632,
+    633,
+    634,
+    635,
+    636,
+    637,
+    638,
+    639,
+    640,
+    641,
+    642,
+    643,
+    644,
+    645,
+    646,
+    647,
+    648,
+    649
+  ],
+  "stage_future_depth_values": [
+    0.0,
+    1.0,
+    20.0
+  ],
+  "stage_future_video_values": [
+    0.0,
+    1.0,
+    20.0
+  ]
+}

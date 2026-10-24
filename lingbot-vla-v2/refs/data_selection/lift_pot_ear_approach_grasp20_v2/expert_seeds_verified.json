@@ -1,0 +1,35 @@
+{
+  "task": "lift_pot",
+  "validated_seeds": [
+    100000,
+    100002,
+    100003
+  ],
+  "checks": [
+    {
+      "seed": 100000,
+      "expert_valid": true,
+      "error": null,
+      "episode_index": 0
+    },
+    {
+      "seed": 100001,
+      "expert_valid": false,
+      "error": null,
+      "episode_index": 1
+    },
+    {
+      "seed": 100002,
+      "expert_valid": true,
+      "error": null,
+      "episode_index": 1
+    },
+    {
+      "seed": 100003,
+      "expert_valid": true,
+      "error": null,
+      "episode_index": 2
+    }
+  ],
+  "policy_inference": false
+}

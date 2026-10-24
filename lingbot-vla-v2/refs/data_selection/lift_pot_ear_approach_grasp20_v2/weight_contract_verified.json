@@ -1,0 +1,13 @@
+{
+  "state": "pass",
+  "episodes": 50,
+  "events": 100,
+  "frames": 5554,
+  "per_frame_branch_checks": 55540,
+  "boundary_offset_cases": 1738,
+  "raw_action_width": 14,
+  "model_initialized": false,
+  "optimizer_steps": 0,
+  "gpu_tested": false,
+  "full_cpu_preflight": "pending"
+}

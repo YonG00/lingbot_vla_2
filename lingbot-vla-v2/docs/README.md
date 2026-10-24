@@ -100,3 +100,5 @@
 - [stamp_seal关键阶段20倍与串行接续](training/recipes/stamp_seal_key_weighting_zh.md)
 
 - [药瓶放垫：1017来源差异化类别加权](training/recipes/move_pillbottle_pad_weighting_zh.md)
+
+- [lift_pot锅耳接近夹取20倍](training/recipes/lift_pot_ear_weighting_zh.md)

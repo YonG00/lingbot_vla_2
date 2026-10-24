@@ -1,0 +1,1028 @@
+{
+  "episodes": 50,
+  "frames": 5554,
+  "events": [
+    {
+      "episode_index": 600,
+      "arm": "left",
+      "start": 55,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 105,
+      "length": 113,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 600,
+      "arm": "right",
+      "start": 55,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 105,
+      "length": 113,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 601,
+      "arm": "left",
+      "start": 52,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 104,
+      "length": 113,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 601,
+      "arm": "right",
+      "start": 53,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 104,
+      "length": 113,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 602,
+      "arm": "left",
+      "start": 55,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 106,
+      "length": 115,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 602,
+      "arm": "right",
+      "start": 55,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 106,
+      "length": 115,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 603,
+      "arm": "left",
+      "start": 49,
+      "close_start": 72,
+      "close_end": 84,
+      "lift_confirm": 98,
+      "length": 106,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 603,
+      "arm": "right",
+      "start": 48,
+      "close_start": 72,
+      "close_end": 84,
+      "lift_confirm": 98,
+      "length": 106,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 604,
+      "arm": "left",
+      "start": 50,
+      "close_start": 74,
+      "close_end": 86,
+      "lift_confirm": 100,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 604,
+      "arm": "right",
+      "start": 50,
+      "close_start": 74,
+      "close_end": 86,
+      "lift_confirm": 100,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 605,
+      "arm": "left",
+      "start": 51,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 102,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 605,
+      "arm": "right",
+      "start": 52,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 606,
+      "arm": "left",
+      "start": 53,
+      "close_start": 75,
+      "close_end": 87,
+      "lift_confirm": 101,
+      "length": 110,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 606,
+      "arm": "right",
+      "start": 53,
+      "close_start": 75,
+      "close_end": 87,
+      "lift_confirm": 102,
+      "length": 110,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 607,
+      "arm": "left",
+      "start": 51,
+      "close_start": 74,
+      "close_end": 86,
+      "lift_confirm": 100,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 607,
+      "arm": "right",
+      "start": 50,
+      "close_start": 74,
+      "close_end": 86,
+      "lift_confirm": 100,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 608,
+      "arm": "left",
+      "start": 54,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 608,
+      "arm": "right",
+      "start": 54,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 609,
+      "arm": "left",
+      "start": 50,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 609,
+      "arm": "right",
+      "start": 49,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 610,
+      "arm": "left",
+      "start": 55,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 107,
+      "length": 116,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 610,
+      "arm": "right",
+      "start": 55,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 106,
+      "length": 116,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 611,
+      "arm": "left",
+      "start": 54,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 105,
+      "length": 113,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 611,
+      "arm": "right",
+      "start": 55,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 104,
+      "length": 113,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 612,
+      "arm": "left",
+      "start": 49,
+      "close_start": 72,
+      "close_end": 84,
+      "lift_confirm": 98,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 612,
+      "arm": "right",
+      "start": 49,
+      "close_start": 72,
+      "close_end": 84,
+      "lift_confirm": 98,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 613,
+      "arm": "left",
+      "start": 52,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 613,
+      "arm": "right",
+      "start": 52,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 614,
+      "arm": "left",
+      "start": 55,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 106,
+      "length": 115,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 614,
+      "arm": "right",
+      "start": 56,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 106,
+      "length": 115,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 615,
+      "arm": "left",
+      "start": 54,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 615,
+      "arm": "right",
+      "start": 53,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 616,
+      "arm": "left",
+      "start": 57,
+      "close_start": 81,
+      "close_end": 93,
+      "lift_confirm": 108,
+      "length": 116,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 616,
+      "arm": "right",
+      "start": 57,
+      "close_start": 81,
+      "close_end": 93,
+      "lift_confirm": 108,
+      "length": 116,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 617,
+      "arm": "left",
+      "start": 51,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 617,
+      "arm": "right",
+      "start": 49,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 618,
+      "arm": "left",
+      "start": 54,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 105,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 618,
+      "arm": "right",
+      "start": 54,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 105,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 619,
+      "arm": "left",
+      "start": 54,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 619,
+      "arm": "right",
+      "start": 52,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 620,
+      "arm": "left",
+      "start": 54,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 620,
+      "arm": "right",
+      "start": 53,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 621,
+      "arm": "left",
+      "start": 49,
+      "close_start": 72,
+      "close_end": 84,
+      "lift_confirm": 99,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 621,
+      "arm": "right",
+      "start": 49,
+      "close_start": 72,
+      "close_end": 84,
+      "lift_confirm": 98,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 622,
+      "arm": "left",
+      "start": 51,
+      "close_start": 75,
+      "close_end": 87,
+      "lift_confirm": 101,
+      "length": 109,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 622,
+      "arm": "right",
+      "start": 52,
+      "close_start": 75,
+      "close_end": 87,
+      "lift_confirm": 101,
+      "length": 109,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 623,
+      "arm": "left",
+      "start": 51,
+      "close_start": 74,
+      "close_end": 86,
+      "lift_confirm": 100,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 623,
+      "arm": "right",
+      "start": 51,
+      "close_start": 74,
+      "close_end": 86,
+      "lift_confirm": 100,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 624,
+      "arm": "left",
+      "start": 51,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 624,
+      "arm": "right",
+      "start": 51,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 625,
+      "arm": "left",
+      "start": 50,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 625,
+      "arm": "right",
+      "start": 50,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 626,
+      "arm": "left",
+      "start": 49,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 100,
+      "length": 109,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 626,
+      "arm": "right",
+      "start": 49,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 100,
+      "length": 109,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 627,
+      "arm": "left",
+      "start": 55,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 627,
+      "arm": "right",
+      "start": 55,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 628,
+      "arm": "left",
+      "start": 52,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 628,
+      "arm": "right",
+      "start": 52,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 629,
+      "arm": "left",
+      "start": 53,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 102,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 629,
+      "arm": "right",
+      "start": 52,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 102,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 630,
+      "arm": "left",
+      "start": 50,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 103,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 630,
+      "arm": "right",
+      "start": 52,
+      "close_start": 76,
+      "close_end": 88,
+      "lift_confirm": 103,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 631,
+      "arm": "left",
+      "start": 58,
+      "close_start": 80,
+      "close_end": 92,
+      "lift_confirm": 106,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 631,
+      "arm": "right",
+      "start": 56,
+      "close_start": 80,
+      "close_end": 92,
+      "lift_confirm": 106,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 632,
+      "arm": "left",
+      "start": 58,
+      "close_start": 83,
+      "close_end": 95,
+      "lift_confirm": 110,
+      "length": 118,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 632,
+      "arm": "right",
+      "start": 59,
+      "close_start": 83,
+      "close_end": 95,
+      "lift_confirm": 110,
+      "length": 118,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 633,
+      "arm": "left",
+      "start": 52,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 105,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 633,
+      "arm": "right",
+      "start": 54,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 105,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 634,
+      "arm": "left",
+      "start": 51,
+      "close_start": 75,
+      "close_end": 87,
+      "lift_confirm": 101,
+      "length": 110,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 634,
+      "arm": "right",
+      "start": 52,
+      "close_start": 75,
+      "close_end": 87,
+      "lift_confirm": 102,
+      "length": 110,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 635,
+      "arm": "left",
+      "start": 50,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 635,
+      "arm": "right",
+      "start": 50,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 636,
+      "arm": "left",
+      "start": 57,
+      "close_start": 80,
+      "close_end": 92,
+      "lift_confirm": 106,
+      "length": 115,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 636,
+      "arm": "right",
+      "start": 55,
+      "close_start": 80,
+      "close_end": 92,
+      "lift_confirm": 106,
+      "length": 115,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 637,
+      "arm": "left",
+      "start": 53,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 637,
+      "arm": "right",
+      "start": 53,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 103,
+      "length": 111,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 638,
+      "arm": "left",
+      "start": 54,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 105,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 638,
+      "arm": "right",
+      "start": 53,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 106,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 639,
+      "arm": "left",
+      "start": 52,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 639,
+      "arm": "right",
+      "start": 52,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 640,
+      "arm": "left",
+      "start": 49,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 640,
+      "arm": "right",
+      "start": 50,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 641,
+      "arm": "left",
+      "start": 55,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 641,
+      "arm": "right",
+      "start": 54,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 642,
+      "arm": "left",
+      "start": 54,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 105,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 642,
+      "arm": "right",
+      "start": 55,
+      "close_start": 79,
+      "close_end": 91,
+      "lift_confirm": 105,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 643,
+      "arm": "left",
+      "start": 49,
+      "close_start": 72,
+      "close_end": 84,
+      "lift_confirm": 98,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 643,
+      "arm": "right",
+      "start": 49,
+      "close_start": 72,
+      "close_end": 84,
+      "lift_confirm": 98,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 644,
+      "arm": "left",
+      "start": 50,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 644,
+      "arm": "right",
+      "start": 50,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 108,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 645,
+      "arm": "left",
+      "start": 49,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 645,
+      "arm": "right",
+      "start": 50,
+      "close_start": 73,
+      "close_end": 85,
+      "lift_confirm": 99,
+      "length": 107,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 646,
+      "arm": "left",
+      "start": 53,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 646,
+      "arm": "right",
+      "start": 53,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 647,
+      "arm": "left",
+      "start": 54,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 103,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 647,
+      "arm": "right",
+      "start": 53,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 648,
+      "arm": "left",
+      "start": 52,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 105,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 648,
+      "arm": "right",
+      "start": 53,
+      "close_start": 78,
+      "close_end": 90,
+      "lift_confirm": 105,
+      "length": 114,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 649,
+      "arm": "left",
+      "start": 52,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 104,
+      "length": 112,
+      "proxy_only": true
+    },
+    {
+      "episode_index": 649,
+      "arm": "right",
+      "start": 51,
+      "close_start": 77,
+      "close_end": 89,
+      "lift_confirm": 103,
+      "length": 112,
+      "proxy_only": true
+    }
+  ],
+  "selected_frames": 1861,
+  "selected_fraction": 0.3350738206697875,
+  "arm_category_counts": {
+    "left": {
+      "ear/approach_6_to_3p5cm": 455,
+      "ear/approach_3p5_to_1p5cm": 333,
+      "ear/half_open_settle": 405,
+      "ear/closing_first_half": 300,
+      "ear/closing_second_half": 350
+    },
+    "right": {
+      "ear/approach_6_to_3p5cm": 426,
+      "ear/approach_3p5_to_1p5cm": 364,
+      "ear/half_open_settle": 406,
+      "ear/closing_first_half": 300,
+      "ear/closing_second_half": 350
+    }
+  },
+  "contact_verified": false,
+  "subsampled": false,
+  "model_initialized": false,
+  "optimizer_steps": 0
+}

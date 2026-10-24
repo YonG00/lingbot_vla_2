@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "weighting_unit": "action_timestep",
+  "normalization": "weight_sum",
+  "overlap_rule": "max",
+  "future_video_rule": "target_endpoint",
+  "classes": {
+    "background": {
+      "fm": 1,
+      "visual": 1
+    },
+    "ear/approach_6_to_3p5cm": {
+      "fm": 20,
+      "visual": 20
+    },
+    "ear/approach_3p5_to_1p5cm": {
+      "fm": 20,
+      "visual": 20
+    },
+    "ear/half_open_settle": {
+      "fm": 20,
+      "visual": 20
+    },
+    "ear/closing_first_half": {
+      "fm": 20,
+      "visual": 20
+    },
+    "ear/closing_second_half": {
+      "fm": 20,
+      "visual": 20
+    }
+  }
+}

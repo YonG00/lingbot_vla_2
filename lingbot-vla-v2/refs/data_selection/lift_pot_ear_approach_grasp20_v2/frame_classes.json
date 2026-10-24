@@ -1,0 +1,5858 @@
+{
+  "schema_version": 1,
+  "dataset_name": "robotwin",
+  "task": "lift_pot",
+  "coordinate_space": "original_episode_frame",
+  "label_source": "target_classes",
+  "fps": 15,
+  "source_action_channels": {
+    "action": {
+      "left": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "right": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "observation.state": {
+      "left": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "right": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    }
+  },
+  "episodes": [
+    {
+      "episode_index": 600,
+      "length": 113,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 67,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 113,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 113,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 601,
+      "length": 113,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 63,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 113,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 113,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 602,
+      "length": 115,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 115,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 115,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 603,
+      "length": 106,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 54,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 58,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 64,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 72,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 78,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 85,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 106,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 48,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 48,
+            "end": 54,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 58,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 64,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 72,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 78,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 85,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 106,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 604,
+      "length": 108,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 66,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 74,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 74,
+            "end": 80,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 87,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 60,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 66,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 74,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 74,
+            "end": 80,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 87,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 605,
+      "length": 111,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 51,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 63,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 67,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 63,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 67,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 606,
+      "length": 110,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 63,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 75,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 75,
+            "end": 81,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 88,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 110,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 58,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 75,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 75,
+            "end": 81,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 88,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 110,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 607,
+      "length": 108,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 51,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 66,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 74,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 74,
+            "end": 80,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 87,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 56,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 56,
+            "end": 66,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 74,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 74,
+            "end": 80,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 87,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 608,
+      "length": 112,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 65,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 609,
+      "length": 108,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 59,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 610,
+      "length": 116,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 116,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 116,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 611,
+      "length": 113,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 113,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 113,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 612,
+      "length": 107,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 64,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 72,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 78,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 85,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 59,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 64,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 72,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 78,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 85,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 613,
+      "length": 111,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 58,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 62,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 614,
+      "length": 115,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 115,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 56,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 56,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 115,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 615,
+      "length": 111,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 65,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 58,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 616,
+      "length": 116,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 57,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 73,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 81,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 87,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 94,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 94,
+            "end": 116,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 57,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 67,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 73,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 81,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 87,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 94,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 94,
+            "end": 116,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 617,
+      "length": 107,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 51,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 618,
+      "length": 114,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 65,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 64,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 619,
+      "length": 111,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 65,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 58,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 620,
+      "length": 111,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 65,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 59,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 63,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 65,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 621,
+      "length": 107,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 59,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 64,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 72,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 78,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 85,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 64,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 72,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 78,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 85,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 622,
+      "length": 109,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 51,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 67,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 75,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 75,
+            "end": 81,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 88,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 109,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 63,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 67,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 75,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 75,
+            "end": 81,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 88,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 109,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 623,
+      "length": 108,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 51,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 56,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 56,
+            "end": 60,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 66,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 74,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 74,
+            "end": 80,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 87,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 51,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 66,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 74,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 74,
+            "end": 80,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 87,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 624,
+      "length": 111,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 51,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 67,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 51,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 67,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 625,
+      "length": 107,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 59,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 626,
+      "length": 109,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 59,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 109,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 59,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 109,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 627,
+      "length": 112,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 628,
+      "length": 111,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 63,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 629,
+      "length": 111,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 58,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 58,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 62,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 63,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 630,
+      "length": 112,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 57,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 63,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 76,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 82,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 89,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 631,
+      "length": 114,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 58,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 66,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 67,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 72,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 80,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 86,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 93,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 93,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 56,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 56,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 66,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 67,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 72,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 80,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 86,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 93,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 93,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 632,
+      "length": 118,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 58,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 66,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 70,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 76,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 83,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 89,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 96,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 96,
+            "end": 118,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 59,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 72,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 76,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 83,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 89,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 96,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 96,
+            "end": 118,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 633,
+      "length": 114,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 634,
+      "length": 110,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 51,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 57,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 67,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 75,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 75,
+            "end": 81,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 88,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 110,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 63,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 67,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 75,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 75,
+            "end": 81,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 88,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 110,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 635,
+      "length": 107,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 59,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 636,
+      "length": 115,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 57,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 66,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 68,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 72,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 80,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 86,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 93,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 93,
+            "end": 115,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 72,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 80,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 86,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 93,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 93,
+            "end": 115,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 637,
+      "length": 111,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 59,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 63,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 59,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 63,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 65,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 638,
+      "length": 114,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 64,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 71,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 639,
+      "length": 112,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 57,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 62,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 68,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 640,
+      "length": 108,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 59,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 641,
+      "length": 112,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 642,
+      "length": 114,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 65,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 55,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 66,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 79,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 85,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 92,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 643,
+      "length": 107,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 60,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 64,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 72,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 78,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 85,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 54,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 64,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 72,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 78,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 85,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 644,
+      "length": 108,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 59,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 645,
+      "length": 107,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 49,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 50,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 55,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 59,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 61,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 65,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 73,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 79,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 86,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 646,
+      "length": 112,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 58,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 63,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 65,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 58,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 647,
+      "length": 112,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 54,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 59,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 63,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 648,
+      "length": 114,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 63,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 70,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 53,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 78,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 84,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 91,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 649,
+      "length": 112,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 52,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 57,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 62,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 64,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 51,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 62,
+            "classes": [
+              "ear/approach_6_to_3p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 69,
+            "classes": [
+              "ear/approach_3p5_to_1p5cm"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 77,
+            "classes": [
+              "ear/half_open_settle"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 83,
+            "classes": [
+              "ear/closing_first_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 90,
+            "classes": [
+              "ear/closing_second_half"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 112,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
