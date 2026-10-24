@@ -1,0 +1,28 @@
+{
+  "state": "pass",
+  "task": "move_stapler_pad",
+  "real_parquet_episodes": 50,
+  "real_parquet_frames": 7731,
+  "boundary_and_adjacent_anchor_offset_checks": 500,
+  "cross_category_chunk_checks": 243,
+  "horizon": 50,
+  "action_coordinate_width": 14,
+  "model_padded_width_not_tested_here": true,
+  "offsets": [
+    0,
+    1
+  ],
+  "future_visual_clock": "frame+49",
+  "full_stage_equivalence": [
+    {
+      "task": "pick_dual_bottles",
+      "frames": 6129,
+      "all_branch_arm_frame_weights_equal": true
+    }
+  ],
+  "torch_imported": false,
+  "model_initialized": false,
+  "optimizer_steps": 0,
+  "gpu_tested": false,
+  "full_dataloader_check_complete": false
+}

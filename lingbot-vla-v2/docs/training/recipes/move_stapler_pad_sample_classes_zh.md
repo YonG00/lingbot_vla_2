@@ -1,6 +1,6 @@
 # 订书机按放置早晚与白色型号赋权
 
-2026-10-23：最终配方是早期15／晚期20／白色其他10。已在服务器完成数据及CPU检查，当前无卡，未启动GPU训练。此前“全放置20＋白色15”的产物仅作过程记录，已被本方案替代，不要启动旧配方。
+2026-10-23：最终配方是早期15／晚期20／白色其他10，已按用户要求升级为统一逐动作类别加权。当前无卡，未启动GPU训练；完整CPU预检尚待通过，详见[统一框架](category_weighting_framework_zh.md)。此前“全放置20＋白色15”的产物仅作过程记录，已被本方案替代，不要启动旧配方。
 
 ## 范围与优先级
 
@@ -19,15 +19,13 @@
 
 ## 损失与代码兼容
 
-动作FM、Depth、Future Depth、Video统一使用样本类别倍率，按各自有效权重和归一化。倍率由当前锚点样本类别决定，FM作用于其整个有效动作chunk，不按未来每个动作时刻重新查阶段；视觉同样按这个样本倍率，未来目标越界为0。动作时间padding和未用关节不进入FM分子、分母。不引入EE-loss、窗口采样或额外采样倍率。
+动作FM对chunk内每个未来动作查其自身数据帧类别，非整chunk复制锚点权重；Depth/Video按自身目标图像时间查类别。动作padding不监督，越界未来图像0，按各分支有效权重和归一化。
 
-SelectionWeights现在显式支持不带stage_table的weight_sum标量配置，复用已验证的绝对权重矩阵和辅助分支归一化路径；没有给订书机伪造阶段标签。旧sample_count配置在未启用归一化模式时保持原行为。复合注册表中任一任务启用weight_sum，整个batch走明确的权重和路径，旧任务相对重要性只折入一次。
-
-CPU检查修正：来源注册表保留双瓶阶段数据但当前只训练订书机时，仅检查当前数据实际包含的阶段episode，不要求读取未参与本轮的双瓶样本；这不删除源注册表。
+两种标签共用CategoryTable和category_loss_weights.json；详细参数、重叠与迁移规则见[统一框架](category_weighting_framework_zh.md)。CPU仅审计本轮实际参与的任务episode，来源注册表其他任务重要性仍保留。
 
 ## 可调配置与训练入口
 
-最终数据：`refs/data_selection/move_stapler_pad_early15_late20_white10_v1/`，其中selected_frames.json明确列出逐帧loss_weight，weight_config.json带SHA校验，summary.json为范围和规则，cpu_verified.json/visual_qc.jpg为证据。修改后必须新建快照、更新SHA，不能热改运行文件。
+最终数据：`refs/data_selection/move_stapler_pad_categories_early15_late20_white10_v1/`，其中frame_classes.json保存类别，category_loss_weights.json直接调倍率，weight_config.json绑定SHA，coverage.json为覆盖统计，real_frame_clock_verified.json与full_cpu_check_incomplete.json记录验证边界。修改后必须新建快照、更新SHA，不能热改运行文件。
 
 最终配方：`configs/training_recipes/move_stapler_pad200_from_1913_early15_late20_white10_noreplay.json`。
 
@@ -39,7 +37,7 @@ CPU检查修正：来源注册表保留双瓶阶段数据但当前只训练订�
 在项目根目录并使用训练环境Python：
 
 ```bash
-LINGBOT_SAMPLE_WEIGHT_CONFIG="$PWD/refs/data_selection/move_stapler_pad_early15_late20_white10_v1/weight_config.json" \
+LINGBOT_SAMPLE_WEIGHT_CONFIG="$PWD/refs/data_selection/move_stapler_pad_categories_early15_late20_white10_v1/weight_config.json" \
 LINGBOT_ROBOTWIN_ROOT=/data/experiments/official_adjust_bottle_control/RoboTwin-lingbot \
 python experiment/task_recipes/run.py \
   --recipe configs/training_recipes/move_stapler_pad200_from_1913_early15_late20_white10_noreplay.json \
@@ -50,8 +48,4 @@ python experiment/task_recipes/run.py \
 
 ## 验证边界
 
-107项数据/损失测试＋77项配方测试共184项CPU通过。真实小批次检查覆盖50条7731帧，batch=[2,50,55]，四类1/10/15/20分别抽取实际样本验证FM与当前视觉权重，未来无效为0、padding为0；model_initialized=false、optimizer_steps=0、gpu_tested=false。无卡2GiB容器只用micro2验证接口，不改变正式micro56。
-
-三条示范150/159/184的12张早期、预放置边界、晚期下降、松爪图抽检通过，含白色型号。图像按原视频帧号抽取，原视频与训练元数据FPS不同，不能按训练秒数直接seek。
-
-最初临时CPU脚本误传str而非Path已修正；旧全放置20版本的CPU报告不是最终版本。最终GPU显存、训练速度、成功率均未测，不从CPU通过推断训练成功。没有新增Checkpoint或累计训练步数。
+195项CPU回归、真实7731帧的500个边界/时钟检查通过，含243个跨类别chunk。完整模型DataLoader预检在2GiB无卡容器返回-9，尚未完成，不能用此前整chunk版本的小批次通过代替。开卡后正式启动仍先跑完整CPU检查；GPU训练未执行。三示范早晚分界图仍适用，因为本次未改变标签范围，只改权重作用时钟。

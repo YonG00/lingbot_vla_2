@@ -10,7 +10,8 @@ class SelectionWeights:
         config_path = Path(config_path).resolve()
         c = json.loads(config_path.read_text())
         self.stage_tables = {}
-        self.weight_sum = c.get("normalization") == "weight_sum"
+        self.weight_sum = True
+        if c.get('weighting_unit','action_timestep')!='action_timestep':raise ValueError('new runs require per-action weighting')
         if 'policies' in c:
             from .inheritance import read_policies
             policies=read_policies(config_path)
@@ -75,10 +76,14 @@ class SelectionWeights:
                 if not arms or not arms<={"left","right"}:raise ValueError("arm labels required for action weights")
                 self.action_overrides[pair]={dim:float(arm_weights[arm] if arm in arms else 1.)/float(value) for arm,dims in layout.items() for dim in dims}
         if not self.keys: raise ValueError("empty selection")
-        if 'stage_table' in c:
+        if 'stage_table' in c or 'category_table' in c:
             if arm_weights is not None or self.multiplier!=1 or c.get('use_selected_frame_weights',False):raise ValueError('stage policy must replace legacy task weighting')
-            from .full_stages import StageTable
-            stage=StageTable(c,config_path.parent)
+            if 'category_table' in c:
+                from .category_table import CategoryTable
+                stage=CategoryTable(c,config_path.parent)
+            else:
+                from .full_stages import StageTable
+                stage=StageTable(c,config_path.parent)
             expected={(e['episode_index'],f)for e in stage.table['episodes']for f in range(e['length'])}
             if self.keys!=expected:raise ValueError('stage policy must register every original frame')
             self.stage_tables={ep:stage for ep in stage.episodes}

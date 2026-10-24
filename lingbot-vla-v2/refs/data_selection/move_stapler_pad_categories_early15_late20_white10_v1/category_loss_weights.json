@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "weighting_unit": "action_timestep",
+  "normalization": "weight_sum",
+  "overlap_rule": "max",
+  "future_video_rule": "target_endpoint",
+  "classes": {
+    "background": {
+      "fm": 1,
+      "visual": 1
+    },
+    "early_placement": {
+      "fm": 15,
+      "visual": 15
+    },
+    "late_placement": {
+      "fm": 20,
+      "visual": 20
+    },
+    "white_stapler_demo": {
+      "fm": 10,
+      "visual": 10
+    }
+  }
+}

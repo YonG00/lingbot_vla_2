@@ -1,0 +1,66 @@
+{
+  "raw_fm_weight_frames": {
+    "left": {
+      "1.0": 3373,
+      "15.0": 1847,
+      "20.0": 1748,
+      "10.0": 763
+    },
+    "right": {
+      "1.0": 3373,
+      "15.0": 1847,
+      "20.0": 1748,
+      "10.0": 763
+    }
+  },
+  "all_anchor_chunk_fm_arm_steps": {
+    "left": {
+      "1.0": 118425,
+      "15.0": 92350,
+      "20.0": 87400,
+      "10.0": 27125
+    },
+    "right": {
+      "1.0": 118425,
+      "15.0": 92350,
+      "20.0": 87400,
+      "10.0": 27125
+    }
+  },
+  "all_anchor_padded_time_steps": 61250,
+  "visual_weight_samples": {
+    "current_depth": {
+      "1.0": 3373,
+      "15.0": 1847,
+      "20.0": 1748,
+      "10.0": 763
+    },
+    "future_depth": {
+      "1.0": 1364,
+      "15.0": 1847,
+      "20.0": 1748,
+      "0.0": 2450,
+      "10.0": 322
+    },
+    "current_video": {
+      "1.0": 3373,
+      "15.0": 1847,
+      "20.0": 1748,
+      "10.0": 763
+    },
+    "future_video": {
+      "1.0": 1364,
+      "15.0": 1847,
+      "20.0": 1748,
+      "0.0": 2450,
+      "10.0": 322
+    }
+  },
+  "coordinate_offset": 0,
+  "horizon": 50,
+  "statistics_scope": "all original anchors uniformly; not sampled training progress",
+  "task": "move_stapler_pad",
+  "label_source": "target_classes",
+  "weighting_unit": "action_timestep",
+  "training_started": false
+}

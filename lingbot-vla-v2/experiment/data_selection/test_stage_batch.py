@@ -37,3 +37,12 @@ class StageBatchTests(unittest.TestCase):
    for frame,expected in enumerate([20,15,1]):
     result=build_stage_fields(policy,'robotwin',8,frame,self.entry([False]*40+[True]*10),self.transform())
     self.assertEqual(result['stage_fm_weight'][0][0],expected);self.assertEqual(result['stage_current_depth_weight'],expected);self.assertEqual(result['stage_future_depth_weight'],0);self.assertEqual(result['stage_ids'][0],[-1,-1]);self.assertEqual(result['stage_fm_weight'][40][0],0)
+
+ def test_legacy_target_coordinates_now_use_each_future_action_and_image_time(self):
+  with tempfile.TemporaryDirectory()as t:
+   p=Path(t);fixture(p);policy=SelectionWeights(p/'weight_config.json');policy.stage_tables={};policy.coordinate_weights={(8,0):1.,(8,1):15.,(8,2):20.,(8,49):10.}
+   v=build_stage_fields(policy,'robotwin',8,0,self.entry(),self.transform())
+   self.assertEqual([v['stage_fm_weight'][k][0]for k in range(3)],[1,15,20]);self.assertEqual(v['stage_current_depth_weight'],1);self.assertEqual(v['stage_future_depth_weight'],10);self.assertEqual(v['stage_future_video_weight'],10)
+   transform=self.transform();transform.actions_convert_from_state={'action'}
+   shifted=build_stage_fields(policy,'robotwin',8,0,self.entry(),transform)
+   self.assertEqual([shifted['stage_fm_weight'][k][0]for k in range(2)],[15,20]);self.assertEqual(shifted['stage_future_depth_weight'],10)

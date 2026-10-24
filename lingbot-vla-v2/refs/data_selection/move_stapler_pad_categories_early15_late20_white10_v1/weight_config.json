@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "task": "move_stapler_pad",
+  "dataset_name": "robotwin",
+  "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30",
+  "weighting_unit": "action_timestep",
+  "normalization": "weight_sum",
+  "multiplier": 1,
+  "selected_frames": "selected_frames.json",
+  "selected_frames_sha256": "4405b1fc46c0aa539bc5a6380c7d736b7439f6732b94febf2e8054ca664b8091",
+  "category_table": "frame_classes.json",
+  "category_table_sha256": "6547038180d43ea8cb9a512731ae6be85dd0391901633912cf6fbade16e443b3",
+  "category_weights": "category_loss_weights.json",
+  "category_weights_sha256": "02d83f4293e54047e4602f2f95d73815b34d0014d600e58b07493b1185dc1e0a"
+}

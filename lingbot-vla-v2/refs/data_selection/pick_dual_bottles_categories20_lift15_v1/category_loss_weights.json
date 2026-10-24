@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "weighting_unit": "action_timestep",
+  "normalization": "weight_sum",
+  "overlap_rule": "max",
+  "future_video_rule": "target_endpoint",
+  "classes": {
+    "background": {
+      "fm": 1.0,
+      "visual": 1.0
+    },
+    "idle_or_prepare/initial_pose": {
+      "fm": 1.0,
+      "visual": 1.0
+    },
+    "reach_aim/reach_very_far": {
+      "fm": 1.0,
+      "visual": 1.0
+    },
+    "reach_aim/reach_far": {
+      "fm": 1.0,
+      "visual": 1.0
+    },
+    "reach_aim/reach_middle": {
+      "fm": 1.0,
+      "visual": 1.0
+    },
+    "reach_aim/reach_near": {
+      "fm": 1.0,
+      "visual": 1.0
+    },
+    "fine_align/stable_horizontal_pregrasp": {
+      "fm": 2.0,
+      "visual": 2.0
+    },
+    "pre_contact/forward_advance": {
+      "fm": 20.0,
+      "visual": 20.0
+    },
+    "pre_contact/open_settle": {
+      "fm": 20.0,
+      "visual": 20.0
+    },
+    "gripper_close/closing_transition": {
+      "fm": 20.0,
+      "visual": 20.0
+    },
+    "grasp_lift/closed_hold_proxy": {
+      "fm": 15.0,
+      "visual": 15.0
+    },
+    "grasp_lift/initial_clearance": {
+      "fm": 15.0,
+      "visual": 15.0
+    },
+    "grasp_lift/lift_clearance": {
+      "fm": 2.0,
+      "visual": 2.0
+    },
+    "transport/transport_far": {
+      "fm": 1.0,
+      "visual": 1.0
+    },
+    "transport/transport_middle": {
+      "fm": 1.0,
+      "visual": 1.0
+    },
+    "transport/transport_near": {
+      "fm": 1.0,
+      "visual": 1.0
+    },
+    "target_align/held_target_alignment": {
+      "fm": 1.0,
+      "visual": 1.0
+    },
+    "target_hold/closed_target_hold_proxy": {
+      "fm": 1.0,
+      "visual": 1.0
+    }
+  }
+}

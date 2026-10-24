@@ -77,8 +77,8 @@ def freeze_registry(source_run,destination,explicit=None,fixed=None):
     for task,(cfg,selected) in configurations.items():
         target=destination/'sample_weights'/task;target.mkdir(parents=True,exist_ok=False)
         shutil.copy2(selected,target/'selected_frames.json')
-        cfg=dict(cfg,selected_frames='selected_frames.json')
-        for field in ['stage_table','stage_policy']:
+        cfg=dict(cfg,selected_frames='selected_frames.json',weighting_unit='action_timestep',normalization='weight_sum')
+        for field in ['stage_table','stage_policy','category_table','category_weights']:
             if field in cfg:
                 dependency=Path(cfg[field]);dependency=dependency if dependency.is_absolute()else policies[task].parent/dependency
                 name=field+'.json';shutil.copy2(dependency,target/name);cfg[field]=name

@@ -1,0 +1,9 @@
+{
+  "exit_code": -9,
+  "output": "/data/experiments/stack_bowls_sample_weighting/cpu_stapler_unified_peraction_20261023_231554",
+  "state": "incomplete",
+  "signal": "SIGKILL",
+  "cause_not_proven": true,
+  "memory_limit_gib": 2,
+  "training_started": false
+}

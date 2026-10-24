@@ -79,7 +79,8 @@ def check(out):
                     assert batch[0][name].shape==weights.shape and torch.isfinite(batch[0][name]).all()and (batch[0][name]>=0).all()
                 assert batch[0]['stage_ids'].shape==(len(weights),50,2)and batch[0]['stage_arm_index'].shape==(len(weights),55)
                 raw=dataset._datasets[0].dataset.hf_dataset.select_columns(['episode_index','frame_index'])
-                terminal=[];stage_index=None;legacy_index=None;active_staged=set();scalar_classes={}
+                terminal=[];stage_index=None;legacy_index=None;active_staged=set();scalar_classes={};category_boundaries=[]
+                offset=int(bool(dataset._datasets[0].feature_transform.actions_convert_from_state))
                 for i,row in enumerate(raw):
                     ep=int(row['episode_index']);frame=int(row['frame_index']);table=policy.stage_tables.get(ep)
                     if table:active_staged.add(ep)
@@ -87,11 +88,25 @@ def check(out):
                         scalar=float(policy.weight(policy.dataset_name,ep,frame))
                         if str(scalar)not in scalar_classes:
                             sample=dataset[i];pad=sample['action_is_pad'].bool()
-                            assert (sample['stage_fm_weight'][~pad]==scalar).all()and (sample['stage_fm_weight'][pad]==0).all()
+                            expected=torch.tensor([[policy.weight(policy.dataset_name,ep,frame+offset+k)*v if not bool(pad[k])else 0. for v in (policy.relative_action_weights(policy.dataset_name,ep,frame+offset+k,55)or [1.]*55)]for k in range(50)])
+                            assert torch.equal(sample['stage_fm_weight'],expected),'legacy importance must be queried at every action time'
                             assert float(sample['stage_current_depth_weight'])==scalar and float(sample['stage_current_video_weight'])==scalar
                             scalar_classes[str(scalar)]=dict(episode=ep,frame=frame,fm=scalar,current_visual=scalar)
 
-                    if table and stage_index is None and table.frame_weights['fm'][ep]['left'][frame]==5:stage_index=i
+                    if table and hasattr(table,'category_labels')and frame in {seg['start']for segs in table.episodes[ep]['arms'].values()for seg in segs}:
+                        from experiment.data_selection.full_stages import derive_arm_layout
+                        sample=dataset[i];pad=sample['action_is_pad'].bool();ft=dataset._datasets[0].feature_transform
+                        layout=derive_arm_layout(ft.feature_config,ft.key_mapping,sample['action_joint_mask'].nonzero().flatten().tolist(),table.table['source_action_channels'])
+                        for k in range(50):
+                            for arm,dims in layout.items():
+                                expected=table.frame_weights['fm'][ep][arm][frame+offset+k]if not bool(pad[k])else 0.
+                                assert (sample['stage_fm_weight'][k,dims]==expected).all(),'category boundary/time weight mismatch'
+                        for branch in ['current_depth','future_depth','current_video','future_video']:
+                            target=frame+49 if branch.startswith('future')else frame
+                            expected=max(table.frame_weights[branch][ep][arm][target]for arm in ['left','right'])if target<table.episodes[ep]['length']else 0.
+                            assert float(sample['stage_'+branch+'_weight'])==expected,'visual target clock mismatch'
+                        category_boundaries.append(dict(episode=ep,frame=frame))
+                    if table and stage_index is None and table.labels[ep]['left'][frame]>=0 and table.frame_weights['fm'][ep]['left'][frame]==5:stage_index=i
                     if table is None and legacy_index is None and policy.weight(policy.dataset_name,ep,frame)>1:legacy_index=i
                     if table and frame==table.episodes[ep]['length']-1:
                         item=dataset[i];assert item['stage_fm_weight'].shape==(50,55)
@@ -105,10 +120,12 @@ def check(out):
                     assert mixed['stage_fm_weight'].shape==(2,50,55)
                     assert (mixed['stage_ids'][0]>=0).all()and (mixed['stage_ids'][1]==-1).all()
                     scalar=float(mixed['sample_loss_weight'][1]);valid=mixed['joint_mask'][1].bool() & ~mixed['action_is_pad'][1].bool()[:,None]
-                    assert (mixed['stage_fm_weight'][1][valid]==scalar).all(),'legacy replay importance changed'
+                    legacy_row=raw[legacy_index];legacy_ep=int(legacy_row['episode_index']);legacy_frame=int(legacy_row['frame_index'])
+                    expected=torch.tensor([[policy.weight(policy.dataset_name,legacy_ep,legacy_frame+offset+k)*v for v in (policy.relative_action_weights(policy.dataset_name,legacy_ep,legacy_frame+offset+k,55)or [1.]*55)]for k in range(50)])
+                    assert torch.equal(mixed['stage_fm_weight'][1][valid],expected[valid]),'legacy replay per-action importance changed'
                     mixed_report=dict(samples=2,stage_current_depth=float(mixed['stage_current_depth_weight'][0]),stage_future_depth=float(mixed['stage_future_depth_weight'][0]),legacy_scalar=scalar,legacy_fm_importance_preserved=True)
 
-                sample_weight_audit.update(scalar_weight_classes_verified=scalar_classes,stage_normalization='weight_sum',stage_mixed_batch=mixed_report,stage_fm_shape=list(stage.shape),stage_active_weight_values=sorted(set(stage[mask].tolist())),stage_terminal_episodes=terminal,stage_future_depth_values=sorted(set(batch[0]['stage_future_depth_weight'].tolist())),stage_future_video_values=sorted(set(batch[0]['stage_future_video_weight'].tolist())))
+                sample_weight_audit.update(category_boundary_samples_verified=len(category_boundaries),category_boundary_examples=category_boundaries[:8],weighting_unit='action_timestep',scalar_weight_classes_verified=scalar_classes,stage_normalization='weight_sum',stage_mixed_batch=mixed_report,stage_fm_shape=list(stage.shape),stage_active_weight_values=sorted(set(stage[mask].tolist())),stage_terminal_episodes=terminal,stage_future_depth_values=sorted(set(batch[0]['stage_future_depth_weight'].tolist())),stage_future_video_values=sorted(set(batch[0]['stage_future_video_weight'].tolist())))
             print('SAMPLE_WEIGHT_CPU_PASS',json.dumps(sample_weight_audit),flush=True)
         assert isinstance(loader.state_dict(),dict)
         return dict(recipe_sampler=True,virtual_epoch_steps=len(loader),loader_microbatches=len(batch),real_frames=sum(map(len,pools.values())),**sample_weight_audit,**segment_audit)

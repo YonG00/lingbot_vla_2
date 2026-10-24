@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "task": "pick_diverse_bottles",
+  "dataset_name": "robotwin",
+  "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30",
+  "weighting_unit": "action_timestep",
+  "normalization": "weight_sum",
+  "multiplier": 1,
+  "selected_frames": "selected_frames.json",
+  "selected_frames_sha256": "7a9f1d3a81140bd7c770f261e15eb8a188acfbb19e91e8394097f4c728f82ca1",
+  "category_table": "frame_classes.json",
+  "category_table_sha256": "110ae3fe2c4c4e7e9a7a1b9f11d117e237134aba0cda7d5c51af2487bede4913",
+  "category_weights": "category_loss_weights.json",
+  "category_weights_sha256": "2611686759fdc67795a7131b17d1e6d83db2c701083eb2edf2f1c4d729da9c36"
+}

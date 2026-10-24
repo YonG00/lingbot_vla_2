@@ -1,0 +1,2688 @@
+{
+  "schema_version": 1,
+  "dataset_name": "robotwin",
+  "task": "move_stapler_pad",
+  "coordinate_space": "original_episode_frame",
+  "label_source": "target_classes",
+  "fps": 15,
+  "source_action_channels": {
+    "action": {
+      "left": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "right": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "observation.state": {
+      "left": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "right": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    }
+  },
+  "episodes": [
+    {
+      "episode_index": 150,
+      "length": 172,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 86,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 137,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 137,
+            "end": 172,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 86,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 137,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 137,
+            "end": 172,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 151,
+      "length": 140,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 79,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 105,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 140,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 79,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 105,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 140,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 152,
+      "length": 141,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 106,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 141,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 106,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 141,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 153,
+      "length": 152,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 117,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 152,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 117,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 152,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 154,
+      "length": 152,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 80,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 119,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 152,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 80,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 119,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 152,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 155,
+      "length": 163,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 128,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 163,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 128,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 163,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 156,
+      "length": 146,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 111,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 146,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 111,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 146,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 157,
+      "length": 144,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 84,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 109,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 144,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 84,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 109,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 144,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 158,
+      "length": 138,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 103,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 138,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 103,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 138,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 159,
+      "length": 160,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 84,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 124,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 160,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 84,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 124,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 160,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 160,
+      "length": 139,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 80,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 104,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 139,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 80,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 104,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 139,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 161,
+      "length": 148,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 113,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 148,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 113,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 148,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 162,
+      "length": 153,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 117,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 153,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 117,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 153,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 163,
+      "length": 158,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 123,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 158,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 123,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 158,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 164,
+      "length": 147,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 112,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 147,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 112,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 147,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 165,
+      "length": 155,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 80,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 120,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 155,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 80,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 120,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 155,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 166,
+      "length": 158,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 123,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 158,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 123,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 158,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 167,
+      "length": 156,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 121,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 156,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 121,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 156,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 168,
+      "length": 152,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 118,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 152,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 118,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 152,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 169,
+      "length": 164,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 129,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 164,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 129,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 164,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 170,
+      "length": 141,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 107,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 141,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 107,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 141,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 171,
+      "length": 148,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 113,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 148,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 113,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 148,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 172,
+      "length": 152,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 117,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 152,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 117,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 152,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 173,
+      "length": 179,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 98,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 145,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 145,
+            "end": 179,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 98,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 145,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 145,
+            "end": 179,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 174,
+      "length": 164,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 80,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 130,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 164,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 80,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 130,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 164,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 175,
+      "length": 146,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 111,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 146,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 111,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 146,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 176,
+      "length": 168,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 84,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 134,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 168,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 84,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 134,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 168,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 177,
+      "length": 158,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 80,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 123,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 158,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 80,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 123,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 158,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 178,
+      "length": 145,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 110,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 145,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 110,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 145,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 179,
+      "length": 162,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 127,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 162,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 127,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 162,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 180,
+      "length": 163,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 85,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 128,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 163,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 85,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 128,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 163,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 181,
+      "length": 159,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 124,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 159,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 124,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 159,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 182,
+      "length": 159,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 124,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 159,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 124,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 159,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 183,
+      "length": 165,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 129,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 165,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 83,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 129,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 165,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 184,
+      "length": 160,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 84,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 125,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 160,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 84,
+            "classes": [
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 125,
+            "classes": [
+              "early_placement",
+              "white_stapler_demo"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 160,
+            "classes": [
+              "late_placement",
+              "white_stapler_demo"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 185,
+      "length": 141,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 106,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 141,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 106,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 141,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 186,
+      "length": 160,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 125,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 160,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 125,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 160,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 187,
+      "length": 146,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 112,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 146,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 112,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 146,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 188,
+      "length": 165,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 130,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 165,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 130,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 165,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 189,
+      "length": 171,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 92,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 136,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 136,
+            "end": 171,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 92,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 136,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 136,
+            "end": 171,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 190,
+      "length": 164,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 92,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 128,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 164,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 92,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 128,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 164,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 191,
+      "length": 151,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 116,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 151,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 116,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 151,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 192,
+      "length": 147,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 79,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 112,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 147,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 79,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 112,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 147,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 193,
+      "length": 156,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 119,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 156,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 119,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 156,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 194,
+      "length": 157,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 123,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 157,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 123,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 157,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 195,
+      "length": 164,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 129,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 164,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 129,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 164,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 196,
+      "length": 165,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 129,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 165,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 81,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 129,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 165,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 197,
+      "length": 145,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 110,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 145,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 110,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 145,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 198,
+      "length": 144,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 109,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 144,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 109,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 144,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 199,
+      "length": 148,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 113,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 148,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 82,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 113,
+            "classes": [
+              "early_placement"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 148,
+            "classes": [
+              "late_placement"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

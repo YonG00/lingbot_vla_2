@@ -1,0 +1,66 @@
+{
+  "raw_fm_weight_frames": {
+    "left": {
+      "1.0": 3351,
+      "2.0": 680,
+      "20.0": 1344,
+      "15.0": 754
+    },
+    "right": {
+      "1.0": 3375,
+      "2.0": 651,
+      "20.0": 1352,
+      "15.0": 751
+    }
+  },
+  "all_anchor_chunk_fm_arm_steps": {
+    "left": {
+      "1.0": 112295,
+      "2.0": 30245,
+      "20.0": 64960,
+      "15.0": 37700
+    },
+    "right": {
+      "1.0": 113565,
+      "2.0": 28778,
+      "20.0": 65307,
+      "15.0": 37550
+    }
+  },
+  "all_anchor_padded_time_steps": 61250,
+  "visual_weight_samples": {
+    "current_depth": {
+      "1.0": 3331,
+      "2.0": 684,
+      "20.0": 1357,
+      "15.0": 757
+    },
+    "future_depth": {
+      "20.0": 909,
+      "15.0": 757,
+      "2.0": 373,
+      "1.0": 1640,
+      "0.0": 2450
+    },
+    "current_video": {
+      "1.0": 3331,
+      "2.0": 684,
+      "20.0": 1357,
+      "15.0": 757
+    },
+    "future_video": {
+      "20.0": 909,
+      "15.0": 757,
+      "2.0": 373,
+      "1.0": 1640,
+      "0.0": 2450
+    }
+  },
+  "coordinate_offset": 0,
+  "horizon": 50,
+  "statistics_scope": "all original anchors uniformly; not sampled training progress",
+  "task": "pick_dual_bottles",
+  "label_source": "trajectory_stages",
+  "weighting_unit": "action_timestep",
+  "training_started": false
+}

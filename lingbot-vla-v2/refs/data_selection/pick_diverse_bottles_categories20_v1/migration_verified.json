@@ -1,0 +1,7 @@
+{
+  "task": "pick_diverse_bottles",
+  "episodes": 50,
+  "frames": 6060,
+  "all_branch_arm_frame_weights_equal": true,
+  "training_started": false
+}

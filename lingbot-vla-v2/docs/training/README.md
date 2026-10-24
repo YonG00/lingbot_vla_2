@@ -73,3 +73,5 @@ JSON配置、数据清单和证据仍分别放configs、refs等工程目录，�
 - [pick_diverse_bottles完整阶段与权重](recipes/pick_diverse_bottles_full_stage_weighting_zh.md)
 
 - [订书机早晚放置与白色样本权重](recipes/move_stapler_pad_sample_classes_zh.md)
+
+- [统一类别与逐动作加权：完整阶段／目标分类共用参数](recipes/category_weighting_framework_zh.md)

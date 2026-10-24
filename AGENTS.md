@@ -50,6 +50,7 @@
 | 单技能实验 / 指定学习与 Replay 任务 / 无 PASS 与扫描 / HF-only | `lingbot-vla-v2/docs/auto_learning/skill_mix_task_experiment_zh.md` |
 | adjust_bottle 采用的实验基准 / 配置快照 / 复用训练评测入口 | `lingbot-vla-v2/docs/training/experiments/adjust_bottle/adjust_bottle_bf16_baseline_zh.md` |
 | 参数化训练配方 / 主任务步数配额 / 复习比例 / 保存评测列表 | `lingbot-vla-v2/docs/training/recipes/task_recipe_framework_zh.md` |
+| 完整轨迹阶段与目标分类的统一类别参数 / 逐动作加权 | `lingbot-vla-v2/docs/training/recipes/category_weighting_framework_zh.md` |
 | adjust_bottle 三项方法开关 / 标准组与增强组串行训练评测 | `lingbot-vla-v2/docs/training/experiments/adjust_bottle/adjust_bottle_paired_control_zh.md` |
 | AL 上手 / 概念 / 启动命令 | `lingbot-vla-v2/README_AUTOLEARNING.md`、`docs/auto_learning/auto_learning_overview_zh.md`、`auto_learning_launch_guide_zh.md` |
 | 已知坑与自查表 | `lingbot-vla-v2/docs/auto_learning/auto_learning_pitfalls_zh.md` |

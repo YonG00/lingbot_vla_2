@@ -63,4 +63,11 @@ class ImportanceInheritanceTests(unittest.TestCase):
             p=Path(tmp);out=p/'out';out.mkdir()
             self.assertIsNone(freeze_registry(p/'empty',out));self.assertFalse((out/NAME).exists())
 
+    def test_new_freeze_canonicalizes_legacy_format_without_rewriting_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp);source=self.config(p/'inputs','old_task',9,2);registry=freeze_registry(p/'empty',p/'out',source)
+            frozen=json.loads((p/'out/sample_weights/old_task/weight_config.json').read_text())
+            self.assertEqual(frozen['weighting_unit'],'action_timestep');self.assertEqual(frozen['normalization'],'weight_sum')
+            self.assertEqual(json.loads(source.read_text())['normalization'],'sample_count');self.assertTrue(SelectionWeights(registry).weight_sum)
+
 if __name__=='__main__':unittest.main()

@@ -36,6 +36,12 @@ def main():
     for k in range(min(50,n-t)):windows[arm][stage.coefficients['fm'][stage.labels[ep][arm][t+k]]]+=1
  summary.update(normalization='weight_sum',raw_fm_weight_frames={a:dict(c)for a,c in raw.items()},all_anchor_chunk_fm_arm_steps={a:dict(c)for a,c in windows.items()},all_anchor_padded_time_steps=pads,current_visual_weight_samples=dict(current),future_depth_weight_samples=dict(future),future_video_weight_samples=dict(video),future_video_rule='target_endpoint',training_started=False)
  (a.output_dir/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n')
+ # Both label sources now publish the same category interface by default.
+ from experiment.data_selection.category_conversion import from_stages,write_snapshot
+ category_table,category_weights=from_stages(cfg,a.output_dir);converted=a.output_dir/'.unified_categories'
+ write_snapshot(cfg,category_table,category_weights,converted)
+ for file in converted.iterdir():file.replace(a.output_dir/file.name)
+ converted.rmdir()
  if 'torch'in sys.modules:raise RuntimeError('annotation must not import Torch')
  print(json.dumps(summary,ensure_ascii=False,indent=2))
 if __name__=='__main__':main()
