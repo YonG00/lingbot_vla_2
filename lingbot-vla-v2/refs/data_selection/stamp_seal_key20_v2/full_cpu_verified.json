@@ -1,0 +1,384 @@
+{
+  "state": "cpu_pass",
+  "episodes": 50,
+  "frames": 7263,
+  "boundary_samples": [
+    {
+      "index": 0,
+      "episode": 1950,
+      "frame": 0
+    },
+    {
+      "index": 144,
+      "episode": 1951,
+      "frame": 0
+    },
+    {
+      "index": 294,
+      "episode": 1952,
+      "frame": 0
+    },
+    {
+      "index": 439,
+      "episode": 1953,
+      "frame": 0
+    },
+    {
+      "index": 578,
+      "episode": 1954,
+      "frame": 0
+    },
+    {
+      "index": 734,
+      "episode": 1955,
+      "frame": 0
+    },
+    {
+      "index": 885,
+      "episode": 1956,
+      "frame": 0
+    },
+    {
+      "index": 1022,
+      "episode": 1957,
+      "frame": 0
+    },
+    {
+      "index": 1163,
+      "episode": 1958,
+      "frame": 0
+    },
+    {
+      "index": 1310,
+      "episode": 1959,
+      "frame": 0
+    },
+    {
+      "index": 1454,
+      "episode": 1960,
+      "frame": 0
+    },
+    {
+      "index": 1598,
+      "episode": 1961,
+      "frame": 0
+    },
+    {
+      "index": 1736,
+      "episode": 1962,
+      "frame": 0
+    },
+    {
+      "index": 1876,
+      "episode": 1963,
+      "frame": 0
+    },
+    {
+      "index": 2018,
+      "episode": 1964,
+      "frame": 0
+    },
+    {
+      "index": 2163,
+      "episode": 1965,
+      "frame": 0
+    },
+    {
+      "index": 2318,
+      "episode": 1966,
+      "frame": 0
+    },
+    {
+      "index": 2470,
+      "episode": 1967,
+      "frame": 0
+    },
+    {
+      "index": 2614,
+      "episode": 1968,
+      "frame": 0
+    },
+    {
+      "index": 2763,
+      "episode": 1969,
+      "frame": 0
+    },
+    {
+      "index": 2921,
+      "episode": 1970,
+      "frame": 0
+    },
+    {
+      "index": 3076,
+      "episode": 1971,
+      "frame": 0
+    },
+    {
+      "index": 3220,
+      "episode": 1972,
+      "frame": 0
+    },
+    {
+      "index": 3363,
+      "episode": 1973,
+      "frame": 0
+    },
+    {
+      "index": 3513,
+      "episode": 1974,
+      "frame": 0
+    },
+    {
+      "index": 3656,
+      "episode": 1975,
+      "frame": 0
+    },
+    {
+      "index": 3795,
+      "episode": 1976,
+      "frame": 0
+    },
+    {
+      "index": 3949,
+      "episode": 1977,
+      "frame": 0
+    },
+    {
+      "index": 4083,
+      "episode": 1978,
+      "frame": 0
+    },
+    {
+      "index": 4234,
+      "episode": 1979,
+      "frame": 0
+    },
+    {
+      "index": 4377,
+      "episode": 1980,
+      "frame": 0
+    },
+    {
+      "index": 4536,
+      "episode": 1981,
+      "frame": 0
+    },
+    {
+      "index": 4670,
+      "episode": 1982,
+      "frame": 0
+    },
+    {
+      "index": 4812,
+      "episode": 1983,
+      "frame": 0
+    },
+    {
+      "index": 4952,
+      "episode": 1984,
+      "frame": 0
+    },
+    {
+      "index": 5109,
+      "episode": 1985,
+      "frame": 0
+    },
+    {
+      "index": 5255,
+      "episode": 1986,
+      "frame": 0
+    },
+    {
+      "index": 5392,
+      "episode": 1987,
+      "frame": 0
+    },
+    {
+      "index": 5538,
+      "episode": 1988,
+      "frame": 0
+    },
+    {
+      "index": 5677,
+      "episode": 1989,
+      "frame": 0
+    },
+    {
+      "index": 5815,
+      "episode": 1990,
+      "frame": 0
+    },
+    {
+      "index": 5948,
+      "episode": 1991,
+      "frame": 0
+    },
+    {
+      "index": 6083,
+      "episode": 1992,
+      "frame": 0
+    },
+    {
+      "index": 6219,
+      "episode": 1993,
+      "frame": 0
+    },
+    {
+      "index": 6366,
+      "episode": 1994,
+      "frame": 0
+    },
+    {
+      "index": 6503,
+      "episode": 1995,
+      "frame": 0
+    },
+    {
+      "index": 6662,
+      "episode": 1996,
+      "frame": 0
+    },
+    {
+      "index": 6821,
+      "episode": 1997,
+      "frame": 0
+    },
+    {
+      "index": 6960,
+      "episode": 1998,
+      "frame": 0
+    },
+    {
+      "index": 7107,
+      "episode": 1999,
+      "frame": 0
+    }
+  ],
+  "original_beta_time_exact": true,
+  "al_enabled": false,
+  "ee_enabled": false,
+  "model_initialized": false,
+  "optimizer_steps": 0,
+  "gpu_tested": false,
+  "recipe_sampler": true,
+  "virtual_epoch_steps": 200,
+  "loader_microbatches": 1,
+  "real_frames": 7263,
+  "sample_weight_count": 56,
+  "sample_weight_selected": 0,
+  "sample_weight_normalization": "weight_sum",
+  "sample_weight_multipliers": [
+    1.0,
+    2.0
+  ],
+  "category_boundary_samples_verified": 1003,
+  "category_boundary_examples": [
+    {
+      "episode": 1950,
+      "frame": 0
+    },
+    {
+      "episode": 1950,
+      "frame": 33
+    },
+    {
+      "episode": 1950,
+      "frame": 46
+    },
+    {
+      "episode": 1950,
+      "frame": 49
+    },
+    {
+      "episode": 1950,
+      "frame": 53
+    },
+    {
+      "episode": 1950,
+      "frame": 60
+    },
+    {
+      "episode": 1950,
+      "frame": 66
+    },
+    {
+      "episode": 1950,
+      "frame": 71
+    }
+  ],
+  "weighting_unit": "action_timestep",
+  "scalar_weight_classes_verified": {},
+  "stage_normalization": "weight_sum",
+  "stage_mixed_batch": {},
+  "stage_fm_shape": [
+    56,
+    50,
+    55
+  ],
+  "stage_active_weight_values": [
+    1.0,
+    20.0
+  ],
+  "stage_terminal_episodes": [
+    1950,
+    1951,
+    1952,
+    1953,
+    1954,
+    1955,
+    1956,
+    1957,
+    1958,
+    1959,
+    1960,
+    1961,
+    1962,
+    1963,
+    1964,
+    1965,
+    1966,
+    1967,
+    1968,
+    1969,
+    1970,
+    1971,
+    1972,
+    1973,
+    1974,
+    1975,
+    1976,
+    1977,
+    1978,
+    1979,
+    1980,
+    1981,
+    1982,
+    1983,
+    1984,
+    1985,
+    1986,
+    1987,
+    1988,
+    1989,
+    1990,
+    1991,
+    1992,
+    1993,
+    1994,
+    1995,
+    1996,
+    1997,
+    1998,
+    1999
+  ],
+  "stage_future_depth_values": [
+    0.0,
+    1.0,
+    20.0
+  ],
+  "stage_future_video_values": [
+    0.0,
+    1.0,
+    20.0
+  ]
+}

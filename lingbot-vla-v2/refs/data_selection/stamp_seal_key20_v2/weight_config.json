@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "task": "stamp_seal",
+  "dataset_name": "robotwin",
+  "dataset_root": "/root/autodl-tmp/data/datasets/robotwin_v3/lerobot_dataset/RoboTwin_lerobot_v30",
+  "weighting_unit": "action_timestep",
+  "normalization": "weight_sum",
+  "multiplier": 1,
+  "selected_frames": "selected_frames.json",
+  "selected_frames_sha256": "87dd914872ed49d329bcebf1620010f25eb5f0e6b2fa6555841ebcf99eaa8722",
+  "category_table": "frame_classes.json",
+  "category_table_sha256": "5632e3d98a3c9b7048eb35eb984d6a201b03f5420803fbffc04ef1d3637306ad",
+  "category_weights": "category_loss_weights.json",
+  "category_weights_sha256": "e211f2843d63315d77e43439a7f8109ee8ad713aac7b91695daa7d53292c44a3"
+}

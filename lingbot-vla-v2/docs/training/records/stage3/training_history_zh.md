@@ -341,3 +341,17 @@ run `20261023_1913_dual_bottles_add200_from_1838_s200_bf16_m56_fullstage20_weigh
 ### 20261024_0915 move_can_pot续训200（运行中）
 
 来源0844-step200，不回到1913；权重/数据/优化器配方沿用，GBS56/GAS1/BF16、接近抓取逐动作20、weight_sum、无复习，仅最终200保存，驻留三回合并行带视频。来源已核验1708 BF16张量，CPU56和200边界通过。用户批准替换无效评测种子，独立官方专家验证100003通过；本轮种子100000/100003/100002。run `/data/outputs/20261024_0915_can_pot_add200_from_0844_s200_bf16_m56_approach_grasp20_weightnorm_noreplay_parallel3_video`。计划再200，运行中不计完成；来源链本任务已有200，完成本轮后才记400。无删除、无关机。
+
+### stamp_seal准备与串行排队（尚未训练）
+
+等0915罐子训练评测complete后，从其最终step200接续印章200。50条7263帧、目标4588帧63.17%、15子类各<=10%，统一逐动作/视觉20倍、weight_sum。GBS56、无复习、仅最终200，三回合并行录像。纯CPU3906边界检查通过；完整DataLoader和GPU待前轮结束，当前状态waiting_for_predecessor。队列`/data/experiments/stack_bowls_sample_weighting/stamp_seal_after_can0915_queue`，前轮异常或容量不足会阻断；未增加已完成步数与Checkpoint。详见印章配方文档。
+
+### 0915罐子与0939印章最终核验
+
+0915罐子续训实际200步、16分45秒，最终Loss0.0451/VLA0.0415，1708 BF16张量、pipeline complete；三回合并行录像0/3，种子100000/100003/100002，OIDN错误0，三视频非空。该来源链move_can_pot累计400步，不把0844的1/2有效回合错写正式三回合。
+
+0939印章全关键20版实际200步、16分50秒，最终Loss0.0387/VLA0.0344，1708 BF16张量，pipeline complete，三回合并行带视频0/3，种子100000/100001/100004，OIDN错误0。50条7263帧、11200主任务样本，无复习。模型保留；队列已完成接续，不再是等待状态。终态与实际视频大小证据：refs/training_evidence/20261024_stamp_differential/previous_runs_verified.json。
+
+### 20261024_1017印章差异权重重训（运行中）
+
+仍从0915罐子step200重新分叉，不继承0939印章；200步、GBS56/GAS1/BF16、无复习、仅最终200。四类抓取接近③/闭爪前半/闭爪后半/初始提离①动作深度视频20；其余目标阶段默认5，释放前后半10；对准移动/对准稳定/末端位置稳定仅视频覆盖20，动作深度5；背景1。逐动作、各视觉目标帧查表，weight_sum，分类和采样不变。真实CPU56、1003边界及195回归通过，GPU三步探测省略。run `/data/outputs/20261024_1017_stamp_seal200_from_can0915_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video`。评测沿用0939同三种子并行录像，保持对照。当前运行中，不计完成200或新增存档；无删除/关机。

@@ -77,3 +77,5 @@ JSON配置、数据清单和证据仍分别放configs、refs等工程目录，�
 - [统一类别与逐动作加权：完整阶段／目标分类共用参数](recipes/category_weighting_framework_zh.md)
 
 - [move_can_pot 接近抓取20倍](recipes/move_can_pot_grasp_weighting_zh.md)
+
+- [stamp_seal关键阶段20倍与串行接续](recipes/stamp_seal_key_weighting_zh.md)

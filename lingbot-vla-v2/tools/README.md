@@ -75,3 +75,5 @@
    **按脚本自身位置推导仓库根**；如需指向别处，显式 `export REPO=...` 覆盖。
 
 - `prepare_can_pot_grasp_weights.py`：move_can_pot活动手接近/闭爪/初始提离分类快照（CPU、不训练）。
+
+- `prepare_stamp_seal_weights.py`：印章抓取/对准下放释放15类关键阶段快照，CPU标注，拒绝覆盖。

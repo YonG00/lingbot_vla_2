@@ -1,0 +1,236 @@
+[
+  {
+    "run": "20261024_0915_can_pot_add200_from_0844_s200_bf16_m56_approach_grasp20_weightnorm_noreplay_parallel3_video",
+    "task": "move_can_pot",
+    "optimizer_steps": 200,
+    "final_log": "Epoch 1/1: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 200/200 [16:45<00:00,  4.75s/it]10/24/2026 09:33:43 - INFO - __main__ - Step 200/200, Epoch 1, Loss 0.0451, VLA_Loss 0.0415, Depth_Loss 0.2551, Future_Depth_Loss 0.3078, FutureVideo_Loss 0.0412, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 0.9414, AvgSigmoid 0.0742, GradNorm 0.7070, LR 5.00e-05, Expert_LR 1.41e-04, StepTime 4.736s, Depth_Forward_Time  0.756s, Ignore_Batch_Num 0",
+    "checkpoint": [
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261024_0915_can_pot_add200_from_0844_s200_bf16_m56_approach_grasp20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      }
+    ],
+    "summary": {
+      "state": "complete",
+      "task": "move_can_pot",
+      "label": "recipe_200",
+      "model": "/root/autodl-tmp/data/outputs/20261024_0915_can_pot_add200_from_0844_s200_bf16_m56_approach_grasp20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100003,
+        100002
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 3,
+      "server_pid": 13271,
+      "shared_server": true,
+      "episode_results": [
+        {
+          "state": "complete",
+          "task": "move_can_pot",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261024_0915_can_pot_add200_from_0844_s200_bf16_m56_approach_grasp20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100000
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "move_can_pot:episode:0",
+          "episode_index": 0,
+          "scene_seed": 100000,
+          "server_pid": 13271,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "move_can_pot",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261024_0915_can_pot_add200_from_0844_s200_bf16_m56_approach_grasp20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100003
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "move_can_pot:episode:1",
+          "episode_index": 1,
+          "scene_seed": 100003,
+          "server_pid": 13271,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "move_can_pot",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261024_0915_can_pot_add200_from_0844_s200_bf16_m56_approach_grasp20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100002
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "move_can_pot:episode:2",
+          "episode_index": 2,
+          "scene_seed": 100002,
+          "server_pid": 13271,
+          "shared_server": true
+        }
+      ],
+      "episode_parallel": true
+    },
+    "videos": [
+      {
+        "path": "/data/outputs/20261024_0915_can_pot_add200_from_0844_s200_bf16_m56_approach_grasp20_weightnorm_noreplay_parallel3_video/evaluation_200/move_can_pot/results/move_can_pot/episode0_global.mp4",
+        "bytes": 2231280
+      },
+      {
+        "path": "/data/outputs/20261024_0915_can_pot_add200_from_0844_s200_bf16_m56_approach_grasp20_weightnorm_noreplay_parallel3_video/evaluation_200/move_can_pot/results/move_can_pot/episode1_global.mp4",
+        "bytes": 2842061
+      },
+      {
+        "path": "/data/outputs/20261024_0915_can_pot_add200_from_0844_s200_bf16_m56_approach_grasp20_weightnorm_noreplay_parallel3_video/evaluation_200/move_can_pot/results/move_can_pot/episode2_global.mp4",
+        "bytes": 2125763
+      }
+    ]
+  },
+  {
+    "run": "20261024_0939_stamp_seal200_from_can0915_s200_bf16_m56_key20_weightnorm_noreplay_parallel3_video",
+    "task": "stamp_seal",
+    "optimizer_steps": 200,
+    "final_log": "Epoch 1/1: 100%|\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588| 200/200 [16:50<00:00,  4.74s/it]10/24/2026 09:58:09 - INFO - __main__ - Step 200/200, Epoch 1, Loss 0.0387, VLA_Loss 0.0344, Depth_Loss 0.3658, Future_Depth_Loss 0.4014, FutureVideo_Loss 0.0388, SeqWise_Loss 0.0011, RouterZ_Loss 0.0000, MaxVio 0.8438, AvgSigmoid 0.0737, GradNorm 0.5352, LR 5.00e-05, Expert_LR 1.41e-04, StepTime 4.740s, Depth_Forward_Time  0.770s, Ignore_Batch_Num 0",
+    "checkpoint": [
+      {
+        "path": "/root/autodl-tmp/data/outputs/20261024_0939_stamp_seal200_from_can0915_s200_bf16_m56_key20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+        "tensors": 1708,
+        "floating_dtype": "BF16"
+      }
+    ],
+    "summary": {
+      "state": "complete",
+      "task": "stamp_seal",
+      "label": "recipe_200",
+      "model": "/root/autodl-tmp/data/outputs/20261024_0939_stamp_seal200_from_can0915_s200_bf16_m56_key20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+      "successes": 0,
+      "episodes": 3,
+      "success_rate": 0.0,
+      "seeds": [
+        100000,
+        100001,
+        100004
+      ],
+      "oidn_errors": 0,
+      "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+      "dtype": "float32",
+      "action_chunk": 50,
+      "recorded_episodes": 3,
+      "server_pid": 21334,
+      "shared_server": true,
+      "episode_results": [
+        {
+          "state": "complete",
+          "task": "stamp_seal",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261024_0939_stamp_seal200_from_can0915_s200_bf16_m56_key20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100000
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "stamp_seal:episode:0",
+          "episode_index": 0,
+          "scene_seed": 100000,
+          "server_pid": 21334,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "stamp_seal",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261024_0939_stamp_seal200_from_can0915_s200_bf16_m56_key20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100001
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "stamp_seal:episode:1",
+          "episode_index": 1,
+          "scene_seed": 100001,
+          "server_pid": 21334,
+          "shared_server": true
+        },
+        {
+          "state": "complete",
+          "task": "stamp_seal",
+          "label": "recipe_200",
+          "model": "/root/autodl-tmp/data/outputs/20261024_0939_stamp_seal200_from_can0915_s200_bf16_m56_key20_weightnorm_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+          "successes": 0,
+          "episodes": 1,
+          "success_rate": 0.0,
+          "seeds": [
+            100004
+          ],
+          "oidn_errors": 0,
+          "client_sha256": "fe0aaa791e881cb1839be533149c703c7d044b79550cad19309046ebff94eef3",
+          "dtype": "float32",
+          "action_chunk": 50,
+          "recorded_episodes": 1,
+          "job_id": "stamp_seal:episode:2",
+          "episode_index": 2,
+          "scene_seed": 100004,
+          "server_pid": 21334,
+          "shared_server": true
+        }
+      ],
+      "episode_parallel": true
+    },
+    "videos": [
+      {
+        "path": "/data/outputs/20261024_0939_stamp_seal200_from_can0915_s200_bf16_m56_key20_weightnorm_noreplay_parallel3_video/evaluation_200/stamp_seal/results/stamp_seal/episode0_global.mp4",
+        "bytes": 3151519
+      },
+      {
+        "path": "/data/outputs/20261024_0939_stamp_seal200_from_can0915_s200_bf16_m56_key20_weightnorm_noreplay_parallel3_video/evaluation_200/stamp_seal/results/stamp_seal/episode1_global.mp4",
+        "bytes": 3135102
+      },
+      {
+        "path": "/data/outputs/20261024_0939_stamp_seal200_from_can0915_s200_bf16_m56_key20_weightnorm_noreplay_parallel3_video/evaluation_200/stamp_seal/results/stamp_seal/episode2_global.mp4",
+        "bytes": 2252478
+      }
+    ]
+  }
+]

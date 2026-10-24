@@ -1,0 +1,1000 @@
+{
+  "episodes": 50,
+  "frames": 7263,
+  "selected_frames": 4588,
+  "selected_fraction": 0.6316948919179403,
+  "category_counts": {
+    "grasp/approach_12_to_9cm": 680,
+    "grasp/approach_9_to_6cm": 161,
+    "grasp/approach_6_to_1p5cm": 204,
+    "grasp/open_settle": 342,
+    "grasp/closing_first_half": 300,
+    "grasp/closing_second_half": 250,
+    "grasp/lift_first_1p5cm": 701,
+    "grasp/lift_1p5_to_3cm": 130,
+    "stamp/descent_7p5_to_4cm": 271,
+    "stamp/prealign_move": 213,
+    "stamp/prealign_settle": 221,
+    "stamp/descent_4_to_1p5cm": 125,
+    "stamp/contact_pose_settle": 440,
+    "stamp/release_first_half": 200,
+    "stamp/release_second_half": 350
+  },
+  "category_fractions": {
+    "grasp/approach_12_to_9cm": 0.0936252237367479,
+    "grasp/approach_9_to_6cm": 0.022167148561200604,
+    "grasp/approach_6_to_1p5cm": 0.02808756712102437,
+    "grasp/open_settle": 0.04708798017348203,
+    "grasp/closing_first_half": 0.041305245766212306,
+    "grasp/closing_second_half": 0.03442103813851026,
+    "grasp/lift_first_1p5cm": 0.09651659094038276,
+    "grasp/lift_1p5_to_3cm": 0.017898939832025333,
+    "stamp/descent_7p5_to_4cm": 0.03731240534214512,
+    "stamp/prealign_move": 0.02932672449401074,
+    "stamp/prealign_settle": 0.030428197714443068,
+    "stamp/descent_4_to_1p5cm": 0.01721051906925513,
+    "stamp/contact_pose_settle": 0.06058102712377805,
+    "stamp/release_first_half": 0.027536830510808206,
+    "stamp/release_second_half": 0.04818945339391436
+  },
+  "arms": {
+    "right": 30,
+    "left": 20
+  },
+  "events": [
+    {
+      "episode": 1950,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 60,
+          "ce": 70,
+          "le": 87,
+          "rs": 127,
+          "re": 137,
+          "gs": 33,
+          "pre_start": 103,
+          "pre_end": 113,
+          "n": 144,
+          "release_z": 0.8299181130540395,
+          "max_lift": 0.09880649118273843
+        }
+      ]
+    },
+    {
+      "episode": 1951,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 52,
+          "ce": 62,
+          "le": 78,
+          "rs": 133,
+          "re": 143,
+          "gs": 27,
+          "pre_start": 97,
+          "pre_end": 116,
+          "n": 150,
+          "release_z": 0.8035311822993115,
+          "max_lift": 0.10159749673151042
+        }
+      ]
+    },
+    {
+      "episode": 1952,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 61,
+          "ce": 71,
+          "le": 87,
+          "rs": 128,
+          "re": 138,
+          "gs": 31,
+          "pre_start": 104,
+          "pre_end": 114,
+          "n": 145,
+          "release_z": 0.8137752694610718,
+          "max_lift": 0.10090256618839777
+        }
+      ]
+    },
+    {
+      "episode": 1953,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 58,
+          "ce": 68,
+          "le": 85,
+          "rs": 122,
+          "re": 132,
+          "gs": 32,
+          "pre_start": 99,
+          "pre_end": 108,
+          "n": 139,
+          "release_z": 0.8030186686699873,
+          "max_lift": 0.10030549493062735
+        }
+      ]
+    },
+    {
+      "episode": 1954,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 61,
+          "ce": 71,
+          "le": 87,
+          "rs": 139,
+          "re": 149,
+          "gs": 35,
+          "pre_start": 107,
+          "pre_end": 122,
+          "n": 156,
+          "release_z": 0.8136746552927728,
+          "max_lift": 0.10149097306025079
+        }
+      ]
+    },
+    {
+      "episode": 1955,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 66,
+          "ce": 76,
+          "le": 93,
+          "rs": 134,
+          "re": 144,
+          "gs": 36,
+          "pre_start": 110,
+          "pre_end": 120,
+          "n": 151,
+          "release_z": 0.8297989917232312,
+          "max_lift": 0.09869148901188896
+        }
+      ]
+    },
+    {
+      "episode": 1956,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 54,
+          "ce": 64,
+          "le": 80,
+          "rs": 120,
+          "re": 130,
+          "gs": 29,
+          "pre_start": 96,
+          "pre_end": 106,
+          "n": 137,
+          "release_z": 0.8095126987814625,
+          "max_lift": 0.10211412201125691
+        }
+      ]
+    },
+    {
+      "episode": 1957,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 51,
+          "ce": 61,
+          "le": 78,
+          "rs": 124,
+          "re": 134,
+          "gs": 25,
+          "pre_start": 96,
+          "pre_end": 109,
+          "n": 141,
+          "release_z": 0.8310798870625133,
+          "max_lift": 0.10118743209321313
+        }
+      ]
+    },
+    {
+      "episode": 1958,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 65,
+          "ce": 75,
+          "le": 92,
+          "rs": 130,
+          "re": 140,
+          "gs": 30,
+          "pre_start": 106,
+          "pre_end": 116,
+          "n": 147,
+          "release_z": 0.829474087242204,
+          "max_lift": 0.0983337688006215
+        }
+      ]
+    },
+    {
+      "episode": 1959,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 61,
+          "ce": 71,
+          "le": 88,
+          "rs": 127,
+          "re": 137,
+          "gs": 35,
+          "pre_start": 103,
+          "pre_end": 114,
+          "n": 144,
+          "release_z": 0.812353040623816,
+          "max_lift": 0.09990062547363676
+        }
+      ]
+    },
+    {
+      "episode": 1960,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 58,
+          "ce": 68,
+          "le": 84,
+          "rs": 127,
+          "re": 137,
+          "gs": 33,
+          "pre_start": 100,
+          "pre_end": 113,
+          "n": 144,
+          "release_z": 0.8034541201388239,
+          "max_lift": 0.10221428500116692
+        }
+      ]
+    },
+    {
+      "episode": 1961,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 51,
+          "ce": 61,
+          "le": 78,
+          "rs": 121,
+          "re": 131,
+          "gs": 25,
+          "pre_start": 95,
+          "pre_end": 107,
+          "n": 138,
+          "release_z": 0.813515414860689,
+          "max_lift": 0.10241976670702224
+        }
+      ]
+    },
+    {
+      "episode": 1962,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 59,
+          "ce": 69,
+          "le": 85,
+          "rs": 123,
+          "re": 133,
+          "gs": 33,
+          "pre_start": 100,
+          "pre_end": 109,
+          "n": 140,
+          "release_z": 0.8034852389704743,
+          "max_lift": 0.10078331098868065
+        }
+      ]
+    },
+    {
+      "episode": 1963,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 61,
+          "ce": 71,
+          "le": 88,
+          "rs": 125,
+          "re": 135,
+          "gs": 31,
+          "pre_start": 102,
+          "pre_end": 112,
+          "n": 142,
+          "release_z": 0.8129373226127358,
+          "max_lift": 0.10006939376508361
+        }
+      ]
+    },
+    {
+      "episode": 1964,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 53,
+          "ce": 63,
+          "le": 79,
+          "rs": 128,
+          "re": 138,
+          "gs": 29,
+          "pre_start": 98,
+          "pre_end": 113,
+          "n": 145,
+          "release_z": 0.8035036530625193,
+          "max_lift": 0.10197462894440656
+        }
+      ]
+    },
+    {
+      "episode": 1965,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 61,
+          "ce": 71,
+          "le": 87,
+          "rs": 138,
+          "re": 148,
+          "gs": 31,
+          "pre_start": 106,
+          "pre_end": 122,
+          "n": 155,
+          "release_z": 0.8094130425023944,
+          "max_lift": 0.10039652362984419
+        }
+      ]
+    },
+    {
+      "episode": 1966,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 65,
+          "ce": 75,
+          "le": 92,
+          "rs": 135,
+          "re": 145,
+          "gs": 34,
+          "pre_start": 110,
+          "pre_end": 121,
+          "n": 152,
+          "release_z": 0.8092843756182087,
+          "max_lift": 0.10024946081542363
+        }
+      ]
+    },
+    {
+      "episode": 1967,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 51,
+          "ce": 61,
+          "le": 77,
+          "rs": 127,
+          "re": 137,
+          "gs": 25,
+          "pre_start": 98,
+          "pre_end": 112,
+          "n": 144,
+          "release_z": 0.8134863114555224,
+          "max_lift": 0.10215341960013347
+        }
+      ]
+    },
+    {
+      "episode": 1968,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 63,
+          "ce": 73,
+          "le": 90,
+          "rs": 132,
+          "re": 142,
+          "gs": 37,
+          "pre_start": 107,
+          "pre_end": 118,
+          "n": 149,
+          "release_z": 0.8298803456355348,
+          "max_lift": 0.09853301892820987
+        }
+      ]
+    },
+    {
+      "episode": 1969,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 71,
+          "ce": 81,
+          "le": 98,
+          "rs": 141,
+          "re": 151,
+          "gs": 39,
+          "pre_start": 116,
+          "pre_end": 128,
+          "n": 158,
+          "release_z": 0.8125700613893491,
+          "max_lift": 0.09970331475167193
+        }
+      ]
+    },
+    {
+      "episode": 1970,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 64,
+          "ce": 74,
+          "le": 91,
+          "rs": 138,
+          "re": 148,
+          "gs": 39,
+          "pre_start": 111,
+          "pre_end": 124,
+          "n": 155,
+          "release_z": 0.8090918570480224,
+          "max_lift": 0.10006185807231671
+        }
+      ]
+    },
+    {
+      "episode": 1971,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 61,
+          "ce": 71,
+          "le": 88,
+          "rs": 127,
+          "re": 137,
+          "gs": 35,
+          "pre_start": 104,
+          "pre_end": 113,
+          "n": 144,
+          "release_z": 0.8132874663569107,
+          "max_lift": 0.10057993950102795
+        }
+      ]
+    },
+    {
+      "episode": 1972,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 58,
+          "ce": 68,
+          "le": 85,
+          "rs": 126,
+          "re": 136,
+          "gs": 32,
+          "pre_start": 100,
+          "pre_end": 112,
+          "n": 143,
+          "release_z": 0.8130394982425364,
+          "max_lift": 0.10210799706538165
+        }
+      ]
+    },
+    {
+      "episode": 1973,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 67,
+          "ce": 77,
+          "le": 94,
+          "rs": 133,
+          "re": 143,
+          "gs": 33,
+          "pre_start": 108,
+          "pre_end": 119,
+          "n": 150,
+          "release_z": 0.8121644897753031,
+          "max_lift": 0.09974522488642301
+        }
+      ]
+    },
+    {
+      "episode": 1974,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 62,
+          "ce": 72,
+          "le": 89,
+          "rs": 126,
+          "re": 136,
+          "gs": 37,
+          "pre_start": 103,
+          "pre_end": 112,
+          "n": 143,
+          "release_z": 0.812951213081589,
+          "max_lift": 0.10052558184807447
+        }
+      ]
+    },
+    {
+      "episode": 1975,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 57,
+          "ce": 67,
+          "le": 83,
+          "rs": 122,
+          "re": 132,
+          "gs": 32,
+          "pre_start": 98,
+          "pre_end": 109,
+          "n": 139,
+          "release_z": 0.8133730542819289,
+          "max_lift": 0.10095414009784454
+        }
+      ]
+    },
+    {
+      "episode": 1976,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 70,
+          "ce": 80,
+          "le": 97,
+          "rs": 137,
+          "re": 147,
+          "gs": 36,
+          "pre_start": 114,
+          "pre_end": 124,
+          "n": 154,
+          "release_z": 0.8120589075236015,
+          "max_lift": 0.09932890678253536
+        }
+      ]
+    },
+    {
+      "episode": 1977,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 53,
+          "ce": 63,
+          "le": 79,
+          "rs": 117,
+          "re": 127,
+          "gs": 28,
+          "pre_start": 94,
+          "pre_end": 104,
+          "n": 134,
+          "release_z": 0.813455580736501,
+          "max_lift": 0.10201959782432235
+        }
+      ]
+    },
+    {
+      "episode": 1978,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 55,
+          "ce": 65,
+          "le": 81,
+          "rs": 134,
+          "re": 144,
+          "gs": 30,
+          "pre_start": 103,
+          "pre_end": 117,
+          "n": 151,
+          "release_z": 0.8137950785812373,
+          "max_lift": 0.10046473029736136
+        }
+      ]
+    },
+    {
+      "episode": 1979,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 61,
+          "ce": 71,
+          "le": 88,
+          "rs": 126,
+          "re": 136,
+          "gs": 34,
+          "pre_start": 103,
+          "pre_end": 112,
+          "n": 143,
+          "release_z": 0.8032387934579833,
+          "max_lift": 0.10022647586004862
+        }
+      ]
+    },
+    {
+      "episode": 1980,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 68,
+          "ce": 78,
+          "le": 95,
+          "rs": 142,
+          "re": 152,
+          "gs": 35,
+          "pre_start": 117,
+          "pre_end": 129,
+          "n": 159,
+          "release_z": 0.8024105196505666,
+          "max_lift": 0.09937274231990756
+        }
+      ]
+    },
+    {
+      "episode": 1981,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 53,
+          "ce": 63,
+          "le": 79,
+          "rs": 117,
+          "re": 127,
+          "gs": 28,
+          "pre_start": 94,
+          "pre_end": 104,
+          "n": 134,
+          "release_z": 0.8134657034042986,
+          "max_lift": 0.10101904095780334
+        }
+      ]
+    },
+    {
+      "episode": 1982,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 57,
+          "ce": 67,
+          "le": 83,
+          "rs": 125,
+          "re": 135,
+          "gs": 33,
+          "pre_start": 99,
+          "pre_end": 110,
+          "n": 142,
+          "release_z": 0.8134112086169842,
+          "max_lift": 0.10243065036410415
+        }
+      ]
+    },
+    {
+      "episode": 1983,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 57,
+          "ce": 67,
+          "le": 83,
+          "rs": 123,
+          "re": 133,
+          "gs": 29,
+          "pre_start": 98,
+          "pre_end": 109,
+          "n": 140,
+          "release_z": 0.8138253189535852,
+          "max_lift": 0.10230656127229998
+        }
+      ]
+    },
+    {
+      "episode": 1984,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 62,
+          "ce": 72,
+          "le": 89,
+          "rs": 140,
+          "re": 150,
+          "gs": 32,
+          "pre_start": 109,
+          "pre_end": 124,
+          "n": 157,
+          "release_z": 0.8134215134614798,
+          "max_lift": 0.10005919008914055
+        }
+      ]
+    },
+    {
+      "episode": 1985,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 65,
+          "ce": 75,
+          "le": 92,
+          "rs": 129,
+          "re": 139,
+          "gs": 33,
+          "pre_start": 105,
+          "pre_end": 116,
+          "n": 146,
+          "release_z": 0.8123344002765082,
+          "max_lift": 0.09991056200485704
+        }
+      ]
+    },
+    {
+      "episode": 1986,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 54,
+          "ce": 64,
+          "le": 80,
+          "rs": 120,
+          "re": 130,
+          "gs": 28,
+          "pre_start": 97,
+          "pre_end": 106,
+          "n": 137,
+          "release_z": 0.8137431807491557,
+          "max_lift": 0.10082310076480794
+        }
+      ]
+    },
+    {
+      "episode": 1987,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 62,
+          "ce": 72,
+          "le": 89,
+          "rs": 129,
+          "re": 139,
+          "gs": 30,
+          "pre_start": 105,
+          "pre_end": 115,
+          "n": 146,
+          "release_z": 0.8293889557549443,
+          "max_lift": 0.09826159419658198
+        }
+      ]
+    },
+    {
+      "episode": 1988,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 53,
+          "ce": 63,
+          "le": 80,
+          "rs": 122,
+          "re": 132,
+          "gs": 27,
+          "pre_start": 97,
+          "pre_end": 108,
+          "n": 139,
+          "release_z": 0.8139084082349156,
+          "max_lift": 0.10247672717685241
+        }
+      ]
+    },
+    {
+      "episode": 1989,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 54,
+          "ce": 64,
+          "le": 80,
+          "rs": 121,
+          "re": 131,
+          "gs": 30,
+          "pre_start": 98,
+          "pre_end": 107,
+          "n": 138,
+          "release_z": 0.8134139392357046,
+          "max_lift": 0.10099385090528956
+        }
+      ]
+    },
+    {
+      "episode": 1990,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 52,
+          "ce": 62,
+          "le": 78,
+          "rs": 116,
+          "re": 126,
+          "gs": 28,
+          "pre_start": 92,
+          "pre_end": 102,
+          "n": 133,
+          "release_z": 0.8035633318629235,
+          "max_lift": 0.10084757060592275
+        }
+      ]
+    },
+    {
+      "episode": 1991,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 51,
+          "ce": 61,
+          "le": 78,
+          "rs": 118,
+          "re": 128,
+          "gs": 26,
+          "pre_start": 95,
+          "pre_end": 105,
+          "n": 135,
+          "release_z": 0.8095910494909901,
+          "max_lift": 0.10222466058906599
+        }
+      ]
+    },
+    {
+      "episode": 1992,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 55,
+          "ce": 65,
+          "le": 81,
+          "rs": 119,
+          "re": 129,
+          "gs": 29,
+          "pre_start": 95,
+          "pre_end": 105,
+          "n": 136,
+          "release_z": 0.8138016599794063,
+          "max_lift": 0.10088547182593921
+        }
+      ]
+    },
+    {
+      "episode": 1993,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 60,
+          "ce": 70,
+          "le": 87,
+          "rs": 130,
+          "re": 140,
+          "gs": 31,
+          "pre_start": 106,
+          "pre_end": 117,
+          "n": 147,
+          "release_z": 0.8094324754999399,
+          "max_lift": 0.10061456591721962
+        }
+      ]
+    },
+    {
+      "episode": 1994,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 53,
+          "ce": 63,
+          "le": 80,
+          "rs": 120,
+          "re": 130,
+          "gs": 28,
+          "pre_start": 96,
+          "pre_end": 106,
+          "n": 137,
+          "release_z": 0.8139167206341635,
+          "max_lift": 0.10101181419086425
+        }
+      ]
+    },
+    {
+      "episode": 1995,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 72,
+          "ce": 82,
+          "le": 100,
+          "rs": 142,
+          "re": 152,
+          "gs": 34,
+          "pre_start": 117,
+          "pre_end": 128,
+          "n": 159,
+          "release_z": 0.8125475514837965,
+          "max_lift": 0.09968303017630586
+        }
+      ]
+    },
+    {
+      "episode": 1996,
+      "events": [
+        {
+          "arm": "right",
+          "cs": 69,
+          "ce": 79,
+          "le": 96,
+          "rs": 142,
+          "re": 152,
+          "gs": 39,
+          "pre_start": 116,
+          "pre_end": 129,
+          "n": 159,
+          "release_z": 0.8296289770393314,
+          "max_lift": 0.09827709894237624
+        }
+      ]
+    },
+    {
+      "episode": 1997,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 57,
+          "ce": 67,
+          "le": 84,
+          "rs": 122,
+          "re": 132,
+          "gs": 30,
+          "pre_start": 98,
+          "pre_end": 108,
+          "n": 139,
+          "release_z": 0.8137633310863501,
+          "max_lift": 0.10090188035479863
+        }
+      ]
+    },
+    {
+      "episode": 1998,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 61,
+          "ce": 71,
+          "le": 87,
+          "rs": 130,
+          "re": 140,
+          "gs": 33,
+          "pre_start": 103,
+          "pre_end": 115,
+          "n": 147,
+          "release_z": 0.812144411614277,
+          "max_lift": 0.10116935512368719
+        }
+      ]
+    },
+    {
+      "episode": 1999,
+      "events": [
+        {
+          "arm": "left",
+          "cs": 68,
+          "ce": 78,
+          "le": 95,
+          "rs": 139,
+          "re": 149,
+          "gs": 37,
+          "pre_start": 115,
+          "pre_end": 125,
+          "n": 156,
+          "release_z": 0.8026223215262964,
+          "max_lift": 0.09989481463374628
+        }
+      ]
+    }
+  ],
+  "contact_verified": false,
+  "subsampled": false,
+  "model_initialized": false,
+  "optimizer_steps": 0
+}

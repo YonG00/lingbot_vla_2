@@ -1,0 +1,9 @@
+{
+  "state": "pass",
+  "per_frame_branch_checks": 72630,
+  "labels_unchanged": true,
+  "model_initialized": false,
+  "optimizer_steps": 0,
+  "gpu_tested": false,
+  "full_cpu_preflight": "pending"
+}

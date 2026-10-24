@@ -1,0 +1,7923 @@
+{
+  "schema_version": 1,
+  "dataset_name": "robotwin",
+  "task": "stamp_seal",
+  "coordinate_space": "original_episode_frame",
+  "label_source": "target_classes",
+  "fps": 15,
+  "source_action_channels": {
+    "action": {
+      "left": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "right": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "observation.state": {
+      "left": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "right": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    }
+  },
+  "episodes": [
+    {
+      "episode_index": 1950,
+      "length": 144,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 33,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 33,
+            "end": 46,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 46,
+            "end": 49,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 53,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 60,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 66,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 71,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 85,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 88,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 103,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 104,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 110,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 112,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 116,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 118,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 127,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 131,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 131,
+            "end": 138,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 138,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1951,
+      "length": 150,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 27,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 27,
+            "end": 38,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 38,
+            "end": 41,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 41,
+            "end": 45,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 45,
+            "end": 52,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 58,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 63,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 77,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 79,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 97,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 97,
+            "end": 101,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 102,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 102,
+            "end": 112,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 114,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 114,
+            "end": 120,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 123,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 133,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 133,
+            "end": 137,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 137,
+            "end": 144,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 144,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1952,
+      "length": 145,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 145,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 31,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 31,
+            "end": 48,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 48,
+            "end": 50,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 54,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 61,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 67,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 72,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 86,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 88,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 104,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 105,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 110,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 112,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 117,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 119,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 128,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 132,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 132,
+            "end": 139,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 139,
+            "end": 145,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1953,
+      "length": 139,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 32,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 32,
+            "end": 45,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 45,
+            "end": 48,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 48,
+            "end": 51,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 58,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 64,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 69,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 83,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 86,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 99,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 99,
+            "end": 100,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 100,
+            "end": 103,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 106,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 111,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 114,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 114,
+            "end": 122,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 122,
+            "end": 126,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 126,
+            "end": 133,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 133,
+            "end": 139,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 139,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1954,
+      "length": 156,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 156,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 35,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 35,
+            "end": 48,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 48,
+            "end": 50,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 54,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 61,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 67,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 72,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 86,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 88,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 108,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 108,
+            "end": 112,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 118,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 121,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 125,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 128,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 139,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 139,
+            "end": 143,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 143,
+            "end": 150,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 150,
+            "end": 156,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1955,
+      "length": 151,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 36,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 36,
+            "end": 49,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 53,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 58,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 66,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 72,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 77,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 91,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 94,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 94,
+            "end": 110,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 111,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 113,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 118,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 119,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 123,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 125,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 134,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 138,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 138,
+            "end": 145,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 145,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1956,
+      "length": 137,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 29,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 29,
+            "end": 41,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 41,
+            "end": 44,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 44,
+            "end": 48,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 48,
+            "end": 54,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 60,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 65,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 79,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 81,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 96,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 96,
+            "end": 97,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 97,
+            "end": 99,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 99,
+            "end": 104,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 105,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 109,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 111,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 120,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 124,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 131,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 131,
+            "end": 137,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 137,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1957,
+      "length": 141,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 141,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 25,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 25,
+            "end": 38,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 38,
+            "end": 41,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 41,
+            "end": 45,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 45,
+            "end": 51,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 57,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 62,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 76,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 79,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 96,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 96,
+            "end": 98,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 101,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 108,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 108,
+            "end": 112,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 115,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 115,
+            "end": 124,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 128,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 135,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 135,
+            "end": 141,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1958,
+      "length": 147,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 30,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 30,
+            "end": 50,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 53,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 57,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 65,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 71,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 76,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 90,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 93,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 93,
+            "end": 106,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 107,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 109,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 114,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 114,
+            "end": 115,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 115,
+            "end": 119,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 121,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 130,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 134,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 141,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 141,
+            "end": 147,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 147,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1959,
+      "length": 144,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 35,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 35,
+            "end": 47,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 50,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 54,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 61,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 67,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 72,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 86,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 89,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 103,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 104,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 111,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 112,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 116,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 119,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 127,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 131,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 131,
+            "end": 138,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 138,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1960,
+      "length": 144,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 33,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 33,
+            "end": 44,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 44,
+            "end": 47,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 51,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 58,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 64,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 69,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 83,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 85,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 100,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 100,
+            "end": 102,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 102,
+            "end": 105,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 110,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 112,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 116,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 118,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 127,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 131,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 131,
+            "end": 138,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 138,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1961,
+      "length": 138,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 25,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 25,
+            "end": 38,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 38,
+            "end": 41,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 41,
+            "end": 45,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 45,
+            "end": 51,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 57,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 62,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 76,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 79,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 95,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 95,
+            "end": 97,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 97,
+            "end": 100,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 100,
+            "end": 104,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 106,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 110,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 112,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 121,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 125,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 132,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 132,
+            "end": 138,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 138,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1962,
+      "length": 140,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 140,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 33,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 33,
+            "end": 46,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 46,
+            "end": 49,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 53,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 59,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 65,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 70,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 84,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 86,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 100,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 100,
+            "end": 101,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 103,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 106,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 108,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 108,
+            "end": 112,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 114,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 114,
+            "end": 123,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 127,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 134,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 140,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1963,
+      "length": 142,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 142,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 31,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 31,
+            "end": 47,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 50,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 54,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 61,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 67,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 72,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 86,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 89,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 102,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 102,
+            "end": 103,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 106,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 109,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 111,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 114,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 114,
+            "end": 117,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 125,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 129,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 136,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 136,
+            "end": 142,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1964,
+      "length": 145,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 145,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 29,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 29,
+            "end": 40,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 40,
+            "end": 43,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 43,
+            "end": 47,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 53,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 59,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 64,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 78,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 80,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 98,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 101,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 104,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 110,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 112,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 116,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 119,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 128,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 132,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 132,
+            "end": 139,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 139,
+            "end": 145,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1965,
+      "length": 155,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 31,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 31,
+            "end": 48,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 48,
+            "end": 51,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 54,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 61,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 67,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 72,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 86,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 88,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 106,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 107,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 111,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 118,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 120,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 125,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 128,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 138,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 138,
+            "end": 142,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 142,
+            "end": 149,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 149,
+            "end": 155,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 155,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1966,
+      "length": 152,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 152,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 34,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 34,
+            "end": 37,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 37,
+            "end": 40,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 40,
+            "end": 52,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 55,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 58,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 65,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 71,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 76,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 90,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 93,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 93,
+            "end": 110,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 112,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 115,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 115,
+            "end": 119,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 120,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 124,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 127,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 135,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 135,
+            "end": 139,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 139,
+            "end": 146,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 146,
+            "end": 152,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1967,
+      "length": 144,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 25,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 25,
+            "end": 38,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 38,
+            "end": 41,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 41,
+            "end": 45,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 45,
+            "end": 51,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 57,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 62,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 76,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 78,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 98,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 99,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 99,
+            "end": 103,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 109,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 111,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 115,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 115,
+            "end": 117,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 127,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 131,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 131,
+            "end": 138,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 138,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1968,
+      "length": 149,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 37,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 37,
+            "end": 50,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 52,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 56,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 56,
+            "end": 63,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 69,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 74,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 74,
+            "end": 88,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 91,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 91,
+            "end": 107,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 109,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 112,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 116,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 117,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 121,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 124,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 132,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 132,
+            "end": 136,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 136,
+            "end": 143,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 143,
+            "end": 149,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1969,
+      "length": 158,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 158,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 39,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 39,
+            "end": 53,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 57,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 63,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 71,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 77,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 82,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 96,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 96,
+            "end": 99,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 99,
+            "end": 116,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 118,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 121,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 125,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 127,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 130,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 133,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 133,
+            "end": 141,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 141,
+            "end": 145,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 145,
+            "end": 152,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 152,
+            "end": 158,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1970,
+      "length": 155,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 155,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 39,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 39,
+            "end": 50,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 54,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 57,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 64,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 70,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 75,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 75,
+            "end": 89,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 92,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 111,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 114,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 114,
+            "end": 116,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 121,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 122,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 122,
+            "end": 127,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 129,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 138,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 138,
+            "end": 142,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 142,
+            "end": 149,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 149,
+            "end": 155,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1971,
+      "length": 144,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 35,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 35,
+            "end": 48,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 48,
+            "end": 51,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 55,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 61,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 67,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 72,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 86,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 89,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 104,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 105,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 111,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 112,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 116,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 118,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 127,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 131,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 131,
+            "end": 138,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 138,
+            "end": 144,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1972,
+      "length": 143,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 32,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 32,
+            "end": 45,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 45,
+            "end": 47,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 51,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 58,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 64,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 69,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 83,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 86,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 100,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 100,
+            "end": 101,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 104,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 109,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 111,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 115,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 115,
+            "end": 117,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 126,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 126,
+            "end": 130,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 137,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 137,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1973,
+      "length": 150,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 33,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 33,
+            "end": 52,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 55,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 60,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 67,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 73,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 78,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 92,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 95,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 95,
+            "end": 108,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 108,
+            "end": 110,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 112,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 116,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 117,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 122,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 122,
+            "end": 124,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 133,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 133,
+            "end": 137,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 137,
+            "end": 144,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 144,
+            "end": 150,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1974,
+      "length": 143,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 37,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 37,
+            "end": 49,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 51,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 55,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 62,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 68,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 73,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 87,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 90,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 103,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 104,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 110,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 111,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 115,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 115,
+            "end": 117,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 126,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 126,
+            "end": 130,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 137,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 137,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1975,
+      "length": 139,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 139,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 32,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 32,
+            "end": 43,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 43,
+            "end": 46,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 46,
+            "end": 50,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 57,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 63,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 68,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 82,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 84,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 98,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 100,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 100,
+            "end": 102,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 102,
+            "end": 106,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 108,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 108,
+            "end": 111,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 113,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 122,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 122,
+            "end": 126,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 126,
+            "end": 133,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 133,
+            "end": 139,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1976,
+      "length": 154,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 154,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 36,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 36,
+            "end": 53,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 57,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 62,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 70,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 70,
+            "end": 76,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 81,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 95,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 95,
+            "end": 98,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 114,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 114,
+            "end": 117,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 122,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 122,
+            "end": 123,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 126,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 126,
+            "end": 129,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 137,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 137,
+            "end": 141,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 141,
+            "end": 148,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 148,
+            "end": 154,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1977,
+      "length": 134,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 28,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 28,
+            "end": 40,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 40,
+            "end": 43,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 43,
+            "end": 47,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 53,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 59,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 64,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 78,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 80,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 94,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 94,
+            "end": 95,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 95,
+            "end": 97,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 97,
+            "end": 101,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 103,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 106,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 109,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 117,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 121,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 128,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 134,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 134,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1978,
+      "length": 151,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 30,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 30,
+            "end": 41,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 41,
+            "end": 44,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 44,
+            "end": 48,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 48,
+            "end": 55,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 61,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 66,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 80,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 82,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 103,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 104,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 113,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 116,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 120,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 123,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 134,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 138,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 138,
+            "end": 145,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 145,
+            "end": 151,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1979,
+      "length": 143,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 34,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 34,
+            "end": 48,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 48,
+            "end": 51,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 55,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 61,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 67,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 72,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 86,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 89,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 89,
+            "end": 103,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 105,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 106,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 109,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 111,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 115,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 115,
+            "end": 117,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 126,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 126,
+            "end": 130,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 137,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 137,
+            "end": 143,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1980,
+      "length": 159,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 159,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 35,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 35,
+            "end": 39,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 39,
+            "end": 40,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 40,
+            "end": 53,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 57,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 61,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 68,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 74,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 74,
+            "end": 79,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 93,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 93,
+            "end": 96,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 96,
+            "end": 117,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 122,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 122,
+            "end": 126,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 126,
+            "end": 127,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 132,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 132,
+            "end": 134,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 142,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 142,
+            "end": 146,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 146,
+            "end": 153,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 153,
+            "end": 159,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1981,
+      "length": 134,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 28,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 28,
+            "end": 40,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 40,
+            "end": 43,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 43,
+            "end": 47,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 53,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 59,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 64,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 78,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 80,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 94,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 94,
+            "end": 95,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 95,
+            "end": 97,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 97,
+            "end": 101,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 103,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 106,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 109,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 117,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 121,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 128,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 134,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 134,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1982,
+      "length": 142,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 142,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 33,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 33,
+            "end": 44,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 44,
+            "end": 47,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 51,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 57,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 63,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 68,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 82,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 84,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 99,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 99,
+            "end": 100,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 100,
+            "end": 103,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 108,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 108,
+            "end": 109,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 113,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 116,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 125,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 129,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 136,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 136,
+            "end": 142,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1983,
+      "length": 140,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 29,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 29,
+            "end": 43,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 43,
+            "end": 46,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 46,
+            "end": 50,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 57,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 63,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 68,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 82,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 84,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 84,
+            "end": 98,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 99,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 99,
+            "end": 102,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 102,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 109,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 112,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 114,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 114,
+            "end": 123,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 127,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 134,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 140,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 140,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1984,
+      "length": 157,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 157,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 32,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 32,
+            "end": 49,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 51,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 55,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 62,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 68,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 73,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 87,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 90,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 109,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 111,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 114,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 114,
+            "end": 120,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 122,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 122,
+            "end": 127,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 130,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 140,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 140,
+            "end": 144,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 144,
+            "end": 151,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 151,
+            "end": 157,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1985,
+      "length": 146,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 146,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 33,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 33,
+            "end": 51,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 54,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 58,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 65,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 71,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 76,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 90,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 93,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 93,
+            "end": 105,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 107,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 109,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 113,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 115,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 115,
+            "end": 118,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 120,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 129,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 133,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 133,
+            "end": 140,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 140,
+            "end": 146,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1986,
+      "length": 137,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 28,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 28,
+            "end": 40,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 40,
+            "end": 43,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 43,
+            "end": 47,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 54,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 60,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 65,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 79,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 81,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 97,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 97,
+            "end": 98,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 100,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 100,
+            "end": 103,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 105,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 109,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 112,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 112,
+            "end": 120,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 124,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 131,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 131,
+            "end": 137,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 137,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1987,
+      "length": 146,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 30,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 30,
+            "end": 47,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 50,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 54,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 62,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 68,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 73,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 73,
+            "end": 87,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 87,
+            "end": 90,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 90,
+            "end": 105,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 106,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 109,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 113,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 114,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 114,
+            "end": 118,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 120,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 129,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 133,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 133,
+            "end": 140,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 140,
+            "end": 146,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 146,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1988,
+      "length": 139,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 139,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 27,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 27,
+            "end": 40,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 40,
+            "end": 43,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 43,
+            "end": 47,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 53,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 59,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 64,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 78,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 81,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 97,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 97,
+            "end": 98,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 101,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 106,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 111,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 113,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 122,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 122,
+            "end": 126,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 126,
+            "end": 133,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 133,
+            "end": 139,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1989,
+      "length": 138,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 138,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 30,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 30,
+            "end": 41,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 41,
+            "end": 44,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 44,
+            "end": 48,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 48,
+            "end": 54,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 60,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 65,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 65,
+            "end": 79,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 81,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 98,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 99,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 99,
+            "end": 101,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 104,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 106,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 110,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 113,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 121,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 125,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 132,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 132,
+            "end": 138,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1990,
+      "length": 133,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 28,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 28,
+            "end": 39,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 39,
+            "end": 42,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 42,
+            "end": 46,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 46,
+            "end": 52,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 58,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 58,
+            "end": 63,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 77,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 77,
+            "end": 79,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 92,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 92,
+            "end": 94,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 94,
+            "end": 96,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 96,
+            "end": 100,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 100,
+            "end": 101,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 105,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 108,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 108,
+            "end": 116,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 120,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 127,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 127,
+            "end": 133,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 133,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1991,
+      "length": 135,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 135,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 26,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 26,
+            "end": 38,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 38,
+            "end": 41,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 41,
+            "end": 45,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 45,
+            "end": 51,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 57,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 62,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 62,
+            "end": 76,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 76,
+            "end": 79,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 95,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 95,
+            "end": 96,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 96,
+            "end": 98,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 102,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 102,
+            "end": 104,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 104,
+            "end": 107,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 110,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 118,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 122,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 122,
+            "end": 129,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 129,
+            "end": 135,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1992,
+      "length": 136,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 29,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 29,
+            "end": 41,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 41,
+            "end": 44,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 44,
+            "end": 48,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 48,
+            "end": 55,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 61,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 66,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 80,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 82,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 95,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 95,
+            "end": 97,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 97,
+            "end": 99,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 99,
+            "end": 102,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 102,
+            "end": 103,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 107,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 110,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 119,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 123,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 130,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 136,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 136,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1993,
+      "length": 147,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 31,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 31,
+            "end": 47,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 49,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 49,
+            "end": 53,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 60,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 66,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 66,
+            "end": 71,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 71,
+            "end": 85,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 88,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 106,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 107,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 110,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 110,
+            "end": 114,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 114,
+            "end": 116,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 120,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 122,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 122,
+            "end": 130,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 134,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 141,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 141,
+            "end": 147,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 147,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1994,
+      "length": 137,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 28,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 28,
+            "end": 40,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 40,
+            "end": 43,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 43,
+            "end": 47,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 53,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 53,
+            "end": 59,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 64,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 78,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 81,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 81,
+            "end": 96,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 96,
+            "end": 98,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 100,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 100,
+            "end": 103,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 105,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 105,
+            "end": 109,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 109,
+            "end": 111,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 120,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 120,
+            "end": 124,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 131,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 131,
+            "end": 137,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 137,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1995,
+      "length": 159,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 159,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 34,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 34,
+            "end": 37,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 37,
+            "end": 42,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 42,
+            "end": 54,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 59,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 59,
+            "end": 64,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 64,
+            "end": 72,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 78,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 78,
+            "end": 83,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 83,
+            "end": 98,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 101,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 101,
+            "end": 117,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 117,
+            "end": 118,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 121,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 125,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 125,
+            "end": 126,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 126,
+            "end": 131,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 131,
+            "end": 134,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 142,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 142,
+            "end": 146,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 146,
+            "end": 153,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 153,
+            "end": 159,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1996,
+      "length": 159,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 159,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 39,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 39,
+            "end": 52,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 52,
+            "end": 56,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 56,
+            "end": 61,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 69,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 69,
+            "end": 75,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 75,
+            "end": 80,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 80,
+            "end": 94,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 94,
+            "end": 97,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 97,
+            "end": 116,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 118,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 121,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 126,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 126,
+            "end": 128,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 132,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 132,
+            "end": 134,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 142,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 142,
+            "end": 146,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 146,
+            "end": 153,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 153,
+            "end": 159,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1997,
+      "length": 139,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 30,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 30,
+            "end": 43,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 43,
+            "end": 46,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 46,
+            "end": 50,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 57,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 57,
+            "end": 63,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 63,
+            "end": 68,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 82,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 82,
+            "end": 85,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 85,
+            "end": 98,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 98,
+            "end": 100,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 100,
+            "end": 102,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 102,
+            "end": 106,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 106,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 111,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 113,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 122,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 122,
+            "end": 126,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 126,
+            "end": 133,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 133,
+            "end": 139,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 139,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1998,
+      "length": 147,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 33,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 33,
+            "end": 47,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 47,
+            "end": 50,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 50,
+            "end": 54,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 54,
+            "end": 61,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 61,
+            "end": 67,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 67,
+            "end": 72,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 72,
+            "end": 86,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 86,
+            "end": 88,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 88,
+            "end": 103,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 103,
+            "end": 107,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 107,
+            "end": 111,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 111,
+            "end": 113,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 113,
+            "end": 118,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 118,
+            "end": 121,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 121,
+            "end": 130,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 130,
+            "end": 134,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 134,
+            "end": 141,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 141,
+            "end": 147,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 147,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "episode_index": 1999,
+      "length": 156,
+      "arms": {
+        "left": [
+          {
+            "start": 0,
+            "end": 37,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 37,
+            "end": 51,
+            "classes": [
+              "grasp/approach_12_to_9cm"
+            ]
+          },
+          {
+            "start": 51,
+            "end": 55,
+            "classes": [
+              "grasp/approach_9_to_6cm"
+            ]
+          },
+          {
+            "start": 55,
+            "end": 60,
+            "classes": [
+              "grasp/approach_6_to_1p5cm"
+            ]
+          },
+          {
+            "start": 60,
+            "end": 68,
+            "classes": [
+              "grasp/open_settle"
+            ]
+          },
+          {
+            "start": 68,
+            "end": 74,
+            "classes": [
+              "grasp/closing_first_half"
+            ]
+          },
+          {
+            "start": 74,
+            "end": 79,
+            "classes": [
+              "grasp/closing_second_half"
+            ]
+          },
+          {
+            "start": 79,
+            "end": 93,
+            "classes": [
+              "grasp/lift_first_1p5cm"
+            ]
+          },
+          {
+            "start": 93,
+            "end": 96,
+            "classes": [
+              "grasp/lift_1p5_to_3cm"
+            ]
+          },
+          {
+            "start": 96,
+            "end": 115,
+            "classes": [
+              "background"
+            ]
+          },
+          {
+            "start": 115,
+            "end": 116,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 116,
+            "end": 119,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 119,
+            "end": 123,
+            "classes": [
+              "stamp/prealign_settle"
+            ]
+          },
+          {
+            "start": 123,
+            "end": 124,
+            "classes": [
+              "stamp/prealign_move"
+            ]
+          },
+          {
+            "start": 124,
+            "end": 128,
+            "classes": [
+              "stamp/descent_7p5_to_4cm"
+            ]
+          },
+          {
+            "start": 128,
+            "end": 131,
+            "classes": [
+              "stamp/descent_4_to_1p5cm"
+            ]
+          },
+          {
+            "start": 131,
+            "end": 139,
+            "classes": [
+              "stamp/contact_pose_settle"
+            ]
+          },
+          {
+            "start": 139,
+            "end": 143,
+            "classes": [
+              "stamp/release_first_half"
+            ]
+          },
+          {
+            "start": 143,
+            "end": 150,
+            "classes": [
+              "stamp/release_second_half"
+            ]
+          },
+          {
+            "start": 150,
+            "end": 156,
+            "classes": [
+              "background"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "start": 0,
+            "end": 156,
+            "classes": [
+              "background"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -96,3 +96,5 @@
 - [统一类别与逐动作加权框架](training/recipes/category_weighting_framework_zh.md)
 
 - [move_can_pot 接近抓取类别加权](training/recipes/move_can_pot_grasp_weighting_zh.md)
+
+- [stamp_seal关键阶段20倍与串行接续](training/recipes/stamp_seal_key_weighting_zh.md)

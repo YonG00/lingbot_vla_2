@@ -1,0 +1,13 @@
+{
+  "state": "pure_cpu_contract_pass",
+  "episodes": 50,
+  "boundary_offset_cases": 3906,
+  "cross_category_cases": 3484,
+  "horizon": 50,
+  "raw_action_width": 14,
+  "full_55d_dataloader_verified": false,
+  "full_cpu_preflight": "deferred until predecessor complete; source checkpoint not yet available",
+  "model_initialized": false,
+  "optimizer_steps": 0,
+  "gpu_tested": false
+}
