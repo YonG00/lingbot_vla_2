@@ -1,0 +1,12 @@
+{
+  "task": "move_can_pot",
+  "replacement_seed": 100003,
+  "checks": [
+    {
+      "seed": 100003,
+      "expert_valid": true,
+      "error": null
+    }
+  ],
+  "policy_inference": false
+}
