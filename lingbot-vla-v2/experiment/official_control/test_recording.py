@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
+import os
 from unittest.mock import patch
 from experiment.official_control import evaluate
 from experiment.official_control.recording import video_count,install_recording_limit
@@ -36,6 +37,10 @@ class RecordingTests(unittest.TestCase):
             commands=[]
             def launch(command,**kwargs):
                 commands.append(command)
+                self.simenv=kwargs['env']
+                if getattr(self,'temporal',None) is not None:
+                    assert json.loads(kwargs['env']['LINGBOT_TEMPORAL_ENSEMBLE'])==self.temporal
+                    Path(kwargs['env']['LINGBOT_TEMPORAL_ENSEMBLE_AUDIT']).write_text(json.dumps(dict(enabled=True,ensemble_horizon=8,decay=0.1,replan_every_actions=1,executed_actions_per_response=1,source_chunk_length=50,requests=10)))
                 results=dest/'results'/'a';results.mkdir(parents=True)
                 for i in range(2):(results/f'episode{i}_global.mp4').write_bytes(b'video')
                 (results/'_result.txt').write_text(str(2/3))
@@ -43,15 +48,36 @@ class RecordingTests(unittest.TestCase):
                 return SimpleNamespace(wait=lambda **kwargs:0,poll=lambda:0)
             job=dict(task='a',label='probe',episodes=3,video_episodes=2,model='/m',destination=str(dest),
                 robotwin=str(robo),qwen='/q',sim_python='/python',require_baseline=False)
+            if getattr(self,'task_config',None) is not None:job['task_config']=self.task_config
+            if getattr(self,'temporal',None) is not None:job['temporal_ensemble']=self.temporal
             shared=dict(model='/m',process=SimpleNamespace(pid=42,poll=lambda:None),port=123,audit=audit)
             with patch.object(evaluate.subprocess,'Popen',side_effect=launch),patch.object(evaluate.subprocess,'check_output',return_value='/site'),patch.object(evaluate.urllib.request,'urlopen',return_value=contextlib.nullcontext(SimpleNamespace(status=200))),contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(evaluate.execute(job,shared=shared),0)
             summary=json.loads((dest/'summary.json').read_text())
             self.assertEqual(summary['episodes'],3);self.assertEqual(summary['recorded_episodes'],2)
             self.assertEqual(summary['successes'],2)
+            if getattr(self,'temporal',None) is not None:
+                self.assertEqual(summary['temporal_ensemble']['executed_actions_per_response'],1)
+            else:
+                self.assertNotIn('LINGBOT_TEMPORAL_ENSEMBLE',self.simenv)
+                self.assertNotIn('temporal_ensemble',summary)
             command=commands[0]
+            self.assertEqual(command[command.index('--task_config')+1],getattr(self,'task_config','demo_clean'))
+            self.assertEqual(summary['task_config'],getattr(self,'task_config','demo_clean'))
             self.assertEqual(command[command.index('--test_num')+1],'3')
             self.assertEqual(command[command.index('--global_view_episodes')+1],'2')
+
+    def test_randomized_reaches_actual_command_and_summary(self):
+        self.task_config='demo_randomized'
+        self.test_three_rollout_results_with_only_two_videos_pass_real_summary_gate()
+
+    def test_explicit_temporal_config_reaches_simulator_and_summary_gate(self):
+        self.temporal=dict(horizon=8,decay=0.1)
+        self.test_three_rollout_results_with_only_two_videos_pass_real_summary_gate()
+
+    def test_default_chunk_mode_does_not_inherit_temporal_environment(self):
+        with patch.dict(os.environ,{'LINGBOT_TEMPORAL_ENSEMBLE':'{}','LINGBOT_TEMPORAL_ENSEMBLE_AUDIT':'/wrong'}):
+            self.test_three_rollout_results_with_only_two_videos_pass_real_summary_gate()
 
 
 if __name__=='__main__':unittest.main()

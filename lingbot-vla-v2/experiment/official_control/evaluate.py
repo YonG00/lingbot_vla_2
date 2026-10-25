@@ -38,6 +38,9 @@ def execute(job, shared=None):
     task = job.get('task', 'adjust_bottle')
     assert re.fullmatch(r'[a-z][a-z0-9_]*', task), 'invalid task name'
     assert episodes > 0
+    task_config = job.get('task_config', 'demo_clean')
+    if task_config not in ('demo_clean', 'demo_randomized'):
+        raise ValueError('invalid task_config')
     status = destination / 'status.json'
     server = simulation = None
     def state(value, **extra):
@@ -72,13 +75,31 @@ def execute(job, shared=None):
                           '--use_bf16', 'False', '--use_fp32', 'True', '--use_compile', 'False', '--port', str(port)]
         sim_command = [job['sim_python'], '-u', str(HERE), '--sim-client', str(robo),
                        '--config', 'policy/ACT/deploy_policy.yml', '--overrides',
-                       '--task_name', task, '--task_config', 'demo_clean',
+                       '--task_name', task, '--task_config', task_config,
                        '--train_config_name', 'official_control', '--seed', '0', '--policy_name', 'ACT',
                        '--port', str(port), '--robo_name', 'robotwin', '--video_fps', '10',
                        '--eval_video_log', 'False', '--eval_global_view_log', 'True', '--global_view_fps', '2',
                        '--output_dir', str(destination / 'results'), '--test_num', str(episodes)]
+        temporal=job.get('temporal_ensemble')
+        if temporal is not None:
+            from experiment.official_control.temporal_ensemble import TemporalEnsemble
+            TemporalEnsemble(**temporal)
+            env['LINGBOT_TEMPORAL_ENSEMBLE']=json.dumps(temporal)
+            env['LINGBOT_TEMPORAL_ENSEMBLE_AUDIT']=str(destination/'temporal_ensemble_audit.json')
+        else:
+            env.pop('LINGBOT_TEMPORAL_ENSEMBLE',None)
+            env.pop('LINGBOT_TEMPORAL_ENSEMBLE_AUDIT',None)
         if job.get('video_episodes') is not None:
             sim_command.extend(['--global_view_episodes',str(job['video_episodes'])])
+        if 'scene_seed' in job:
+            if episodes!=1 or job.get('expected_seeds')!=[job['scene_seed']]:raise ValueError('episode seed contract')
+            env['LINGBOT_EPISODE_SCENE_SEED']=str(job['scene_seed'])
+            env['LINGBOT_DESCRIPTION_EPISODE_COUNT']=str(job['description_episode_count'])
+            env['LINGBOT_EPISODE_INDEX']=str(job['episode_index'])
+            if job.get('seed_search') is not None:
+                env['LINGBOT_EPISODE_SEED_SEARCH']=json.dumps(job['seed_search'])
+            else:
+                env.pop('LINGBOT_EPISODE_SEED_SEARCH',None)
         if 'render_sync' in job:sim_command.extend(['--render_sync',job['render_sync']])
         (destination / 'commands.json').write_text(json.dumps(dict(server=server_command, simulation=sim_command), indent=2))
         state('starting')
@@ -113,7 +134,10 @@ def execute(job, shared=None):
         assert 'OIDN 2.5.1 CUDA=' in clean and 'OIDN Error' not in clean, 'renderer check failed'
         seeds = [int(row[2]) for row in rates]
         assert len(set(seeds)) == episodes
-        if job.get('expected_seeds') is not None:
+        if job.get('seed_search') is not None:
+            search=job['seed_search'];delta=seeds[0]-job['scene_seed']
+            assert len(seeds)==1 and delta>=0 and delta%search['stride']==0 and delta//search['stride']<search['max_candidates'], 'invalid inline selected seed'
+        elif job.get('expected_seeds') is not None:
             assert seeds == job['expected_seeds'], 'scene seeds differ from recorded baseline'
         baseline = destination.parent / '9680/summary.json'
         if job.get('reference_summary'):
@@ -131,9 +155,16 @@ def execute(job, shared=None):
         precision = json.loads((destination / 'precision_audit.json').read_text())
         assert set(precision['parameter_numel_by_dtype']) == {'torch.float32'} and precision['forward_samples']
         assert hashlib.sha256(client.read_bytes()).hexdigest() == client_hash
-        summary = dict(state='complete', task=task, label=job['label'], model=job['model'],
+        summary = dict(state='complete', task=task, task_config=task_config, label=job['label'], model=job['model'],
                        successes=int(rates[-1][0]), episodes=episodes, success_rate=rate, seeds=seeds,
                        oidn_errors=0, client_sha256=client_hash, dtype='float32', action_chunk=50,recorded_episodes=expected_videos)
+        if temporal is not None:
+            temporal_audit=json.loads((destination/'temporal_ensemble_audit.json').read_text())
+            assert temporal_audit['enabled'] and temporal_audit['ensemble_horizon']==temporal.get('horizon',8) and temporal_audit['decay']==temporal.get('decay',0.1)
+            assert temporal_audit['replan_every_actions']==1 and temporal_audit['executed_actions_per_response']==1 and temporal_audit['source_chunk_length']==50 and temporal_audit['requests']>0
+            summary['temporal_ensemble']=temporal_audit
+        if 'job_id' in job:summary.update(job_id=job['job_id'],episode_index=job['episode_index'],scene_seed=seeds[0])
+        if job.get('seed_search') is not None:summary['seed_search']=dict(job['seed_search'],start_seed=job['scene_seed'],selected_seed=seeds[0])
         if shared is not None:
             summary.update(server_pid=shared['process'].pid, shared_server=True)
         (destination / 'summary.json').write_text(json.dumps(summary, indent=2))
@@ -204,8 +235,18 @@ if __name__ == '__main__':
             from script.deploy.websocket_client_policy import WebsocketClientPolicy
             from experiment.official_control.render_sync import install_policy_trace
             install_policy_trace(WebsocketClientPolicy,os.environ['LINGBOT_POLICY_TRACE'])
+        if os.environ.get('LINGBOT_TEMPORAL_ENSEMBLE'):
+            from script.deploy.websocket_client_policy import WebsocketClientPolicy
+            from experiment.official_control.temporal_ensemble import install_client
+            install_client(WebsocketClientPolicy,**json.loads(os.environ['LINGBOT_TEMPORAL_ENSEMBLE']),audit_path=os.environ['LINGBOT_TEMPORAL_ENSEMBLE_AUDIT'])
+            print('EVAL_TEMPORAL_ENSEMBLE '+os.environ['LINGBOT_TEMPORAL_ENSEMBLE'],flush=True)
         sys.argv = [str(robo / 'script/eval_policy_client_lingbotvla.py')] + sys.argv[3:]
-        runpy.run_path(sys.argv[0], run_name='__main__')
+        if os.environ.get('LINGBOT_EPISODE_SCENE_SEED') is None:
+            runpy.run_path(sys.argv[0], run_name='__main__')
+        else:
+            from experiment.official_control.episode_parallel import compile_episode_client
+            code=compile_episode_client(Path(sys.argv[0]).read_text(),sys.argv[0],int(os.environ['LINGBOT_EPISODE_SCENE_SEED']),int(os.environ['LINGBOT_DESCRIPTION_EPISODE_COUNT']),int(os.environ['LINGBOT_EPISODE_INDEX']),seed_search=json.loads(os.environ['LINGBOT_EPISODE_SEED_SEARCH']) if os.environ.get('LINGBOT_EPISODE_SEED_SEARCH') else None)
+            exec(code,dict(__name__='__main__',__file__=sys.argv[0]))
     elif len(sys.argv) == 3 and sys.argv[1] == '--job':
         raise SystemExit(execute(json.loads(Path(sys.argv[2]).read_text())))
     else:

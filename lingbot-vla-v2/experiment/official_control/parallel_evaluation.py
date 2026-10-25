@@ -19,7 +19,8 @@ from experiment.official_control.shared_evaluation import open_session
 def run_jobs(jobs,directory,workers,opener=None,executor=evaluate.execute,stopper=evaluate.stop,scheduling='batches'):
     if type(workers) is not int or not 1 <= workers <= 8:raise ValueError('workers must be an integer from 1 to 8')
     if scheduling not in ['batches','rolling']:raise ValueError('invalid scheduling')
-    if not jobs or len({j['task'] for j in jobs})!=len(jobs):raise ValueError('unique nonempty task list required')
+    from experiment.official_control.episode_parallel import validate_jobs,aggregate
+    validate_jobs(jobs)
     if len({str(Path(j['model']).resolve()) for j in jobs})!=1:raise ValueError('one shared model required')
     for key in ['OMP_NUM_THREADS','MKL_NUM_THREADS','OPENBLAS_NUM_THREADS']:os.environ[key]='2'
     session=None;results=[];start=time.monotonic();event_lock=threading.Lock()
@@ -27,7 +28,7 @@ def run_jobs(jobs,directory,workers,opener=None,executor=evaluate.execute,stoppe
         def event(kind):
             with event_lock:
                 with (directory/'task_events.jsonl').open('a') as stream:
-                    stream.write(json.dumps(dict(event=kind,task=job['task'],time=time.time()))+'\n')
+                    stream.write(json.dumps(dict(event=kind,task=job['task'],job_id=job.get('job_id',job['task']),time=time.time()))+'\n')
         event('start')
         try:return executor(job,shared=session)
         finally:event('end')
@@ -49,7 +50,7 @@ def run_jobs(jobs,directory,workers,opener=None,executor=evaluate.execute,stoppe
                 futures={}
                 remaining=iter(batch)
                 def submit(job):
-                    dest=Path(job['destination']);dest.mkdir(exist_ok=False)
+                    dest=Path(job['destination']);dest.mkdir(parents=True,exist_ok=False)
                     (dest/'job.json').write_text(json.dumps(job,indent=2))
                     futures[pool.submit(execute,job)]=job
                 for _ in range(min(workers,len(batch))):submit(next(remaining))
@@ -63,12 +64,19 @@ def run_jobs(jobs,directory,workers,opener=None,executor=evaluate.execute,stoppe
                             raise ValueError('shared inference session mismatch')
                         if result.get('task')!=job['task'] or result.get('state')!='complete':
                             raise ValueError('task result mismatch')
+                        if job.get('seed_search') is not None:
+                            selected=result['seeds'][0];search=job['seed_search'];delta=selected-job['scene_seed']
+                            if delta<0 or delta%search['stride'] or delta//search['stride']>=search['max_candidates']:
+                                raise ValueError('invalid inline scene selection')
+                            job['scene_seed']=selected;job['expected_seeds']=[selected]
                         results.append(result)
                     for _ in done:
                         job=next(remaining,None)
                         if job is not None:submit(job)
                     (directory/'summary.json').write_text(json.dumps(results,indent=2))
                     state('evaluating',server_pid=session['process'].pid,batch=offset//workers+1,active_workers=len(futures),scheduling=scheduling)
+        results=aggregate(results,jobs)
+        (directory/'summary.json').write_text(json.dumps(results,indent=2))
         state('complete',elapsed_seconds=time.monotonic()-start,server_pid=session['process'].pid,
             model_loads=session.get('model_loads',1),reused_training_model=session.get('reused_training_model',False))
         return results

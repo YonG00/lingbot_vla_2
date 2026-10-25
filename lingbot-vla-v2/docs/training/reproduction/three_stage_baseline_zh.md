@@ -19,6 +19,10 @@
 
 ## 1. 复现说明
 
+参考目标是 `20261022_1209_round_3_recovery/global_step_160`。本流程为整理后的三阶段方案，与历史最后几轮补训步数存在差异，详见[目标模型来源](../records/recovery160_origin_zh.md)。完整三阶段GPU重训尚未端到端验证，不能保证得到同一权重或成功率。只涵盖三阶段，不含其后的专项训练。
+
+独立单任务与整体评测用[统一并行评测入口](benchmark_zh.md)，默认每任务3回合并行、不录像。
+
 整个流程分为三个阶段，启动后按顺序执行：
 
 | 阶段 | 训练内容 | 更新步数 |
@@ -53,14 +57,15 @@
 ## 3. 下载代码
 
 - 仓库：[YonG00/lingbot_vla_2](https://github.com/YonG00/lingbot_vla_2)
-- 训练分支：`official_adjust_bottle_control`
-- 本文对应的训练代码：[cac7e24c856ac8a0b6c42379f7324941b3788a48](https://github.com/YonG00/lingbot_vla_2/tree/cac7e24c856ac8a0b6c42379f7324941b3788a48)
+- 复现分支：`main`
+- 训练代码起源（不含新评测入口）：[cac7e24c856ac8a0b6c42379f7324941b3788a48](https://github.com/YonG00/lingbot_vla_2/tree/cac7e24c856ac8a0b6c42379f7324941b3788a48)
 
 ```bash
-git clone --branch official_adjust_bottle_control \
+git clone --branch main \
   https://github.com/YonG00/lingbot_vla_2.git lingbot-baseline
 cd lingbot-baseline
-git checkout cac7e24c856ac8a0b6c42379f7324941b3788a48
+git checkout reproduction-main-20261025
+git rev-parse HEAD
 ```
 
 后续的训练命令在`lingbot-vla-v2/`目录执行。仿真代码位于同一仓库的`RoboTwin-lingbot/`，请使用这份代码配置仿真环境。
@@ -383,3 +388,7 @@ python experiment/reproduction/evaluate.py \
 - 项目负责人微信：待补充
 
 反馈时请附代码版本、GPU型号、启动命令、出错日志和相关`status.json`；模型效果问题再附任务名及评测结果。
+
+## 源码一致性检查
+
+训练前在包目录运行 `python experiment/reproduction/verify_source.py`，验证冻结训练源码与课程输入。记录 `git rev-parse HEAD`、环境版本、模型和数据来源；不要只记录浮动的main分支名。源码锁不包含大模型/训练数据内容，不能替代数据校验。
