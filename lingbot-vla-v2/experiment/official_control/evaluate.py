@@ -96,6 +96,10 @@ def execute(job, shared=None):
             env['LINGBOT_EPISODE_SCENE_SEED']=str(job['scene_seed'])
             env['LINGBOT_DESCRIPTION_EPISODE_COUNT']=str(job['description_episode_count'])
             env['LINGBOT_EPISODE_INDEX']=str(job['episode_index'])
+            if job.get('seed_search') is not None:
+                env['LINGBOT_EPISODE_SEED_SEARCH']=json.dumps(job['seed_search'])
+            else:
+                env.pop('LINGBOT_EPISODE_SEED_SEARCH',None)
         if 'render_sync' in job:sim_command.extend(['--render_sync',job['render_sync']])
         (destination / 'commands.json').write_text(json.dumps(dict(server=server_command, simulation=sim_command), indent=2))
         state('starting')
@@ -130,7 +134,10 @@ def execute(job, shared=None):
         assert 'OIDN 2.5.1 CUDA=' in clean and 'OIDN Error' not in clean, 'renderer check failed'
         seeds = [int(row[2]) for row in rates]
         assert len(set(seeds)) == episodes
-        if job.get('expected_seeds') is not None:
+        if job.get('seed_search') is not None:
+            search=job['seed_search'];delta=seeds[0]-job['scene_seed']
+            assert len(seeds)==1 and delta>=0 and delta%search['stride']==0 and delta//search['stride']<search['max_candidates'], 'invalid inline selected seed'
+        elif job.get('expected_seeds') is not None:
             assert seeds == job['expected_seeds'], 'scene seeds differ from recorded baseline'
         baseline = destination.parent / '9680/summary.json'
         if job.get('reference_summary'):
@@ -156,7 +163,8 @@ def execute(job, shared=None):
             assert temporal_audit['enabled'] and temporal_audit['ensemble_horizon']==temporal.get('horizon',8) and temporal_audit['decay']==temporal.get('decay',0.1)
             assert temporal_audit['replan_every_actions']==1 and temporal_audit['executed_actions_per_response']==1 and temporal_audit['source_chunk_length']==50 and temporal_audit['requests']>0
             summary['temporal_ensemble']=temporal_audit
-        if 'job_id' in job:summary.update(job_id=job['job_id'],episode_index=job['episode_index'],scene_seed=job['scene_seed'])
+        if 'job_id' in job:summary.update(job_id=job['job_id'],episode_index=job['episode_index'],scene_seed=seeds[0])
+        if job.get('seed_search') is not None:summary['seed_search']=dict(job['seed_search'],start_seed=job['scene_seed'],selected_seed=seeds[0])
         if shared is not None:
             summary.update(server_pid=shared['process'].pid, shared_server=True)
         (destination / 'summary.json').write_text(json.dumps(summary, indent=2))
@@ -237,7 +245,7 @@ if __name__ == '__main__':
             runpy.run_path(sys.argv[0], run_name='__main__')
         else:
             from experiment.official_control.episode_parallel import compile_episode_client
-            code=compile_episode_client(Path(sys.argv[0]).read_text(),sys.argv[0],int(os.environ['LINGBOT_EPISODE_SCENE_SEED']),int(os.environ['LINGBOT_DESCRIPTION_EPISODE_COUNT']),int(os.environ['LINGBOT_EPISODE_INDEX']))
+            code=compile_episode_client(Path(sys.argv[0]).read_text(),sys.argv[0],int(os.environ['LINGBOT_EPISODE_SCENE_SEED']),int(os.environ['LINGBOT_DESCRIPTION_EPISODE_COUNT']),int(os.environ['LINGBOT_EPISODE_INDEX']),seed_search=json.loads(os.environ['LINGBOT_EPISODE_SEED_SEARCH']) if os.environ.get('LINGBOT_EPISODE_SEED_SEARCH') else None)
             exec(code,dict(__name__='__main__',__file__=sys.argv[0]))
     elif len(sys.argv) == 3 and sys.argv[1] == '--job':
         raise SystemExit(execute(json.loads(Path(sys.argv[2]).read_text())))

@@ -38,6 +38,12 @@ def plan(config):
         raise ValueError('invalid video_episodes')
     if config.get('expected_task_count', 50) != len(tasks):
         raise ValueError('task count differs from expected_task_count (default 50)')
+    if config.get('seed_selection','inline') not in ('inline','expert','fixed'):
+        raise ValueError('invalid seed_selection')
+    for key, default, minimum in [('seed_search_start',100000,0),('seed_search_max_candidates',200,n),('seed_selection_timeout_seconds',1800,1)]:
+        value=config.get(key,default)
+        if type(value) is not int or value < minimum:
+            raise ValueError('invalid '+key)
     seeds = config.get('scene_seeds', {})
     valid_keys = {c + '/' + t for c in configs for t in tasks}
     if not isinstance(seeds, dict) or set(seeds) - valid_keys:
@@ -79,6 +85,11 @@ def jobs_for(config, item, destination):
     # Always shard even with one worker: explicit scene identities remain unchanged.
     shards = split_jobs([job], dict(single_task_episode_workers=2,
         single_task_episode_seeds=item['seeds']))
+    if config.get('seed_selection','inline')=='inline' and item['key'] not in config.get('scene_seeds',{}):
+        start=config.get('seed_search_start',100000)
+        for i,job in enumerate(shards):
+            job['scene_seed']=start+i;job['expected_seeds']=[start+i]
+            job['seed_search']=dict(stride=item['episodes'],max_candidates=config.get('seed_search_max_candidates',200))
     return shards
 
 
@@ -125,7 +136,8 @@ def reference_results(items, rows, elapsed_seconds):
             success_rate_percent=100 * successes / count if count else None,
             elapsed_seconds=row.get('elapsed_seconds') if row else None,
             result_path=row.get('summary_path', row.get('evidence_dir')) if row else None,
-            error=row.get('error') if row else None))
+            error=row.get('error') if row else None,
+            seeds=row.get('seeds') if row else None))
     def collect(selected):
         complete = [row for row in selected if row['status'] == 'complete']
         # Same sum(successes) / sum(episodes) as upstream collect_results().
@@ -145,12 +157,14 @@ def reference_results(items, rows, elapsed_seconds):
         tasks=tasks)
 
 
-def run(config, resume=False, opener=None, runner=None, stopper=None):
+def run(config, resume=False, opener=None, runner=None, stopper=None, selector=None):
     from experiment.official_control.shared_evaluation import open_session
     from experiment.official_control.parallel_evaluation import run_jobs
     from experiment.official_control.evaluate import stop
     opener = opener or (lambda job, directory: open_session(job, directory,
         server_entry=ROOT / 'experiment/robotwin/session_eval_server.py'))
+    from experiment.official_control.expert_seed_selection import select_seeds
+    selector = selector or select_seeds
     runner = runner or run_jobs
     stopper = stopper or stop
     items = plan(config)
@@ -188,6 +202,7 @@ def run(config, resume=False, opener=None, runner=None, stopper=None):
         public.update(model=config['model'], episodes_per_task=config.get('episodes_per_task',3),
                       episode_workers=config.get('episode_workers',3), video_episodes=config.get('video_episodes',0))
         atomic_json(directory / 'benchmark_results.json', public)
+        atomic_json(directory / 'selected_scene_seeds.json', {row['key']:row['seeds'] for row in rows if row['state']=='complete'})
     try:
         for item in items:
             if item['key'] in complete:
@@ -196,7 +211,8 @@ def run(config, resume=False, opener=None, runner=None, stopper=None):
                 summary = json.loads(Path(row['summary_path']).read_text())
                 if (summary['state'] != 'complete' or summary['task'] != item['task']
                     or summary.get('task_config') != item['task_config']
-                    or summary['seeds'] != item['seeds'] or summary['model'] != config['model']
+                    or summary['seeds'] != row['seeds'] or len(row['seeds']) != item['episodes']
+                    or summary['model'] != config['model']
                     or summary['successes'] != row['successes']):
                     raise ValueError('resume summary mismatch: ' + item['key'])
                 publish(); continue
@@ -206,19 +222,33 @@ def run(config, resume=False, opener=None, runner=None, stopper=None):
                 attempt += 1
             output = parent / f'attempt_{attempt:03d}'
             output.mkdir(parents=True)
-            jobs = jobs_for(config, item, output / 'episodes_result')
-            if session is None:
-                # One shared service for all 100 items, not one model load per task.
-                session_dir = directory / 'sessions' / str(time.time_ns())
-                session_dir.mkdir(parents=True)
-                session = opener(jobs[0], session_dir)
             start = time.monotonic()
             try:
+                atomic_json(directory/'current_item.json', dict(state='selecting_expert_seeds',
+                    key=item['key'], task=item['task'], task_config=item['task_config']))
+                selected = selector(config,item,directory)
+                if len(selected)!=item['episodes'] or len(set(selected))!=len(selected):
+                    raise ValueError('seed selector did not return unique complete episodes')
+                item = dict(item,seeds=selected)
+                label='BENCHMARK_SCENE_CANDIDATES' if config.get('seed_selection','inline')=='inline' else 'BENCHMARK_VALID_SEEDS'
+                print(label+' '+json.dumps(dict(key=item['key'],seeds=selected)),flush=True)
+                jobs = jobs_for(config, item, output / 'episodes_result')
+                if session is None:
+                    # One model service for the whole benchmark; expert selection is separate.
+                    session_dir = directory / 'sessions' / str(time.time_ns())
+                    session_dir.mkdir(parents=True)
+                    session = opener(jobs[0], session_dir)
+                atomic_json(directory/'current_item.json',dict(state='evaluating',key=item['key'],
+                    task=item['task'],task_config=item['task_config'],seeds=selected,workers=item['workers']))
                 summaries = runner(jobs, output, item['workers'], opener=lambda *_: session,
                                    stopper=lambda _: None, scheduling='rolling')
                 if len(summaries) != 1:
                     raise ValueError('expected one aggregated task result')
                 summary = summaries[0]
+                if config.get('seed_selection','inline')=='inline' and item['key'] not in config.get('scene_seeds',{}):
+                    if len(summary['seeds'])!=item['episodes'] or len(set(summary['seeds']))!=item['episodes']:
+                        raise ValueError('incomplete inline valid scenes')
+                    item=dict(item,seeds=summary['seeds'])
                 if (summary.get('task_config') != item['task_config'] or summary['seeds'] != item['seeds']
                     or summary['episodes'] != item['episodes'] or summary['state'] != 'complete'):
                     raise ValueError('task summary identity mismatch')
@@ -231,7 +261,7 @@ def run(config, resume=False, opener=None, runner=None, stopper=None):
                 rows.append(dict(key=item['key'], task=item['task'], task_config=item['task_config'],
                     state='error', error=repr(error), seeds=item['seeds'],
                     elapsed_seconds=time.monotonic()-start, evidence_dir=str(output)))
-                if session['process'].poll() is not None:
+                if session is not None and session['process'].poll() is not None:
                     raise RuntimeError('shared inference server exited') from error
             finally:
                 publish()
@@ -248,6 +278,7 @@ def configure(config, mode=None, task=None, episodes=None, workers=None, task_co
     if mode not in ('single', 'benchmark'):
         raise ValueError('invalid evaluation mode')
     config['mode'] = mode
+    config.setdefault('seed_selection','inline')
     if mode == 'single':
         task = task or config.get('task')
         if not task:

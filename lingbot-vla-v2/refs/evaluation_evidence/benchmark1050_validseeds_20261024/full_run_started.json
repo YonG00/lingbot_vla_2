@@ -1,0 +1,8 @@
+{
+  "state": "started_not_complete",
+  "destination": "/data/eval_results/20261024_1901_1050_benchmark_clean50_random50_parallel4_validseeds_novideo",
+  "episodes": 400,
+  "workers": 4,
+  "model": "/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+  "seed_selection": "expert"
+}

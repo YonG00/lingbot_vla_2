@@ -64,6 +64,11 @@ def run_jobs(jobs,directory,workers,opener=None,executor=evaluate.execute,stoppe
                             raise ValueError('shared inference session mismatch')
                         if result.get('task')!=job['task'] or result.get('state')!='complete':
                             raise ValueError('task result mismatch')
+                        if job.get('seed_search') is not None:
+                            selected=result['seeds'][0];search=job['seed_search'];delta=selected-job['scene_seed']
+                            if delta<0 or delta%search['stride'] or delta//search['stride']>=search['max_candidates']:
+                                raise ValueError('invalid inline scene selection')
+                            job['scene_seed']=selected;job['expected_seeds']=[selected]
                         results.append(result)
                     for _ in done:
                         job=next(remaining,None)

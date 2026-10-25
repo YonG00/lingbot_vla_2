@@ -1,0 +1,7 @@
+{
+  "state": "started_not_complete",
+  "destination": "/data/eval_results/20261024_1923_1050_benchmark_clean50_random50_parallel4_inline_novideo",
+  "episodes": 400,
+  "workers": 4,
+  "seed_selection": "inline"
+}

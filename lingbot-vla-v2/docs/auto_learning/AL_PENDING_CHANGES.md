@@ -17,6 +17,15 @@
 
 ## §1 待验证（改了但没上机跑过）
 
+**1050九项专家异常补测及recovery160配对评测（2026-10-24）：🧪 本地/服务器59项CPU通过，GPU补测进行中。** 1050终态91/100项、43/364回合，9项异常：专家抓取位姿为None、put_bottles_dustbin专家动作列表为空、dump_bin_bigbin在策略推理前第二次setup场景不稳定。episode_parallel.retryable_expert_error只匹配已取证的异常类型/消息/专家栈；inline第二次setup仅捕获UnStableError，回退本回合成功候选计数并换下一个互斥候选，未发生策略推理则不计模型失败。已启动resume补9项，91项结果保留；补齐后自动对recovery3-step160做同400个最终种子的固定对照，4路无视频。串联产物：/data/eval_results/20261024_2258_1050_repair_then_recovery160_pipeline；recovery输出20261024_2258_recovery3_s160_benchmark_clean50_random50_parallel4_matched1050_novideo，当前queued_after_1050_repair。不变量：不按模型成败补种子，未知异常仍报错；症状：候选重建不稳定导致整项error、空专家规划被当作基础设施错误；回滚：seed_selection=fixed不走inline异常适配（需新进程），现有91项原始摘要不覆盖；验证：新增规划失败分类及场景重建前无推理CPU契约，合计59项。最多3轮只重试异常项，不改变回合数或种子；链路不完整不宣称完整成功率。
+
+
+**benchmark同回合进程内有效种子搜索（2026-10-24）：🧪 本地/服务器57项CPU通过，锤子clean/randomized实测中。** 上一版跨进程预筛在beat_block_hammer seed100004出现通过后再拒绝，已获授权停止1901轮并保留日志；episode_parallel.compile_episode_client新增显式seed_search，仅对新benchmark inline模式启用，每回合按互斥等差候选序列在实际进程内校验并继续原策略流程。evaluate和parallel_evaluation严格验证实际种子的候选范围，并以实际种子聚合，不以原候选断言失败；model_benchmark导出selected_scene_seeds。固定种子和旧recipes默认不变。不变量：不按模型成功选场景，搜索有上限，候选互斥，实际种子必须入结果；症状：重复种子、实际通过仍按候选校验失败、程序错误被当专家拒绝吞掉；回滚：seed_selection=fixed（新进程读取）；验证：test_inline_seed_search七项（含真实execute、并行调度到聚合）、旧56项中的其余50项，共57项。已同步最小代码；锤子clean和randomized各4回合全部完整（均0/4），OIDN错误0，旧拒绝场景在同回合内替换后进入模型推理，实际种子汇总成功，证据refs/evaluation_evidence/benchmark1050_inline_20261024。全量400回合已启动20261024_1923_1050_benchmark_clean50_random50_parallel4_inline_novideo，未宣称全量完成。
+
+
+**benchmark专家有效种子筛选（2026-10-24）：🧪 本地/服务器50项CPU测试通过，实测进行中。** 原固定候选造成adjust_bottle/beat_block_hammer整项异常，已获用户授权停止旧轮并保留日志；expert_seed_selection运行同一实际客户端的专家setup/play_once/成功谓词，拒绝无效场景后顺序补齐目标回合数，之后保持既有episode_parallel严格复验。有效种子按任务配置缓存，原代码/配置哈希不符拒绝复用；seed_selection=fixed或显式scene_seeds保留固定复测。新增current_item和公开每任务seeds。不变量：只按专家判据选择，不以模型成败选种子；异常不冒充0分；数量不足不启动该项策略；症状：总是报fixed seed rejected、缓存跨配置混用、未知渲染异常被无限换种子掩盖；回滚：新进程seed_selection=fixed（启动时读取），不影响旧recipes；验证：test_expert_seed_selection六项、test_model_benchmark选择/续跑及旧episode/recording/parallel/temporal，共50项。真实adjust_bottle clean从7候选中得到4有效种子，randomized从5候选中得到4个，clean 1/4、randomized 0/4，八回合全部完整且无评测异常；证据refs/evaluation_evidence/benchmark1050_validseeds_20261024。全量400回合已重开20261024_1901_1050_benchmark_clean50_random50_parallel4_validseeds_novideo，尚未完成。
+
+
 **评测结果内容对齐参考benchmark（2026-10-24）：🧪 35项纯CPU测试通过，未同步/未GPU验证。** model_benchmark.reference_results按参考run_clean_benchmark.py的collect_results算术导出successes、episode_count、success_rate_percent（0—100），含逐任务、配置分组、总体、耗时及完成状态；benchmark_results.json公开统计与benchmark_audit.json内部审计分离，支持旧报告续测迁移。不变量：总体按成功回合数/有效总回合数，不将异常任务当模型失败；症状：百分比缩小100倍、缺项被记0分、续测读错公开格式；回滚：保留benchmark_audit内部报告供旧分析使用，公开schema_version=2；验证：test_model_benchmark参考算术/异常null/真实run导出与resume，加episode/recording/parallel回归35项。边界：参考当前脚本未定义JSON schema，本次只以真实统计内容构建明确格式，不宣称逐字段上游schema兼容。
 
 

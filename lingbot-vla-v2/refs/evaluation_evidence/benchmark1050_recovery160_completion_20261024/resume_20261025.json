@@ -1,0 +1,12 @@
+{
+  "state": "resumed_not_complete",
+  "previous_completed_items": 62,
+  "previous_error_items": 10,
+  "previous_pending_items": 28,
+  "recovery_run": "/data/eval_results/20261024_2258_recovery3_s160_benchmark_clean50_random50_parallel4_matched1050_novideo",
+  "resume_log": "/data/eval_results/20261024_2258_1050_repair_then_recovery160_pipeline/20261025_0805_resume.log",
+  "episodes_per_task": 4,
+  "episode_workers": 4,
+  "seed_policy": "unchanged fixed paired seeds",
+  "shutdown": "evaluation_process_exit_no_result_validation"
+}

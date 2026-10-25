@@ -63,7 +63,18 @@ def aggregate(results,jobs):
     (root/'summary.json').write_text(json.dumps(summary,indent=2))
     return [summary]
 
-def compile_episode_client(source,filename,seed,description_count,episode_index=0):
+def retryable_expert_error(error):
+    """Only known scene-dependent expert planning failures; never policy errors."""
+    import traceback
+    frames=traceback.extract_tb(error.__traceback__)
+    if isinstance(error,AssertionError) and str(error)=='target_pose cannot be None for move action.':
+        return any(Path(f.filename).name=='_base_task.py' and f.name=='grasp_actor' for f in frames)
+    if isinstance(error,IndexError) and str(error)=='list index out of range':
+        return any(Path(f.filename).name=='put_bottles_dustbin.py' and f.name=='play_once' for f in frames)
+    return False
+
+
+def compile_episode_client(source,filename,seed,description_count,episode_index=0, seed_search=None):
     """Patch only runtime AST; retain checked simulator source files unchanged."""
     tree=ast.parse(source,filename);seed_nodes=[];description_nodes=[];index_nodes=[];loops=[]
     for node in ast.walk(tree):
@@ -79,7 +90,59 @@ def compile_episode_client(source,filename,seed,description_count,episode_index=
             description_nodes.append(node)
     if len(seed_nodes)!=1 or len(description_nodes)!=1 or len(index_nodes)!=1 or len(loops)!=1:raise ValueError('client seed/description adapter contract changed')
     index_nodes[0].value=ast.Constant(episode_index)
-    guard=ast.parse(f'if now_seed != {seed}: raise RuntimeError("fixed episode seed rejected by expert validation; provide validated seeds")').body[0]
-    loops[0].body.insert(0,guard)
+    if seed_search is None:
+        guard=ast.parse(f'if now_seed != {seed}: raise RuntimeError("fixed episode seed rejected by expert validation; provide validated seeds")').body[0]
+        loops[0].body.insert(0,guard)
+    else:
+        stride=seed_search['stride'];limit=seed_search['max_candidates']
+        if type(stride) is not int or stride<1 or type(limit) is not int or limit<1:
+            raise ValueError('invalid inline seed search')
+        increments=[n for n in ast.walk(loops[0]) if isinstance(n,ast.AugAssign)
+            and isinstance(n.target,ast.Name) and n.target.id=='now_seed']
+        if not increments or any(not isinstance(n.op,ast.Add) or not isinstance(n.value,ast.Constant) or n.value.value!=1 for n in increments):
+            raise ValueError('unsupported seed increment contract')
+        for node in increments:node.value=ast.Constant(stride)
+        # Only expected unstable scenes and expert-unsuccessful cases may retry.
+        for node in ast.walk(loops[0]):
+            if isinstance(node,ast.ExceptHandler) and isinstance(node.type,ast.Name) and node.type.id=='Exception':
+                error_name=node.name or '_expert_error'
+                node.name=error_name
+                node.body=ast.parse(f"""
+from experiment.official_control.episode_parallel import retryable_expert_error
+if not retryable_expert_error({error_name}):
+    raise
+TASK_ENV.close_env()
+print('INLINE_EXPERT_REJECTED seed=' + str(now_seed) + ' reason=' + str({error_name}), flush=True)
+now_seed += {stride}
+args['render_freq'] = render_freq
+continue
+""").body
+        # The original client reconstructs the chosen scene before policy inference.
+        # An unstable reconstruction is not a policy failure: no action was requested.
+        setups=[n for n in loops[0].body if isinstance(n,ast.Expr) and isinstance(n.value,ast.Call)
+            and isinstance(n.value.func,ast.Attribute) and isinstance(n.value.func.value,ast.Name)
+            and n.value.func.value.id=='TASK_ENV' and n.value.func.attr=='setup_demo']
+        if len(setups)>1:raise ValueError('ambiguous policy scene setup')
+        if setups:
+            setup=setups[0];index=loops[0].body.index(setup)
+            handler=ast.parse(f"""
+try:
+    pass
+except UnStableError:
+    TASK_ENV.close_env()
+    succ_seed -= 1
+    suc_test_seed_list.pop()
+    print('INLINE_SCENE_REBUILD_REJECTED seed=' + str(now_seed), flush=True)
+    now_seed += {stride}
+    continue
+""").body[0]
+            handler.body=[setup]
+            loops[0].body[index]=handler
+        guards=ast.parse(f"""
+if now_seed < {seed} or (now_seed-{seed}) % {stride} != 0 or (now_seed-{seed}) // {stride} >= {limit}:
+    raise RuntimeError('inline expert seed candidate limit exhausted')
+print('INLINE_EXPERT_CANDIDATE seed=' + str(now_seed), flush=True)
+""").body
+        loops[0].body[:0]=guards
     seed_nodes[0].value=ast.Constant(seed);description_nodes[0].args[2]=ast.Constant(description_count)
     return compile(ast.fix_missing_locations(tree),filename,'exec')

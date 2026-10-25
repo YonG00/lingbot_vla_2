@@ -64,5 +64,9 @@
   "episodes_per_task": 3,
   "episode_workers": 3,
   "video_episodes": 0,
-  "scene_seeds": {}
+  "scene_seeds": {},
+  "seed_selection": "inline",
+  "seed_search_start": 100000,
+  "seed_search_max_candidates": 200,
+  "seed_selection_timeout_seconds": 1800
 }

@@ -1,0 +1,75 @@
+{
+  "schema_version": 2,
+  "status": "complete",
+  "rate_scope": "all_tasks",
+  "elapsed_seconds": 444.088617047295,
+  "overall": {
+    "successes": 1,
+    "episode_count": 8,
+    "success_rate_percent": 12.5,
+    "expected_task_count": 2,
+    "completed_task_count": 2,
+    "error_task_count": 0,
+    "pending_task_count": 0
+  },
+  "task_configs": {
+    "demo_clean": {
+      "successes": 1,
+      "episode_count": 4,
+      "success_rate_percent": 25.0,
+      "expected_task_count": 1,
+      "completed_task_count": 1,
+      "error_task_count": 0,
+      "pending_task_count": 0
+    },
+    "demo_randomized": {
+      "successes": 0,
+      "episode_count": 4,
+      "success_rate_percent": 0.0,
+      "expected_task_count": 1,
+      "completed_task_count": 1,
+      "error_task_count": 0,
+      "pending_task_count": 0
+    }
+  },
+  "tasks": [
+    {
+      "task_config": "demo_clean",
+      "task": "adjust_bottle",
+      "status": "complete",
+      "successes": 1,
+      "episode_count": 4,
+      "success_rate_percent": 25.0,
+      "elapsed_seconds": 251.62295104842633,
+      "result_path": "/data/eval_results/20261024_1853_1050_seedselection_adjust_smoke4/demo_clean/adjust_bottle/attempt_001/episodes_result/summary.json",
+      "error": null,
+      "seeds": [
+        100001,
+        100002,
+        100005,
+        100006
+      ]
+    },
+    {
+      "task_config": "demo_randomized",
+      "task": "adjust_bottle",
+      "status": "complete",
+      "successes": 0,
+      "episode_count": 4,
+      "success_rate_percent": 0.0,
+      "elapsed_seconds": 191.89633752405643,
+      "result_path": "/data/eval_results/20261024_1853_1050_seedselection_adjust_smoke4/demo_randomized/adjust_bottle/attempt_001/episodes_result/summary.json",
+      "error": null,
+      "seeds": [
+        100000,
+        100002,
+        100003,
+        100004
+      ]
+    }
+  ],
+  "model": "/data/outputs/20261024_1050_pillbottle200_from_stamp1017_s200_bf16_m56_grasp20_other5_release10_video20_noreplay_parallel3_video/checkpoints/global_step_200/hf_ckpt",
+  "episodes_per_task": 4,
+  "episode_workers": 4,
+  "video_episodes": 0
+}

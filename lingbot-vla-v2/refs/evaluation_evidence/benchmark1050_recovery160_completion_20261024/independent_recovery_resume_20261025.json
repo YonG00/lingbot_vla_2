@@ -1,0 +1,11 @@
+{
+  "state": "running_not_complete",
+  "destination": "/data/eval_results/20261025_0819_recovery3_s160_benchmark_independent_parallel4_novideo",
+  "carried_completed_items": 62,
+  "remaining_items": 38,
+  "episodes_per_task": 4,
+  "episode_workers": 4,
+  "seed_selection": "inline",
+  "comparison_scope": "independent recovery160; user cancelled pairing with 1050",
+  "shutdown": "process_exit_no_result_validation"
+}

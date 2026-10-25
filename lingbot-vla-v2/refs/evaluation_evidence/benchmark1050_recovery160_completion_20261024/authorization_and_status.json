@@ -1,0 +1,11 @@
+{
+  "shutdown_authorization": "User explicitly requested server shutdown after all required evaluations complete",
+  "state": "running_not_complete",
+  "source_completed_items_observed": 95,
+  "source_error_items_observed": 0,
+  "recovery_state": "queued_after_1050_repair",
+  "chain": "/data/eval_results/20261024_2258_1050_repair_then_recovery160_pipeline",
+  "shutdown_gate": "evaluation chain process exits; no result validation or archive wait",
+  "previous_verified_completion_guard": "cancelled",
+  "shutdown_command": "/usr/bin/shutdown"
+}

@@ -11,7 +11,7 @@ class BenchmarkTests(unittest.TestCase):
         model = root/'model';model.mkdir()
         (model/'config.json').write_text('{}')
         (model/'model.safetensors').write_bytes(b'test')
-        return dict(tasks=['task_a','task_b'],expected_task_count=2,model=str(model),
+        return dict(tasks=['task_a','task_b'],expected_task_count=2,seed_selection='fixed',model=str(model),
                     destination=str(root/'results'),robotwin='/sim',qwen='/qwen',sim_python='/python')
 
     def test_single_mode_and_parallel_limits(self):
@@ -81,6 +81,22 @@ class BenchmarkTests(unittest.TestCase):
         dest=Path(jobs[0]['aggregate_destination']);dest.mkdir(parents=True)
         atomic_json(dest/'summary.json',row)
         return [row]
+
+    def test_expert_selection_changes_candidates_before_policy_and_resume(self):
+        with tempfile.TemporaryDirectory() as t:
+            c=self.config(Path(t));c['seed_selection']='expert'
+            selected=[]
+            def selector(config,item,directory):
+                selected.append(item['key']);return [100004,100006,100009]
+            p=SimpleNamespace(poll=lambda:None)
+            self.assertTrue(run(c,selector=selector,opener=lambda *_:dict(process=p),
+                                runner=self.fake_runner,stopper=lambda _:None))
+            public=json.loads((Path(c['destination'])/'benchmark_results.json').read_text())
+            self.assertEqual(public['tasks'][0]['seeds'],[100004,100006,100009])
+            self.assertEqual(len(selected),4)
+            self.assertTrue(run(c,resume=True,selector=selector,opener=lambda *_:dict(process=p),
+                                runner=self.fake_runner,stopper=lambda _:None))
+            self.assertEqual(len(selected),4)
 
     def test_one_model_all_items_and_resume(self):
         with tempfile.TemporaryDirectory() as t:
