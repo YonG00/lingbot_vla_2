@@ -65,7 +65,7 @@
 git clone --branch main \
   https://github.com/YonG00/lingbot_vla_2.git lingbot-baseline
 cd lingbot-baseline
-git checkout reproduction-main-20261025
+git checkout reproduction-main-20261025-validated
 git rev-parse HEAD
 ```
 
@@ -469,3 +469,9 @@ python experiment/official_control/model_benchmark.py \
 ## 源码一致性检查
 
 训练前在包目录运行 `python experiment/reproduction/verify_source.py`，验证冻结训练源码与课程输入。记录 `git rev-parse HEAD`、环境版本、模型和数据来源；不要只记录浮动的main分支名。源码锁不包含大模型/训练数据内容，不能替代数据校验。
+
+## 短流程上机验证
+
+2026-10-25在单张96GB Blackwell上完成micro56/GAS1真实2步训练、BF16 HF存档（1708张量），并用新存档完成3回合并行带视频闭环。另以2任务×clean/randomized各1回合验证benchmark任务切换和续跑跳过，整场共用一个模型服务，error/pending均为0。127项CPU契约通过。验证中修复了Git快照未包含的客户端录像衔接，并修正模板路径测试误报。
+
+这是程序短流程验证，不是完整三阶段重训或全量benchmark。完整流程预检要求290.40GiB存档预算，测试机当时约148GiB，因此完整流程仍被容量检查拦截；未删除存档或降低门槛。

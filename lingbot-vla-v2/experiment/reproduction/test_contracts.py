@@ -58,7 +58,14 @@ class ReproductionTests(unittest.TestCase):
         with self.assertRaises(ValueError):build_job(a)
     def test_template_has_no_server_paths(self):
         c=resolve_template(self.settings());text=json.dumps(c)
-        self.assertNotIn('${',text);self.assertNotIn('/data/',text);self.assertNotIn('/root/',text)
+        self.assertNotIn('${',text)
+        package=Path(__file__).resolve().parents[2]
+        raw=(package/'configs/reproduction/trainer_bf16.json').read_text()
+        self.assertNotIn('/data/',raw);self.assertNotIn('/root/',raw)
+        self.assertEqual(c['data']['robot_config_root'],str(package/'configs/robot_configs'))
+        settings=self.settings();settings['dataset_root']='/data/user_dataset'
+        settings['qwen_model']='/root/user_models/qwen'
+        self.assertEqual(resolve_template(settings)['model']['tokenizer_path'],'/root/user_models/qwen')
         self.assertEqual(c['train']['lr'],.0001);self.assertTrue(c['train']['enable_gradient_checkpointing'])
         self.assertFalse(c['train']['ee_fk_loss_enabled']);self.assertFalse(c['train']['low_noise_fm_enabled'])
     def test_orchestration_and_completed_boundary_resume_without_gpu(self):
