@@ -15,7 +15,8 @@
 7. [三个阶段分别训练什么](#7-三个阶段分别训练什么)
 8. [训练时间、显存和效果](#8-训练时间显存和效果)
 9. [查看进度和获取最终模型](#9-查看进度和获取最终模型)
-10. [常见问题与联系方式](#10-常见问题与联系方式)
+10. [最终模型的整体评测](#10-最终模型的整体评测)
+11. [常见问题与联系方式](#11-常见问题与联系方式)
 
 ## 1. 复现说明
 
@@ -290,7 +291,7 @@ bash tools/reproduce_baseline.sh "${args[@]}" --execute
 
 第三阶段按项目提供的最高成绩检查25项任务，并对退步项补训。程序和配置已经过CPU检查；从原始base开始执行这套完整三阶段流程后的成功率尚待实际评测。
 
-第三阶段会边抽检边补训，因此五批成绩可能来自不同模型。要知道最终模型的统一成功率，可以按下一节的录像评测命令，对最终模型再测一轮。
+第三阶段会边抽检边补训，因此五批成绩可能来自不同模型，不能合并为最终模型的统一成绩。完成第三阶段后，可以先查看抽检任务的视频，再按第10节对定型后的模型进行整体评测。
 
 ## 9. 查看进度和获取最终模型
 
@@ -321,9 +322,9 @@ tail -n 30 "$OUTPUT_DIR/stage1_foundation/train.log"
 
 `status.json`显示`complete`后，读取`final_model.json`中的`path`即可找到最终HF模型。TensorBoard日志位于各批训练目录下的`runs/`。
 
-### 训练完成后评测，并保存视频
+### 第三阶段抽检任务的录像检查
 
-下面使用最终模型，默认对参考表中的25个任务各测3回合，并保存全部3回合视频。仍在训练环境、`lingbot-vla-v2/`目录执行：
+第三阶段程序中的五批抽检不录像。下面的命令用于训练结束后补看这些任务的执行过程：使用最终模型，对参考表中的25个任务各测3回合，并保存全部3回合视频。这是第三阶段抽检任务的录像检查，不是覆盖50个任务的整体评测，也不会触发新的补训。仍在训练环境、`lingbot-vla-v2/`目录执行：
 
 ```bash
 EVAL_DIR="${OUTPUT_DIR}_$(date +%Y%m%d_%H%M)_eval_video"
@@ -363,7 +364,83 @@ python experiment/reproduction/evaluate.py \
 
 `parallel_5`对应`--workers 5`。改为其它并行数时，目录后缀相应改变。`--video-episodes 0`表示不录像。
 
-## 10. 常见问题与联系方式
+## 10. 最终模型的整体评测
+
+第三阶段抽检和补训完成后，模型不再更新。接下来对`final_model.json`给出的最终模型运行一次benchmark，记录这次复现的整体成绩。使用同一个模型完成全部任务，不能把训练期间不同模型的抽检成绩拼在一起。
+
+评测包含50个任务的clean和randomized两种设置，共100项。每项测3回合，3个回合并行运行，共300回合，默认不录像。不同任务依次评测，整场共用一个模型服务；评测仍采用FP32推理。
+
+### 准备评测配置
+
+仍在训练环境、`lingbot-vla-v2/`目录执行。`OUTPUT_DIR`使用本次三阶段训练的输出目录。下面从训练记录中读取最终模型、Qwen和仿真Python路径，并从课程配置中读取全部50个任务：
+
+```bash
+export OUTPUT_DIR
+export BENCH_DIR="${OUTPUT_DIR}_benchmark"
+
+python - <<'PYCONFIG'
+import json
+import os
+from pathlib import Path
+
+output = Path(os.environ["OUTPUT_DIR"]).expanduser().resolve()
+settings = json.loads((output / "settings.json").read_text())
+final_model = json.loads((output / "final_model.json").read_text())["path"]
+course = json.loads(Path("configs/reproduction/three_stage_v1.json").read_text())
+job = {
+    "model": final_model,
+    "qwen": settings["qwen_model"],
+    "robotwin": str(Path("../RoboTwin-lingbot").resolve()),
+    "sim_python": settings["sim_python"],
+    "destination": str(Path(os.environ["BENCH_DIR"]).expanduser().resolve()),
+    "tasks": course["task_order"],
+    "task_configs": ["demo_clean", "demo_randomized"],
+    "episodes_per_task": 3,
+    "episode_workers": 3,
+    "video_episodes": 0
+}
+with (output / "benchmark_job.json").open("x") as stream:
+    json.dump(job, stream, ensure_ascii=False, indent=2)
+PYCONFIG
+```
+
+`benchmark_job.json`只需创建一次。后面继续使用这份配置，避免续跑时改变模型、任务或评测设置。
+
+### 启动与查看结果
+
+先查看评测数量和并行设置，确认输出为100项、300回合、3路、不录像，再启动后台评测：
+
+```bash
+python experiment/official_control/model_benchmark.py \
+  --job "$OUTPUT_DIR/benchmark_job.json" --mode benchmark
+
+python experiment/official_control/model_benchmark.py \
+  --job "$OUTPUT_DIR/benchmark_job.json" --mode benchmark --execute
+```
+
+查看运行进度：
+
+```bash
+cat "${BENCH_DIR}_pipeline/status.json"
+tail -n 30 "${BENCH_DIR}_pipeline/pipeline.log"
+```
+
+评测结果会持续写入`$BENCH_DIR/benchmark_results.json`，其中包括clean、randomized及合计成功率，以及每项任务的成功数、回合数和结果路径。确认全部100项完成后，再使用其中的整体成功率作为本次复现结果；有error或pending时，结果还不完整。
+
+同时保留`benchmark_audit.json`、`selected_scene_seeds.json`和各任务的结果目录。它们分别用于续跑核对、记录实际场景种子和检查具体回合。需要比较两个模型时，使用同一组实际场景种子，设置方法见[并行评测说明](benchmark_zh.md)。
+
+### 中断后继续
+
+保留原模型、配置和整个评测目录，使用同一命令追加`--resume`：
+
+```bash
+python experiment/official_control/model_benchmark.py \
+  --job "$OUTPUT_DIR/benchmark_job.json" --mode benchmark --resume --execute
+```
+
+程序会跳过已完整完成并能核对结果的任务设置，未完成项重新运行。若有仿真或渲染错误，先检查并处理错误，再继续评测。模型执行失败会计入失败回合；程序错误不会作为任务失败计入成功率。
+
+## 11. 常见问题与联系方式
 
 **提示找不到模型文件或数据怎么办？**
 
